@@ -1,0 +1,26 @@
+body {
+  margin: 0;
+  padding: 0;
+}
+
+.AppShellElement {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  /* align-items: center;
+  justify-content: center; */
+  background-color: #000;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+}
+
+input,
+button,
+textarea,
+select,
+.input {
+  border-radius: 0.6em 0.2em;
+}
