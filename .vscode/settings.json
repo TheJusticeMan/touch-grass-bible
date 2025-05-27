@@ -3,5 +3,6 @@
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "prettier.tabWidth": 2,
   "liveServer.settings.CustomBrowser": "firefox:PrivateMode",
-  "prettier.printWidth": 100
+  "prettier.printWidth": 100,
+  "prettier.arrowParens": "avoid"
 }

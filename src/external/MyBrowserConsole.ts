@@ -67,4 +67,9 @@ export class BrowserConsole {
   error(...args: any[]): void {
     if (this.enabled) console.error(this.consoleName, ...args);
   }
+
+  header(...args: any[]): void {
+    if (this.enabled) console.log("%c" + this.consoleName, ...args);
+    //console.log("%cObsidian Developer Console", "color:#7f6df2; font-size:40px; font-weight:bold;");
+  }
 }

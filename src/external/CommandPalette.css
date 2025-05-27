@@ -1,0 +1,139 @@
+/* CommandPalette.css - Dark Theme with Custom Variables */
+
+.command-palette {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100% - 2em);
+  height: calc(100% - 2em);
+  max-width: var(--readingwidth);
+  background: #0008;
+  border-radius: 8px;
+  box-shadow: 0 0 16px -8px #fff;
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  font-family: sans-serif;
+  border: 1px solid #fff6;
+  user-select: none;
+}
+
+/* Main palette container styling */
+.palette {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  height: 100%;
+  /* prevent overflowing */
+  box-sizing: border-box;
+  color: var(--foreground);
+  background-color: transparent;
+  /* or inherit if needed */
+}
+
+/* Header styles */
+.palette-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background-color: #fff1;
+  /* semi-transparent for dark tone */
+  border-radius: 4px;
+  color: var(--foreground);
+}
+
+.palette-header button.active {
+  background-color: var(--accent1);
+  color: #000;
+  /* possibly darker text for active button */
+}
+
+/* Search input styles */
+.palette-search {
+  padding: 10px 14px;
+  border: none;
+  border-radius: 4px;
+  background-color: #fff1;
+  /* semi-transparent for dark tone */
+  color: var(--foreground);
+  font-size: 1rem;
+  outline: none;
+  transition: background-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.palette-search::placeholder {
+  color: #888;
+}
+
+.palette-search:focus {
+  background-color: #fff2;
+  /* box-shadow: 0 0 0 2px var(--accent1); */
+}
+
+/* Content container for command items */
+.palette-content {
+  margin-top: 8px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.palette-content .category-title {
+  padding: 8px 12px;
+  padding-top: 12px;
+  color: #fff8;
+  text-align: end;
+  cursor: pointer;
+}
+
+.palette-content .category-title:hover {
+  color: #fffa;
+}
+
+/* Style for each command item */
+.command-item {
+  display: flex;
+  /* margin: 2px 0; */
+  border-top: 1px solid #fff4;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  color: var(--foreground);
+}
+
+.command-item.selected {
+  background-color: #fff2;
+}
+
+.command-item-info {
+  padding: 8px 12px;
+  flex: 1 1 auto;
+}
+
+.command-item .command-description {
+  color: #fff5;
+}
+
+.command-item .command-description.hidden {
+  max-height: 0;
+  overflow: hidden;
+}
+
+.command-item.selected .command-description.hidden {
+  max-height: 500px;
+}
+
+.command-item .command-subsearch {
+  padding: 0 2em;
+  color: #fff5;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+}
+
+.command-item .command-subsearch:hover {
+  color: #fffa;
+}

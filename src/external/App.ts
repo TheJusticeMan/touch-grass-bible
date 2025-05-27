@@ -1,98 +1,155 @@
 import "./App.css";
+import { CommandPalette, CommandPaletteCategory, CommandPaletteItem } from "./CommandPalette";
+import { Highlighter } from "./highlighter";
 import { BrowserConsole } from "./MyBrowserConsole";
-import MyHTML, { DomElementInfo } from "./MyHTML";
-export { MyHTML, BrowserConsole, DomElementInfo, App };
+import { DomElementInfo } from "./MyHTML";
+import { ScreenView } from "./screen";
 
-interface Apphistory {
+export {
+  App,
+  BrowserConsole,
+  DomElementInfo,
+  Highlighter,
+  CommandPalette,
+  CommandPaletteCategory,
+  CommandPaletteItem,
+  ScreenView,
+};
+
+export interface AppHistory {
   name: string;
   time: Date;
   data: any;
 }
 
-class App {
+abstract class App {
   console: BrowserConsole;
   contentEl: HTMLElement;
-  private historypoz: Apphistory[];
-  doc: Document;
-  constructor(doc: Document, title: string) {
-    this.console = new BrowserConsole(true, "Real Bible App:");
-    this.historypoz = [];
-    this.doc = doc;
-    if (title) this.title = title;
-    this.contentEl = doc.body.createEl("div", { cls: "AppShellElement" });
-    doc.addEventListener("DOMContentLoaded", this.load.bind(this));
-    // Add event listener for beforeunload to handle close attempts
-    window.addEventListener("beforeunload", (e) => {
-      // Call exit() method and prevent default if needed
+  private historyStack: AppHistory[] = [];
+
+  constructor(private doc: Document, private _title: string) {
+    this.console = new BrowserConsole(true, `${this._title || "App"}:`);
+    this.contentEl = this.doc.body.createEl("div", { cls: "AppShellElement" });
+    this.title = this._title;
+
+    // Bind load to DOMContentLoaded
+    document.addEventListener("DOMContentLoaded", () => this.onload());
+
+    // Handle page unload attempts
+    window.addEventListener("beforeunload", e => {
       if (!this.exit()) {
         e.preventDefault();
-        e.returnValue = "";
+        e.returnValue = ""; // Modern browsers require this for prompt
       }
     });
-    window.addEventListener("popstate", (e) => {
-      const c = this.historypoz.pop();
-      if (this.historypoz.length == 0) {
-        this.exit();
-        return;
-      }
-      this.onhistorypop(this.historypoz[this.historypoz.length - 1]);
-    });
+
+    // Handle browser history navigation
+    window.addEventListener("popstate", this.handlePopState.bind(this));
   }
 
-  exit(): boolean {
+  /**
+   * Handles page exit logic
+   */
+  private exit(): boolean {
     return this.unload();
   }
 
-  load() {
+  /**
+   * Loads or initializes app state
+   */
+  private load() {
     this.onload();
   }
 
-  unload(): boolean {
-    return this.onunload();
+  /**
+   * Unload logic, overridable
+   */
+  private unload(): boolean {
+    return this.onunload?.() || true; // Default to true if onunload is not defined
   }
 
-  historypush(cl: Partial<Apphistory>) {
-    const c: Apphistory = {
-      name: cl.name ?? "",
+  /**
+   * Pushes a new history entry
+   */
+  historyPush(entry: Partial<AppHistory>) {
+    const historyEntry: AppHistory = {
+      name: entry.name ?? "",
       time: new Date(),
-      data: cl.data ?? null,
+      data: entry.data ?? null,
     };
-    this.historypoz.push(c);
-    history.pushState(c, "", "");
+    this.historyStack.push(historyEntry);
+    history.pushState(historyEntry, "", "");
   }
 
-  historypop() {
-    this.historypoz.pop();
-    if (this.historypoz.length == 0) {
+  /**
+   * Pops the latest history entry and navigates back
+   */
+  historyPop() {
+    this.historyStack.pop();
+    if (this.historyStack.length === 0) {
       this.exit();
       return;
     }
-    this.onhistorypop(this.historypoz[this.historypoz.length - 1]);
+    this.onHistoryPop(this.historyStack[this.historyStack.length - 1]);
   }
 
-  async onload() {}
-  onhistorypop(c: Apphistory) {}
-  onunload(): boolean {
-    return true;
+  /**
+   * Handles the browser's back/forward navigation
+   */
+  private handlePopState() {
+    this.historyPop();
   }
 
-  onback() {
-    this.unload();
+  async onload() {
+    // Override to initialize app components
   }
 
+  /**
+   * Called when navigating back in history
+   */
+  abstract onHistoryPop(entry: AppHistory): void;
+
+  abstract onunload?(): boolean;
+
+  /**
+   * Save data to local storage
+   */
   async saveData(data: any) {
     localStorage.setItem("app-data", JSON.stringify(data));
   }
 
+  /**
+   * Load data from local storage
+   */
   async loadData(): Promise<any> {
-    return Promise.resolve(JSON.parse(localStorage.getItem("app-data") || "{}"));
+    const dataStr = localStorage.getItem("app-data");
+    return Promise.resolve(dataStr ? JSON.parse(dataStr) : {});
   }
 
-  public get title(): string {
+  /**
+   * Getter for app title
+   * @returns The current title of the app
+   */
+  get title(): string {
     return this.doc.title;
   }
 
-  public set title(value: string) {
-    this.doc.title = value;
+  /**
+   * Setter for app title
+   * empty string will reset to default title
+   * @param value - The new title for the app
+   */
+  set title(value: string) {
+    this.doc.title = value || this._title;
+  }
+
+  async loadJSON(url: string): Promise<any> {
+    try {
+      console.log(`${url} loaded`);
+      return await (await fetch(url)).json();
+    } catch (error) {
+      console.error(`Failed to load ${url}:`, error);
+      return Promise.reject(error);
+    }
   }
 }

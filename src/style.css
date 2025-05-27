@@ -3,54 +3,69 @@
 body {
   --background: #000f;
   --foreground: #ffff;
-  --accent1: #f0ff;
-  --accent2: #0f0f;
   --readingwidth: 25em;
+  --navbarheight: 5em;
+  --textdisplay: block;
 }
 
-.navbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  background-color: #f0f2;
-  color: var(--foreground);
-  border-bottom: 1px solid var(--accent1);
-}
-
-.navBarTitle {
-  font-size: 1.5rem;
-  font-weight: bold;
-  font-family: var(--font);
-}
-
-.navBarMenu {
-  cursor: pointer;
-  padding: 0.5rem 1rem;
-  background-color: var(--accent1);
-  color: var(--background);
-  transition: background-color 0.2s;
-}
-
-.navBarMenu:hover {
-  background-color: var(--accent2);
+.highlighted-query {
+  color: #f0fc;
 }
 
 .content {
-  padding: 2rem;
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: var(--font);
-  font-size: var(--font-size);
-  overflow: scroll;
-  div {
+  .verse {
     text-indent: 1em;
     padding: 0.4em;
     max-width: var(--readingwidth);
     margin: auto;
+    display: var(--textdisplay);
+    cursor: pointer;
   }
+
+  .verse:hover {
+    text-shadow: 0 0 5px #fff4;
+  }
+
+  .verse .verseNumber {
+    color: #fff8;
+    padding: 0.5em;
+  }
+
+  .verseActive .verseNumber {
+    color: #f0fc;
+  }
+
+  .verse .versePBreak {
+    color: #fff8;
+  }
+
   > :last-child {
-    min-height: calc(100%);
-    padding-bottom: 2em;
+    min-height: 100%;
+    padding-bottom: 2rem;
+  }
+}
+
+.content.wrap {
+  .verse {
+    display: inline;
+  }
+
+  div.versePBreak::before {
+    display: block;
+    content: "";
+  }
+
+  .versePBreak .verseNumber,
+  > :first-child .verseNumber {
+    /* display: inline-block; */
+    font-size: 2em;
+    text-transform: capitalize;
+    float: left;
+    line-height: 0.8;
+    padding: 0.2em 0.1em 0 0;
+  }
+
+  .versePBreak .versePBreak {
+    display: none;
   }
 }

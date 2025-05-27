@@ -1,1 +1,5 @@
 node_modules/
+processing/crossrefs*
+processing/topics*
+dest/main.css.map
+dest/main.js.map

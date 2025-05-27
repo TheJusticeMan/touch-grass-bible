@@ -18,10 +18,10 @@ const context = await esbuild.context({
   bundle: true,
   outfile: "dest/main.js",
   format: "esm",
-  sourcemap: prod ? false : "inline",
+  sourcemap: prod ? false : true,
   platform: "browser",
   minify: true,
-  sourcemap: true,
+  /* sourcemap: true, */
   target: ["es2020"],
   logLevel: "info",
   minify: prod,
