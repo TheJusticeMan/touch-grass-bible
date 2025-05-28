@@ -168,6 +168,7 @@ class GoToVersePalette extends CommandPaletteCategory<VerseRefPart, TouchGrassBi
   onTrigger(context?: any): void {
     if (context instanceof VerseRefPart) {
       this.part = context;
+      this.name = "Go To Verse";
 
       switch (context.specifity) {
         case 0: // Book
@@ -204,6 +205,7 @@ class GoToVersePalette extends CommandPaletteCategory<VerseRefPart, TouchGrassBi
       }
     } else {
       this.part = new VerseRefPart(0, new VerseRef("GENESIS", 1, 1));
+      this.childtype = GoToVersePalette.name;
       this.list = VerseRef.booksOfTheBible.map(
         book => new VerseRefPart(1, new VerseRef(book, 1, 1))
       );
@@ -260,6 +262,7 @@ class GoToVersePalette extends CommandPaletteCategory<VerseRefPart, TouchGrassBi
       this.app.MainScreen.verse = command.verse;
       this.palette.close();
     } else {
+      this.palette.setCategory(this.childtype);
       this.palette.display(command);
     }
   }
@@ -400,11 +403,11 @@ class TouchGrassBibleApp extends App {
     this.commandPalette = new CommandPalette(this);
     this.commandPalette.addPalette(verseListPallet);
     this.commandPalette.addPalette(CrossRefsPallet);
+    this.commandPalette.addPalette(GoToVersePalette);
     this.commandPalette.addPalette(topicListPallet);
     this.commandPalette.addPalette(BibleSearchPalette);
-    this.commandPalette.addPalette(GoToVersePalette);
 
-    this.console.log(new Date().getTime() - processstart, "ms startup time");
+    /* this.console.log(new Date().getTime() - processstart, "ms startup time"); */
   }
 
   onunload(): boolean {

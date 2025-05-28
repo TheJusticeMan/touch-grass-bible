@@ -4,5 +4,6 @@
   "prettier.tabWidth": 2,
   "liveServer.settings.CustomBrowser": "firefox:PrivateMode",
   "prettier.printWidth": 100,
-  "prettier.arrowParens": "avoid"
+  "prettier.arrowParens": "avoid",
+  "liveServer.settings.file": "dest/index.html"
 }

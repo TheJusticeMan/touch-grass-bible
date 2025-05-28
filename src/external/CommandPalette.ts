@@ -2,6 +2,10 @@ import { ChevronRight, IconNode, X } from "lucide";
 import { App, Highlighter } from "./App";
 import "./CommandPalette.css";
 
+export class CommandPaletteContext {
+  constructor(public name: string, public data: any, public childtype: string = "") {}
+}
+
 // Abstract base class for category of commands
 export abstract class CommandPaletteCategory<T, AppType extends App> {
   abstract name: string;
