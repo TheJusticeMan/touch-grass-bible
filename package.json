@@ -28,7 +28,7 @@
     "build": "npm run getdatafiles && node esbuild.config.mjs production",
     "init": "npm install",
     "getdatafiles": "node ./processing/online.mjs && cp src/KJV.json dest",
-    "build:web": "npm run build && cp src/web/* dest",
+    "build:web": "mkdir ./dest && npm run build && cp src/web/* dest",
     "clean": "rm ./dest/*"
   },
   "devDependencies": {

@@ -1,4 +1,4 @@
 node_modules/
 processing/crossrefs*
 processing/topics*
-dest/*
+dest/
