@@ -381,9 +381,9 @@ class TouchGrassBibleApp extends App {
     await this.loadsettings(DEFAULT_SETTINGS);
     // Load all JSON files in parallel for faster startup
     const [kjv, crossRefs, topics] = await Promise.all([
-      this.loadJSON("dest/KJV.json"),
-      this.loadJSON("dest/crossrefs.json"),
-      this.loadJSON("dest/topics.json"),
+      this.loadJSON("KJV.json"),
+      this.loadJSON("crossrefs.json"),
+      this.loadJSON("topics.json"),
     ]);
 
     VerseRef.bible.KJV = kjv;
