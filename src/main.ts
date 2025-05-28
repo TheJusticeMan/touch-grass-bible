@@ -1,4 +1,4 @@
-import { BookCopy, BookOpen, Library, List, Search } from "lucide";
+import { BookCopy, Library, List, Search } from "lucide";
 import {
   App,
   AppHistory,
@@ -10,6 +10,7 @@ import {
 import { DEFAULT_SETTINGS, RealBibleAppSettings } from "./RealBibleAppSettings";
 import "./style.css";
 import { VerseHighlight, VerseRef } from "./VerseRef";
+import info from "./info.json";
 
 class VerseScreen extends ScreenView<TouchGrassBibleApp> {
   // Use private fields with '#' for encapsulation (ES2022 feature)
@@ -112,6 +113,7 @@ class verseListPallet extends CommandPaletteCategory<VerseRef, TouchGrassBibleAp
   childtype: string = CrossRefsPallet.name;
 
   onTrigger(context?: any): void {
+    this.name = "Verse List";
     if (Array.isArray(context) && context[0] instanceof VerseRef)
       this.verses = context as VerseRef[];
     else this.verses = [];
@@ -144,6 +146,7 @@ class CrossRefsPallet extends verseListPallet {
   icon = Library; // Icon for the category, can be a string or an SVG element
 
   onTrigger(context?: any): void {
+    this.name = "Cross References";
     if (context instanceof VerseRef) {
       this.verses = context.crossRefs();
     } else if (context instanceof VerseRefPart) {
@@ -166,9 +169,9 @@ class GoToVersePalette extends CommandPaletteCategory<VerseRefPart, TouchGrassBi
   childtype: string = GoToVersePalette.name;
 
   onTrigger(context?: any): void {
+    this.name = "Go To Verse";
     if (context instanceof VerseRefPart) {
       this.part = context;
-      this.name = "Go To Verse";
 
       switch (context.specifity) {
         case 0: // Book
@@ -205,13 +208,8 @@ class GoToVersePalette extends CommandPaletteCategory<VerseRefPart, TouchGrassBi
       }
     } else {
       this.part = new VerseRefPart(0, new VerseRef("GENESIS", 1, 1));
-      this.childtype = GoToVersePalette.name;
       this.list = VerseRef.booksOfTheBible.map(
         book => new VerseRefPart(1, new VerseRef(book, 1, 1))
-      );
-      this.app.console.log(
-        "GoToVersePalette.onTrigger: No context provided, defaulting to books list",
-        this.list
       );
     }
   }
@@ -276,7 +274,7 @@ class BibleSearchPalette extends CommandPaletteCategory<VerseRef, TouchGrassBibl
   childtype: string = CrossRefsPallet.name;
 
   onTrigger(context?: any): void {
-    this.app.console.log("BibleSearchPalette.onTrigger", context);
+    this.name = "Bible Search";
   }
 
   getCommands(query: string): VerseRef[] {
@@ -324,6 +322,7 @@ class topicListPallet extends CommandPaletteCategory<VerseRef | string, TouchGra
   childtype: string = topicListPallet.name;
 
   onTrigger(context?: any): void {
+    this.name = "Topics";
     if (typeof context === "string" && context.startsWith("topic:")) {
       const topic = context.slice(6); // Remove "topic:" prefix
       this.topics = VerseRef.topics[topic].map(OSIS => VerseRef.fromOSIS(OSIS[0] as string));
@@ -394,11 +393,15 @@ class TouchGrassBibleApp extends App {
     VerseRef.topics = topics;
 
     this.console.enabled = this.settings.enableLogging;
-    this.console.header("color:#f0f; font-size:40px; font-weight:bold;");
-
-    // this.console.log(this.settings);
+    this.console.log(info.name, info.version, "loaded");
 
     this.MainScreen = new VerseScreen(this.contentEl, this);
+    // make an input element for capturing keyboard shortcuts
+    document.addEventListener("keydown", e => {
+      if (e.key === "Enter" && !this.commandPalette.isOpen) {
+        this.commandPalette.open();
+      }
+    });
 
     this.commandPalette = new CommandPalette(this);
     this.commandPalette.addPalette(verseListPallet);
@@ -407,7 +410,7 @@ class TouchGrassBibleApp extends App {
     this.commandPalette.addPalette(topicListPallet);
     this.commandPalette.addPalette(BibleSearchPalette);
 
-    /* this.console.log(new Date().getTime() - processstart, "ms startup time"); */
+    this.console.log(new Date().getTime() - processstart, "ms startup time");
   }
 
   onunload(): boolean {

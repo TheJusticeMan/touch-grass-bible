@@ -1,4 +1,4 @@
-import { ChevronRight, IconNode, X } from "lucide";
+import { ChevronRight, IconNode, Library, X } from "lucide";
 import { App, Highlighter } from "./App";
 import "./CommandPalette.css";
 
@@ -171,6 +171,11 @@ export class CommandPalette<AppType extends App> {
 
   constructor(private app: AppType) {
     this.app.console.log("CommandPalette initialized");
+    this.addPalette(ListOfPallets); // Add default category for listing all palettes
+  }
+
+  getcategories(): CommandPaletteCategory<any, AppType>[] {
+    return this.categories.slice(1); // Exclude the ListOfPallets category
   }
 
   // Add category (class constructor or instance)
@@ -312,15 +317,6 @@ export class CommandPalette<AppType extends App> {
   }
 
   private handleOutsideClick = (e: MouseEvent) => {
-    console.log(
-      "Outside click detected",
-      e,
-      this.containerEl,
-      e.target,
-      this.containerEl &&
-        !this.containerEl.contains(e.target as Node) &&
-        !this.contentEl.contains(e.target as Node)
-    );
     if (this.containerEl && !this.containerEl.contains(e.target as Node)) this.close();
     else this.searchInputEl.focus();
   };
@@ -339,6 +335,7 @@ export class CommandPalette<AppType extends App> {
       this.containerEl = null;
       document.removeEventListener("click", this.handleOutsideClick);
     }
+    this.currentCategory = null;
     this.contexts = [];
     this.isOpen = false;
   }
@@ -359,7 +356,7 @@ export class CommandPalette<AppType extends App> {
       cat.setUp(query);
       const commands = cat.trygetCommands(query);
       const cmdavailable = commands.length !== 0;
-      if (cmdavailable)
+      if (cmdavailable || this.currentCategory === cat)
         this.contentEl.createEl("div", { text: cat.name, cls: "category-title" }, el =>
           el.addEventListener("click", () => this.toggleCategory(cat))
         );
@@ -404,5 +401,33 @@ export class CommandPalette<AppType extends App> {
   private activateSelected() {
     if (this.selectedIndex >= 0 && this.selectedIndex < this.commandItems.length)
       this.selectedEl.click(); // Trigger click on the selected item
+  }
+}
+
+class ListOfPallets<AppType extends App> extends CommandPaletteCategory<string, AppType> {
+  name = "List of Pallets";
+  icon = Library; // Icon for the category, can be a string or an SVG element
+  childtype: string = "";
+  list: string[] = [];
+  names: any = {};
+
+  onTrigger(context?: any): void {
+    this.name = "List of Pallets";
+    this.list = this.palette.getcategories().map(category => category.constructor.name);
+    this.names = this.palette.getcategories().reduce((acc, category) => {
+      acc[category.constructor.name] = category;
+      return acc;
+    }, {});
+  }
+  getCommands(query: string): string[] {
+    return this.getcompatible(query, this.list, category => category);
+  }
+  renderCommand(command: string, Item: CommandPaletteItem<string>): void {
+    Item.setTitle(this.names[command]?.name.toString().toTitleCase()).setSubsearch(false);
+    //.subEl.setIcon(this.names[command]?.icon || ChevronRight).style.display = "flex";
+  }
+  executeCommand(command: string): void {
+    this.palette.setCategory(command);
+    this.palette.display();
   }
 }

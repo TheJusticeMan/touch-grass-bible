@@ -29,6 +29,7 @@ abstract class App {
 
   constructor(private doc: Document, private _title: string) {
     this.console = new BrowserConsole(true, `${this._title || "App"}:`);
+    this.console.header("color:#f0f; font-size:40px; font-weight:bold;");
     this.contentEl = this.doc.body.createEl("div", { cls: "AppShellElement" });
     this.title = this._title;
 

@@ -1,4 +1,5 @@
-import esbuild from "esbuild";
+import esbuild, { build } from "esbuild";
+import { readFileSync, writeFileSync } from "fs";
 import process from "process";
 
 const banner = `/*
@@ -7,6 +8,20 @@ if you want to view the source, please visit the github repository of this app
 */
 `;
 const prod = process.argv[2] === "production";
+
+const targetVersion = process.env.npm_package_version;
+
+let ServiceWorkerFile = readFileSync("src/web/service-worker.js", "utf8").split("\n");
+ServiceWorkerFile[0] = `const VERSION = "${targetVersion}";`;
+writeFileSync("src/web/service-worker.js", ServiceWorkerFile.join("\n"));
+
+const mymetadata = {
+  name: "OpenBible",
+  description: "A Bible study tool for the modern web.",
+  version: targetVersion,
+  build: new Date().toISOString(),
+};
+writeFileSync("src/info.json", JSON.stringify(mymetadata, null, 2));
 
 const context = await esbuild.context({
   banner: {
