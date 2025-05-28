@@ -7,7 +7,6 @@ if you want to view the source, please visit the github repository of this app
 */
 `;
 const prod = process.argv[2] === "production";
-console.log("hello");
 
 const context = await esbuild.context({
   banner: {
@@ -21,7 +20,6 @@ const context = await esbuild.context({
   sourcemap: prod ? false : true,
   platform: "browser",
   minify: true,
-  /* sourcemap: true, */
   target: ["es2020"],
   logLevel: "info",
   minify: prod,

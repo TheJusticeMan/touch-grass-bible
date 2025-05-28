@@ -5,9 +5,9 @@ import { Highlighter } from "./external/App";
 import CrossRefs from "../processing/crossrefsSample.json";
 import Topics from "../processing/topicsSample.json";
 // */
-///*
-//import CrossRefs from "../processing/crossrefs.json";
-//import Topics from "../processing/topics.json";
+/*
+import CrossRefs from "../processing/crossrefs.json";
+import Topics from "../processing/topics.json";
 //*/
 export type bibleData = { [book: string]: string[][] };
 
@@ -48,7 +48,7 @@ export class VerseRef {
   }
   crossRefs(): VerseRef[] {
     const refs = VerseRef.crossRefs[this.toOSIS()] || [];
-    return refs.map((ref) => VerseRef.fromOSIS(ref[0] as string));
+    return refs.map(ref => VerseRef.fromOSIS(ref[0] as string));
   }
   toOSIS(): string {
     const bookIndex = VerseRef.booksOfTheBible.indexOf(this.book);

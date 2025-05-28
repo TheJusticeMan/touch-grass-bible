@@ -25,14 +25,16 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "node esbuild.config.mjs",
-    "build": "npm run update && rm ./dest/main* && cp processing/topics.json dest && cp processing/crossrefs.json dest && cp src/KJV.json dest && node esbuild.config.mjs production",
-    "init": "npm install && npm run update && npm run dev",
-    "update": "node ./processing/online.mjs"
+    "build": "npm run getdatafiles && node esbuild.config.mjs production",
+    "init": "npm install",
+    "getdatafiles": "node ./processing/online.mjs && cp src/KJV.json dest",
+    "build:web": "npm run build && cp src/web/* dest",
+    "clean": "rm ./dest/*"
   },
   "devDependencies": {
     "@capacitor/android": "^7.2.0",
-    "@capacitor/cli": "^7.2.0",
-    "@capacitor/core": "^7.2.0",
+    "@capacitor/cli": "7.2.0",
+    "@capacitor/core": "7.2.0",
     "@capacitor/ios": "^7.2.0",
     "@types/node": "^16.11.6",
     "@types/unzipper": "^0.10.11",
@@ -45,5 +47,11 @@
     "tslib": "2.4.0",
     "typescript": "4.7.4",
     "unzipper": "^0.12.3"
+  },
+  "dependencies": {
+    "@capacitor/app": "7.0.1",
+    "@capacitor/haptics": "7.0.1",
+    "@capacitor/keyboard": "7.0.1",
+    "@capacitor/status-bar": "7.0.1"
   }
 }
