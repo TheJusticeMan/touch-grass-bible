@@ -65,4 +65,13 @@ export class VerseRef {
   toString(): string {
     return `${this.book} ${this.chapter}:${this.verse}`;
   }
+  verseData(translation: string): string {
+    return VerseRef.bible[translation]?.[this.book]?.[this.chapter]?.[this.verse] || "";
+  }
+  chapterData(translation: string): string[] {
+    return VerseRef.bible[translation]?.[this.book]?.[this.chapter] || [];
+  }
+  bookData(translation: string): string[][] {
+    return VerseRef.bible[translation]?.[this.book] || [];
+  }
 }

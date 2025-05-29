@@ -1,6 +1,7 @@
-import { ChevronRight, IconNode, Library, X } from "lucide";
+import { ChevronRight, ChevronsDownUp, ChevronsUpDown, IconNode, Library, X } from "lucide";
 import { App, Highlighter } from "./App";
 import "./CommandPalette.css";
+import levenshtein from "js-levenshtein";
 
 export class CommandPaletteState<AppType extends App> {
   maxResults: number = 100; // Maximum results to show
@@ -9,6 +10,9 @@ export class CommandPaletteState<AppType extends App> {
     public query: string = "",
     public topCategory: CommandPaletteCategory<any, App> | null = null
   ) {}
+  update(partial: Partial<CommandPaletteState<AppType>>): CommandPaletteState<AppType> {
+    return { ...this, ...partial };
+  }
 }
 
 // Abstract base class for category of commands
@@ -76,19 +80,46 @@ export abstract class CommandPaletteCategory<T, AppType extends App> {
     }
     return this;
   }
-  getcompatible<T>(query: string, array: T[], ...callback: ((item: T) => string)[]): T[] {
-    if (!query) return array; // Return all items if no query
-    const lcasequery = query.toLowerCase();
-    const done: boolean[] = [];
-    return callback
+  getcompatible<T>(query: string, array: T[], ...criteria: Array<(item: T) => string>): T[] {
+    if (!query) return array;
+
+    const lowerQuery = query.toLowerCase();
+    const matchedIndices = new Set<number>();
+
+    return criteria
       .map(cb =>
         array.filter((item, index) => {
-          if (done[index]) return false; // Skip if already matched
-          done[index] = cb(item).toLowerCase().includes(lcasequery); // Mark as matched
-          return done[index];
+          return (
+            !matchedIndices.has(index) &&
+            cb(item).toLowerCase().includes(lowerQuery) &&
+            (matchedIndices.add(index), true) // Add index to matched set
+          );
         })
       )
-      .flatMap(item => item);
+      .flat();
+  }
+  getcompatibleWithLevenshtein<T>(
+    query: string,
+    array: T[],
+    ...criteria: ((item: T) => string)[]
+  ): T[] {
+    if (!query) return array; // Return all items if no query
+    const lowerQuery = query.toLowerCase();
+    const matchedIndices = new Set<number>();
+    const maxdiff: number = query.length * 0.3; // Maximum Levenshtein distance to consider a match
+    return criteria
+      .map(cb =>
+        array
+          .map((item, index) =>
+            matchedIndices.has(index)
+              ? { d: maxdiff, item, index }
+              : { d: levenshtein(lowerQuery, cb(item).toLowerCase()), item, index }
+          )
+          .filter(item => item.d < maxdiff) // Filter items within the max distance
+          .sort((a, b) => a.d - b.d) // Sort by distance
+          .map(item => (matchedIndices.add(item.index), item.item))
+      )
+      .flat();
   }
   getPaletteByName(name: string): CommandPaletteCategory<any, AppType> | null {
     const category = this.app.commandPalette
@@ -192,7 +223,6 @@ export abstract class CommandPalette<AppType extends App> {
   inputMode: inputMode = "search"; // Default input type
   headerEl: HTMLDivElement;
   maxResults: number = 100; // Maximum results to show
-  topButtons: HTMLButtonElement[] = [];
   isOpen: boolean = false;
 
   constructor(private app: AppType) {
@@ -244,20 +274,29 @@ export abstract class CommandPalette<AppType extends App> {
     this.headerEl = this.paletteEl.createEl("div", { cls: "palette-header" });
 
     // Render icons for each category
-    this.categories.forEach((category, i) => {
-      this.topButtons[i] = this.headerEl.createEl("button", {}, el => {
-        el.setIcon(category.icon);
-        el.addEventListener("click", () => {
-          this.toggleCategory(category);
-          this.headerEl.querySelectorAll("button").forEach(btn => {
-            btn.classList.toggle("active", btn === el && this.state.topCategory === category);
-          });
-        });
+    this.headerEl.createEl("button", {}, el => {
+      el.setIcon(Library);
+      el.addEventListener("click", e => {
+        e.stopPropagation(); // Prevent bubbling to document
+        this.display(this.state.update({ topCategory: this.categories[0] || null }));
       });
     });
 
-    this.headerEl.createEl("button", { cls: "palette-back" }, el => {
-      el.addEventListener("click", this.close.bind(this));
+    this.headerEl.createEl("button", {}, el => {
+      el.setIcon(ChevronsUpDown);
+      el.addEventListener("click", e => {
+        e.stopPropagation(); // Prevent bubbling to document
+        this.contentEl.classList.toggle("expanded");
+        el.empty();
+        el.setIcon(this.contentEl.classList.contains("expanded") ? ChevronsDownUp : ChevronsUpDown);
+      });
+    });
+
+    this.headerEl.createEl("button", {}, el => {
+      el.addEventListener("click", e => {
+        e.stopPropagation();
+        this.close();
+      });
       return el.setIcon(X);
     });
 
@@ -273,6 +312,7 @@ export abstract class CommandPalette<AppType extends App> {
 
         el.addEventListener("input", () => {
           this.state.query = el.value;
+          this.state.maxResults = this.maxResults;
           this.render();
         });
 
@@ -318,6 +358,21 @@ export abstract class CommandPalette<AppType extends App> {
       }
     );
     this.contentEl = this.paletteEl.createEl("div", { cls: "palette-content" });
+    // Get 1000 results on scroll
+    window.setTimeout(() => {
+      this.contentEl.addEventListener(
+        "scroll",
+        () => {
+          if (!this.containerEl) return; // If container is closed, do nothing
+          if (this.state.maxResults < 1000) {
+            this.state.maxResults = 1000; // Load more results
+            this.render();
+          }
+        },
+        { passive: true, once: true } // Once to prevent multiple triggers
+      );
+    }, 1000);
+
     this.state.query = ""; // Reset query
     this.render(); // initial load
     this.searchInputEl.focus();
@@ -350,12 +405,6 @@ export abstract class CommandPalette<AppType extends App> {
     }
   }
 
-  toggleCategory(category: CommandPaletteCategory<any, AppType>) {
-    this.state.topCategory = this.state.topCategory === category ? null : category;
-
-    this.render();
-  }
-
   private handleOutsideClick = (e: MouseEvent) => {
     if (this.containerEl && !this.containerEl.contains(e.target as Node)) this.close();
     else this.searchInputEl.focus();
@@ -385,6 +434,7 @@ export abstract class CommandPalette<AppType extends App> {
     if (!this.containerEl) return;
 
     this.contentEl.empty();
+    //this.contentEl.scroll(0, 0); // Scroll to top
     this.commandItems = [];
     this.selectedIndex = 0;
     const categoriesToShow = this.state.topCategory
@@ -392,22 +442,22 @@ export abstract class CommandPalette<AppType extends App> {
       : this.categories;
 
     categoriesToShow.forEach((cat, index) => {
-      if (this.commandItems.length > this.maxResults) return;
+      if (this.commandItems.length > this.state.maxResults) return;
       cat.setUp(this.state);
       const commands = cat.trygetCommands(this.state.query);
-      const cmdavailable = commands.length !== 0;
-      if (cmdavailable || this.state.topCategory === cat)
-        this.contentEl.createEl("div", { text: cat.title, cls: "category-title" }, el =>
-          el.addEventListener("click", () =>
-            this.toggleCategory(cat as CommandPaletteCategory<any, AppType>)
-          )
+      const catEl = this.contentEl.createEl("div", { cls: "category" });
+      if (commands.length !== 0 || this.state.topCategory === cat)
+        catEl.createEl("div", { text: cat.title, cls: "category-title" }, el =>
+          el.addEventListener("click", e => {
+            e.stopPropagation();
+            this.display(this.state.update({ topCategory: cat }));
+          })
         );
-      this.topButtons[index].style.display = cmdavailable ? "flex" : "none";
 
       for (const command of commands) {
-        if (this.commandItems.length > this.maxResults) return;
+        if (this.commandItems.length > this.state.maxResults) return;
         const cmdindex = this.commandItems.length;
-        const itemEl = new CommandPaletteItem(this.app, this.contentEl, command, cat)
+        const itemEl = new CommandPaletteItem(this.app, catEl, command, cat)
           .onClick(() => cat.tryexecute(command, itemEl.toState))
           .onMouseEnter(() => this.selectIndex(cmdindex))
           .onTouchStart(() => this.selectIndex(cmdindex))
@@ -449,7 +499,6 @@ export abstract class CommandPalette<AppType extends App> {
 class ListOfPalettes<AppType extends App> extends CommandPaletteCategory<string, AppType> {
   readonly name = "Quick Access";
   icon = Library; // Icon for the category, can be a string or an SVG element
-  childtype: string = "";
   list: string[] = [];
   names: { [x: string]: CommandPaletteCategory<any, App> };
 
@@ -468,7 +517,7 @@ class ListOfPalettes<AppType extends App> extends CommandPaletteCategory<string,
     Item: CommandPaletteItem<string, AppType>
   ): CommandPaletteState<AppType> {
     Item.setTitle(this.names[command].name.toString().toTitleCase()).setSubsearch(false);
-    return { ...this.app.commandPalette.state, topCategory: this.names[command] };
+    return this.app.commandPalette.state.update({ topCategory: this.names[command] });
     //.subEl.setIcon(this.names[command]?.icon || ChevronRight).style.display = "flex";
   }
   executeCommand(command: string): void {

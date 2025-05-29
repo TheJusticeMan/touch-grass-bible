@@ -80,6 +80,11 @@
 }
 
 .palette-content .category-title {
+  position: sticky;
+  top: 0;
+  background-color: #0008;
+  backdrop-filter: blur(1px);
+  border-bottom: 1px solid #fff4;
   padding: 8px 12px;
   padding-top: 12px;
   color: #fff8;
@@ -103,6 +108,10 @@
   color: var(--foreground);
 }
 
+.category .command-item:first-child {
+  border: none;
+}
+
 .command-item.selected {
   background-color: #fff2;
 }
@@ -116,12 +125,12 @@
   color: #fff5;
 }
 
-.command-item .command-description.hidden {
+.palette-content:not(.expanded) .command-item .command-description.hidden {
   max-height: 0;
   overflow: hidden;
 }
 
-.command-item.selected .command-description.hidden {
+.palette-content .command-item.selected .command-description.hidden {
   max-height: 500px;
 }
 
