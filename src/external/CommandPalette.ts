@@ -2,38 +2,48 @@ import { ChevronRight, IconNode, Library, X } from "lucide";
 import { App, Highlighter } from "./App";
 import "./CommandPalette.css";
 
-export class CommandPaletteContext {
-  constructor(public name: string, public data: any, public childtype: string = "") {}
+export class CommandPaletteState<AppType extends App> {
+  maxResults: number = 100; // Maximum results to show
+  constructor(
+    public app: App,
+    public query: string = "",
+    public topCategory: CommandPaletteCategory<any, App> | null = null
+  ) {}
 }
 
 // Abstract base class for category of commands
 export abstract class CommandPaletteCategory<T, AppType extends App> {
-  abstract name: string;
+  abstract readonly name: string;
+  title: string; // Title for the category, can be used in UI
   abstract icon: IconNode; // Icon for the category, can be used in UI
-  abstract childtype: string;
   protected _commands: T[] = [];
   highlighter: Highlighter; // Highlighter for the category
   hili: Highlighter["highlight"]; // Function to highlight text
   query: string;
 
-  constructor(public app: AppType, public palette: CommandPalette<AppType>) {}
+  constructor(public app: AppType) {}
 
-  setUp(query: string) {
+  setUp(state: CommandPaletteState<AppType>): this {
+    //this.app.console.log(`Setting up category: ${this.title} with query: ${state.query}`);
     this.highlighter = new Highlighter([
       {
-        regEXP: new RegExp(`(${query || "this will never match"})`, "ig"),
+        regEXP: new RegExp(`(${state.query || "this will never match"})`, "ig"),
         cls: "highlighted-query",
       },
     ]);
     this.hili = this.highlighter.highlight.bind(this.highlighter);
-    this.query = query;
+    this.query = state.query;
     return this;
   }
-  abstract onTrigger(context?: any): void;
+  abstract onTrigger(state: CommandPaletteState<AppType>): void;
   abstract getCommands(query: string): T[];
-  abstract renderCommand(command: T, el: CommandPaletteItem<T>): void;
+  abstract renderCommand(
+    command: T,
+    el: CommandPaletteItem<T, AppType>
+  ): CommandPaletteState<AppType>; // fix
   abstract executeCommand(command: T): void;
-  tryTrigger(context?: any): this {
+  tryTrigger(context: CommandPaletteState<AppType>): this {
+    this.title = this.name;
     try {
       this.onTrigger(context);
     } catch (e) {
@@ -49,15 +59,16 @@ export abstract class CommandPaletteCategory<T, AppType extends App> {
       return [];
     }
   }
-  tryrender(command: T, el: CommandPaletteItem<T>): this {
+  tryrender(command: T, el: CommandPaletteItem<T, AppType>): CommandPaletteState<AppType> {
     try {
-      this.renderCommand(command, el);
+      return this.renderCommand(command, el);
     } catch (e) {
       this.app.console.error(`Error in ${this.constructor.name}.renderCommand`, e);
     }
-    return this;
+    return new CommandPaletteState(this.app, "", this.app.commandPalette.state.topCategory);
   }
-  tryexecute(command: T): this {
+  tryexecute(command: T, toState: CommandPaletteState<AppType>): this {
+    this.app.commandPalette.state = toState;
     try {
       this.executeCommand(command);
     } catch (e) {
@@ -79,21 +90,34 @@ export abstract class CommandPaletteCategory<T, AppType extends App> {
       )
       .flatMap(item => item);
   }
+  getPaletteByName(name: string): CommandPaletteCategory<any, AppType> | null {
+    const category = this.app.commandPalette
+      .getcategories()
+      .find(cat => cat.constructor.name === name) as CommandPaletteCategory<any, AppType>;
+    if (!category) {
+      this.app.console.error(`Category "${name}" not found`);
+      return null;
+    }
+    return category;
+  }
 }
 
-export class CommandPaletteItem<T> {
+export class CommandPaletteItem<T, AppType extends App> {
   el: HTMLElement;
   infoEl: HTMLElement;
   titleEl: HTMLElement;
   descriptionEl: HTMLElement;
   subEl: HTMLElement;
   hasSubsearch: boolean = false;
+  toState: CommandPaletteState<AppType>;
 
   constructor(
+    public app: AppType,
     parent: HTMLElement,
     public command: T,
-    public palletCat: CommandPaletteCategory<T, any>
+    public PaletteCat: CommandPaletteCategory<T, any>
   ) {
+    this.toState = new CommandPaletteState(this.app);
     parent.createEl("div", { cls: "command-item" }, itemEl => {
       this.el = itemEl;
       this.infoEl = itemEl.createEl("div", { cls: "command-item-info" }, infoEl => {
@@ -112,11 +136,13 @@ export class CommandPaletteItem<T> {
     return this;
   }
   setTitle(title: string | DocumentFragment) {
-    this.titleEl.replaceChildren(typeof title === "string" ? this.palletCat.hili(title) : title);
+    this.titleEl.replaceChildren(typeof title === "string" ? this.PaletteCat.hili(title) : title);
     return this;
   }
   setDescription(text: string | DocumentFragment) {
-    this.descriptionEl.replaceChildren(typeof text === "string" ? this.palletCat.hili(text) : text);
+    this.descriptionEl.replaceChildren(
+      typeof text === "string" ? this.PaletteCat.hili(text) : text
+    );
     return this;
   }
   setHidden(hide: boolean) {
@@ -149,7 +175,8 @@ export class CommandPaletteItem<T> {
 type inputMode = "none" | "text" | "decimal" | "numeric" | "tel" | "search" | "email" | "url";
 
 // Main CommandPalette class
-export class CommandPalette<AppType extends App> {
+export abstract class CommandPalette<AppType extends App> {
+  abstract state: CommandPaletteState<AppType>; // State of the command palette
   private categories: CommandPaletteCategory<any, AppType>[] = [];
   private containerEl: HTMLElement | null = null;
 
@@ -157,11 +184,10 @@ export class CommandPalette<AppType extends App> {
   private searchInputEl!: HTMLInputElement;
   private contentEl!: HTMLElement;
 
-  commandItems: CommandPaletteItem<any>[] = [];
+  commandItems: CommandPaletteItem<any, AppType>[] = [];
   private selectedIndex = -1;
   selectedEl: HTMLElement;
-  currentCategory: CommandPaletteCategory<any, AppType> | null = null;
-  contexts: any[] = [];
+  contexts: CommandPaletteState<AppType>[] = []; // Stack of contexts for back navigation
   defaultContext: any;
   inputMode: inputMode = "search"; // Default input type
   headerEl: HTMLDivElement;
@@ -171,11 +197,11 @@ export class CommandPalette<AppType extends App> {
 
   constructor(private app: AppType) {
     this.app.console.log("CommandPalette initialized");
-    this.addPalette(ListOfPallets); // Add default category for listing all palettes
+    this.addPalette(ListOfPalettes); // Add default category for listing all palettes
   }
 
   getcategories(): CommandPaletteCategory<any, AppType>[] {
-    return this.categories.slice(1); // Exclude the ListOfPallets category
+    return this.categories.slice(1); // Exclude the ListOfPalettes category
   }
 
   // Add category (class constructor or instance)
@@ -188,14 +214,18 @@ export class CommandPalette<AppType extends App> {
   }
 
   // Open and initialize palette UI
-  open(context?: any) {
+  open(context: CommandPaletteState<AppType> = this.state) {
+    this.app.console.log("Opening Command Palette with context:", context);
+    this.state = context;
     this.contexts = [];
     this.defaultContext = context;
     this.isOpen = true;
     this.display(context);
   }
 
-  display(context?: any) {
+  display(context: CommandPaletteState<AppType> = this.state) {
+    //this.app.console.log("Displaying Command Palette with context:", context);
+    this.state = context;
     this.app.historyPush({
       name: "Command Palette",
       data: this.commandItems[this.selectedIndex]?.command,
@@ -208,6 +238,8 @@ export class CommandPalette<AppType extends App> {
     this.categories.forEach(cat => cat.tryTrigger(context));
 
     this.containerEl = this.app.contentEl.createEl("div", { cls: "command-palette" });
+    this.handleMobileResize();
+
     this.paletteEl = this.containerEl.createEl("div", { cls: "palette" });
     this.headerEl = this.paletteEl.createEl("div", { cls: "palette-header" });
 
@@ -218,7 +250,7 @@ export class CommandPalette<AppType extends App> {
         el.addEventListener("click", () => {
           this.toggleCategory(category);
           this.headerEl.querySelectorAll("button").forEach(btn => {
-            btn.classList.toggle("active", btn === el && this.currentCategory === category);
+            btn.classList.toggle("active", btn === el && this.state.topCategory === category);
           });
         });
       });
@@ -240,7 +272,8 @@ export class CommandPalette<AppType extends App> {
         el.inputMode = this.inputMode;
 
         el.addEventListener("input", () => {
-          this.update(el.value);
+          this.state.query = el.value;
+          this.render();
         });
 
         // Keyboard navigation
@@ -285,17 +318,27 @@ export class CommandPalette<AppType extends App> {
       }
     );
     this.contentEl = this.paletteEl.createEl("div", { cls: "palette-content" });
-
-    this.update(""); // initial load
+    this.state.query = ""; // Reset query
+    this.render(); // initial load
     this.searchInputEl.focus();
 
     // Outside click closes palette
     document.addEventListener("click", this.handleOutsideClick);
   }
 
-  gosubmenu(command: CommandPaletteItem<any>) {
-    this.setCategory(command.palletCat.childtype);
-    this.display(command.command);
+  private handleMobileResize(): void {
+    // For mobile keyboard handling
+    const visual = window.visualViewport;
+    const ctr = this.containerEl;
+    if (visual && ctr) {
+      const viewportHeight = visual.height;
+      ctr.style.cssText = `height: calc(${viewportHeight}px - 2em);`;
+      visual.addEventListener("resize", this.handleMobileResize.bind(this), { once: true });
+    }
+  }
+
+  gosubmenu(command: CommandPaletteItem<any, AppType>) {
+    this.display(command.toState);
   }
 
   handleBack() {
@@ -308,12 +351,9 @@ export class CommandPalette<AppType extends App> {
   }
 
   toggleCategory(category: CommandPaletteCategory<any, AppType>) {
-    this.currentCategory = this.currentCategory === category ? null : category;
-    this.update(this.searchInputEl.value);
-  }
+    this.state.topCategory = this.state.topCategory === category ? null : category;
 
-  setCategory(name: string) {
-    this.currentCategory = this.categories.find(cat => cat.constructor.name === name) || null;
+    this.render();
   }
 
   private handleOutsideClick = (e: MouseEvent) => {
@@ -335,42 +375,44 @@ export class CommandPalette<AppType extends App> {
       this.containerEl = null;
       document.removeEventListener("click", this.handleOutsideClick);
     }
-    this.currentCategory = null;
+    this.state.topCategory = null;
     this.contexts = [];
     this.isOpen = false;
   }
 
   // Filter and show commands based on query
-  update(query: string) {
+  render() {
     if (!this.containerEl) return;
 
     this.contentEl.empty();
     this.commandItems = [];
     this.selectedIndex = 0;
-    const categoriesToShow = this.currentCategory
-      ? [this.currentCategory, ...this.categories.filter(cat => cat !== this.currentCategory)]
+    const categoriesToShow = this.state.topCategory
+      ? [this.state.topCategory, ...this.categories.filter(cat => cat !== this.state.topCategory)]
       : this.categories;
 
     categoriesToShow.forEach((cat, index) => {
       if (this.commandItems.length > this.maxResults) return;
-      cat.setUp(query);
-      const commands = cat.trygetCommands(query);
+      cat.setUp(this.state);
+      const commands = cat.trygetCommands(this.state.query);
       const cmdavailable = commands.length !== 0;
-      if (cmdavailable || this.currentCategory === cat)
-        this.contentEl.createEl("div", { text: cat.name, cls: "category-title" }, el =>
-          el.addEventListener("click", () => this.toggleCategory(cat))
+      if (cmdavailable || this.state.topCategory === cat)
+        this.contentEl.createEl("div", { text: cat.title, cls: "category-title" }, el =>
+          el.addEventListener("click", () =>
+            this.toggleCategory(cat as CommandPaletteCategory<any, AppType>)
+          )
         );
       this.topButtons[index].style.display = cmdavailable ? "flex" : "none";
 
       for (const command of commands) {
         if (this.commandItems.length > this.maxResults) return;
         const cmdindex = this.commandItems.length;
-        const itemEl = new CommandPaletteItem(this.contentEl, command, cat)
-          .onClick(() => cat.tryexecute(command))
+        const itemEl = new CommandPaletteItem(this.app, this.contentEl, command, cat)
+          .onClick(() => cat.tryexecute(command, itemEl.toState))
           .onMouseEnter(() => this.selectIndex(cmdindex))
           .onTouchStart(() => this.selectIndex(cmdindex))
           .onSubClick(() => this.gosubmenu(this.commandItems[cmdindex]));
-        cat.tryrender(command, itemEl);
+        itemEl.toState = cat.tryrender(command, itemEl);
         this.commandItems.push(itemEl);
       }
     });
@@ -380,22 +422,22 @@ export class CommandPalette<AppType extends App> {
   // Keyboard navigation
   private moveSelection(delta: number) {
     const maxIndex = this.commandItems.length - 1;
-    this.selectIndex(Math.min(Math.max(this.selectedIndex + delta, 0), maxIndex));
+    this.selectIndex(Math.min(Math.max(this.selectedIndex + delta, 0), maxIndex), true);
   }
 
-  private selectIndex(index: number) {
+  private selectIndex(index: number, scroll = false) {
     this.selectedIndex = index;
-    this.updateSelection();
+    this.updateSelection(scroll);
   }
 
-  private updateSelection() {
+  private updateSelection(scroll = false) {
     this.commandItems.forEach((item, idx) => {
       item.el.classList.toggle("selected", idx === this.selectedIndex);
-      if (idx === this.selectedIndex) {
-        item.el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
-        this.selectedEl = item.el; // Ensure selectedIndex is updated
-      }
     });
+    this.selectedEl = this.commandItems[this.selectedIndex]?.el || this.selectedEl;
+    if (scroll) {
+      this.selectedEl.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+    }
   }
 
   private activateSelected() {
@@ -404,17 +446,16 @@ export class CommandPalette<AppType extends App> {
   }
 }
 
-class ListOfPallets<AppType extends App> extends CommandPaletteCategory<string, AppType> {
-  name = "List of Pallets";
+class ListOfPalettes<AppType extends App> extends CommandPaletteCategory<string, AppType> {
+  readonly name = "Quick Access";
   icon = Library; // Icon for the category, can be a string or an SVG element
   childtype: string = "";
   list: string[] = [];
-  names: any = {};
+  names: { [x: string]: CommandPaletteCategory<any, App> };
 
-  onTrigger(context?: any): void {
-    this.name = "List of Pallets";
-    this.list = this.palette.getcategories().map(category => category.constructor.name);
-    this.names = this.palette.getcategories().reduce((acc, category) => {
+  onTrigger(context: CommandPaletteState<AppType>): void {
+    this.list = this.app.commandPalette.getcategories().map(category => category.constructor.name);
+    this.names = this.app.commandPalette.getcategories().reduce((acc, category) => {
       acc[category.constructor.name] = category;
       return acc;
     }, {});
@@ -422,12 +463,15 @@ class ListOfPallets<AppType extends App> extends CommandPaletteCategory<string, 
   getCommands(query: string): string[] {
     return this.getcompatible(query, this.list, category => category);
   }
-  renderCommand(command: string, Item: CommandPaletteItem<string>): void {
-    Item.setTitle(this.names[command]?.name.toString().toTitleCase()).setSubsearch(false);
+  renderCommand(
+    command: string,
+    Item: CommandPaletteItem<string, AppType>
+  ): CommandPaletteState<AppType> {
+    Item.setTitle(this.names[command].name.toString().toTitleCase()).setSubsearch(false);
+    return { ...this.app.commandPalette.state, topCategory: this.names[command] };
     //.subEl.setIcon(this.names[command]?.icon || ChevronRight).style.display = "flex";
   }
   executeCommand(command: string): void {
-    this.palette.setCategory(command);
-    this.palette.display();
+    this.app.commandPalette.display();
   }
 }

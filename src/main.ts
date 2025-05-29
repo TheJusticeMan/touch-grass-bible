@@ -7,10 +7,11 @@ import {
   CommandPaletteItem,
   ScreenView,
 } from "./external/App";
-import { DEFAULT_SETTINGS, RealBibleAppSettings } from "./RealBibleAppSettings";
+import { DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
 import "./style.css";
 import { VerseHighlight, VerseRef } from "./VerseRef";
 import info from "./info.json";
+import { CommandPaletteState } from "./external/CommandPalette";
 
 class VerseScreen extends ScreenView<TouchGrassBibleApp> {
   // Use private fields with '#' for encapsulation (ES2022 feature)
@@ -20,7 +21,9 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
     super(element, app);
     this.ontitleclick(e => {
       e.stopPropagation();
-      this.app.commandPalette.open(this.app.settings.workspaces.currentVerses);
+      this.app.commandPalette.open(
+        new TGPaletteState(app, "", null, this.app.settings.workspaces.currentVerses)
+      );
     });
 
     // Initialize with a default verse
@@ -91,7 +94,9 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
           el.addEventListener("contextmenu", (e: Event) => {
             e.preventDefault();
             e.stopPropagation();
-            this.app.commandPalette.open(newVerse);
+            this.app.commandPalette.open(
+              new TGPaletteState(this.app, "", CrossRefsPalette.name, newVerse)
+            );
           });
         }
       );
@@ -106,17 +111,50 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
   }
 }
 
-class verseListPallet extends CommandPaletteCategory<VerseRef, TouchGrassBibleApp> {
+class TGPaletteState extends CommandPaletteState<TouchGrassBibleApp> {
+  verse?: VerseRef = new VerseRef("GENESIS", 1, 1);
+  verses?: VerseRef[] = [];
+  part?: VerseRefPart = new VerseRefPart(
+    0,
+    this.verse ? this.verse : new VerseRef("GENESIS", 1, 1)
+  );
+  topic?: string = "";
+  constructor(
+    public app: TouchGrassBibleApp,
+    public query: string,
+    topCategory: CommandPaletteCategory<any, TouchGrassBibleApp> | string | null = null,
+    part: VerseRefPart | VerseRef | VerseRef[] | string
+  ) {
+    super(app, query, topCategory instanceof CommandPaletteCategory ? topCategory : null);
+    if (typeof topCategory === "string") {
+      this.topCategory = this.app?.getPaletteByName(topCategory) || null;
+    } else {
+      this.topCategory = topCategory;
+    }
+    if (part instanceof VerseRefPart) {
+      this.part = part;
+      this.verse = part.verse;
+    } else if (part instanceof VerseRef) {
+      this.verse = part;
+      this.part = new VerseRefPart(0, part);
+    } else if (typeof part === "string") {
+      this.topic = part.slice(6).toLowerCase(); // Assuming part is a topic string like "topic:example"
+    } else {
+      this.verses = part;
+      this.verse = part[0];
+    }
+  }
+}
+
+class verseListPalette extends CommandPaletteCategory<VerseRef, TouchGrassBibleApp> {
   verses: VerseRef[] = [];
   name = "Verse List"; // Name of the category
   icon = List; // Icon for the category, can be a string or an SVG element
-  childtype: string = CrossRefsPallet.name;
+  childtype: string = CrossRefsPalette.name;
 
-  onTrigger(context?: any): void {
-    this.name = "Verse List";
-    if (Array.isArray(context) && context[0] instanceof VerseRef)
-      this.verses = context as VerseRef[];
-    else this.verses = [];
+  onTrigger(context: TGPaletteState): void {
+    this.title = "Verse List";
+    this.verses = context.verses || [];
   }
 
   getCommands(query: string): VerseRef[] {
@@ -129,28 +167,39 @@ class verseListPallet extends CommandPaletteCategory<VerseRef, TouchGrassBibleAp
     );
   }
 
-  renderCommand(verse: VerseRef, Item: CommandPaletteItem<VerseRef>): void {
+  renderCommand(
+    verse: VerseRef,
+    Item: CommandPaletteItem<VerseRef, TouchGrassBibleApp>
+  ): TGPaletteState {
     Item.setTitle(verse.toString().toTitleCase())
       .setDescription(VerseRef.bible.KJV[verse.book]?.[verse.chapter]?.[verse.verse] || "")
       .setSubsearch(true);
+    return new TGPaletteState(this.app, "", CrossRefsPalette.name, verse);
   }
 
   executeCommand(command: VerseRef): void {
     this.app.MainScreen.verse = command;
-    this.palette.close();
+    this.app.commandPalette.close();
   }
 }
 
-class CrossRefsPallet extends verseListPallet {
-  name = "Cross References";
+class CrossRefsPalette extends verseListPalette {
+  readonly name = "Cross References";
   icon = Library; // Icon for the category, can be a string or an SVG element
 
-  onTrigger(context?: any): void {
-    this.name = "Cross References";
-    if (context instanceof VerseRef) {
-      this.verses = context.crossRefs();
-    } else if (context instanceof VerseRefPart) {
+  onTrigger(context: TGPaletteState): void {
+    this.title = "Cross References";
+    if (context.verse) {
       this.verses = context.verse.crossRefs();
+      this.title = `Cross References for ${context.verse.toString().toTitleCase()}`;
+    } else if (context.part) {
+      this.verses = context.part.verse.crossRefs();
+      this.title = `Cross References for ${context.part.verse.toString().toTitleCase()}`;
+    } else if (context.topic) {
+      this.verses = VerseRef.topics[context.topic].map(OSIS =>
+        VerseRef.fromOSIS(OSIS[0] as string)
+      );
+      this.title = `Topic: ${context.topic.toTitleCase()}`;
     } else {
       this.verses = [];
     }
@@ -162,49 +211,44 @@ class VerseRefPart {
 }
 
 class GoToVersePalette extends CommandPaletteCategory<VerseRefPart, TouchGrassBibleApp> {
-  name = "Go To Verse";
+  readonly name = "Go To Verse";
   icon = BookCopy; // Icon for the category, can be a string or an SVG element
   list: VerseRefPart[] = [];
   part: VerseRefPart = new VerseRefPart(0, new VerseRef("GENESIS", 1, 1));
   childtype: string = GoToVersePalette.name;
 
-  onTrigger(context?: any): void {
-    this.name = "Go To Verse";
-    if (context instanceof VerseRefPart) {
-      this.part = context;
+  onTrigger(context: TGPaletteState): void {
+    this.title = "Go To Verse";
+    if (context.part) {
+      this.part = context.part;
+      const { verse, specifity } = context.part;
 
-      switch (context.specifity) {
+      switch (specifity) {
         case 0: // Book
-          this.name = "Go To Verse";
+          this.title = "Go To Verse";
           this.list = VerseRef.booksOfTheBible.map(
             book => new VerseRefPart(1, new VerseRef(book, 1, 1))
           );
           break;
         case 1: // Book and Chapter
-          this.name = `Go To Verse: ${context.verse.book}`;
-          this.palette.inputMode = "numeric";
+          this.title = `Go To Verse: ${verse.book}`;
+          this.app.commandPalette.inputMode = "numeric";
           this.list =
-            VerseRef.bible.KJV[context.verse.book]
+            VerseRef.bible.KJV[verse.book]
               ?.slice(1)
               .map(
-                (chapter, index) =>
-                  new VerseRefPart(2, new VerseRef(context.verse.book, index + 1, 1))
+                (chapter, index) => new VerseRefPart(2, new VerseRef(verse.book, index + 1, 1))
               ) || [];
           break;
         case 2: // Book, Chapter, and Verse
-          this.name = `Go To Verse: ${context.verse.book}:${context.verse.chapter}`;
+          this.title = `Go To Verse: ${verse.book}:${verse.chapter}`;
           this.list =
-            VerseRef.bible.KJV[context.verse.book]?.[context.verse.chapter]
-              ?.slice(1)
-              .map((text, index) => {
-                return new VerseRefPart(
-                  3,
-                  new VerseRef(context.verse.book, context.verse.chapter, index + 1)
-                );
-              }) || [];
+            VerseRef.bible.KJV[verse.book]?.[verse.chapter]?.slice(1).map((text, index) => {
+              return new VerseRefPart(3, new VerseRef(verse.book, verse.chapter, index + 1));
+            }) || [];
           break;
         case 3: // Full Verse
-          this.app.MainScreen.verse = context.verse;
+          this.app.MainScreen.verse = verse;
       }
     } else {
       this.part = new VerseRefPart(0, new VerseRef("GENESIS", 1, 1));
@@ -223,7 +267,7 @@ class GoToVersePalette extends CommandPaletteCategory<VerseRefPart, TouchGrassBi
         this.childtype = GoToVersePalette.name;
         return this.getcompatible(query, this.list, part => part.verse.chapter.toString());
       case 2: // Book, Chapter, and Verse
-        this.childtype = CrossRefsPallet.name;
+        this.childtype = CrossRefsPalette.name;
         return this.getcompatible(
           query,
           this.list,
@@ -236,7 +280,10 @@ class GoToVersePalette extends CommandPaletteCategory<VerseRefPart, TouchGrassBi
     }
   }
 
-  renderCommand(command: VerseRefPart, Item: CommandPaletteItem<VerseRefPart>): void {
+  renderCommand(
+    command: VerseRefPart,
+    Item: CommandPaletteItem<VerseRefPart, TouchGrassBibleApp>
+  ): TGPaletteState {
     switch (this.part.specifity) {
       case 0: // Book
         Item.setTitle(command.verse.book.toString().toTitleCase()).setSubsearch(true);
@@ -251,34 +298,35 @@ class GoToVersePalette extends CommandPaletteCategory<VerseRefPart, TouchGrassBi
           VerseRef.bible.KJV[command.verse.book]?.[command.verse.chapter]?.[command.verse.verse] ||
             ""
         );
-        break;
+        return new TGPaletteState(this.app, "", verseListPalette.name, command.verse);
     }
+    return new TGPaletteState(this.app, "", CrossRefsPalette.name, command.verse);
   }
 
   executeCommand(command: VerseRefPart): void {
     if (command.specifity === 3) {
       this.app.MainScreen.verse = command.verse;
-      this.palette.close();
+      this.app.commandPalette.close();
     } else {
-      this.palette.setCategory(this.childtype);
-      this.palette.display(command);
+      this.app.commandPalette.display();
     }
   }
 }
 
 class BibleSearchPalette extends CommandPaletteCategory<VerseRef, TouchGrassBibleApp> {
-  name = "Bible Search";
+  readonly name = "Bible Search";
   icon = Search; // Icon for the category, can be a string or an SVG element
   verses: VerseRef[] = [];
   bible = VerseRef.bible.KJV;
-  childtype: string = CrossRefsPallet.name;
+  childtype: string = CrossRefsPalette.name;
 
-  onTrigger(context?: any): void {
-    this.name = "Bible Search";
+  onTrigger(context: TGPaletteState): void {
+    this.title = "Bible Search";
   }
 
   getCommands(query: string): VerseRef[] {
-    const maxResults = this.palette.maxResults - this.palette.commandItems.length; // Limit the number of results to avoid performance issues
+    const maxResults =
+      this.app.commandPalette.maxResults - this.app.commandPalette.commandItems.length; // Limit the number of results to avoid performance issues
     if (!query) return [];
 
     const results: VerseRef[] = [];
@@ -302,44 +350,48 @@ class BibleSearchPalette extends CommandPaletteCategory<VerseRef, TouchGrassBibl
     return results;
   }
 
-  renderCommand(verse: VerseRef, Item: CommandPaletteItem<VerseRef>): void {
+  renderCommand(
+    verse: VerseRef,
+    Item: CommandPaletteItem<VerseRef, TouchGrassBibleApp>
+  ): TGPaletteState {
     Item.setTitle(verse.toString().toTitleCase())
       .setDescription(VerseRef.bible.KJV[verse.book]?.[verse.chapter]?.[verse.verse] || "")
       .setSubsearch(true)
       .setHidden(false);
+    return new TGPaletteState(this.app, "", null, verse);
   }
 
   executeCommand(command: VerseRef): void {
     this.app.MainScreen.verse = command;
-    this.palette.close();
+    this.app.commandPalette.close();
   }
 }
 
-class topicListPallet extends CommandPaletteCategory<VerseRef | string, TouchGrassBibleApp> {
+class topicListPalette extends CommandPaletteCategory<VerseRef | string, TouchGrassBibleApp> {
   topics: string[] | VerseRef[] = [];
-  name = "Topics"; // Name of the category
+  readonly name = "Topics"; // Name of the category
   icon = Library; // Icon for the category, can be a string or an SVG element
-  childtype: string = topicListPallet.name;
+  childtype: string = topicListPalette.name;
 
-  onTrigger(context?: any): void {
-    this.name = "Topics";
-    if (typeof context === "string" && context.startsWith("topic:")) {
-      const topic = context.slice(6); // Remove "topic:" prefix
+  onTrigger(context: TGPaletteState): void {
+    this.title = "Topics";
+    if (context.topic) {
+      const { topic } = context; // Get the topic from the context
       this.topics = VerseRef.topics[topic].map(OSIS => VerseRef.fromOSIS(OSIS[0] as string));
-      this.name = `Topic: ${topic.toTitleCase()}`;
+      this.title = `Topic: ${topic.toTitleCase()}`;
     } else {
       this.topics = Object.keys(VerseRef.topics).map(topic => `topic:${topic.toLowerCase()}`);
-      this.name = "Topics";
+      this.title = "Topics";
     }
   }
 
   getCommands(query: string): (VerseRef | string)[] {
     if (typeof this.topics[0] === "string") {
       if (!query) return [];
-      this.childtype = CrossRefsPallet.name;
-      return this.getcompatible(query, this.topics as string[], topic => topic.slice(6));
+      this.childtype = CrossRefsPalette.name;
+      return this.getcompatible(query, this.topics as string[], topic => topic);
     } else {
-      this.childtype = topicListPallet.name;
+      this.childtype = topicListPalette.name;
       return this.getcompatible(
         query,
         this.topics as VerseRef[],
@@ -349,29 +401,38 @@ class topicListPallet extends CommandPaletteCategory<VerseRef | string, TouchGra
     }
   }
 
-  renderCommand(command: VerseRef | string, Item: CommandPaletteItem<VerseRef | string>): void {
+  renderCommand(
+    command: VerseRef | string,
+    Item: CommandPaletteItem<VerseRef | string, TouchGrassBibleApp>
+  ): TGPaletteState {
     if (typeof command === "string") {
-      Item.setTitle(command.slice(6).toTitleCase()).setSubsearch(true);
+      Item.setTitle(command.toTitleCase()).setSubsearch(true);
+      return new TGPaletteState(this.app, "", topicListPalette.name, command);
     } else {
       Item.setTitle(command.toString().toTitleCase())
         .setDescription(VerseRef.bible.KJV[command.book]?.[command.chapter]?.[command.verse] || "")
         .setSubsearch(true);
+      return new TGPaletteState(this.app, "", CrossRefsPalette.name, command);
     }
   }
 
   executeCommand(command: VerseRef | string): void {
     if (typeof command === "string") {
-      this.palette.display(command);
+      this.app.commandPalette.display();
     } else {
       this.app.MainScreen.verse = command;
-      this.palette.close();
+      this.app.commandPalette.close();
     }
   }
 }
 
+class TGCommandPalette extends CommandPalette<TouchGrassBibleApp> {
+  state: TGPaletteState = new TGPaletteState(app, "", null, new VerseRef("GENESIS", 1, 1));
+}
+
 declare const processstart: number;
 class TouchGrassBibleApp extends App {
-  settings: RealBibleAppSettings;
+  settings: TGAppSettings;
   commandPalette: CommandPalette<TouchGrassBibleApp>;
   MainScreen: VerseScreen;
 
@@ -403,11 +464,11 @@ class TouchGrassBibleApp extends App {
       }
     });
 
-    this.commandPalette = new CommandPalette(this);
-    this.commandPalette.addPalette(verseListPallet);
-    this.commandPalette.addPalette(CrossRefsPallet);
+    this.commandPalette = new TGCommandPalette(this);
+    this.commandPalette.addPalette(verseListPalette);
+    this.commandPalette.addPalette(CrossRefsPalette);
     this.commandPalette.addPalette(GoToVersePalette);
-    this.commandPalette.addPalette(topicListPallet);
+    this.commandPalette.addPalette(topicListPalette);
     this.commandPalette.addPalette(BibleSearchPalette);
 
     this.console.log(new Date().getTime() - processstart, "ms startup time");

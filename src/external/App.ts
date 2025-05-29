@@ -26,6 +26,7 @@ abstract class App {
   console: BrowserConsole;
   contentEl: HTMLElement;
   private historyStack: AppHistory[] = [];
+  abstract commandPalette: CommandPalette<App>;
 
   constructor(private doc: Document, private _title: string) {
     this.console = new BrowserConsole(true, `${this._title || "App"}:`);
@@ -43,9 +44,18 @@ abstract class App {
         e.returnValue = ""; // Modern browsers require this for prompt
       }
     });
-
     // Handle browser history navigation
     window.addEventListener("popstate", this.handlePopState.bind(this));
+  }
+  getPaletteByName(name: string): CommandPaletteCategory<any, this> | null {
+    const category = this.commandPalette
+      .getcategories()
+      .find(cat => cat.constructor.name === name) as CommandPaletteCategory<any, this>;
+    if (!category) {
+      this.console.error(`Category "${name}" not found`);
+      return null;
+    }
+    return category;
   }
 
   /**

@@ -1,6 +1,6 @@
 import { VerseRef } from "./VerseRef";
 
-export interface RealBibleAppSettings {
+export interface TGAppSettings {
   enableLogging: boolean;
   debug: boolean;
   reset: boolean;
@@ -16,7 +16,7 @@ export interface RealBibleAppSettings {
   workspaces: { currentVerses: VerseRef[] };
 }
 
-export const DEFAULT_SETTINGS: RealBibleAppSettings = {
+export const DEFAULT_SETTINGS: TGAppSettings = {
   enableLogging: true,
   debug: false,
   reset: false,
