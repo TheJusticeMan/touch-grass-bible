@@ -2,7 +2,7 @@ import "./MyHTML";
 import "./AppComp.css";
 export abstract class BaseComponent {
   disabled: boolean;
-  then(cb: (component: this) => any): this {
+  then(cb: (component: this) => void): this {
     cb(this);
     return this;
   }
@@ -139,8 +139,8 @@ export class Setting {
   controlEl: HTMLElement;
   components: BaseComponent[] = [];
   constructor(containerEl: HTMLElement) {
-    this.settingEl = containerEl.createEl("div", { cls: "setting-item" }, (setEl) => {
-      this.infoEl = setEl.createEl("div", { cls: "setting-item-info" }, (inEl) => {
+    this.settingEl = containerEl.createEl("div", { cls: "setting-item" }, setEl => {
+      this.infoEl = setEl.createEl("div", { cls: "setting-item-info" }, inEl => {
         this.nameEl = inEl.createEl("div", { cls: "setting-item-name" });
         this.descEl = inEl.createEl("div", { cls: "setting-item-description" });
       });
@@ -178,7 +178,7 @@ export class Setting {
   }
   setDisabled(disabled: boolean): this {
     this.settingEl.classList.toggle("disabled", disabled);
-    this.components.forEach((component) => component.setDisabled(disabled));
+    this.components.forEach(component => component.setDisabled(disabled));
     return this;
   }
   addButton(cb: (component: ButtonComponent) => any): this {

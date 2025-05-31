@@ -1,5 +1,6 @@
 import "./App.css";
 import { CommandPalette, CommandPaletteCategory, CommandPaletteItem } from "./CommandPalette";
+import { ETarget } from "./Event";
 import { Highlighter } from "./highlighter";
 import { BrowserConsole } from "./MyBrowserConsole";
 import { DomElementInfo } from "./MyHTML";
@@ -16,19 +17,47 @@ export {
   ScreenView,
 };
 
-export interface AppHistory {
-  name: string;
-  time: Date;
-  data: any;
-}
+export class AppState {
+  constructor(public name: string = "", public time: Date = new Date()) {}
 
-abstract class App {
+  // Creates a new AppHistory with updated properties
+  update(partial: Partial<AppState>): AppState {
+    return Object.assign(Object.create(this), this, partial, { time: new Date() });
+  }
+}
+/**
+ * Abstract base class representing a browser-based application shell.
+ *
+ * Provides core functionality for managing application lifecycle, history navigation,
+ * command palette integration, and persistent storage. Subclasses should implement
+ * abstract methods to define specific app behavior.
+ *
+ * @template App - The concrete application type extending this class.
+ *
+ * @remarks
+ * - Handles DOMContentLoaded and beforeunload events for app initialization and exit.
+ * - Manages a custom history stack synchronized with the browser's history API.
+ * - Integrates with a command palette system for extensible command categories.
+ * - Provides utility methods for saving/loading data to localStorage and fetching JSON.
+ *
+ * @example
+ * ```typescript
+ * class MyApp extends App {
+ *   commandPalette = new MyCommandPalette();
+ *   onHistoryPop(entry: AppHistory) { ... }
+ *   onunload() { ... }
+ * }
+ * ```
+ */
+abstract class App extends ETarget {
   console: BrowserConsole;
   contentEl: HTMLElement;
-  private historyStack: AppHistory[] = [];
+  private historyStack: AppState[] = [];
+  state: AppState = new AppState();
   abstract commandPalette: CommandPalette<App>;
 
   constructor(private doc: Document, private _title: string) {
+    super();
     this.console = new BrowserConsole(true, `${this._title || "App"}:`);
     this.console.header("color:#f0f; font-size:40px; font-weight:bold;");
     this.contentEl = this.doc.body.createEl("div", { cls: "AppShellElement" });
@@ -39,7 +68,7 @@ abstract class App {
 
     // Handle page unload attempts
     window.addEventListener("beforeunload", e => {
-      if (!this.exit()) {
+      if (!this.onunload()) {
         e.preventDefault();
         e.returnValue = ""; // Modern browsers require this for prompt
       }
@@ -47,22 +76,16 @@ abstract class App {
     // Handle browser history navigation
     window.addEventListener("popstate", this.handlePopState.bind(this));
   }
+
   getPaletteByName(name: string): CommandPaletteCategory<any, this> | null {
-    const category = this.commandPalette
-      .getcategories()
-      .find(cat => cat.constructor.name === name) as CommandPaletteCategory<any, this>;
+    const category = this.commandPalette.palettes.find(
+      cat => cat.constructor.name === name
+    ) as CommandPaletteCategory<any, this>;
     if (!category) {
       this.console.error(`Category "${name}" not found`);
       return null;
     }
     return category;
-  }
-
-  /**
-   * Handles page exit logic
-   */
-  private exit(): boolean {
-    return this.unload();
   }
 
   /**
@@ -82,12 +105,11 @@ abstract class App {
   /**
    * Pushes a new history entry
    */
-  historyPush(entry: Partial<AppHistory>) {
-    const historyEntry: AppHistory = {
-      name: entry.name ?? "",
+  historyPush(entry: Partial<AppState>) {
+    const historyEntry: AppState = this.state.update({
+      ...entry,
       time: new Date(),
-      data: entry.data ?? null,
-    };
+    });
     this.historyStack.push(historyEntry);
     history.pushState(historyEntry, "", "");
   }
@@ -98,10 +120,10 @@ abstract class App {
   historyPop() {
     this.historyStack.pop();
     if (this.historyStack.length === 0) {
-      this.exit();
+      this.unload();
       return;
     }
-    this.onHistoryPop(this.historyStack[this.historyStack.length - 1]);
+    this.emit("historypop", this.historyStack[this.historyStack.length - 1]);
   }
 
   /**
@@ -111,16 +133,9 @@ abstract class App {
     this.historyPop();
   }
 
-  async onload() {
-    // Override to initialize app components
-  }
+  abstract onload(): void;
 
-  /**
-   * Called when navigating back in history
-   */
-  abstract onHistoryPop(entry: AppHistory): void;
-
-  abstract onunload?(): boolean;
+  abstract onunload(): boolean;
 
   /**
    * Save data to local storage

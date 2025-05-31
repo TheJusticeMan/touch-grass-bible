@@ -1,14 +1,5 @@
 import { BookShortNames, booksOfTheBible } from "./booksOfTheBible";
 import { Highlighter } from "./external/App";
-//import KJV from "./KJV.json";
-/*
-import CrossRefs from "../processing/crossrefsSample.json";
-import Topics from "../processing/topicsSample.json";
-// */
-/*
-import CrossRefs from "../processing/crossrefs.json";
-import Topics from "../processing/topics.json";
-//*/
 export type bibleData = { [book: string]: string[][] };
 
 export const VerseHighlight: Highlighter = new Highlighter([
@@ -25,15 +16,44 @@ export const VerseSHighlight: Highlighter = new Highlighter([
   { regEXP: /#/gi, cls: "versePBreak", replace: "\u00B6" },
 ]);
 
+export type translation = "KJV";
+/**
+ * Represents a reference to a specific verse in the Bible, including book, chapter, and verse.
+ * Provides utilities for converting between different reference formats (e.g., OSIS),
+ * retrieving verse text and related data, and accessing cross-references and topics.
+ *
+ * Static properties:
+ * - `booksOfTheBible`: List of full book names in canonical order.
+ * - `BookShortNames`: List of short book codes/names corresponding to each book.
+ * - `bible`: Nested object containing Bible text data for each translation.
+ * - `crossRefs`: Mapping of OSIS references to arrays of cross-references.
+ * - `topics`: Mapping of topic names to arrays of verse references.
+ *
+ * Instance properties:
+ * - `book`: The full name of the book.
+ * - `chapter`: The chapter number.
+ * - `verse`: The verse number.
+ *
+ * Methods:
+ * - `text(translation)`: Returns the text of the verse for the given translation.
+ * - `crossRefs()`: Returns an array of `VerseRef` objects that are cross-references for this verse.
+ * - `toOSIS()`: Converts the reference to OSIS format (e.g., "Gen.1.1").
+ * - `toString()`: Returns a human-readable string representation (e.g., "Genesis 1:1").
+ * - `verseData(translation)`: Returns the verse text for the given translation.
+ * - `chapterData(translation)`: Returns all verses in the chapter for the given translation.
+ * - `bookData(translation)`: Returns all chapters and verses in the book for the given translation.
+ *
+ * Static methods:
+ * - `fromOSIS(osis)`: Creates a `VerseRef` from an OSIS string.
+ */
 export class VerseRef {
   static booksOfTheBible: string[] = booksOfTheBible;
   static BookShortNames: string[] = BookShortNames;
-  /* static bible: { [translation: string]: bibleData } = { KJV: KJV as bibleData };
-  static crossRefs = CrossRefs as { [osis: string]: (string | number)[][] };
-  static topics = Topics as { [topic: string]: (string | number)[][] }; */
   static bible: { [translation: string]: bibleData } = {};
   static crossRefs: { [x: string]: never[] };
-  static topics: { [x: string]: any[] };
+  static topics: { [x: string]: string[] };
+  static tags: { [x: string]: string[] } = {};
+  static defaultTranslation: translation = "KJV";
   book: string;
   chapter: number;
   verse: number;
@@ -43,7 +63,7 @@ export class VerseRef {
     this.chapter = chapter;
     this.verse = verse;
   }
-  text(translation: string): string {
+  text(translation: translation): string {
     return VerseRef.bible[translation][this.book]?.[this.chapter]?.[this.verse] || "";
   }
   crossRefs(): VerseRef[] {
@@ -65,13 +85,22 @@ export class VerseRef {
   toString(): string {
     return `${this.book} ${this.chapter}:${this.verse}`;
   }
-  verseData(translation: string): string {
+  verseData(translation: translation): string {
     return VerseRef.bible[translation]?.[this.book]?.[this.chapter]?.[this.verse] || "";
   }
-  chapterData(translation: string): string[] {
+  chapterData(translation: translation): string[] {
     return VerseRef.bible[translation]?.[this.book]?.[this.chapter] || [];
   }
-  bookData(translation: string): string[][] {
+  bookData(translation: translation): string[][] {
     return VerseRef.bible[translation]?.[this.book] || [];
+  }
+  get vTXT(): string {
+    return this.verseData(VerseRef.defaultTranslation);
+  }
+  get cTXT(): string[] {
+    return this.chapterData(VerseRef.defaultTranslation);
+  }
+  get bTXT(): string[][] {
+    return this.bookData(VerseRef.defaultTranslation);
   }
 }

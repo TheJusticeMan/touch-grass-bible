@@ -16,8 +16,9 @@ ServiceWorkerFile[0] = `const VERSION = "${targetVersion}";`;
 writeFileSync("src/web/service-worker.js", ServiceWorkerFile.join("\n"));
 
 const mymetadata = {
-  name: "OpenBible",
-  description: "A Bible study tool for the modern web.",
+  name: "Touch Grass Bible",
+  description:
+    "The bible app that keeps you grounded in the word while letting you into some functionality.",
   version: targetVersion,
   build: new Date().toISOString(),
 };

@@ -1,18 +1,21 @@
 import { App } from "./App";
+import { ETarget } from "./Event";
 import "./screen.css";
 
-export class ScreenView<T extends App> {
+export class ScreenView<T extends App> extends ETarget {
   protected header: HTMLElement;
   content: HTMLElement;
   protected titleEl: HTMLElement;
   constructor(element: HTMLElement, protected app: T) {
+    super();
     // Create the main navbar container
     this.header = element.createEl("div", { cls: "navbar" }, el => {
       this.titleEl = el.createEl("div", {
         cls: "navBarTitle",
         text: "Touch Grass Bible",
       });
-      el.addEventListener("click", this.ontitleclick.bind(this));
+      el.addEventListener("contextmenu", e => this.emit("menuclick", e), true);
+      el.addEventListener("click", e => this.emit("titleclick", e));
     });
 
     // Create main content area
@@ -24,11 +27,6 @@ export class ScreenView<T extends App> {
     return this.app.title;
   }
 
-  onmenuclick(callback: (e: MouseEvent) => void): this {
-    this.header.addEventListener("contextmenu", callback, true);
-    return this;
-  }
-
   set title(value: string) {
     this.app.title = value;
     this.titleEl.textContent = value;
@@ -37,10 +35,5 @@ export class ScreenView<T extends App> {
   // Getter and setter for the current verse
   update(): void {
     this.content.empty();
-  }
-
-  ontitleclick(callback: (e: MouseEvent) => void): this {
-    this.header.addEventListener("click", callback);
-    return this;
   }
 }
