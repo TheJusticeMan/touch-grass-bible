@@ -13,7 +13,8 @@ export interface TGAppSettings {
     Font: string;
     fontSize: number;
   };
-  workspaces: { currentVerses: VerseRef[] };
+  Bookmarks: { [key: string]: string[] };
+  History: { [key: number]: string[] };
 }
 
 export const DEFAULT_SETTINGS: TGAppSettings = {
@@ -29,14 +30,15 @@ export const DEFAULT_SETTINGS: TGAppSettings = {
     Font: "Fontserif",
     fontSize: 16,
   },
-  workspaces: {
-    currentVerses: [
-      new VerseRef("GENESIS", 1, 1),
-      new VerseRef("JOHN", 3, 16),
-      new VerseRef("PSALMS", 23, 2),
-      new VerseRef("1 CORINTHIANS", 13, 4),
-      new VerseRef("PHILIPPIANS", 4, 13),
-      new VerseRef("ROMANS", 8, 28),
+  Bookmarks: {
+    "Start Up Verses": [
+      new VerseRef("GENESIS", 1, 1).toOSIS(),
+      new VerseRef("JOHN", 3, 16).toOSIS(),
+      new VerseRef("PSALMS", 23, 2).toOSIS(),
+      new VerseRef("1 CORINTHIANS", 13, 4).toOSIS(),
+      new VerseRef("PHILIPPIANS", 4, 13).toOSIS(),
+      new VerseRef("ROMANS", 8, 28).toOSIS(),
     ],
   },
+  History: {},
 };

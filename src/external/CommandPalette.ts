@@ -1,69 +1,67 @@
-import { ChevronRight, ChevronsDownUp, ChevronsUpDown, IconNode, Library, X } from "lucide";
+import levenshtein from "js-levenshtein";
+import { ChevronRight, ChevronsDownUp, ChevronsUpDown, Library, X } from "lucide";
 import { App, Highlighter } from "./App";
 import "./CommandPalette.css";
-import levenshtein from "js-levenshtein";
+import { ETarget } from "./Event";
 
 type inputMode = "none" | "text" | "decimal" | "numeric" | "tel" | "search" | "email" | "url";
 
 /**
- * Abstract base class for implementing a Command Palette UI component.
+ * Abstract base class for a unified command palette UI component.
  *
- * The CommandPalette provides a searchable, navigable interface for executing commands,
- * switching contexts, and managing categories of commands within an application.
+ * The `UnifiedCommandPalette` provides a flexible, extensible command palette interface
+ * for applications, supporting categories, keyboard navigation, context stacks, and
+ * dynamic command filtering. It manages the UI lifecycle, user input, and command execution.
  *
- * @template AppType - The application type, extending the base App class.
+ * @typeParam AppType - The application type, extending `App`, that this palette is bound to.
+ *
+ * @template AppType
+ * @extends ETarget
  *
  * @remarks
- * - Handles UI rendering, keyboard navigation, category management, and context stack.
- * - Supports dynamic command filtering, submenus, and mobile viewport adjustments.
- * - Designed to be extended for specific application needs.
+ * - Supports multiple command categories and dynamic context switching.
+ * - Handles keyboard and mouse/touch navigation.
+ * - Maintains a stack of contexts for back navigation.
+ * - Designed to be subclassed with concrete implementations of `state`.
  *
- * @typeParam AppType - The application type, must extend App.
- *
- * @property state - The current state of the command palette.
- * @property isOpen - Indicates whether the palette is currently open.
+ * @property state - The current state of the command palette (must be implemented by subclass).
+ * @property isOpen - Whether the palette is currently open.
  * @property inputMode - The current input mode for the search field.
- * @property length - The number of command items currently available.
+ * @property length - The number of command items currently displayed.
+ * @property topCategory - The currently active top-level command category.
  *
- * @constructor
- * @param app - The application instance.
- *
- * @method addPalette - Adds a new command category (palette) to the palette.
+ * @method addPalette - Adds a command category (by constructor or instance).
+ * @method addPalettereturns - Adds a command category and returns the instance.
  * @method open - Opens the command palette with an optional context.
- * @method close - Closes the command palette and resets state.
- * @method handleBack - Navigates back in the context stack or closes the palette.
+ * @method display - Displays the palette UI for a given context.
+ * @method close - Closes the palette and cleans up UI.
  *
  * @protected
- * @method display - Renders the palette UI for a given context.
- * @method render - Filters and displays commands based on the current query and context.
+ * @method render - Renders the command list based on the current state and query.
  * @method moveSelection - Moves the keyboard selection up or down.
  * @method selectIndex - Selects a command item by index.
  * @method updateSelection - Updates the UI to reflect the current selection.
- * @method activateSelected - Executes the currently selected command.
+ * @method activateSelected - Activates the currently selected command.
  *
- * @private
- * @method handleScroll - Handles scroll events for loading more results.
- * @method handleOutsideClick - Handles clicks outside the palette to close it.
- * @method handleMobileResize - Adjusts the palette for mobile viewport changes.
- * @method gosubmenu - Navigates to a submenu for a command item.
- * @method checkclose - Cleans up and removes the palette from the DOM.
+ * @event open - Emitted when the palette is opened.
+ * @event display - Emitted when the palette is displayed with a new state.
+ * @event close - Emitted when the palette is closed.
  *
  * @example
- * // Example usage in an application:
- * class MyCommandPalette extends CommandPalette<MyApp> {
- *   // Implement abstract members and add custom palettes
+ * class MyCommandPalette extends UnifiedCommandPalette<MyApp> {
+ *   state = new MyCommandPaletteState();
  * }
  */
-export abstract class CommandPalette<AppType extends App> {
+export abstract class UnifiedCommandPalette<AppType extends App> extends ETarget {
   abstract state: CommandPaletteState<AppType>; // State of the command palette
-  private categories: CommandPaletteCategory<any, AppType>[] = [];
+  private categories: CommandCategory<any, AppType>[] = [];
   private containerEl: HTMLElement | null = null;
 
   private paletteEl!: HTMLElement;
   private searchInputEl!: HTMLInputElement;
   private contentEl!: HTMLElement;
 
-  private commandItems: CommandPaletteItem<any, AppType>[] = [];
+  private commandItems: CommandItem<any, AppType>[] = [];
   private selectedIndex = -1;
   private selectedEl: HTMLElement;
   private contexts: CommandPaletteState<AppType>[] = []; // Stack of contexts for back navigation
@@ -76,26 +74,33 @@ export abstract class CommandPalette<AppType extends App> {
     return this.commandItems.length;
   }
 
-  constructor(private app: AppType) {
-    this.app.console.log("CommandPalette initialized");
-    this.addPalette(ListOfPalettes); // Add default category for listing all palettes
+  get topCategory(): CommandCategory<any, AppType> {
+    return this.categories.find(cat => cat.constructor === this.state.topCategory) || this.categories[0];
   }
 
-  get palettes(): CommandPaletteCategory<any, AppType>[] {
+  constructor(private app: AppType) {
+    super();
+    this.app.console.log("CommandPalette initialized");
+    this.addPalette(CategoryNavigator); // Add default category for listing all palettes
+    this.on("keydown", this.handleKey);
+    this.on("historypop", this.handleBack);
+  }
+
+  get palettes(): CommandCategory<any, AppType>[] {
     return this.categories.slice(1); // Exclude the ListOfPalettes category
   }
 
   // Add category (class constructor or instance)
-  addPalette<T extends CommandPaletteCategory<any, AppType>>(
-    category: new (app: AppType, palette: CommandPalette<AppType>) => T | T
+  addPalette<T extends CommandCategory<any, AppType>>(
+    category: new (app: AppType, palette: UnifiedCommandPalette<AppType>) => T | T
   ) {
     const instance = typeof category === "function" ? new category(this.app, this) : category;
     this.categories.push(instance);
     return this;
   }
 
-  addPalettereturns<T extends CommandPaletteCategory<any, AppType>>(
-    category: new (app: AppType, palette: CommandPalette<AppType>) => T | T
+  addPalettereturns<T extends CommandCategory<any, AppType>>(
+    category: new (app: AppType, palette: UnifiedCommandPalette<AppType>) => T | T
   ) {
     const instance = typeof category === "function" ? new category(this.app, this) : category;
     this.categories.push(instance);
@@ -104,6 +109,7 @@ export abstract class CommandPalette<AppType extends App> {
 
   // Open and initialize palette UI
   open(context: Partial<CommandPaletteState<AppType>> = {}) {
+    this.emit("open", context);
     this.app.console.log("Opening Command Palette with context:", context);
     this.contexts = [];
     this.defaultContext = context;
@@ -113,9 +119,8 @@ export abstract class CommandPalette<AppType extends App> {
 
   display(context: Partial<CommandPaletteState<AppType>> = {}) {
     this.state = this.state.update(context);
-    this.app.historyPush({
-      name: "Command Palette",
-    });
+    this.emit("display", this.state);
+    this.app.historyPush({ name: "Command Palette" });
     this.contexts.push(this.state);
     this.inputMode = "search";
     this.checkclose();
@@ -133,7 +138,7 @@ export abstract class CommandPalette<AppType extends App> {
       el.setIcon(Library);
       el.addEventListener("click", e => {
         e.stopPropagation(); // Prevent bubbling to document
-        this.display({ _topCategory: "" }); // Show the list at the top level
+        this.display({ topCategory: null }); // Show the list at the top level
       });
     });
 
@@ -159,7 +164,7 @@ export abstract class CommandPalette<AppType extends App> {
     this.searchInputEl = this.paletteEl.createEl(
       "input",
       {
-        placeholder: "Search commands...",
+        placeholder: `Search ${this.state.topCategory ? this.topCategory.title : "all"}...`,
         type: "search",
         cls: "palette-search",
       },
@@ -170,46 +175,6 @@ export abstract class CommandPalette<AppType extends App> {
           this.state.query = el.value;
           this.state.maxResults = this.maxResults;
           this.render();
-        });
-
-        // Keyboard navigation
-        el.addEventListener("keydown", e => {
-          e.stopPropagation(); // Prevent bubbling to document
-          const key =
-            (e.metaKey ? "Meta+" : "") + // Meta is the command key on macOS, Windows key on Windows, and Super key on Linux
-            (e.ctrlKey ? "Ctrl+" : "") +
-            (e.altKey ? "Alt+" : "") +
-            (e.shiftKey ? "Shift+" : "") +
-            e.key;
-          switch (key) {
-            case "ArrowDown":
-              e.preventDefault();
-              this.moveSelection(1);
-              break;
-            case "ArrowUp":
-              e.preventDefault();
-              this.moveSelection(-1);
-              break;
-            case "Enter":
-              e.preventDefault();
-              this.activateSelected();
-              break;
-            case "Escape":
-              e.preventDefault();
-              this.close();
-              break;
-            case "ArrowRight":
-            case "Tab":
-              e.preventDefault();
-              this.gosubmenu(this.commandItems[this.selectedIndex]);
-              break;
-            case "ArrowLeft":
-            case "Shift+Tab":
-              e.preventDefault();
-              this.contexts.pop();
-              this.display(this.contexts.pop() || this.defaultContext); // Open previous context
-              break;
-          }
         });
       }
     );
@@ -250,7 +215,34 @@ export abstract class CommandPalette<AppType extends App> {
     }
   };
 
-  private gosubmenu(command: CommandPaletteItem<any, AppType>) {
+  private handleKey = (e: { key: string }) => {
+    const key = e.key;
+    switch (key) {
+      case "ArrowDown":
+        this.moveSelection(1);
+        break;
+      case "ArrowUp":
+        this.moveSelection(-1);
+        break;
+      case "Enter":
+        this.activateSelected();
+        break;
+      case "Escape":
+        this.close();
+        break;
+      case "ArrowRight":
+      case "Tab":
+        this.EnterContextFromCommand(this.commandItems[this.selectedIndex]);
+        break;
+      case "ArrowLeft":
+      case "Shift+Tab":
+        this.contexts.pop();
+        this.display(this.contexts.pop() || this.defaultContext); // Open previous context
+        break;
+    }
+  };
+
+  private EnterContextFromCommand(command: CommandItem<any, AppType>) {
     this.display(command.toState);
   }
 
@@ -276,10 +268,11 @@ export abstract class CommandPalette<AppType extends App> {
       this.containerEl.remove();
       this.containerEl = null;
     }
-    this.state = this.state.update({ query: "", maxResults: 100, _topCategory: "" });
+    this.state = this.state.update({ query: "", maxResults: 100, topCategory: null });
     this.contexts = [];
     this.isOpen = false;
     document.removeEventListener("click", this.handleOutsideClick);
+    this.emit("close", this.state);
   }
 
   // Filter and show commands based on query
@@ -297,7 +290,7 @@ export abstract class CommandPalette<AppType extends App> {
     this.commandItems = [];
     this.selectedIndex = 0;
     const categoriesToShow = state.topCategory
-      ? [state.topCategory, ...this.categories.filter(cat => cat !== state.topCategory)]
+      ? [this.topCategory, ...this.categories.filter(cat => cat.constructor !== state.topCategory)]
       : this.categories;
 
     categoriesToShow.forEach((cat, index) => {
@@ -305,22 +298,22 @@ export abstract class CommandPalette<AppType extends App> {
       cat.setUp(state);
       const commands = cat.trygetCommands(state.query);
       const catEl = contentEl.createEl("div", { cls: "category" });
-      if (commands.length !== 0 || state.topCategory === cat)
+      if (commands.length !== 0 || state.topCategory === cat.constructor)
         catEl.createEl("div", { text: cat.title, cls: "category-title" }, el =>
           el.addEventListener("click", e => {
             e.stopPropagation();
-            this.display({ _topCategory: cat.constructor.name });
+            this.display({ topCategory: cat.constructor });
           })
         );
 
       for (const command of commands) {
         if (this.commandItems.length > state.maxResults) return;
         const cmdindex = this.commandItems.length;
-        const itemEl = new CommandPaletteItem(this.app, catEl, command, cat)
+        const itemEl = new CommandItem(this.app, catEl, command, cat)
           .onClick(() => cat.tryexecute(command, itemEl.toState))
           .onMouseEnter(() => this.selectIndex(cmdindex))
           .onTouchStart(() => this.selectIndex(cmdindex))
-          .onSubClick(() => this.gosubmenu(this.commandItems[cmdindex]));
+          .onExpandClick(() => this.EnterContextFromCommand(this.commandItems[cmdindex]));
         itemEl.toState = state.update(cat.tryrender(command, itemEl));
         this.commandItems.push(itemEl);
       }
@@ -350,8 +343,7 @@ export abstract class CommandPalette<AppType extends App> {
   }
 
   private activateSelected() {
-    if (this.selectedIndex >= 0 && this.selectedIndex < this.commandItems.length)
-      this.selectedEl.click(); // Trigger click on the selected item
+    if (this.selectedIndex >= 0 && this.selectedIndex < this.commandItems.length) this.selectedEl.click(); // Trigger click on the selected item
   }
 }
 
@@ -361,54 +353,48 @@ export abstract class CommandPalette<AppType extends App> {
  *
  * @typeParam AppType - The type of the application instance.
  */
-export class CommandPaletteState<AppType extends App> {
+export class CommandPaletteState<AppType extends App> extends ETarget {
   maxResults: number = 100; // Maximum results to show
   expanded: boolean = false; // Whether the palette items are expanded
-  topCategory: CommandPaletteCategory<any, App> | null = null; // Top category to display, if any
-  constructor(public app: App, public query: string = "", public _topCategory: string = "") {}
-  update(partial: Partial<CommandPaletteState<AppType>> = {}): CommandPaletteState<AppType> {
-    return Object.assign(Object.create(this), this, partial).updateTopCategory();
+  constructor(public app: App, public query: string = "", public topCategory: Function | null = null) {
+    super();
   }
-  updateTopCategory() {
-    this.topCategory = this._topCategory ? this.app.getPaletteByName(this._topCategory) : null;
-    return this;
+  update(partial: Partial<CommandPaletteState<AppType>> = {}): CommandPaletteState<AppType> {
+    this.emit("update", partial);
+    return Object.assign(Object.create(this), this, partial);
   }
 }
 
 /**
- * Abstract base class representing a category within a command palette.
+ * Abstract base class representing a category of commands for a command palette.
  *
- * This class defines the structure and behavior for command palette categories,
- * including command management, UI integration, highlighting, and error handling.
- * Subclasses must implement abstract methods to provide category-specific logic.
+ * @template T - The type of command handled by this category.
+ * @template AppType - The type of the application context, extending `App`.
  *
- * @typeParam T - The type representing a command in this category.
- * @typeParam AppType - The application type, extending the base `App`.
- *
- * @property name - The unique name of the category (to be implemented by subclass).
- * @property title - The display title for the category, used in the UI.
- * @property icon - The icon representing the category (to be implemented by subclass).
- * @property highlighter - The highlighter instance used for query highlighting.
- * @property hili - The highlight function bound to the highlighter.
- * @property query - The current query string for filtering commands.
- * @property app - The application instance associated with this category.
+ * @property {string} name - The unique name of the command category.
+ * @property {string} title - The display title for the category, used in the UI.
+ * @property {T[]} _commands - The list of commands in this category.
+ * @property {Highlighter} highlighter - The highlighter instance used for highlighting query matches.
+ * @property {Highlighter["highlight"]} hili - The highlight function bound to the highlighter.
+ * @property {string} query - The current query string for filtering commands.
+ * @property {AppType} app - The application context.
  *
  * @constructor
- * @param app - The application instance.
+ * @param {AppType} app - The application context.
  *
  * @method setUp - Initializes the category with the current command palette state and sets up highlighting.
- * @method onTrigger - Abstract method to handle when the category is triggered.
+ * @method onTrigger - Abstract method called when the category is triggered.
  * @method getCommands - Abstract method to retrieve commands matching a query.
- * @method renderCommand - Abstract method to render a command in the UI.
+ * @method renderCommand - Abstract method to render a command item.
  * @method executeCommand - Abstract method to execute a command.
  * @method tryTrigger - Safely triggers the category, catching and logging errors.
  * @method trygetCommands - Safely retrieves commands, catching and logging errors.
  * @method tryrender - Safely renders a command, catching and logging errors.
- * @method tryexecute - Safely executes a command and updates state, catching and logging errors.
+ * @method tryexecute - Safely executes a command, catching and logging errors.
  * @method getcompatible - Filters an array of items by query using provided criteria functions.
- * @method getcompatibleWithLevenshtein - Filters and sorts items by similarity to the query using Levenshtein distance.
+ * @method getcompatibleWithLevenshtein - Filters an array of items by query using Levenshtein distance for fuzzy matching.
  */
-export abstract class CommandPaletteCategory<T, AppType extends App> {
+export abstract class CommandCategory<T, AppType extends App> {
   abstract readonly name: string;
   title: string; // Title for the category, can be used in UI
   protected _commands: T[] = [];
@@ -431,10 +417,7 @@ export abstract class CommandPaletteCategory<T, AppType extends App> {
   }
   abstract onTrigger(state: CommandPaletteState<AppType>): void;
   abstract getCommands(query: string): T[];
-  abstract renderCommand(
-    command: T,
-    el: CommandPaletteItem<T, AppType>
-  ): Partial<CommandPaletteState<AppType>>;
+  abstract renderCommand(command: T, el: CommandItem<T, AppType>): Partial<CommandPaletteState<AppType>>;
   abstract executeCommand(command: T): void;
   tryTrigger(context: CommandPaletteState<AppType>): this {
     this.title = this.name;
@@ -453,7 +436,7 @@ export abstract class CommandPaletteCategory<T, AppType extends App> {
       return [];
     }
   }
-  tryrender(command: T, el: CommandPaletteItem<T, AppType>): Partial<CommandPaletteState<AppType>> {
+  tryrender(command: T, el: CommandItem<T, AppType>): Partial<CommandPaletteState<AppType>> {
     try {
       return this.renderCommand(command, el);
     } catch (e) {
@@ -488,11 +471,7 @@ export abstract class CommandPaletteCategory<T, AppType extends App> {
       )
       .flat();
   }
-  getcompatibleWithLevenshtein<T>(
-    query: string,
-    array: T[],
-    ...criteria: ((item: T) => string)[]
-  ): T[] {
+  getcompatibleWithLevenshtein<T>(query: string, array: T[], ...criteria: ((item: T) => string)[]): T[] {
     if (!query) return array; // Return all items if no query
     const lowerQuery = query.toLowerCase();
     const matchedIndices = new Set<number>();
@@ -514,54 +493,62 @@ export abstract class CommandPaletteCategory<T, AppType extends App> {
 }
 
 /**
- * Represents an item in the command palette UI.
+ * Represents a UI item within a command palette, encapsulating the rendering and interaction logic
+ * for a single command entry.
  *
- * @template T - The type of the command associated with this item.
+ * @template T - The type of the command represented by this item.
  * @template AppType - The type of the application, extending `App`.
  *
- * This class is responsible for rendering and managing a single command palette item,
- * including its title, description, subsearch indicator, and event handlers for user interaction.
+ * @remarks
+ * This class is responsible for creating and managing the DOM elements associated with a command item,
+ * including its title, description, and optional detail section. It provides methods to update the item's
+ * appearance and to attach event handlers for user interactions such as clicks, mouse movements, and touch events.
  *
- * @property el - The root HTML element for the command item.
- * @property infoEl - The container element for the title and description.
- * @property titleEl - The element displaying the command's title.
- * @property descriptionEl - The element displaying the command's description.
- * @property subEl - The element indicating the presence of a subsearch.
- * @property hasSubsearch - Whether this item has a subsearch option.
- * @property toState - The state transition object for the command palette.
- * @property app - The application instance.
- * @property command - The command data associated with this item.
- * @property PaletteCat - The command palette category for this item.
+ * @example
+ * ```typescript
+ * const item = new CommandItem(app, parentEl, command, category)
+ *   .setTitle("My Command")
+ *   .setDescription("Does something useful")
+ *   .setDetail(true)
+ *   .onClick(e => { /* handle click *\/ });
+ * ```
  *
- * @constructor
  * @param app - The application instance.
- * @param parent - The parent HTML element to which this item will be appended.
+ * @param parent - The parent HTML element to which this command item will be appended.
  * @param command - The command data associated with this item.
- * @param PaletteCat - The command palette category for this item.
+ * @param PaletteCat - The command category, used for highlighting and categorization.
  *
- * @method setSubsearch - Sets whether the item has a subsearch and updates the UI.
- * @method setTitle - Sets the title of the command item, with optional highlighting.
- * @method setDescription - Sets the description of the command item, with optional highlighting.
+ * @property el - The root HTML element for this command item.
+ * @property infoEl - The container for the title and description elements.
+ * @property titleEl - The HTML element displaying the command's title.
+ * @property descriptionEl - The HTML element displaying the command's description.
+ * @property detailEl - The HTML element for the detail/expand section.
+ * @property hasDetail - Indicates whether the detail section is visible.
+ * @property toState - The state object for the command palette.
+ *
+ * @method setDetail - Sets the visibility of the detail section.
+ * @method setTitle - Sets the title content, with optional highlighting.
+ * @method setDescription - Sets the description content, with optional highlighting.
  * @method setHidden - Shows or hides the description element.
  * @method onClick - Registers a click event handler for the item.
  * @method onMouseEnter - Registers a mousemove event handler for the item.
  * @method onTouchStart - Registers a touchstart event handler for the item.
- * @method onSubClick - Registers a click event handler for the subsearch element.
+ * @method onExpandClick - Registers a click event handler for the detail/expand section.
  */
-export class CommandPaletteItem<T, AppType extends App> {
+export class CommandItem<T, AppType extends App> {
   el: HTMLElement;
   private infoEl: HTMLElement;
   private titleEl: HTMLElement;
   private descriptionEl: HTMLElement;
-  private subEl: HTMLElement;
-  private hasSubsearch: boolean = false;
+  private detailEl: HTMLElement;
+  private hasDetail: boolean = false;
   toState: CommandPaletteState<AppType>;
 
   constructor(
     private app: AppType,
     parent: HTMLElement,
     public command: T,
-    private PaletteCat: CommandPaletteCategory<T, any>
+    private PaletteCat: CommandCategory<T, any>
   ) {
     this.toState = this.app.commandPalette.state.update({});
     parent.createEl("div", { cls: "command-item" }, itemEl => {
@@ -570,15 +557,15 @@ export class CommandPaletteItem<T, AppType extends App> {
         this.titleEl = infoEl.createEl("div", { cls: "command-title" });
         this.descriptionEl = infoEl.createEl("div", { cls: ["command-description", "hidden"] });
       });
-      this.subEl = itemEl.createEl("div", { cls: "command-subsearch" }, subEl => {
-        subEl.style.display = this.hasSubsearch ? "flex" : "none";
-        subEl.setIcon(ChevronRight);
+      this.detailEl = itemEl.createEl("div", { cls: "command-detail" }, detailEl => {
+        detailEl.style.display = this.hasDetail ? "flex" : "none";
+        detailEl.setIcon(ChevronRight);
       });
     });
   }
-  setSubsearch(hasSubsearch: boolean) {
-    this.hasSubsearch = hasSubsearch;
-    this.subEl.style.display = hasSubsearch ? "flex" : "none";
+  setDetail(hasDetail: boolean) {
+    this.hasDetail = hasDetail;
+    this.detailEl.style.display = hasDetail ? "flex" : "none";
     return this;
   }
   setTitle(title: string | DocumentFragment) {
@@ -586,9 +573,7 @@ export class CommandPaletteItem<T, AppType extends App> {
     return this;
   }
   setDescription(text: string | DocumentFragment) {
-    this.descriptionEl.replaceChildren(
-      typeof text === "string" ? this.PaletteCat.hili(text) : text
-    );
+    this.descriptionEl.replaceChildren(typeof text === "string" ? this.PaletteCat.hili(text) : text);
     return this;
   }
   setHidden(hide: boolean) {
@@ -609,8 +594,8 @@ export class CommandPaletteItem<T, AppType extends App> {
     this.el.addEventListener("touchstart", callback);
     return this;
   }
-  onSubClick(callback: (e?: MouseEvent) => void) {
-    this.subEl?.addEventListener("click", e => {
+  onExpandClick(callback: (e?: MouseEvent) => void) {
+    this.detailEl?.addEventListener("click", e => {
       e.stopPropagation(); // Prevent triggering the main click
       callback(e);
     });
@@ -618,10 +603,10 @@ export class CommandPaletteItem<T, AppType extends App> {
   }
 }
 
-class ListOfPalettes<AppType extends App> extends CommandPaletteCategory<string, AppType> {
+class CategoryNavigator<AppType extends App> extends CommandCategory<string, AppType> {
   readonly name = "Quick Access";
   list: string[] = [];
-  names: { [x: string]: CommandPaletteCategory<any, App> };
+  names: { [x: string]: CommandCategory<any, App> };
 
   onTrigger(context: CommandPaletteState<AppType>): void {
     this.list = this.app.commandPalette.palettes.map(category => category.constructor.name);
@@ -633,71 +618,65 @@ class ListOfPalettes<AppType extends App> extends CommandPaletteCategory<string,
   getCommands(query: string): string[] {
     return this.getcompatible(query, this.list, category => category);
   }
-  renderCommand(
-    command: string,
-    Item: CommandPaletteItem<string, AppType>
-  ): Partial<CommandPaletteState<AppType>> {
-    Item.setTitle(this.names[command].name.toString().toTitleCase()).setSubsearch(false);
+  renderCommand(command: string, Item: CommandItem<string, AppType>): Partial<CommandPaletteState<AppType>> {
+    Item.setTitle(this.names[command].name).setDetail(false);
     //Item.
-    return { _topCategory: this.names[command].constructor.name };
+    return { topCategory: this.names[command].constructor };
   }
   executeCommand(command: string): void {
     this.app.commandPalette.display();
   }
 }
 
-class Command<AppType extends App> {
+export class Command<AppType extends App> {
+  public context: CommandPaletteState<AppType> | null = null; // Context for the command execution
   constructor(
+    public app: AppType,
     public name: string,
     public description: string,
-    public action: (ctx: CommandContext<AppType>) => void,
-    public prerender: (
-      ctx: CommandContext<AppType>
-    ) => Partial<CommandPaletteState<AppType>> = () => ({})
+    public action: (ctx: Command<AppType>) => void = ctx => {},
+    public render: (
+      command: Command<AppType>,
+      item: CommandItem<Command<AppType>, AppType>
+    ) => Partial<CommandPaletteState<AppType>> = (command, item) => {
+      item.setTitle(command.name).setDescription(command.description).setDetail(false);
+      return {};
+    },
+    public onTrigger = () => {},
+    public getCommand: ((quary: string) => boolean) | null = null // Optional method to get the command instance
   ) {}
 }
 
-class CommandContext<AppType extends App> {
-  command: Command<AppType>;
-  item?: CommandPaletteItem<Command<AppType>, AppType>;
-  app: AppType;
-  context: CommandPaletteState<AppType>;
-}
-
-export class RealCommandPaletteCategory<AppType extends App> extends CommandPaletteCategory<
-  Command<AppType>,
-  AppType
-> {
-  readonly name: string = "Real Commands";
+export class DefaultCommandCategory<AppType extends App> extends CommandCategory<Command<AppType>, AppType> {
+  readonly name: string = "Commands";
   commands: Command<AppType>[] = [];
-  bktitle: string;
 
   onTrigger(context: CommandPaletteState<AppType>): void {
-    this.title = this.bktitle;
+    this.commands.forEach(cmd => {
+      try {
+        cmd.onTrigger();
+      } catch (e) {
+        this.app.console.error(`Error in command "${cmd.name}":`, e);
+      }
+    });
   }
 
   getCommands(query: string): Command<AppType>[] {
-    return this.getcompatible(
-      query,
-      this.commands,
-      cmd => cmd.name,
-      cmd => cmd.description
-    );
+    const commands: Command<AppType>[] = [];
+    for (const cmd of this.commands) {
+      cmd.context = this.app.commandPalette.state;
+      if (cmd.getCommand) cmd.getCommand(query) ? commands.push(cmd) : "";
+      else if (cmd.name.toLowerCase().includes(query.toLowerCase())) commands.push(cmd);
+    }
+    return commands;
   }
 
   renderCommand(
     command: Command<AppType>,
-    item: CommandPaletteItem<Command<AppType>, AppType>
+    item: CommandItem<Command<AppType>, AppType>
   ): Partial<CommandPaletteState<AppType>> {
     try {
-      const state = command.prerender({
-        command,
-        item,
-        app: this.app,
-        context: this.app.commandPalette.state,
-      });
-      item.setTitle(command.name).setDescription(command.description).setSubsearch(false);
-      return state;
+      return command.render(command, item);
     } catch (e) {
       this.app.console.error(`Error rendering command "${command.name}":`, e);
       return {};
@@ -705,16 +684,31 @@ export class RealCommandPaletteCategory<AppType extends App> extends CommandPale
   }
 
   executeCommand(command: Command<AppType>): void {
-    command.action({ command, app: this.app, context: this.app.commandPalette.state });
+    try {
+      command.action(command);
+    } catch (e) {
+      this.app.console.error(`Error executing command "${command.name}":`, e);
+    }
   }
 
-  addCommand({ name, description, action, prerender }: Command<AppType>) {
-    this.commands.push(new Command(name, description, action, prerender));
+  addCommand({ name, description, action, render, onTrigger, getCommand }: Partial<Command<AppType>>) {
+    const temp = new Command<AppType>(this.app, "Error", "Error this command is not defined properly");
+    this.commands.push(
+      new Command(
+        this.app,
+        name || temp.name,
+        description || temp.description,
+        action || temp.action,
+        render || temp.render,
+        onTrigger || temp.onTrigger,
+        getCommand || temp.getCommand
+      )
+    );
     return this;
   }
 
-  setTitle(title: string): this {
-    this.bktitle = title;
+  addCommands(commands: Partial<Command<AppType>>[]) {
+    commands.forEach(cmd => this.addCommand(cmd));
     return this;
   }
 }

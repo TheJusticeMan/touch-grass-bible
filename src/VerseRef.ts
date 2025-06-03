@@ -42,6 +42,9 @@ export type translation = "KJV";
  * - `verseData(translation)`: Returns the verse text for the given translation.
  * - `chapterData(translation)`: Returns all verses in the chapter for the given translation.
  * - `bookData(translation)`: Returns all chapters and verses in the book for the given translation.
+ * - `vTXT`: Shortcut for `verseData` using the default translation.
+ * - `cTXT`: Shortcut for `chapterData` using the default translation.
+ * - `bTXT`: Shortcut for `bookData` using the default translation.
  *
  * Static methods:
  * - `fromOSIS(osis)`: Creates a `VerseRef` from an OSIS string.
@@ -52,7 +55,7 @@ export class VerseRef {
   static bible: { [translation: string]: bibleData } = {};
   static crossRefs: { [x: string]: never[] };
   static topics: { [x: string]: string[] };
-  static tags: { [x: string]: string[] } = {};
+  static Bookmarks: { [x: string]: string[] } = {};
   static defaultTranslation: translation = "KJV";
   book: string;
   chapter: number;
@@ -62,6 +65,9 @@ export class VerseRef {
     this.book = book;
     this.chapter = chapter;
     this.verse = verse;
+  }
+  isSame(verse: VerseRef) {
+    return this.book === verse.book && this.chapter === verse.chapter && this.verse === verse.verse;
   }
   text(translation: translation): string {
     return VerseRef.bible[translation][this.book]?.[this.chapter]?.[this.verse] || "";

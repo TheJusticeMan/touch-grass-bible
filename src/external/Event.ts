@@ -18,8 +18,17 @@ export abstract class ETarget {
     return this;
   }
 
+  clear(eventName?: string): this {
+    if (eventName) {
+      delete this.handlers[eventName];
+    } else {
+      this.handlers = {};
+    }
+    return this;
+  }
+
   // Internal method to emit events
-  protected emit(eventName: string, e: any = null) {
+  emit(eventName: string, e: any = null) {
     if (this.handlers[eventName]) {
       for (const handler of this.handlers[eventName]) {
         handler(e);

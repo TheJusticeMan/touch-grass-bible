@@ -1,5 +1,12 @@
 import "./App.css";
-import { CommandPalette, CommandPaletteCategory, CommandPaletteItem } from "./CommandPalette";
+import {
+  Command,
+  CommandCategory,
+  CommandItem,
+  CommandPaletteState,
+  DefaultCommandCategory,
+  UnifiedCommandPalette,
+} from "./CommandPalette";
 import { ETarget } from "./Event";
 import { Highlighter } from "./highlighter";
 import { BrowserConsole } from "./MyBrowserConsole";
@@ -8,16 +15,20 @@ import { ScreenView } from "./screen";
 
 export {
   App,
+  AppState,
   BrowserConsole,
+  Command,
+  CommandCategory,
+  CommandItem,
+  CommandPaletteState,
+  DefaultCommandCategory,
   DomElementInfo,
   Highlighter,
-  CommandPalette,
-  CommandPaletteCategory,
-  CommandPaletteItem,
   ScreenView,
+  UnifiedCommandPalette,
 };
 
-export class AppState {
+class AppState {
   constructor(public name: string = "", public time: Date = new Date()) {}
 
   // Creates a new AppHistory with updated properties
@@ -54,10 +65,19 @@ abstract class App extends ETarget {
   contentEl: HTMLElement;
   private historyStack: AppState[] = [];
   state: AppState = new AppState();
-  abstract commandPalette: CommandPalette<App>;
+  abstract commandPalette: UnifiedCommandPalette<App>;
+  target: ETarget[] = [];
+  /**
+   * Returns the current event target for keyboard and command events.
+   * Falls back to the app instance if the target stack is empty.
+   */
+  get ctarget(): ETarget {
+    return this.target.at(-1) ?? this;
+  }
 
   constructor(private doc: Document, private _title: string) {
     super();
+    this.target.push(this); // Default to the app itself for keyboard events
     this.console = new BrowserConsole(true, `${this._title || "App"}:`);
     this.console.header("color:#f0f; font-size:40px; font-weight:bold;");
     this.contentEl = this.doc.body.createEl("div", { cls: "AppShellElement" });
@@ -65,6 +85,16 @@ abstract class App extends ETarget {
 
     // Bind load to DOMContentLoaded
     document.addEventListener("DOMContentLoaded", () => this.onload());
+    document.addEventListener("keydown", e => {
+      const key =
+        (e.metaKey ? "Meta+" : "") + // Meta is the command key on macOS, Windows key on Windows, and Super key on Linux
+        (e.ctrlKey ? "Ctrl+" : "") +
+        (e.altKey ? "Alt+" : "") +
+        (e.shiftKey ? "Shift+" : "") +
+        e.key;
+      //if (this.ctarget !== this) e.preventDefault(); // Prevent default browser actions for key combinations
+      this.ctarget.emit("keydown", { key, event: e });
+    });
 
     // Handle page unload attempts
     window.addEventListener("beforeunload", e => {
@@ -77,10 +107,10 @@ abstract class App extends ETarget {
     window.addEventListener("popstate", this.handlePopState.bind(this));
   }
 
-  getPaletteByName(name: string): CommandPaletteCategory<any, this> | null {
+  getPaletteByName(name: string): CommandCategory<any, this> | null {
     const category = this.commandPalette.palettes.find(
       cat => cat.constructor.name === name
-    ) as CommandPaletteCategory<any, this>;
+    ) as CommandCategory<any, this>;
     if (!category) {
       this.console.error(`Category "${name}" not found`);
       return null;
@@ -123,7 +153,7 @@ abstract class App extends ETarget {
       this.unload();
       return;
     }
-    this.emit("historypop", this.historyStack[this.historyStack.length - 1]);
+    this.ctarget.emit("historypop", this.historyStack.at(-1));
   }
 
   /**

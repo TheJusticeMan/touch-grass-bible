@@ -91,9 +91,7 @@ declare global {
      * myElement.empty();
      * ```
      */
-    empty<K extends keyof HTMLElementTagNameMap>(
-      this: HTMLElementTagNameMap[K]
-    ): HTMLElementTagNameMap[K];
+    empty<K extends keyof HTMLElementTagNameMap>(this: HTMLElementTagNameMap[K]): HTMLElementTagNameMap[K];
   }
   interface HTMLElement {
     setIcon<K extends keyof HTMLElementTagNameMap>(
@@ -231,8 +229,5 @@ HTMLElement.prototype.setIcon = function <K extends keyof HTMLElementTagNameMap>
 };
 
 String.prototype.toTitleCase = function (this: String): string {
-  return this.toLowerCase()
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
+  return this.toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
 };

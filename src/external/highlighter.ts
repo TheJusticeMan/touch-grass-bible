@@ -108,27 +108,12 @@ export class Highlighter {
   }
 }
 
-// Usage Example
-if (false) {
-  const highlightedFragment = new Highlighter([
-    {
-      regEXP: /\[(.+?)\]/gi,
-      elTag: "i",
-    },
-    {
-      regEXP: /(LORD|God)/gi,
-      elTag: "b",
-    },
-    {
-      regEXP: /^(\d+)/i,
-      elTag: "b",
-      cls: "number-prefix",
-      replace: "$1", // optional, in case you want to adjust displayed text
-    },
-  ]).highlight(
-    "2 And the earth was without form, and void; and darkness [was] upon the face of the deep. And the Spirit of God moved upon the face of the waters."
-  );
-
-  // Append the fragment to the DOM, for example
-  document.body.appendChild(highlightedFragment);
-}
+/**
+ * Example usage:
+ * const highlighter = new Highlighter([
+ *   { regEXP: /\bimportant\b/g, elTag: "strong", cls: "highlight-important" },
+ *   { regEXP: /\bnote\b/g, elTag: "em", cls: "highlight-note" },
+ * ]);
+ * const highlightedFragment = highlighter.highlight("This is an important note.");
+ * document.body.appendChild(highlightedFragment);
+ */
