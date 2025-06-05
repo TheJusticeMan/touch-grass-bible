@@ -2,7 +2,7 @@ import { App } from "./App";
 import { ETarget } from "./Event";
 import "./screen.css";
 
-export class ScreenView<T extends App> extends ETarget {
+export abstract class ScreenView<T extends App> extends ETarget {
   protected header: HTMLElement;
   content: HTMLElement;
   protected titleEl: HTMLElement;
@@ -21,6 +21,8 @@ export class ScreenView<T extends App> extends ETarget {
     // Create main content area
     this.content = element.createEl("div", { cls: "content" });
   }
+
+  abstract onload(): void;
 
   // Getter and setter for the title, synchronized with the app
   get title(): string {

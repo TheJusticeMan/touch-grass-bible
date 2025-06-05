@@ -3,6 +3,7 @@ import { writeFileSync, createWriteStream, unlinkSync, write } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { Open } from "unzipper";
+import { readdirSync, readFileSync } from "fs";
 
 const _dirname = dirname(fileURLToPath(import.meta.url));
 const _dest = "./dest";
@@ -21,8 +22,7 @@ function downloadZip(url, dest) {
   return new Promise((resolve, reject) => {
     const file = createWriteStream(dest);
     get(url, res => {
-      if (res.statusCode !== 200)
-        return reject(new Error(`Failed to get '${url}' (${res.statusCode})`));
+      if (res.statusCode !== 200) return reject(new Error(`Failed to get '${url}' (${res.statusCode})`));
       res.pipe(file);
       file.on("finish", () => file.close(resolve));
     }).on("error", err => reject(err));
@@ -37,9 +37,7 @@ async function unzipFirstFileAsString(zipPath) {
 (async () => {
   try {
     for (const f of files) await downloadZip(f.url, f.path);
-    const [topicsRaw, crossrefsRaw] = await Promise.all(
-      files.map(f => unzipFirstFileAsString(f.path))
-    );
+    const [topicsRaw, crossrefsRaw] = await Promise.all(files.map(f => unzipFirstFileAsString(f.path)));
     const topics = {};
     topicsRaw
       .split("\n")
@@ -66,6 +64,14 @@ async function unzipFirstFileAsString(zipPath) {
     files.forEach(f => unlinkSync(f.path));
     // Use data/data2 as needed
     console.log("Data processing completed successfully.");
+    const translationsDir = "./data/translations";
+    const translationFiles = readdirSync(translationsDir).filter(f => f.endsWith(".json"));
+    const translations = {};
+    translationFiles.forEach(f => {
+      translations[f.replace(/.json/, "")] = JSON.parse(readFileSync(join(translationsDir, f), "utf8"));
+    });
+    writeFileSync(join("./src", "translations.json"), JSON.stringify(translations));
+    console.log(`Loaded ${translations.length} translation files.`);
   } catch (err) {
     console.error("Error:", err);
   }

@@ -36,36 +36,53 @@ class AppState {
     return Object.assign(Object.create(this), this, partial, { time: new Date() });
   }
 }
+
 /**
- * Abstract base class representing a browser-based application shell.
+ * Abstract base class representing the main application shell.
  *
- * Provides core functionality for managing application lifecycle, history navigation,
- * command palette integration, and persistent storage. Subclasses should implement
- * abstract methods to define specific app behavior.
+ * Provides core functionality for event handling, state management,
+ * command palette integration, history navigation, and data persistence.
  *
- * @template App - The concrete application type extending this class.
+ * Subclasses must implement the `onload`, `onunload`, `commandPalette`, and `MainScreen` members.
+ *
+ * @template App - The concrete application type.
+ *
+ * @extends ETarget
+ *
+ * @property {BrowserConsole} console - The application's console for logging and debugging.
+ * @property {HTMLElement} contentEl - The main content element for the application UI.
+ * @property {AppState} state - The current application state.
+ * @property {ETarget[]} target - Stack of event targets for keyboard and command events.
+ * @property {UnifiedCommandPalette<App>} commandPalette - The application's command palette (abstract).
+ * @property {ScreenView<App>} MainScreen - The main screen view of the application (abstract).
+ *
+ * @constructor
+ * @param {Document} doc - The document object for DOM manipulation.
+ * @param {string} _title - The default title of the application.
+ *
+ * @method historyPush - Pushes a new entry onto the application's history stack.
+ * @method historyPop - Pops the latest entry from the application's history stack and navigates back.
+ * @method saveData - Saves application data to local storage.
+ * @method loadData - Loads application data from local storage.
+ * @method loadJSON - Loads and parses JSON data from a given URL.
+ * @method uploadFile - Prompts the user to upload a file and processes its content.
+ * @method downloadFile - Triggers a download of the given data as a JSON file.
+ *
+ * @abstract
+ * @method onload - Called when the application is loaded and ready.
+ * @abstract
+ * @method onunload - Called before the application is unloaded; should return true to allow unload.
  *
  * @remarks
- * - Handles DOMContentLoaded and beforeunload events for app initialization and exit.
- * - Manages a custom history stack synchronized with the browser's history API.
- * - Integrates with a command palette system for extensible command categories.
- * - Provides utility methods for saving/loading data to localStorage and fetching JSON.
- *
- * @example
- * ```typescript
- * class MyApp extends App {
- *   commandPalette = new MyCommandPalette();
- *   onHistoryPop(entry: AppHistory) { ... }
- *   onunload() { ... }
- * }
- * ```
+ * - Handles keyboard events and delegates them to the current event target.
+ * - Integrates with browser history and prevents accidental page unloads.
+ * - Provides utility methods for data import/export and persistence.
  */
 abstract class App extends ETarget {
   console: BrowserConsole;
   contentEl: HTMLElement;
-  private historyStack: AppState[] = [];
-  state: AppState = new AppState();
   abstract commandPalette: UnifiedCommandPalette<App>;
+  abstract MainScreen: ScreenView<App>;
   target: ETarget[] = [];
   /**
    * Returns the current event target for keyboard and command events.
@@ -85,9 +102,9 @@ abstract class App extends ETarget {
 
     // Bind load to DOMContentLoaded
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", () => this.onload());
+      document.addEventListener("DOMContentLoaded", this.load);
     } else {
-      this.onload(); // immediate call if already loaded
+      this.load(); // immediate call if already loaded
     }
     document.addEventListener("keydown", e => {
       const key =
@@ -101,70 +118,19 @@ abstract class App extends ETarget {
     });
 
     // Handle page unload attempts
-    window.addEventListener("beforeunload", e => {
-      if (!this.onunload()) {
-        e.preventDefault();
-        e.returnValue = ""; // Modern browsers require this for prompt
-      }
-    });
+    window.addEventListener("beforeunload", e => this.unload());
     // Handle browser history navigation
-    window.addEventListener("popstate", this.handlePopState.bind(this));
+    window.addEventListener("popstate", () => this.ctarget.emit("historypop", {}));
   }
 
-  getPaletteByName(name: string): CommandCategory<any, this> | null {
-    const category = this.commandPalette.palettes.find(
-      cat => cat.constructor.name === name
-    ) as CommandCategory<any, this>;
-    if (!category) {
-      this.console.error(`Category "${name}" not found`);
-      return null;
-    }
-    return category;
-  }
-
-  /**
-   * Loads or initializes app state
-   */
-  private load() {
-    this.onload();
-  }
-
-  /**
-   * Unload logic, overridable
-   */
-  private unload(): boolean {
-    return this.onunload?.() || true; // Default to true if onunload is not defined
-  }
+  private load = () => this.onload();
+  private unload = (): boolean => this.onunload();
 
   /**
    * Pushes a new history entry
    */
-  historyPush(entry: Partial<AppState>) {
-    const historyEntry: AppState = this.state.update({
-      ...entry,
-      time: new Date(),
-    });
-    this.historyStack.push(historyEntry);
-    history.pushState(historyEntry, "", "");
-  }
-
-  /**
-   * Pops the latest history entry and navigates back
-   */
-  historyPop() {
-    this.historyStack.pop();
-    if (this.historyStack.length === 0) {
-      this.unload();
-      return;
-    }
-    this.ctarget.emit("historypop", this.historyStack.at(-1));
-  }
-
-  /**
-   * Handles the browser's back/forward navigation
-   */
-  private handlePopState() {
-    this.historyPop();
+  historyPush() {
+    history.pushState({ time: new Date() }, "", "");
   }
 
   abstract onload(): void;
@@ -172,16 +138,19 @@ abstract class App extends ETarget {
   abstract onunload(): boolean;
 
   /**
-   * Save data to local storage
+   * Saves the provided data object to localStorage under the key "app-data".
+   *
+   * @param data - An object containing key-value pairs representing application settings to be saved.
+   * @returns A promise that resolves when the data has been saved.
    */
-  async saveData(data: any) {
+  async saveData(data: { [setting: string]: any }) {
     localStorage.setItem("app-data", JSON.stringify(data));
   }
 
   /**
    * Load data from local storage
    */
-  async loadData(): Promise<any> {
+  async loadData(): Promise<{ [setting: string]: any }> {
     const dataStr = localStorage.getItem("app-data");
     return Promise.resolve(dataStr ? JSON.parse(dataStr) : {});
   }
@@ -203,10 +172,23 @@ abstract class App extends ETarget {
     this.doc.title = value || this._title;
   }
 
+  /**
+   * Loads JSON data from a given URL
+   * @param url - The URL to fetch JSON data from
+   * @returns A promise that resolves to the parsed JSON data
+   */
   async loadJSON<T>(url: string): Promise<T> {
     const response = await fetch(url);
     return response.json() as Promise<T>;
   }
+
+  /**
+   * Prompts the user to upload a file and processes its content
+   * @param accept - The file types to accept (e.g., ".json")
+   * @param onFileContent - Callback function to handle the file content
+   * @param onError - Optional callback for error handling
+   * @param onWarn - Optional callback for warnings
+   */
   async uploadFile(
     accept: string,
     onFileContent: (content: any) => void,
@@ -244,6 +226,12 @@ abstract class App extends ETarget {
 
     input.click();
   }
+
+  /**
+   * Downloads a JSON file with the given filename and data
+   * @param filename - The name of the file to download
+   * @param data - The data to include in the file
+   */
   downloadFile(filename: string, data: any): void {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
     const downloadAnchorNode = document.createElement("a");

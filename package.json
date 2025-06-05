@@ -1,6 +1,6 @@
 {
   "name": "touch-grass-bible",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "The bible app that keeps you grounded in the word while letting you into some functionality.",
   "keywords": [
     "bible",
@@ -27,7 +27,7 @@
     "dev": "node esbuild.config.mjs",
     "build": "npm run getdatafiles && node esbuild.config.mjs production",
     "init": "npm install",
-    "getdatafiles": "node ./processing/online.mjs && cp src/KJV.json dest",
+    "getdatafiles": "node ./processing/online.mjs && cp src/translations.json dest",
     "build:web": "mkdir -p ./dest && npm run build && cp src/web/* dest",
     "clean": "rm ./dest/*",
     "ai": "node ./processing/filetochat.mjs"

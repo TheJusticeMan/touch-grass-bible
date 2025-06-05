@@ -4,6 +4,7 @@ import { App, Highlighter } from "./App";
 import "./CommandPalette.css";
 import { ETarget } from "./Event";
 import { escapeRegExp } from "./escapeRegExp";
+import { translation } from "../VerseRef";
 
 type inputMode = "none" | "text" | "decimal" | "numeric" | "tel" | "search" | "email" | "url";
 
@@ -77,20 +78,27 @@ export abstract class UnifiedCommandPalette<AppType extends App> extends ETarget
     this.on("historypop", this.handleBack);
   }
 
-  prompt(text: string): Promise<string> {
-    let resolveFn: (value: string) => void;
-    const promptPromise = new Promise<string>(resolve => {
+  prompt(text: string): Promise<string | null> {
+    let resolveFn: (value: string | null) => void;
+    const resOnClose = () => resolveFn(null);
+    const promptPromise = new Promise<string | null>(resolve => {
       resolveFn = resolve;
     });
     this.categories.push(
-      new PromptCategory(this.app, (text: string) => {
+      new PromptCategory(this.app, (text: string | null) => {
         resolveFn(text);
         this.categories.pop(); // Remove the prompt category after resolving
+        this.off("close", resOnClose); // Remove the close handler
         this.close(); // Close the palette after resolving
       })
     );
     this.display({ query: text, topCategory: PromptCategory });
+    this.on("close", resOnClose); // Ensure the prompt category is removed on close
     return promptPromise;
+  }
+
+  confirm(text: string): Promise<boolean> {
+    return this.prompt(text).then(result => result !== null);
   }
 
   get length(): number {
@@ -137,7 +145,7 @@ export abstract class UnifiedCommandPalette<AppType extends App> extends ETarget
   display(context: Partial<CommandPaletteState<AppType>> = {}) {
     this.state = this.state.update(context);
     this.emit("display", this.state);
-    this.app.historyPush({ name: "Command Palette" });
+    this.app.historyPush();
     this.contexts.push(this.state);
     this.inputMode = "search";
     this.checkclose();
@@ -390,6 +398,7 @@ export abstract class UnifiedCommandPalette<AppType extends App> extends ETarget
 export class CommandPaletteState<AppType extends App> extends ETarget {
   maxResults: number = 100; // Maximum results to show
   expanded: boolean = false; // Whether the palette items are expanded
+  defaultTranslation: translation = "KJV"; // Default translation for Bible references
   constructor(public app: App, public query: string = "", public topCategory: Function | null = null) {
     super();
   }
@@ -753,7 +762,7 @@ class PromptCategory<AppType extends App> extends CommandCategory<string, AppTyp
   readonly name = "Prompt";
   private prompt: string = "";
 
-  constructor(public app: AppType, private cb: (prompt: string) => void = () => {}) {
+  constructor(public app: AppType, private cb: (prompt: string | null) => void = () => {}) {
     super(app);
   }
 
@@ -773,12 +782,10 @@ class PromptCategory<AppType extends App> extends CommandCategory<string, AppTyp
   executeCommand(command: string): void {
     if (command === "Ok") {
       this.app.console.log("Prompt accepted:", this.prompt);
-      // Handle the prompt acceptance logic here
       this.cb(this.prompt);
     } else if (command === "Cancel") {
       this.app.console.log("Prompt cancelled");
-      // Handle the prompt cancellation logic here
-      this.cb("");
+      this.cb(null);
     }
   }
 }

@@ -3,9 +3,7 @@ import { VerseRef } from "./VerseRef";
 export type OSISString = string; // e.g., "JOHN.3.16"
 
 type BibleTopicReference = [OSISString, number];
-export type BibleTopicsType = {
-  [topic: string]: BibleTopicReference[];
-};
+export type BibleTopicsType = { [topic: string]: BibleTopicReference[] };
 
 const BibleTopicsExmp: BibleTopicsType = {
   "666": [
@@ -34,127 +32,117 @@ const BibleTopicsExmp: BibleTopicsType = {
   ],
 };
 
+/**
+ * Manages a collection of Bible topics, each associated with a set of verse references and optional ratings.
+ *
+ * The `BibleTopics` class allows you to add, retrieve, update, and remove topics and their associated verse references.
+ * Each topic is mapped to a set of verse references (in OSIS string format) with an optional numeric rating.
+ *
+ * @example
+ * ```typescript
+ * const topics = new BibleTopics(initialData);
+ * topics.add("Faith", new VerseRef("HEBREWS", 11, 1));
+ * const verses = topics.get("Faith");
+ * ```
+ *
+ * @remarks
+ * - Topics are stored as a map from topic names to a map of OSIS strings and ratings.
+ * - Ratings default to 0 when not specified.
+ * - Provides methods for serialization and deserialization via `toJSON`.
+ *
+ * @typeParam OSISString - The string type representing OSIS verse references.
+ * @typeParam BibleTopicsType - The type representing the structure of the topics data.
+ * @typeParam VerseRef - The class representing a verse reference, which must provide `fromOSIS` and `toOSIS` methods.
+ */
 export class BibleTopics {
-  private topics: Map<string, BibleTopicReference[]>;
-
+  private topics: Map<string, Map<OSISString, number>>;
   constructor(data: BibleTopicsType) {
-    // Copy object data to map to avoid mutating the original
-    this.topics = new Map<string, BibleTopicReference[]>(
-      Object.entries(data).map(([topic, refs]) => [topic, refs.slice()])
-    );
+    this.topics = new Map<string, Map<OSISString, number>>();
+    for (const [topic, refs] of Object.entries(data)) {
+      const refMap = new Map<OSISString, number>();
+      for (const [osis, rating] of refs) {
+        refMap.set(osis, rating);
+      }
+      this.topics.set(topic, refMap);
+    }
   }
 
   addData(data: BibleTopicsType): void {
     for (const [topic, refs] of Object.entries(data)) {
       if (!this.topics.has(topic)) {
-        this.topics.set(topic, refs.slice());
+        const refMap = new Map<OSISString, number>();
+        for (const [osis, rating] of refs) {
+          refMap.set(osis, rating);
+        }
+        this.topics.set(topic, refMap);
       } else {
-        // If topic exists, append new refs and remove duplicates
-        this.topics.set(topic, [...this.topics.get(topic)!, ...refs].slice());
-        this.removeDuplicateRefs(topic);
+        const existingRefs = this.topics.get(topic)!;
+        for (const [osis, rating] of refs) {
+          existingRefs.set(osis, rating);
+        }
       }
     }
   }
 
-  /** List all topic names */
-  get topicNames(): string[] {
-    return Array.from(this.topics.keys());
+  get(topic: string): VerseRef[] {
+    const refs = this.topics.get(topic);
+    if (!refs) return [];
+    return Array.from(refs.keys()).map(osis => VerseRef.fromOSIS(osis));
   }
 
-  /** Check if a topic exists */
   has(topic: string): boolean {
     return this.topics.has(topic);
   }
 
-  /**
-   * Get the VerseRefs for a topic.
-   * (You might want to provide raw refs too—see getRawRefsForTopic below)
-   */
-  get(topic: string): VerseRef[] {
-    return this.topics.get(topic)?.map(([osis, _rating]) => VerseRef.fromOSIS(osis)) || [];
-  }
-
-  /** Get raw [OSIS, rating] pairs for a topic */
-  getRawRefsForTopic(topic: string): BibleTopicReference[] {
-    return this.topics.get(topic)?.slice() || [];
-  }
-
-  /**
-   * Add VerseRefs to a topic (rating default 0).
-   * Skips duplicates (keeps latest provided).
-   */
-  saveToTopic(topic: string, ...refs: VerseRef[]): void {
-    this.topics.set(topic, [
-      ...(this.topics.get(topic) ?? []),
-      ...refs.map<BibleTopicReference>(ref => [ref.toOSIS(), 0]),
-    ]);
-    this.removeDuplicateRefs(topic);
-  }
-
-  /**
-   * Set (overwrite) all references for a topic.
-   * @param refs - List of VerseRefs to set (ratings default to 0)
-   */
   set(topic: string, ...refs: VerseRef[]): void {
-    this.topics.delete(topic);
-    this.topics.set(
-      topic,
-      refs.map(ref => [ref.toOSIS(), 0])
-    );
-    this.removeDuplicateRefs(topic);
+    const refMap = new Map<OSISString, number>();
+    for (const ref of refs) {
+      refMap.set(ref.toOSIS(), 0); // Default rating to 0
+    }
+    this.topics.set(topic, refMap);
+  }
+
+  add(topic: string, ...refs: VerseRef[]): void {
+    if (!this.topics.has(topic)) {
+      this.set(topic, ...refs);
+    } else {
+      const existingRefs = this.topics.get(topic)!;
+      for (const ref of refs) {
+        existingRefs.set(ref.toOSIS(), 0); // Default rating to 0
+      }
+    }
+  }
+
+  remove(topic: string, ...refs: VerseRef[]): void {
+    if (!this.topics.has(topic)) return;
+    const existingRefs = this.topics.get(topic)!;
+    for (const ref of refs) {
+      existingRefs.delete(ref.toOSIS());
+    }
+    // If no refs left, delete the topic
+    if (existingRefs.size === 0) {
+      this.topics.delete(topic);
+    }
   }
 
   delete(topic: string): void {
     this.topics.delete(topic);
   }
 
-  removeFromTopic(topic: string, ...refs: VerseRef[]): void {
-    if (!this.topics.has(topic)) return;
-    const currentRefs = this.topics.get(topic)!;
-    const osisSet = new Set(refs.map(ref => ref.toOSIS()));
-    // Filter out any refs that match the provided OSIS strings
-    const updatedRefs = currentRefs.filter(([osis]) => !osisSet.has(osis));
-    this.topics.delete(topic);
-    this.topics.set(topic, updatedRefs);
-  }
-
-  /**
-   * Remove duplicates for a topic (keep only last for each OSIS)
-   */
-  removeDuplicateRefs(topic: string): void {
-    if (!this.topics.has(topic)) return;
-    const refs = this.topics.get(topic)!;
-    const unique = new Map<string, BibleTopicReference>();
-    // Keeps the LAST occurrence
-    for (const ref of refs) unique.set(ref[0], ref);
-    this.topics.delete(topic);
-    this.topics.set(topic, Array.from(unique.values()));
-  }
-
-  /** Find all topics mentioning a given OSIS string */
-  TopicsWithVerse(verse: VerseRef): string[] {
-    const matches: string[] = [];
-    const osisStr = verse.toOSIS();
-    for (const [topic, refs] of this.topics.entries()) {
-      if (refs.some(([refOsis]) => refOsis === osisStr)) matches.push(topic);
-    }
-    return matches;
-  }
-
-  /** Export as plain object for saving or serialization */
-  toJSON(): BibleTopicsType {
-    const obj: BibleTopicsType = {};
-    for (const [topic, refs] of this.topics.entries()) {
-      obj[topic] = refs.slice();
-    }
-    return obj;
+  get keys(): string[] {
+    return Array.from(this.topics.keys());
   }
 
   addToHistory(verse: VerseRef): void {
-    // get the current day rounded to the nearest date as a number
     const [today] = new Date().toISOString().split("T");
-    this.saveToTopic(today, verse);
-    console.log(`Added ${verse.toString()} to history for ${today}`);
-    console.log(new Date(today).toISOString(), ":", today);
+    this.add(today, verse);
+  }
+
+  toJSON(): BibleTopicsType {
+    const obj: BibleTopicsType = {};
+    for (const [topic, refs] of this.topics.entries()) {
+      obj[topic] = Array.from(refs.entries()).map(([osis, rating]) => [osis, rating]);
+    }
+    return obj;
   }
 }

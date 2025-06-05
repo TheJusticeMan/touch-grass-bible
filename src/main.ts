@@ -1,18 +1,18 @@
-import { Upload } from "lucide";
 import { BibleTopics, BibleTopicsType } from "./BibleTopics";
-import { App, DefaultCommandCategory, ScreenView } from "./external/App";
+import { App, Command, DefaultCommandCategory, ScreenView } from "./external/App";
 import info from "./info.json";
 import "./style.css";
 import { DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
 import {
-  CrossRefCategory,
-  TGPaletteState,
-  VerseListCategory,
-  BookmarkCategory,
-  GoToVerseCategory,
-  topicListCategory,
   BibleSearchCategory,
+  BookmarkCategory,
+  CrossRefCategory,
+  GoToVerseCategory,
   TGCommandPalette,
+  TGPaletteState,
+  topicListCategory,
+  translationCategory,
+  VerseListCategory,
 } from "./TGPaletteCategories";
 import { bibleData, VerseHighlight, VerseRef } from "./VerseRef";
 
@@ -44,8 +44,7 @@ import { bibleData, VerseHighlight, VerseRef } from "./VerseRef";
 class VerseScreen extends ScreenView<TouchGrassBibleApp> {
   _verse: VerseRef;
 
-  constructor(element: HTMLElement, protected app: TouchGrassBibleApp) {
-    super(element, app);
+  onload(): void {
     this.on("titleclick", e => {
       e.stopPropagation();
       this.app.openCommandPalette({ topic: "", specificity: 0 });
@@ -60,7 +59,6 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
     // Initialize with a default verse
     this.verse = this.app.commandPalette.state.verse || new VerseRef("GENESIS", 1, 1);
   }
-
   // Title property syncs app title and DOM
   get title(): string {
     return this.app.title;
@@ -95,7 +93,7 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
 
     const { book, chapter, verse } = this._verse;
 
-    this._verse.chapterData("KJV").forEach((text: string, v: number) => {
+    this._verse.cTXT.forEach((text: string, v: number) => {
       if (v === 0) return; // Skip non-verse entries (headings, etc.)
 
       const verseText = VerseHighlight.highlight(`${v} ${text}`);
@@ -176,6 +174,7 @@ export default class TouchGrassBibleApp extends App {
   }
 
   async onload() {
+    this.MainScreen = new VerseScreen(this.contentEl, this);
     this.commandPalette = new TGCommandPalette(this);
     this.commandPalette.state = new TGPaletteState(this, "");
     this.commandPalette
@@ -185,30 +184,36 @@ export default class TouchGrassBibleApp extends App {
       .addPalette(GoToVerseCategory)
       .addPalette(topicListCategory)
       .addPalette(BibleSearchCategory)
+      .addPalette(translationCategory)
       .on("open", e => this.target.push(this.commandPalette))
-      .on("close", e => this.target.pop());
+      .on("close", e => this.target.pop())
+      .on("display", e => {
+        if (this.target.at(-1) !== this.commandPalette) {
+          this.target.push(this.commandPalette);
+        }
+        return (VerseRef.defaultTranslation = this.commandPalette.state.defaultTranslation);
+      });
 
     this.commands = this.commandPalette.addPalettereturns(DefaultCommandCategory);
     await this.loadsettings(DEFAULT_SETTINGS);
     // Load all JSON files in parallel for faster startup
-    const [kjv, crossRefs, topics] = await Promise.all([
-      this.loadJSON<bibleData>("KJV.json"),
+    const [crossRefs, topics, translations] = await Promise.all([
       this.loadJSON<{ [x: string]: never[] }>("crossrefs.json"),
       this.loadJSON<BibleTopicsType>("topics.json"),
+      this.loadJSON<{ [translation: string]: bibleData }>("translations.json"),
     ]);
 
-    VerseRef.bible.KJV = kjv;
+    VerseRef.bibleTranslations = translations;
     VerseRef.crossRefs = crossRefs;
     VerseRef.topics = new BibleTopics(topics);
     VerseRef.Bookmarks = new BibleTopics(this.settings.Bookmarks);
+    this.commandPalette.state.verse = VerseRef.RandomVerse;
     this.console.enabled = this.settings.enableLogging;
     this.console.log(info.name, info.version, "loaded");
-
-    this.MainScreen = new VerseScreen(this.contentEl, this);
     this.on("keydown", e => e.key === "Enter" && !this.commandPalette.isOpen && this.openCommandPalette());
 
     this.console.log(new Date().getTime() - processstart, "ms startup time");
-    this.commands.addCommand({
+    this.addCommand({
       name: "Delete Verse from tag",
       description: "Delete a verse from a bookmark tag",
       render: (cmd, item) => {
@@ -218,12 +223,12 @@ export default class TouchGrassBibleApp extends App {
       },
       action: cmd => {
         const { verse, tag } = cmd.context as TGPaletteState;
-        VerseRef.Bookmarks.removeFromTopic(tag, verse);
+        VerseRef.Bookmarks.remove(tag, verse);
         this.commandPalette.display();
         this.saveSettings();
       },
     });
-    this.commands.addCommand({
+    this.addCommand({
       name: "Delete Tag",
       description: "Delete a bookmark tag",
       render: (cmd, item) => {
@@ -238,7 +243,7 @@ export default class TouchGrassBibleApp extends App {
         this.saveSettings();
       },
     });
-    this.commands.addCommand({
+    this.addCommand({
       name: "Save To Bookmarks",
       description: "Save the current verse to a bookmark tag",
       getCommand: (query: string) => query !== "Welcome to Touch Grass Bible!",
@@ -250,13 +255,13 @@ export default class TouchGrassBibleApp extends App {
       },
       action: cmd => {
         const { verse, query } = cmd.context as TGPaletteState;
-        VerseRef.Bookmarks.saveToTopic(query.toTitleCase() || "Start Up Verses", verse);
+        VerseRef.Bookmarks.add(query.toTitleCase() || "Start Up Verses", verse);
         this.commandPalette.display();
         this.saveSettings();
       },
     });
     // Download command
-    this.commands.addCommand({
+    this.addCommand({
       name: "Download Settings",
       description: "Download your current settings as a JSON file",
       action: () => {
@@ -266,7 +271,7 @@ export default class TouchGrassBibleApp extends App {
     });
 
     // Upload command
-    this.commands.addCommand({
+    this.addCommand({
       name: "Upload Settings",
       description: "Upload a JSON file to update your settings",
       action: () => {
@@ -282,17 +287,22 @@ export default class TouchGrassBibleApp extends App {
         );
       },
     });
-    this.commands.addCommand({
+    this.addCommand({
       name: "Reset Settings",
       description: "Reset settings to default values",
       action: () => {
-        this.settings = Object.assign({}, DEFAULT_SETTINGS);
-        VerseRef.Bookmarks = new BibleTopics(this.settings.Bookmarks);
-        this.saveSettings();
-        this.commandPalette.display({ topCategory: null });
+        this.commandPalette
+          .confirm("Are you sure you want to delete all your data including bookmarks?")
+          .then(confirmed => {
+            if (!confirmed) return;
+            this.settings = { ...DEFAULT_SETTINGS };
+            VerseRef.Bookmarks = new BibleTopics(this.settings.Bookmarks);
+            this.saveSettings();
+            this.commandPalette.display({ topCategory: null });
+          });
       },
     });
-    this.commands.addCommand({
+    this.addCommand({
       name: "Welcome to Touch Grass Bible!",
       description:
         "From here you can search for verses, topics, and more.  Remember to take breaks!  Touch grass!",
@@ -307,16 +317,25 @@ export default class TouchGrassBibleApp extends App {
         this.commandPalette.display();
       },
     });
-    this.commands.addCommand({
+    this.addCommand({
       name: info.name,
-      description: `Version: ${info.version}\nAuthor: ${info.author}\nBuilt: ${new Date(
-        info.build
-      ).toString()}\nLicense${info.license}\n\n${info.description}`,
+      description: `Version: ${info.version}
+        Author: ${info.author}
+        Built: ${new Date(info.build).toString()}
+        License: ${info.license}
+        
+        ${info.description}`,
       render: (cmd, item) => {
         item.setHidden(false);
         return { topCategory: null };
       },
     });
+    this.MainScreen.onload();
+  }
+
+  addCommand(cmd: Partial<Command<TouchGrassBibleApp>>) {
+    if (!cmd.name || !cmd.description) this.console.warn("Command must have a name and description");
+    this.commands.addCommand(cmd);
   }
 
   openCommandPalette(TGPaletteState: Partial<TGPaletteState> = {}): void {
@@ -342,4 +361,4 @@ export default class TouchGrassBibleApp extends App {
 }
 
 const TGB = TouchGrassBibleApp;
-export const app = new TouchGrassBibleApp(document);
+const app = new TouchGrassBibleApp(document);

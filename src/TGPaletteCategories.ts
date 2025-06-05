@@ -1,3 +1,4 @@
+import { match } from "assert";
 import {
   CommandPaletteState,
   CommandCategory,
@@ -5,7 +6,7 @@ import {
   UnifiedCommandPalette,
 } from "./external/CommandPalette";
 import TouchGrassBibleApp from "./main";
-import { VerseRef, bibleData } from "./VerseRef";
+import { VerseRef, bibleData, translation, translationMetadata } from "./VerseRef";
 
 export class TGPaletteState extends CommandPaletteState<TouchGrassBibleApp> {
   verse: VerseRef = new VerseRef("GENESIS", 1, 1);
@@ -43,12 +44,12 @@ export class VerseListCategory extends CommandCategory<VerseRef, TouchGrassBible
       query,
       this.verses,
       verse => verse.toString(),
-      verse => verse.verseData("KJV")
+      verse => verse.vTXT
     );
   }
 
   renderCommand(verse: VerseRef, Item: CommandItem<VerseRef, TouchGrassBibleApp>): Partial<TGPaletteState> {
-    Item.setTitle(verse.toString().toTitleCase()).setDescription(verse.verseData("KJV")).setDetail(true);
+    Item.setTitle(verse.toString().toTitleCase()).setDescription(verse.vTXT).setDetail(true);
     return { topCategory: CrossRefCategory, verse, specificity: 0 };
   }
 
@@ -109,7 +110,7 @@ export class GoToVerseCategory extends CommandCategory<VerseRef, TouchGrassBible
           query,
           this.list,
           ref => ref.verse.toString(),
-          ref => ref.verseData("KJV")
+          ref => ref.vTXT
         );
       default:
         return [];
@@ -125,7 +126,7 @@ export class GoToVerseCategory extends CommandCategory<VerseRef, TouchGrassBible
         Item.setTitle(`${verse.book.toString().toTitleCase()} ${verse.chapter}`).setDetail(true);
         return { topCategory: GoToVerseCategory, specificity: 2, verse };
       case 2: // Book, Chapter, and Verse
-        Item.setTitle(verse.toString().toTitleCase()).setDescription(verse.verseData("KJV"));
+        Item.setTitle(verse.toString().toTitleCase()).setDescription(verse.vTXT);
         return { topCategory: CrossRefCategory, specificity: 0, verse };
     }
     return { topCategory: CrossRefCategory, specificity: 0, verse };
@@ -142,7 +143,7 @@ export class BibleSearchCategory extends CommandCategory<VerseRef, TouchGrassBib
   bible: bibleData = {}; // Default to an empty object
 
   onTrigger(context: TGPaletteState): void {
-    this.bible = VerseRef.bible.KJV;
+    this.bible = VerseRef.bible;
   }
 
   getCommands(query: string): VerseRef[] {
@@ -168,10 +169,7 @@ export class BibleSearchCategory extends CommandCategory<VerseRef, TouchGrassBib
   }
 
   renderCommand(verse: VerseRef, Item: CommandItem<VerseRef, TouchGrassBibleApp>): Partial<TGPaletteState> {
-    Item.setTitle(verse.toString().toTitleCase())
-      .setDescription(verse.verseData("KJV"))
-      .setDetail(true)
-      .setHidden(false);
+    Item.setTitle(verse.toString().toTitleCase()).setDescription(verse.vTXT).setDetail(true).setHidden(false);
     return { topCategory: CrossRefCategory, verse };
   }
 
@@ -189,7 +187,7 @@ export class topicListCategory extends CommandCategory<VerseRef | string, TouchG
       this.list = VerseRef.topics.get(topic);
       this.title = `Topic: ${topic.toTitleCase()}`;
     } else {
-      this.list = VerseRef.topics.topicNames;
+      this.list = VerseRef.topics.keys;
     }
   }
 
@@ -202,7 +200,7 @@ export class topicListCategory extends CommandCategory<VerseRef | string, TouchG
         query,
         this.list as VerseRef[],
         verse => verse.toString(),
-        verse => verse.verseData("KJV")
+        verse => verse.vTXT
       );
     }
   }
@@ -215,9 +213,7 @@ export class topicListCategory extends CommandCategory<VerseRef | string, TouchG
       Item.setTitle(command.toTitleCase()).setDetail(true);
       return { topCategory: topicListCategory, topic: command };
     } else {
-      Item.setTitle(command.toString().toTitleCase())
-        .setDescription(command.verseData("KJV"))
-        .setDetail(true);
+      Item.setTitle(command.toString().toTitleCase()).setDescription(command.vTXT).setDetail(true);
       return { topCategory: CrossRefCategory, verse: command };
     }
   }
@@ -233,7 +229,7 @@ export class BookmarkCategory extends CommandCategory<string, TouchGrassBibleApp
   name = "Bookmarks"; // Name of the category
 
   onTrigger(context: TGPaletteState): void {
-    this.tags = VerseRef.Bookmarks.topicNames;
+    this.tags = VerseRef.Bookmarks.keys;
   }
 
   getCommands(query: string): string[] {
@@ -241,12 +237,50 @@ export class BookmarkCategory extends CommandCategory<string, TouchGrassBibleApp
   }
 
   renderCommand(command: string, Item: CommandItem<string, TouchGrassBibleApp>): Partial<TGPaletteState> {
-    Item.setTitle(command.toTitleCase()).setDetail(true);
+    Item.setTitle(this.getDateFromString(command)).setDetail(true);
     return { topCategory: VerseListCategory, tag: command.toTitleCase() };
+  }
+
+  getDateFromString(str: string): string {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return str.toTitleCase();
+
+    const inputDate = new Date(str);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+    if (str === todayStr) return "Today";
+    if (str === yesterdayStr) return "Yesterday";
+    // in the last 7 days
+    if (inputDate.getTime() >= Date.now() - 6 * 86400000)
+      return inputDate.toLocaleDateString("en-US", { weekday: "long", day: "numeric" });
+    return inputDate.toDateString();
   }
 
   executeCommand(command: VerseRef | string): void {
     this.app.commandPalette.display();
+  }
+}
+
+export class translationCategory extends CommandCategory<string, TouchGrassBibleApp> {
+  readonly name = "Translations";
+  translations: string[];
+
+  onTrigger(state: CommandPaletteState<TouchGrassBibleApp>): void {
+    this.translations = Object.keys(VerseRef.bibleTranslations);
+  }
+
+  getCommands(query: string): string[] {
+    return this.getcompatible(query, this.translations, str => translationMetadata[str]?.name || str);
+  }
+
+  renderCommand(command: string, Item: CommandItem<string, TouchGrassBibleApp>): Partial<TGPaletteState> {
+    Item.setTitle(translationMetadata[command]?.name || command).setDetail(true);
+    return { topCategory: null, defaultTranslation: command as translation };
+  }
+
+  executeCommand(command: string): void {
+    VerseRef.defaultTranslation = command as translation;
+    this.app.commandPalette.close();
   }
 }
 
