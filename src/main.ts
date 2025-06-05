@@ -282,7 +282,16 @@ export default class TouchGrassBibleApp extends App {
         );
       },
     });
-
+    this.commands.addCommand({
+      name: "Reset Settings",
+      description: "Reset settings to default values",
+      action: () => {
+        this.settings = Object.assign({}, DEFAULT_SETTINGS);
+        VerseRef.Bookmarks = new BibleTopics(this.settings.Bookmarks);
+        this.saveSettings();
+        this.commandPalette.display({ topCategory: null });
+      },
+    });
     this.commands.addCommand({
       name: "Welcome to Touch Grass Bible!",
       description:
