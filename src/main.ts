@@ -1,16 +1,20 @@
-import {
-  App,
-  CommandCategory,
-  CommandItem,
-  CommandPaletteState,
-  DefaultCommandCategory,
-  ScreenView,
-  UnifiedCommandPalette,
-} from "./external/App";
+import { Upload } from "lucide";
+import { BibleTopics, BibleTopicsType } from "./BibleTopics";
+import { App, DefaultCommandCategory, ScreenView } from "./external/App";
 import info from "./info.json";
 import "./style.css";
 import { DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
-import { VerseHighlight, VerseRef } from "./VerseRef";
+import {
+  CrossRefCategory,
+  TGPaletteState,
+  VerseListCategory,
+  BookmarkCategory,
+  GoToVerseCategory,
+  topicListCategory,
+  BibleSearchCategory,
+  TGCommandPalette,
+} from "./TGPaletteCategories";
+import { bibleData, VerseHighlight, VerseRef } from "./VerseRef";
 
 /**
  * Represents the main screen for displaying and interacting with a single verse in the TouchGrassBibleApp.
@@ -44,17 +48,13 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
     super(element, app);
     this.on("titleclick", e => {
       e.stopPropagation();
-      const { "Start Up Verses": startup } = this.app.settings.Bookmarks;
-      this.app.console.log("Opening command palette with startup verses:", startup);
-      this.app.openCommandPalette({
-        tag: "",
-        topic: "",
-        specifity: 0,
-      });
+      this.app.openCommandPalette({ topic: "", specificity: 0 });
     });
     this.app.commandPalette.on("close", () => {
       const { verse } = this.app.commandPalette.state;
       if (verse && !verse.isSame(this.verse)) this.verse = verse;
+      VerseRef.Bookmarks.addToHistory(this.verse);
+      this.app.saveSettings();
     });
 
     // Initialize with a default verse
@@ -80,7 +80,6 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
 
   set verse(value: VerseRef) {
     this._verse = value;
-    this.app.commandPalette.state.verse = value; // Update command palette state
     this.update();
   }
 
@@ -141,261 +140,6 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
   }
 }
 
-class TGPaletteState extends CommandPaletteState<TouchGrassBibleApp> {
-  verse: VerseRef = new VerseRef("GENESIS", 1, 1);
-  specifity: number = 0; // 0: Book, 1: Chapter, 2: Verse, 3: Full Verse
-  topic: string = "";
-  tag: string = "";
-  constructor(public app: TouchGrassBibleApp, public query: string) {
-    super(app, query, null);
-  }
-  update(partial: Partial<TGPaletteState> = {}): TGPaletteState {
-    this.emit("update", partial);
-    return Object.assign(Object.create(this), this, partial);
-  }
-}
-
-class VerseListCategory extends CommandCategory<VerseRef, TouchGrassBibleApp> {
-  verses: VerseRef[] = [];
-  name = "Current Bookmark tag"; // Name of the category
-
-  onTrigger(context: TGPaletteState): void {
-    this.title = `Bookmark tag: ${context.tag || "Start Up Verses"}`; // Default title for the verse list
-    this.verses = VerseRef.Bookmarks[context.tag || "Start Up Verses"].map(v => VerseRef.fromOSIS(v)) || [];
-  }
-
-  getCommands(query: string): VerseRef[] {
-    // Filter verses based on the query
-    return this.getcompatible(
-      query,
-      this.verses,
-      verse => verse.toString(),
-      verse => verse.verseData("KJV")
-    );
-  }
-
-  renderCommand(verse: VerseRef, Item: CommandItem<VerseRef, TouchGrassBibleApp>): Partial<TGPaletteState> {
-    Item.setTitle(verse.toString().toTitleCase()).setDescription(verse.verseData("KJV")).setDetail(true);
-    return { topCategory: CrossRefCategory, verse: verse, specifity: 0 };
-  }
-
-  executeCommand(command: VerseRef): void {
-    this.app.MainScreen.verse = command;
-    this.app.commandPalette.close();
-  }
-}
-
-class CrossRefCategory extends VerseListCategory {
-  readonly name = "Cross References (TSK+)";
-
-  onTrigger(context: TGPaletteState): void {
-    const { verse } = context;
-    if (verse)
-      (this.verses = verse.crossRefs()),
-        (this.title = `Cross References for ${verse.toString().toTitleCase()}`);
-    else this.verses = [];
-  }
-}
-
-class GoToVerseCategory extends CommandCategory<VerseRef, TouchGrassBibleApp> {
-  readonly name = "Go To Verse";
-  list: VerseRef[] = [];
-  specifity: number = 0; // 0: Book, 1: Chapter, 2: Verse, 3: Full Verse
-
-  onTrigger(context: TGPaletteState): void {
-    if (context) {
-      const { verse, specifity } = context;
-      this.specifity = context.specifity;
-
-      switch (specifity) {
-        case 0: // Book
-          this.list = VerseRef.booksOfTheBible.map(book => new VerseRef(book, 1, 1));
-          break;
-        case 1: // Book and Chapter
-          this.title = `Go To Verse: ${verse.book}`;
-          this.app.commandPalette.inputMode = "numeric";
-          this.list = verse.bTXT?.slice(1).map((c, index) => new VerseRef(verse.book, index + 1, 1)) || [];
-          break;
-        case 2: // Book, Chapter, and Verse
-          this.title = `Go To Verse: ${verse.book}:${verse.chapter}`;
-          this.list =
-            verse.cTXT.slice(1).map((v, index) => new VerseRef(verse.book, verse.chapter, index + 1)) || [];
-          break;
-        case 3: // Full Verse
-          this.app.MainScreen.verse = verse;
-      }
-    } else {
-      this.specifity = 0;
-      this.list = VerseRef.booksOfTheBible.map(book => new VerseRef(book, 1, 1));
-    }
-  }
-
-  getCommands(query: string): VerseRef[] {
-    switch (this.specifity) {
-      case 0: // Book
-        return this.getcompatible(query, this.list, ref => ref.book);
-      case 1: // Book and Chapter
-        return this.getcompatible(query, this.list, ref => ref.chapter.toString());
-      case 2: // Book, Chapter, and Verse
-        return this.getcompatible(
-          query,
-          this.list,
-          ref => ref.verse.toString(),
-          ref => ref.verseData("KJV")
-        );
-      default:
-        return [];
-    }
-  }
-
-  renderCommand(verse: VerseRef, Item: CommandItem<VerseRef, TouchGrassBibleApp>): Partial<TGPaletteState> {
-    switch (this.specifity) {
-      case 0: // Book
-        Item.setTitle(verse.book.toString().toTitleCase()).setDetail(true);
-        return { topCategory: GoToVerseCategory, specifity: 1, verse };
-      case 1: // Book and Chapter
-        Item.setTitle(`${verse.book.toString().toTitleCase()} ${verse.chapter}`).setDetail(true);
-        return { topCategory: GoToVerseCategory, specifity: 2, verse };
-      case 2: // Book, Chapter, and Verse
-        Item.setTitle(verse.toString().toTitleCase()).setDescription(verse.verseData("KJV"));
-        return { topCategory: CrossRefCategory, specifity: 0, verse };
-    }
-    return { topCategory: CrossRefCategory, specifity: 0, verse };
-  }
-
-  executeCommand(ref: VerseRef): void {
-    if (this.specifity > 0) {
-      this.app.MainScreen.verse = ref;
-      this.app.commandPalette.close();
-    } else {
-      this.app.commandPalette.display();
-    }
-  }
-}
-
-class BibleSearchCategory extends CommandCategory<VerseRef, TouchGrassBibleApp> {
-  readonly name = "Bible Search";
-  verses: VerseRef[] = [];
-  bible = VerseRef.bible.KJV;
-
-  onTrigger(context: TGPaletteState): void {
-    this.bible = VerseRef.bible.KJV;
-  }
-
-  getCommands(query: string): VerseRef[] {
-    const maxResults = this.app.commandPalette.state.maxResults - this.app.commandPalette.length; // Limit the number of results to avoid performance issues
-    if (!query) return [];
-
-    const results: VerseRef[] = [];
-    const quarylcase = query.toLowerCase();
-
-    for (const book in this.bible) {
-      if (this.bible.hasOwnProperty(book)) {
-        const chapters = this.bible[book];
-        for (let chapter = 1; chapter < chapters.length; chapter++) {
-          const verses = chapters[chapter];
-          for (let verse = 1; verse < verses.length; verse++) {
-            const text = verses[verse];
-            if (text && text.toLowerCase().includes(quarylcase)) {
-              results.push(new VerseRef(book, chapter, verse));
-              if (results.length > maxResults) return results;
-            }
-          }
-        }
-      }
-    }
-    return results;
-  }
-
-  renderCommand(verse: VerseRef, Item: CommandItem<VerseRef, TouchGrassBibleApp>): Partial<TGPaletteState> {
-    Item.setTitle(verse.toString().toTitleCase())
-      .setDescription(verse.verseData("KJV"))
-      .setDetail(true)
-      .setHidden(false);
-    return { topCategory: CrossRefCategory, verse };
-  }
-
-  executeCommand(command: VerseRef): void {
-    this.app.MainScreen.verse = command;
-    this.app.commandPalette.close();
-  }
-}
-
-class topicListCategory extends CommandCategory<VerseRef | string, TouchGrassBibleApp> {
-  list: string[] | VerseRef[] = [];
-  name = "Topics (www.openbible.info)"; // Name of the category
-
-  onTrigger(context: TGPaletteState): void {
-    if (context.topic) {
-      const { topic } = context; // Get the topic from the context
-      this.list = VerseRef.topics[topic].map(OSIS => VerseRef.fromOSIS(OSIS[0] as string));
-      this.title = `Topic: ${topic.toTitleCase()}`;
-    } else {
-      this.list = Object.keys(VerseRef.topics);
-    }
-  }
-
-  getCommands(query: string): (VerseRef | string)[] {
-    if (this.list.length > 0 && typeof this.list[0] === "string") {
-      if (!query) return [];
-      return this.getcompatible(query, this.list as string[], topic => topic);
-    } else {
-      return this.getcompatible(
-        query,
-        this.list as VerseRef[],
-        verse => verse.toString(),
-        verse => verse.verseData("KJV")
-      );
-    }
-  }
-
-  renderCommand(
-    command: VerseRef | string,
-    Item: CommandItem<VerseRef | string, TouchGrassBibleApp>
-  ): Partial<TGPaletteState> {
-    if (typeof command === "string") {
-      Item.setTitle(command.toTitleCase()).setDetail(true);
-      return { topCategory: topicListCategory, topic: command };
-    } else {
-      Item.setTitle(command.toString().toTitleCase())
-        .setDescription(command.verseData("KJV"))
-        .setDetail(true);
-      return { topCategory: CrossRefCategory, verse: command };
-    }
-  }
-
-  executeCommand(command: VerseRef | string): void {
-    if (typeof command === "string") this.app.commandPalette.display();
-    else this.app.commandPalette.close();
-  }
-}
-
-class BookmarkCategory extends CommandCategory<string, TouchGrassBibleApp> {
-  tags: string[] = [];
-  name = "Bookmarks"; // Name of the category
-
-  onTrigger(context: TGPaletteState): void {
-    this.tags = Object.keys(VerseRef.Bookmarks);
-  }
-
-  getCommands(query: string): string[] {
-    return this.getcompatible(query, this.tags as string[], topic => topic);
-  }
-
-  renderCommand(command: string, Item: CommandItem<string, TouchGrassBibleApp>): Partial<TGPaletteState> {
-    Item.setTitle(command.toTitleCase()).setDetail(true);
-    return { topCategory: VerseListCategory, tag: command };
-  }
-
-  executeCommand(command: VerseRef | string): void {
-    this.app.commandPalette.display();
-  }
-}
-
-class TGCommandPalette extends UnifiedCommandPalette<TouchGrassBibleApp> {
-  state: TGPaletteState = new TGPaletteState(app, "");
-}
-
 declare const processstart: number;
 
 /**
@@ -420,11 +164,12 @@ declare const processstart: number;
  * @method loadsettings - Loads and merges user settings with defaults.
  * @method saveSettings - Persists the current settings.
  */
-class TouchGrassBibleApp extends App {
+export default class TouchGrassBibleApp extends App {
   settings: TGAppSettings;
   commandPalette: TGCommandPalette;
   MainScreen: VerseScreen;
   commands: DefaultCommandCategory<TouchGrassBibleApp>;
+  firstLoad = true;
 
   constructor(doc: Document) {
     super(doc, "Touch Grass Bible");
@@ -432,6 +177,7 @@ class TouchGrassBibleApp extends App {
 
   async onload() {
     this.commandPalette = new TGCommandPalette(this);
+    this.commandPalette.state = new TGPaletteState(this, "");
     this.commandPalette
       .addPalette(VerseListCategory)
       .addPalette(CrossRefCategory)
@@ -446,16 +192,15 @@ class TouchGrassBibleApp extends App {
     await this.loadsettings(DEFAULT_SETTINGS);
     // Load all JSON files in parallel for faster startup
     const [kjv, crossRefs, topics] = await Promise.all([
-      this.loadJSON("KJV.json"),
-      this.loadJSON("crossrefs.json"),
-      this.loadJSON("topics.json"),
+      this.loadJSON<bibleData>("KJV.json"),
+      this.loadJSON<{ [x: string]: never[] }>("crossrefs.json"),
+      this.loadJSON<BibleTopicsType>("topics.json"),
     ]);
 
     VerseRef.bible.KJV = kjv;
     VerseRef.crossRefs = crossRefs;
-    VerseRef.topics = topics;
-    VerseRef.Bookmarks = this.settings.Bookmarks || {};
-
+    VerseRef.topics = new BibleTopics(topics);
+    VerseRef.Bookmarks = new BibleTopics(this.settings.Bookmarks);
     this.console.enabled = this.settings.enableLogging;
     this.console.log(info.name, info.version, "loaded");
 
@@ -463,29 +208,114 @@ class TouchGrassBibleApp extends App {
     this.on("keydown", e => e.key === "Enter" && !this.commandPalette.isOpen && this.openCommandPalette());
 
     this.console.log(new Date().getTime() - processstart, "ms startup time");
-
+    this.commands.addCommand({
+      name: "Delete Verse from tag",
+      description: "Delete a verse from a bookmark tag",
+      render: (cmd, item) => {
+        const { verse, tag } = cmd.context as TGPaletteState;
+        item.setTitle(`Delete ${verse.toString().toTitleCase()} from "${tag}"`);
+        return { topCategory: BookmarkCategory, tag };
+      },
+      action: cmd => {
+        const { verse, tag } = cmd.context as TGPaletteState;
+        VerseRef.Bookmarks.removeFromTopic(tag, verse);
+        this.commandPalette.display();
+        this.saveSettings();
+      },
+    });
+    this.commands.addCommand({
+      name: "Delete Tag",
+      description: "Delete a bookmark tag",
+      render: (cmd, item) => {
+        const { tag } = cmd.context as TGPaletteState;
+        item.setTitle(`Delete Tag: ${tag}`);
+        return { topCategory: BookmarkCategory, tag };
+      },
+      action: cmd => {
+        const { tag } = cmd.context as TGPaletteState;
+        VerseRef.Bookmarks.delete(tag);
+        this.commandPalette.display();
+        this.saveSettings();
+      },
+    });
     this.commands.addCommand({
       name: "Save To Bookmarks",
-      description: "",
-      getCommand: (query: string) => Boolean(query),
+      description: "Save the current verse to a bookmark tag",
+      getCommand: (query: string) => query !== "Welcome to Touch Grass Bible!",
       render: (cmd, item) => {
         const { verse, query } = cmd.context as TGPaletteState;
-        item.setTitle(`Save ${verse.toString().toTitleCase()} to Bookmarks (${query.toTitleCase()})`);
-        return { topCategory: BookmarkCategory, tag: query.toTitleCase() };
+        const tag = (query || "Start Up Verses").toTitleCase();
+        item.setTitle(`Save ${verse.toString().toTitleCase()} to "${tag}"`);
+        return { topCategory: BookmarkCategory, tag };
       },
       action: cmd => {
         const { verse, query } = cmd.context as TGPaletteState;
-        const TitleCasequery = query.toTitleCase();
-        if (!VerseRef.Bookmarks[TitleCasequery]) VerseRef.Bookmarks[TitleCasequery] = [];
-        VerseRef.Bookmarks[TitleCasequery].push(verse.toOSIS());
+        VerseRef.Bookmarks.saveToTopic(query.toTitleCase() || "Start Up Verses", verse);
         this.commandPalette.display();
         this.saveSettings();
+      },
+    });
+    // Download command
+    this.commands.addCommand({
+      name: "Download Settings",
+      description: "Download your current settings as a JSON file",
+      action: () => {
+        this.saveSettings(); // Ensure settings are saved before download
+        this.downloadFile("TouchGrassBibleSettings.json", this.settings);
+      },
+    });
+
+    // Upload command
+    this.commands.addCommand({
+      name: "Upload Settings",
+      description: "Upload a JSON file to update your settings",
+      action: () => {
+        this.uploadFile(
+          ".json",
+          newSettings => {
+            this.settings = Object.assign({}, DEFAULT_SETTINGS, newSettings);
+            VerseRef.Bookmarks.addData(this.settings.Bookmarks);
+            this.saveSettings();
+          },
+          error => this.console.error("Failed to parse settings file:", error),
+          message => this.console.warn(message)
+        );
+      },
+    });
+
+    this.commands.addCommand({
+      name: "Welcome to Touch Grass Bible!",
+      description:
+        "From here you can search for verses, topics, and more.  Remember to take breaks!  Touch grass!",
+      getCommand: (query: string) => query === "Welcome to Touch Grass Bible!",
+      render: (cmd, item) => {
+        item.setHidden(false);
+        return { topCategory: null };
+      },
+      action: cmd => {
+        this.settings.showHelp = !this.settings.showHelp;
+        this.saveSettings();
+        this.commandPalette.display();
+      },
+    });
+    this.commands.addCommand({
+      name: info.name,
+      description: `Version: ${info.version}\nAuthor: ${info.author}\nBuilt: ${new Date(
+        info.build
+      ).toString()}\nLicense${info.license}\n\n${info.description}`,
+      render: (cmd, item) => {
+        item.setHidden(false);
+        return { topCategory: null };
       },
     });
   }
 
   openCommandPalette(TGPaletteState: Partial<TGPaletteState> = {}): void {
     this.commandPalette.open(TGPaletteState);
+    if (this.settings.showHelp && this.firstLoad) {
+      this.firstLoad = false;
+      this.commandPalette.setValue("Welcome to Touch Grass Bible!", true);
+    }
   }
 
   onunload(): boolean {
@@ -497,10 +327,10 @@ class TouchGrassBibleApp extends App {
   }
 
   saveSettings() {
-    this.settings.Bookmarks = VerseRef.Bookmarks;
+    this.settings.Bookmarks = VerseRef.Bookmarks.toJSON();
     this.saveData(this.settings);
   }
 }
 
 const TGB = TouchGrassBibleApp;
-const app = new TouchGrassBibleApp(document);
+export const app = new TouchGrassBibleApp(document);

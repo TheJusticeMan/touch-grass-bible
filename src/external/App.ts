@@ -84,7 +84,11 @@ abstract class App extends ETarget {
     this.title = this._title;
 
     // Bind load to DOMContentLoaded
-    document.addEventListener("DOMContentLoaded", () => this.onload());
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", () => this.onload());
+    } else {
+      this.onload(); // immediate call if already loaded
+    }
     document.addEventListener("keydown", e => {
       const key =
         (e.metaKey ? "Meta+" : "") + // Meta is the command key on macOS, Windows key on Windows, and Super key on Linux
@@ -199,13 +203,54 @@ abstract class App extends ETarget {
     this.doc.title = value || this._title;
   }
 
-  async loadJSON(url: string): Promise<any> {
-    try {
-      console.log(`${url} loaded`);
-      return await (await fetch(url)).json();
-    } catch (error) {
-      console.error(`Failed to load ${url}:`, error);
-      return Promise.reject(error);
-    }
+  async loadJSON<T>(url: string): Promise<T> {
+    const response = await fetch(url);
+    return response.json() as Promise<T>;
+  }
+  async uploadFile(
+    accept: string,
+    onFileContent: (content: any) => void,
+    onError?: (error: any) => void,
+    onWarn?: (message: string) => void
+  ): Promise<void> {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = accept;
+
+    input.onchange = async (event: Event) => {
+      const target = event.target as HTMLInputElement;
+      if (target.files && target.files.length > 0) {
+        const file = target.files[0];
+        const reader = new FileReader();
+
+        reader.onload = (e: ProgressEvent<FileReader>) => {
+          try {
+            const content = JSON.parse(e.target?.result as string);
+            onFileContent(content);
+          } catch (error) {
+            if (onError) onError(error);
+          }
+        };
+
+        reader.onerror = () => {
+          if (onError) onError(reader.error);
+        };
+
+        reader.readAsText(file);
+      } else {
+        if (onWarn) onWarn("No file selected for upload.");
+      }
+    };
+
+    input.click();
+  }
+  downloadFile(filename: string, data: any): void {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+    const downloadAnchorNode = document.createElement("a");
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", filename);
+    document.body.appendChild(downloadAnchorNode); // Required for Firefox
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
   }
 }

@@ -10,6 +10,7 @@ interface HighlightType {
   elTag?: string;
   cls?: string;
   replace?: string; // Optional replacement string, supports regex groups
+  children?: HighlightType[]; // Optional nested highlights
 }
 
 /**
@@ -17,15 +18,11 @@ interface HighlightType {
  * wrapping matches in specified HTML elements with optional classes.
  */
 export class Highlighter {
-  args: HighlightType[];
-
   /**
    * Creates a new Highlighter instance.
    * @param args - An array of highlight configurations defining how to match and wrap text segments.
    */
-  constructor(args: HighlightType[]) {
-    this.args = args;
-  }
+  constructor(public args: HighlightType[]) {}
 
   /**
    * Highlights matching segments in the provided text according to configured patterns.
@@ -84,6 +81,8 @@ export class Highlighter {
         // Append unstyled text before the match
         fragment.appendChild(document.createTextNode(text.substring(currentIndex, match.start)));
       }
+      if (match.start === match.end) continue; // Skip zero-length matches
+      if (match.start < currentIndex) continue; // Skip matches that overlap with previous ones
 
       // Create the element for the match
       const element = document.createElement(match.type.elTag || "span");
@@ -93,8 +92,11 @@ export class Highlighter {
 
       // Use replace string if provided; else, default to the matched text
       const content = match.matchText.replace(match.type.regEXP, match.type.replace || "$1");
-
-      element.textContent = content;
+      if (match.type.children) {
+        element.append(new Highlighter(match.type.children).highlight(content));
+      } else {
+        element.textContent = content;
+      }
       fragment.appendChild(element);
       currentIndex = match.end;
     }

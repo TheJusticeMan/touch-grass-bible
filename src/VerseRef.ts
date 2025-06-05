@@ -1,3 +1,4 @@
+import { BibleTopics, BibleTopicsType } from "./BibleTopics";
 import { BookShortNames, booksOfTheBible } from "./booksOfTheBible";
 import { Highlighter } from "./external/App";
 export type bibleData = { [book: string]: string[][] };
@@ -54,18 +55,11 @@ export class VerseRef {
   static BookShortNames: string[] = BookShortNames;
   static bible: { [translation: string]: bibleData } = {};
   static crossRefs: { [x: string]: never[] };
-  static topics: { [x: string]: string[] };
-  static Bookmarks: { [x: string]: string[] } = {};
+  static topics: BibleTopics;
+  static Bookmarks: BibleTopics;
   static defaultTranslation: translation = "KJV";
-  book: string;
-  chapter: number;
-  verse: number;
 
-  constructor(book: string, chapter: number, verse: number) {
-    this.book = book;
-    this.chapter = chapter;
-    this.verse = verse;
-  }
+  constructor(public book: string = "GENESIS", public chapter: number = 1, public verse: number = 1) {}
   isSame(verse: VerseRef) {
     return this.book === verse.book && this.chapter === verse.chapter && this.verse === verse.verse;
   }
@@ -82,11 +76,13 @@ export class VerseRef {
     return `${bookCode}.${this.chapter}.${this.verse}`;
   }
   static fromOSIS(osis: string): VerseRef {
-    const parts = osis.split("-");
-    const [book, chapter, verse] = parts[0].split(".");
-    const bookIndex = VerseRef.BookShortNames.indexOf(book);
-    if (bookIndex === -1) throw new Error(`Invalid book code: ${book}`);
-    return new VerseRef(VerseRef.booksOfTheBible[bookIndex], parseInt(chapter), parseInt(verse));
+    const [from] = osis.split("-");
+    const [book, chapter, verse] = from.split(".");
+    return new VerseRef(
+      VerseRef.booksOfTheBible[VerseRef.BookShortNames.indexOf(book)],
+      parseInt(chapter),
+      parseInt(verse)
+    );
   }
   toString(): string {
     return `${this.book} ${this.chapter}:${this.verse}`;
@@ -108,5 +104,19 @@ export class VerseRef {
   }
   get bTXT(): string[][] {
     return this.bookData(VerseRef.defaultTranslation);
+  }
+  set OSIS(osis: string) {
+    const [[book, chapter, verse]] = osis.split("-").map(ft => ft.split("."));
+    const newVerse = new VerseRef(
+      VerseRef.booksOfTheBible[VerseRef.BookShortNames.indexOf(book)] || "GENESIS",
+      parseInt(chapter ?? 1, 10),
+      parseInt(verse ?? 1, 10)
+    );
+    this.book = newVerse.book;
+    this.chapter = newVerse.chapter;
+    this.verse = newVerse.verse;
+  }
+  get OSIS(): string {
+    return this.toOSIS();
   }
 }

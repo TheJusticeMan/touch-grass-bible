@@ -14,19 +14,13 @@
  * ```
  */
 export class BrowserConsole {
-  enabled: boolean;
-  consoleName: string;
-
   /**
    * Creates an instance of the class with the specified console state and name.
    *
-   * @param enable - Determines whether the console is enabled.
+   * @param enabled - Determines whether the console is enabled.
    * @param consoleName - The name to assign to the console instance.
    */
-  constructor(enable: boolean, consoleName: string) {
-    this.enabled = enable;
-    this.consoleName = consoleName;
-  }
+  constructor(public enabled: boolean = true, public consoleName: string = "Console:") {}
 
   /**
    * Logs messages to the browser console if logging is enabled.

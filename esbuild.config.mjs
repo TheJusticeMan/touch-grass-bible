@@ -1,4 +1,4 @@
-import esbuild, { build } from "esbuild";
+import esbuild from "esbuild";
 import { readFileSync, writeFileSync } from "fs";
 import process from "process";
 
@@ -9,20 +9,26 @@ if you want to view the source, please visit the github repository of this app
 `;
 const prod = process.argv[2] === "production";
 
-const targetVersion = process.env.npm_package_version;
+function writeMetadata() {
+  const targetVersion = process.env.npm_package_version;
+  let ServiceWorkerFile = readFileSync("src/web/service-worker.js", "utf8").split("\n");
+  ServiceWorkerFile[0] = `const VERSION = "${targetVersion}";`;
+  writeFileSync("src/web/service-worker.js", ServiceWorkerFile.join("\n"));
 
-let ServiceWorkerFile = readFileSync("src/web/service-worker.js", "utf8").split("\n");
-ServiceWorkerFile[0] = `const VERSION = "${targetVersion}";`;
-writeFileSync("src/web/service-worker.js", ServiceWorkerFile.join("\n"));
+  const mymetadata = {
+    name: "Touch Grass Bible",
+    description:
+      "The bible app that keeps you grounded in the word while letting you into some functionality.",
+    version: targetVersion,
+    build: new Date().toISOString(),
+    author: "Justice Vellacott",
+    license: "MIT",
+  };
+  writeFileSync("src/info.json", JSON.stringify(mymetadata, null, 2));
+}
 
-const mymetadata = {
-  name: "Touch Grass Bible",
-  description:
-    "The bible app that keeps you grounded in the word while letting you into some functionality.",
-  version: targetVersion,
-  build: new Date().toISOString(),
-};
-writeFileSync("src/info.json", JSON.stringify(mymetadata, null, 2));
+// Always write metadata before starting
+writeMetadata();
 
 const context = await esbuild.context({
   banner: {
@@ -32,13 +38,23 @@ const context = await esbuild.context({
   entryPoints: ["src/main.ts"],
   bundle: true,
   outfile: "dest/main.js",
-  format: "esm",
+  format: "iife",
   sourcemap: prod ? false : true,
   platform: "browser",
   minify: true,
   target: ["es2020"],
   logLevel: "info",
   minify: prod,
+  plugins: [
+    {
+      name: "metadata-writer",
+      setup(build) {
+        build.onStart(() => {
+          writeMetadata();
+        });
+      },
+    },
+  ],
 });
 
 if (prod) {
