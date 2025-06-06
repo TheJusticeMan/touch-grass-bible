@@ -1,5 +1,7 @@
+import { ChevronLeft, ChevronRight } from "lucide";
 import { BibleTopics, BibleTopicsType } from "./BibleTopics";
 import { App, Command, DefaultCommandCategory, ScreenView } from "./external/App";
+import { Scrollpast } from "./external/screen";
 import info from "./info.json";
 import "./style.css";
 import { DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
@@ -43,21 +45,24 @@ import { bibleData, VerseHighlight, VerseRef } from "./VerseRef";
  */
 class VerseScreen extends ScreenView<TouchGrassBibleApp> {
   _verse: VerseRef;
+  scrollToTop: boolean;
 
   onload(): void {
     this.on("titleclick", e => {
       e.stopPropagation();
       this.app.openCommandPalette({ topic: "", specificity: 0 });
     });
+
     this.app.commandPalette.on("close", () => {
-      const { verse } = this.app.commandPalette.state;
-      if (verse && !verse.isSame(this.verse)) this.verse = verse;
+      const { verse, defaultTranslation } = this.app.commandPalette.state;
+      this.verse = verse;
       VerseRef.Bookmarks.addToHistory(this.verse);
       this.app.saveSettings();
     });
 
     // Initialize with a default verse
     this.verse = this.app.commandPalette.state.verse || new VerseRef("GENESIS", 1, 1);
+    new Scrollpast(this.content);
   }
   // Title property syncs app title and DOM
   get title(): string {
@@ -67,7 +72,25 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
   set title(value: string) {
     this.app.title = value;
     if (this.titleEl) {
-      this.titleEl.textContent = value;
+      this.sptitle(frag => {
+        frag.createEl("button", {}, el => {
+          el.addEventListener("click", e => {
+            e.stopPropagation();
+            this.goprevChapter();
+          });
+          el.setIcon(ChevronLeft);
+        });
+        frag.createEl("span", { text: value, cls: "titleText" });
+        frag.createEl("button", {}, el => {
+          el.addEventListener("click", e => {
+            e.stopPropagation();
+            this.gonextChapter();
+          });
+          el.setIcon(ChevronRight);
+        });
+        return frag;
+      });
+      //this.titleEl.textContent = value;
     }
   }
 
@@ -77,8 +100,41 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
   }
 
   set verse(value: VerseRef) {
+    this.scrollToTop = this._verse ? value.isSame(this._verse) : true; // Reset scrollToTop if the verse changes
     this._verse = value;
+    this.app.commandPalette.state.verse = value;
     this.update();
+    this.scrollToTop = true; // Reset scrollToTop after updating
+  }
+
+  gonextChapter(): VerseRef {
+    const { book, chapter } = this._verse;
+    const nextChapter = chapter + 1;
+    const nextBookIndex = VerseRef.booksOfTheBible.indexOf(book) + 1;
+    if (nextChapter > VerseRef.bible[book].length - 1) {
+      if (nextBookIndex > VerseRef.booksOfTheBible.length) {
+        return (this.verse = new VerseRef(VerseRef.booksOfTheBible[0], 1, 1));
+      }
+      return (this.verse = new VerseRef(VerseRef.booksOfTheBible[nextBookIndex], 1, 1));
+    }
+    return (this.verse = new VerseRef(book, nextChapter, 1));
+  }
+
+  goprevChapter(): VerseRef {
+    const { book, chapter } = this._verse;
+    const prevChapter = chapter - 1;
+    const prevBookIndex = VerseRef.booksOfTheBible.indexOf(book) - 1;
+    if (prevChapter < 1) {
+      if (prevBookIndex < 0) {
+        const book = VerseRef.booksOfTheBible.at(-1)!;
+        const lastChapter = VerseRef.bible[book].length - 1;
+        return (this.verse = new VerseRef(book, lastChapter, 1));
+      }
+      const book = VerseRef.booksOfTheBible[prevBookIndex];
+      const lastChapter = VerseRef.bible[book].length - 1;
+      return (this.verse = new VerseRef(book, lastChapter, 1));
+    }
+    return (this.verse = new VerseRef(book, prevChapter, 1));
   }
 
   /**
@@ -130,7 +186,7 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
     });
 
     // Reset scroll and focus on active verse
-    this.content.scroll(0, 0);
+    if (this.scrollToTop) this.content.scroll(0, 0);
     this.content.querySelector(".verseActive")?.scrollIntoView({
       behavior: "smooth",
       block: "start",

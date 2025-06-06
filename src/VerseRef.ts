@@ -1,4 +1,4 @@
-import { BibleTopics, BibleTopicsType } from "./BibleTopics";
+import { BibleTopics } from "./BibleTopics";
 import { BookShortNames, booksOfTheBible } from "./booksOfTheBible";
 import { Highlighter } from "./external/App";
 export type bibleData = { [book: string]: string[][] };
@@ -91,8 +91,7 @@ export class VerseRef {
     return `${bookCode}.${this.chapter}.${this.verse}`;
   }
   static fromOSIS(osis: string): VerseRef {
-    const [from] = osis.split("-");
-    const [book, chapter, verse] = from.split(".");
+    const [[book, chapter, verse]] = osis.split("-").map(ft => ft.split("."));
     return new VerseRef(
       VerseRef.booksOfTheBible[VerseRef.BookShortNames.indexOf(book)],
       parseInt(chapter),

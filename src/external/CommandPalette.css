@@ -134,7 +134,7 @@
   max-height: 500px;
 }
 
-.command-item .command-detail {
+.command-item .command-submenu-button {
   padding: 0 2em;
   color: #fff5;
   align-self: stretch;
@@ -142,6 +142,6 @@
   align-items: center;
 }
 
-.command-item .command-detail:hover {
+.command-item .command-submenu-button:hover {
   color: #fffa;
 }

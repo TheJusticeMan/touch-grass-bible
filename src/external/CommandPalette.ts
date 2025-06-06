@@ -268,7 +268,7 @@ export abstract class UnifiedCommandPalette<AppType extends App> extends ETarget
         break;
       case "ArrowRight":
       case "Tab":
-        this.EnterContextFromCommand(this.commandItems[this.selectedIndex]);
+        this.ActivateContextFromCommand(this.commandItems[this.selectedIndex]);
         break;
       case "ArrowLeft":
       case "Shift+Tab":
@@ -278,8 +278,8 @@ export abstract class UnifiedCommandPalette<AppType extends App> extends ETarget
     }
   };
 
-  private EnterContextFromCommand(command: CommandItem<any, AppType>) {
-    if (command.detail) this.display(command.toState);
+  private ActivateContextFromCommand(command: CommandItem<any, AppType>) {
+    if (command.contextMenuAllowed) this.display(command.toState);
   }
 
   handleBack = () => {
@@ -357,8 +357,7 @@ export abstract class UnifiedCommandPalette<AppType extends App> extends ETarget
         const itemEl = new CommandItem(this.app, catEl, command, cat)
           .onClick(() => cat.tryexecute(command, itemEl.toState))
           .onMouseEnter(() => this.selectIndex(cmdindex))
-          .onTouchStart(() => this.selectIndex(cmdindex))
-          .onExpandClick(() => this.EnterContextFromCommand(this.commandItems[cmdindex]));
+          .onContextMenu(() => this.ActivateContextFromCommand(this.commandItems[cmdindex]));
         itemEl.toState = state.update(cat.tryrender(command, itemEl));
         this.commandItems.push(itemEl);
       }
@@ -535,57 +534,40 @@ export abstract class CommandCategory<T, AppType extends App> {
       .flat();
   }
 }
+
 /**
- * Represents a UI item within a command palette, encapsulating the rendering and interaction logic
- * for a single command entry.
+ * Represents a UI item within a command palette, encapsulating its DOM elements,
+ * state, and interaction logic.
  *
  * @template T - The type of the command represented by this item.
  * @template AppType - The type of the application, extending `App`.
  *
  * @remarks
- * This class is responsible for creating and managing the DOM elements associated with a command item,
- * including its title, description, and optional detail section. It provides methods to update the item's
- * appearance and to attach event handlers for user interactions such as clicks, mouse movements, and touch events.
+ * This class is responsible for rendering a command item, managing its title,
+ * description, context menu visibility, and handling user interactions such as
+ * clicks and mouse events. It is designed to be used within a command palette
+ * component, supporting context menus and state management.
  *
  * @example
  * ```typescript
- * const item = new CommandItem(app, parentEl, command, category)
+ * const item = new CommandItem(app, parentEl, command, paletteCategory)
  *   .setTitle("My Command")
  *   .setDescription("Does something useful")
- *   .setDetail(true)
- *   .onClick(e => { /* handle click *\/ });
+ *   .setContextMenuVisibility(true)
+ *   .onClick(() => { /* handle click *\/ });
  * ```
  *
- * @param app - The application instance.
- * @param parent - The parent HTML element to which this command item will be appended.
- * @param command - The command data associated with this item.
- * @param PaletteCat - The command category, used for highlighting and categorization.
- *
- * @property el - The root HTML element for this command item.
- * @property infoEl - The container for the title and description elements.
- * @property titleEl - The HTML element displaying the command's title.
- * @property descriptionEl - The HTML element displaying the command's description.
- * @property detailEl - The HTML element for the detail/expand section.
- * @property hasDetail - Indicates whether the detail section is visible.
- * @property toState - The state object for the command palette.
- *
- * @method setDetail - Sets the visibility of the detail section.
- * @method setTitle - Sets the title content, with optional highlighting.
- * @method setDescription - Sets the description content, with optional highlighting.
- * @method setHidden - Shows or hides the description element.
- * @method onClick - Registers a click event handler for the item.
- * @method onMouseEnter - Registers a mousemove event handler for the item.
- * @method onTouchStart - Registers a touchstart event handler for the item.
- * @method onExpandClick - Registers a click event handler for the detail/expand section.
+ * @see CommandCategory
+ * @see CommandPaletteState
  */
 export class CommandItem<T, AppType extends App> {
   el: HTMLElement;
   private infoEl: HTMLElement;
   private titleEl: HTMLElement;
   private descriptionEl: HTMLElement;
-  private detailEl: HTMLElement;
-  private hasDetail: boolean = false;
-  toState: CommandPaletteState<AppType>;
+  private contextMenuLauncher: HTMLElement;
+  private allowsContextMenu: boolean = false;
+  toState: CommandPaletteState<AppType>; // for context menu and state management
 
   constructor(
     private app: AppType,
@@ -600,19 +582,23 @@ export class CommandItem<T, AppType extends App> {
         this.titleEl = infoEl.createEl("div", { cls: "command-title" });
         this.descriptionEl = infoEl.createEl("div", { cls: ["command-description", "hidden"] });
       });
-      this.detailEl = itemEl.createEl("div", { cls: "command-detail" }, detailEl => {
-        detailEl.style.display = this.hasDetail ? "flex" : "none";
-        detailEl.setIcon(ChevronRight);
-      });
+      this.contextMenuLauncher = itemEl.createEl(
+        "div",
+        { cls: "command-submenu-button" },
+        contextMenuElement => {
+          contextMenuElement.style.display = this.allowsContextMenu ? "flex" : "none";
+          contextMenuElement.setIcon(ChevronRight);
+        }
+      );
     });
   }
-  setDetail(hasDetail: boolean) {
-    this.hasDetail = hasDetail;
-    this.detailEl.style.display = hasDetail ? "flex" : "none";
+  setContextMenuVisibility(allowsContextMenu: boolean) {
+    this.allowsContextMenu = allowsContextMenu;
+    this.contextMenuLauncher.style.display = allowsContextMenu ? "flex" : "none";
     return this;
   }
-  get detail() {
-    return this.hasDetail;
+  get contextMenuAllowed() {
+    return this.allowsContextMenu;
   }
   setTitle(title: string | DocumentFragment) {
     this.titleEl.replaceChildren(typeof title === "string" ? this.PaletteCat.hili(title) : title);
@@ -637,12 +623,8 @@ export class CommandItem<T, AppType extends App> {
     this.el.addEventListener("mousemove", callback);
     return this;
   }
-  onTouchStart(callback: (e?: TouchEvent) => void) {
-    this.el.addEventListener("touchstart", callback);
-    return this;
-  }
-  onExpandClick(callback: (e?: MouseEvent) => void) {
-    this.detailEl?.addEventListener("click", e => {
+  onContextMenu(callback: (e?: MouseEvent) => void) {
+    this.contextMenuLauncher?.addEventListener("click", e => {
       e.stopPropagation(); // Prevent triggering the main click
       callback(e);
     });
@@ -664,7 +646,7 @@ class CategoryNavigator<AppType extends App> extends CommandCategory<CommandCate
     command: CommandCategory<any, App>,
     Item: CommandItem<CommandCategory<any, App>, AppType>
   ): Partial<CommandPaletteState<AppType>> {
-    Item.setTitle(command.name).setDetail(false);
+    Item.setTitle(command.name).setContextMenuVisibility(false);
     return { topCategory: command.constructor };
   }
   executeCommand(command: CommandCategory<any, App>): void {
@@ -683,7 +665,7 @@ export class Command<AppType extends App> {
       command: Command<AppType>,
       item: CommandItem<Command<AppType>, AppType>
     ) => Partial<CommandPaletteState<AppType>> = (command, item) => {
-      item.setTitle(command.name).setDescription(command.description).setDetail(false);
+      item.setTitle(command.name).setDescription(command.description).setContextMenuVisibility(false);
       return {};
     },
     public onTrigger = () => {},
@@ -775,7 +757,7 @@ class PromptCategory<AppType extends App> extends CommandCategory<string, AppTyp
   }
 
   renderCommand(command: string, Item: CommandItem<string, AppType>): Partial<CommandPaletteState<AppType>> {
-    Item.setTitle(command).setDetail(false);
+    Item.setTitle(command).setContextMenuVisibility(false);
     return { topCategory: null };
   }
 

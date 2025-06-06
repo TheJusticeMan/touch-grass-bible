@@ -49,7 +49,7 @@ export class VerseListCategory extends CommandCategory<VerseRef, TouchGrassBible
   }
 
   renderCommand(verse: VerseRef, Item: CommandItem<VerseRef, TouchGrassBibleApp>): Partial<TGPaletteState> {
-    Item.setTitle(verse.toString().toTitleCase()).setDescription(verse.vTXT).setDetail(true);
+    Item.setTitle(verse.toString().toTitleCase()).setDescription(verse.vTXT).setContextMenuVisibility(true);
     return { topCategory: CrossRefCategory, verse, specificity: 0 };
   }
 
@@ -120,10 +120,12 @@ export class GoToVerseCategory extends CommandCategory<VerseRef, TouchGrassBible
   renderCommand(verse: VerseRef, Item: CommandItem<VerseRef, TouchGrassBibleApp>): Partial<TGPaletteState> {
     switch (this.specifity) {
       case 0: // Book
-        Item.setTitle(verse.book.toString().toTitleCase()).setDetail(true);
+        Item.setTitle(verse.book.toString().toTitleCase()).setContextMenuVisibility(true);
         return { topCategory: GoToVerseCategory, specificity: 1, verse };
       case 1: // Book and Chapter
-        Item.setTitle(`${verse.book.toString().toTitleCase()} ${verse.chapter}`).setDetail(true);
+        Item.setTitle(`${verse.book.toString().toTitleCase()} ${verse.chapter}`).setContextMenuVisibility(
+          true
+        );
         return { topCategory: GoToVerseCategory, specificity: 2, verse };
       case 2: // Book, Chapter, and Verse
         Item.setTitle(verse.toString().toTitleCase()).setDescription(verse.vTXT);
@@ -169,7 +171,10 @@ export class BibleSearchCategory extends CommandCategory<VerseRef, TouchGrassBib
   }
 
   renderCommand(verse: VerseRef, Item: CommandItem<VerseRef, TouchGrassBibleApp>): Partial<TGPaletteState> {
-    Item.setTitle(verse.toString().toTitleCase()).setDescription(verse.vTXT).setDetail(true).setHidden(false);
+    Item.setTitle(verse.toString().toTitleCase())
+      .setDescription(verse.vTXT)
+      .setContextMenuVisibility(true)
+      .setHidden(false);
     return { topCategory: CrossRefCategory, verse };
   }
 
@@ -210,10 +215,12 @@ export class topicListCategory extends CommandCategory<VerseRef | string, TouchG
     Item: CommandItem<VerseRef | string, TouchGrassBibleApp>
   ): Partial<TGPaletteState> {
     if (typeof command === "string") {
-      Item.setTitle(command.toTitleCase()).setDetail(true);
+      Item.setTitle(command.toTitleCase()).setContextMenuVisibility(true);
       return { topCategory: topicListCategory, topic: command };
     } else {
-      Item.setTitle(command.toString().toTitleCase()).setDescription(command.vTXT).setDetail(true);
+      Item.setTitle(command.toString().toTitleCase())
+        .setDescription(command.vTXT)
+        .setContextMenuVisibility(true);
       return { topCategory: CrossRefCategory, verse: command };
     }
   }
@@ -237,7 +244,7 @@ export class BookmarkCategory extends CommandCategory<string, TouchGrassBibleApp
   }
 
   renderCommand(command: string, Item: CommandItem<string, TouchGrassBibleApp>): Partial<TGPaletteState> {
-    Item.setTitle(this.getDateFromString(command)).setDetail(true);
+    Item.setTitle(this.getDateFromString(command)).setContextMenuVisibility(true);
     return { topCategory: VerseListCategory, tag: command.toTitleCase() };
   }
 
@@ -274,7 +281,7 @@ export class translationCategory extends CommandCategory<string, TouchGrassBible
   }
 
   renderCommand(command: string, Item: CommandItem<string, TouchGrassBibleApp>): Partial<TGPaletteState> {
-    Item.setTitle(translationMetadata[command]?.name || command).setDetail(true);
+    Item.setTitle(translationMetadata[command]?.name || command).setContextMenuVisibility(true);
     return { topCategory: null, defaultTranslation: command as translation };
   }
 
