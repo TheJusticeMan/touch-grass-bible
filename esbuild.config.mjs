@@ -42,7 +42,7 @@ const context = await esbuild.context({
   sourcemap: prod ? false : true,
   platform: "browser",
   minify: true,
-  target: ["es2020"],
+  target: ["chrome58"],
   logLevel: "info",
   minify: prod,
   plugins: [
@@ -50,7 +50,7 @@ const context = await esbuild.context({
       name: "metadata-writer",
       setup(build) {
         build.onStart(() => {
-          writeMetadata();
+          return writeMetadata();
         });
       },
     },

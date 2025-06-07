@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">Touch Grass Bible</string>
-    <string name="title_activity_main">Touch Grass Bible</string>
-    <string name="package_name">com.imthejusticeman</string>
-    <string name="custom_url_scheme">com.imthejusticeman</string>
-</resources>

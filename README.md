@@ -27,7 +27,7 @@ Because “menus” are passé.
 | Category             | What it Offers                                                                 |
 | -------------------- | ------------------------------------------------------------------------------ |
 | Current Bookmark Tag | View verses you’ve saved under a tag (Bookmarks).                              |
-| Cross References     | “TSK+” connections—see related verses for deeper study.                        |
+| Cross References     | “TSK+” connections-see related verses for deeper study.                        |
 | Bookmarks            | Your universe of tagged bookmarks; rearrange your spiritual speed-dial.        |
 | Go To Verse          | Jump straight to books, chapters, or verses with a few taps or keystrokes.     |
 | Topics               | Browse verses by topic/theme. “Curiosity welcomed.”                            |

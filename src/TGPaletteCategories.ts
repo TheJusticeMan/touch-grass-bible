@@ -29,9 +29,10 @@ export class TGPaletteState extends CommandPaletteState<TouchGrassBibleApp> {
     return this;
   }
 }
+
 export class VerseListCategory extends CommandCategory<VerseRef, TouchGrassBibleApp> {
   verses: VerseRef[] = [];
-  name = "Current Bookmark tag"; // Name of the category
+  name = "Open"; // Name of the category
 
   onTrigger(context: TGPaletteState): void {
     this.title = `Bookmark tag: ${context.tag}`;
@@ -57,19 +58,21 @@ export class VerseListCategory extends CommandCategory<VerseRef, TouchGrassBible
     this.app.commandPalette.close();
   }
 }
+
 export class CrossRefCategory extends VerseListCategory {
-  readonly name = "Cross References (TSK+)";
+  readonly name = "Cross references (TSK+)";
 
   onTrigger(context: TGPaletteState): void {
     const { verse } = context;
     if (verse)
       (this.verses = verse.crossRefs()),
-        (this.title = `Cross References for ${verse.toString().toTitleCase()}`);
+        (this.title = `Cross references for ${verse.toString().toTitleCase()}`);
     else this.verses = [];
   }
 }
+
 export class GoToVerseCategory extends CommandCategory<VerseRef, TouchGrassBibleApp> {
-  readonly name = "Go To Verse";
+  readonly name = "Go to verse";
   list: VerseRef[] = [];
   specifity: number = 0; // 0: Book, 1: Chapter, 2: Verse, 3: Full Verse
 
@@ -83,12 +86,12 @@ export class GoToVerseCategory extends CommandCategory<VerseRef, TouchGrassBible
           this.list = VerseRef.booksOfTheBible.map(book => new VerseRef(book, 1, 1));
           break;
         case 1: // Book and Chapter
-          this.title = `Go To Verse: ${verse.book}`;
+          this.title = `Go to verse: ${verse.book}`;
           this.app.commandPalette.inputMode = "numeric";
           this.list = verse.bTXT?.slice(1).map((c, index) => new VerseRef(verse.book, index + 1, 1)) || [];
           break;
         case 2: // Book, Chapter, and Verse
-          this.title = `Go To Verse: ${verse.book}:${verse.chapter}`;
+          this.title = `Go to verse: ${verse.book}:${verse.chapter}`;
           this.list =
             verse.cTXT.slice(1).map((v, index) => new VerseRef(verse.book, verse.chapter, index + 1)) || [];
           break;
@@ -139,10 +142,12 @@ export class GoToVerseCategory extends CommandCategory<VerseRef, TouchGrassBible
     else this.app.commandPalette.display();
   }
 }
+
 export class BibleSearchCategory extends CommandCategory<VerseRef, TouchGrassBibleApp> {
-  readonly name = "Bible Search";
+  readonly name = "Search bible";
   verses: VerseRef[] = [];
   bible: bibleData = {}; // Default to an empty object
+  //SiblingCategories = [GoToVerseCategory, CrossRefCategory, topicListCategory, BookmarkCategory];
 
   onTrigger(context: TGPaletteState): void {
     this.bible = VerseRef.bible;
@@ -182,6 +187,7 @@ export class BibleSearchCategory extends CommandCategory<VerseRef, TouchGrassBib
     this.app.commandPalette.close();
   }
 }
+
 export class topicListCategory extends CommandCategory<VerseRef | string, TouchGrassBibleApp> {
   list: string[] | VerseRef[] = [];
   name = "Topics (www.openbible.info)"; // Name of the category

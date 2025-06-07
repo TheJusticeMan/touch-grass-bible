@@ -334,11 +334,8 @@ export abstract class UnifiedCommandPalette<AppType extends App> extends ETarget
     });
     this.commandItems = [];
     this.selectedIndex = 0;
-    const categoriesToShow = state.topCategory
-      ? [this.topCategory, ...this.categories.filter(cat => cat.constructor !== state.topCategory)]
-      : this.categories;
 
-    categoriesToShow.forEach((cat, index) => {
+    this.categoriesToShow.forEach((cat, index) => {
       if (this.commandItems.length > state.maxResults) return;
       cat.setUp(state);
       const commands = cat.trygetCommands(state.query);
@@ -363,6 +360,21 @@ export abstract class UnifiedCommandPalette<AppType extends App> extends ETarget
       }
     });
     this.updateSelection();
+  }
+
+  get categoriesToShow(): CommandCategory<any, AppType>[] {
+    const { topCategory } = this.state;
+    const top = this.topCategory;
+    // If SiblingCategories is set (even if empty)
+    if (topCategory && top.SiblingCategories)
+      return [
+        top,
+        ...top.SiblingCategories?.map(catfn => this.categories.find(cat => cat.constructor === catfn)).filter(
+          cat => cat !== undefined
+        ),
+      ];
+    if (topCategory) return [top, ...this.categories.filter(cat => cat !== top)];
+    return this.categories;
   }
 
   // Keyboard navigation
@@ -443,6 +455,7 @@ export abstract class CommandCategory<T, AppType extends App> {
   highlighter: Highlighter; // Highlighter for the category
   hili: Highlighter["highlight"]; // Function to highlight text
   query: string;
+  SiblingCategories?: Function[]; // younger siblings
 
   constructor(public app: AppType) {}
 
@@ -551,7 +564,7 @@ export abstract class CommandCategory<T, AppType extends App> {
  * @example
  * ```typescript
  * const item = new CommandItem(app, parentEl, command, paletteCategory)
- *   .setTitle("My Command")
+ *   .setTitle("My command")
  *   .setDescription("Does something useful")
  *   .setContextMenuVisibility(true)
  *   .onClick(() => { /* handle click *\/ });
@@ -633,7 +646,7 @@ export class CommandItem<T, AppType extends App> {
 }
 
 class CategoryNavigator<AppType extends App> extends CommandCategory<CommandCategory<any, App>, AppType> {
-  readonly name = "Quick Access";
+  readonly name = "Quick access";
   names: CommandCategory<any, App>[];
 
   onTrigger(context: CommandPaletteState<AppType>): void {
@@ -743,6 +756,7 @@ export class DefaultCommandCategory<AppType extends App> extends CommandCategory
 class PromptCategory<AppType extends App> extends CommandCategory<string, AppType> {
   readonly name = "Prompt";
   private prompt: string = "";
+  SiblingCategories = [];
 
   constructor(public app: AppType, private cb: (prompt: string | null) => void = () => {}) {
     super(app);

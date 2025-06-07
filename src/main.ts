@@ -270,7 +270,7 @@ export default class TouchGrassBibleApp extends App {
 
     this.console.log(new Date().getTime() - processstart, "ms startup time");
     this.addCommand({
-      name: "Delete Verse from tag",
+      name: "Delete verse from tag",
       description: "Delete a verse from a bookmark tag",
       render: (cmd, item) => {
         const { verse, tag } = cmd.context as TGPaletteState;
@@ -285,11 +285,11 @@ export default class TouchGrassBibleApp extends App {
       },
     });
     this.addCommand({
-      name: "Delete Tag",
+      name: "Delete tag",
       description: "Delete a bookmark tag",
       render: (cmd, item) => {
         const { tag } = cmd.context as TGPaletteState;
-        item.setTitle(`Delete Tag: ${tag}`);
+        item.setTitle(`Delete tag: ${tag}`);
         return { topCategory: BookmarkCategory, tag };
       },
       action: cmd => {
@@ -300,7 +300,7 @@ export default class TouchGrassBibleApp extends App {
       },
     });
     this.addCommand({
-      name: "Save To Bookmarks",
+      name: "Save to bookmarks",
       description: "Save the current verse to a bookmark tag",
       getCommand: (query: string) => query !== "Welcome to Touch Grass Bible!",
       render: (cmd, item) => {
@@ -318,7 +318,7 @@ export default class TouchGrassBibleApp extends App {
     });
     // Download command
     this.addCommand({
-      name: "Download Settings",
+      name: "Download settings",
       description: "Download your current settings as a JSON file",
       action: () => {
         this.saveSettings(); // Ensure settings are saved before download
@@ -328,7 +328,7 @@ export default class TouchGrassBibleApp extends App {
 
     // Upload command
     this.addCommand({
-      name: "Upload Settings",
+      name: "Upload settings",
       description: "Upload a JSON file to update your settings",
       action: () => {
         this.uploadFile(
@@ -344,7 +344,7 @@ export default class TouchGrassBibleApp extends App {
       },
     });
     this.addCommand({
-      name: "Reset Settings",
+      name: "Reset settings",
       description: "Reset settings to default values",
       action: () => {
         this.commandPalette

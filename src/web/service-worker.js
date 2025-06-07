@@ -1,4 +1,4 @@
-const VERSION = "2.0.3";
+const VERSION = "2.0.4";
 const CACHE_NAME = `bible-app-cache-V${VERSION}`;
 const ASSETS = [
   "./index.html",
