@@ -42,7 +42,6 @@ const context = await esbuild.context({
   sourcemap: prod ? false : true,
   platform: "browser",
   minify: true,
-  target: ["chrome58"],
   logLevel: "info",
   minify: prod,
   plugins: [

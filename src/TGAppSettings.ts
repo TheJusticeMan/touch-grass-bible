@@ -2,6 +2,7 @@ import { BibleTopicsType } from "./BibleTopics";
 import { VerseRef } from "./VerseRef";
 
 export interface TGAppSettings {
+  myNotes: [string, string][];
   enableLogging: boolean;
   showHelp: boolean;
   style: {
@@ -15,6 +16,7 @@ export interface TGAppSettings {
 }
 
 export const DEFAULT_SETTINGS: TGAppSettings = {
+  myNotes: [],
   enableLogging: true,
   showHelp: true,
   style: {

@@ -1,32 +1,17 @@
 import "./App.css";
-import {
-  Command,
-  CommandCategory,
-  CommandItem,
-  CommandPaletteState,
-  DefaultCommandCategory,
-  UnifiedCommandPalette,
-} from "./CommandPalette";
+import { UnifiedCommandPalette } from "./CommandPalette";
 import { ETarget } from "./Event";
-import { Highlighter } from "./highlighter";
 import { BrowserConsole } from "./MyBrowserConsole";
-import { DomElementInfo } from "./MyHTML";
 import { ScreenView } from "./screen";
+export * from "./CommandPalette";
+export * from "./Event";
+export * from "./highlighter";
+export * from "./MyBrowserConsole";
+export * from "./MyHTML";
+export * from "./screen";
+export * from "./escapeRegExp";
 
-export {
-  App,
-  AppState,
-  BrowserConsole,
-  Command,
-  CommandCategory,
-  CommandItem,
-  CommandPaletteState,
-  DefaultCommandCategory,
-  DomElementInfo,
-  Highlighter,
-  ScreenView,
-  UnifiedCommandPalette,
-};
+export { App, AppState };
 
 class AppState {
   constructor(public name: string = "", public time: Date = new Date()) {}
@@ -115,6 +100,7 @@ abstract class App extends ETarget {
         e.key;
       //if (this.ctarget !== this) e.preventDefault(); // Prevent default browser actions for key combinations
       this.ctarget.emit("keydown", { key, event: e });
+      this.ctarget.emit(`${key}KeyDown`, { key, event: e });
     });
 
     // Handle page unload attempts

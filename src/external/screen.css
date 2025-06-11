@@ -47,3 +47,34 @@ button {
 button:hover {
   background-color: #fff2;
 }
+
+/* Styles for the sidepanel container */
+.sidepanel {
+  position: fixed; /* Fixed positioning to overlay the screen */
+  top: 0; /* Align to top */
+  left: 0; /* Align to left; can be overridden based on direction */
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  background-color: #0008; /* Semi-transparent background */
+  backdrop-filter: blur(8px);
+  transition: transform 0.3s ease; /* Smooth transition for sliding effect */
+  overflow: auto; /* Enable scrolling if content overflows */
+  z-index: 1000; /* Ensure it overlays other elements */
+}
+
+/* Optional: Styles to handle directional slide-in, if not handled via inline styles * /
+.sidepanel.left {
+  /* No extra styles needed if transform is set via JS * /
+}
+
+.sidepanel.right {
+  /* Same as above * /
+}
+
+/* Styles for the content area inside the sidepanel */
+.sidepanel-content {
+  padding: 20px; /* Basic padding for content */
+  height: 100%; /* Occupy full height inside sidepanel */
+  box-sizing: border-box; /* Include padding in height calculations */
+  overflow-y: auto; /* Scroll if content overflows */
+}

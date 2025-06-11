@@ -1,10 +1,5 @@
 import { match } from "assert";
-import {
-  CommandPaletteState,
-  CommandCategory,
-  CommandItem,
-  UnifiedCommandPalette,
-} from "./external/CommandPalette";
+import { CommandPaletteState, CommandCategory, CommandItem, UnifiedCommandPalette } from "./external/App";
 import TouchGrassBibleApp from "./main";
 import { VerseRef, bibleData, translation, translationMetadata } from "./VerseRef";
 
@@ -74,14 +69,14 @@ export class CrossRefCategory extends VerseListCategory {
 export class GoToVerseCategory extends CommandCategory<VerseRef, TouchGrassBibleApp> {
   readonly name = "Go to verse";
   list: VerseRef[] = [];
-  specifity: number = 0; // 0: Book, 1: Chapter, 2: Verse, 3: Full Verse
+  specificity: number = 0; // 0: Book, 1: Chapter, 2: Verse, 3: Full Verse
 
   onTrigger(context: TGPaletteState): void {
     if (context) {
-      const { verse, specificity: specifity } = context;
-      this.specifity = context.specificity;
+      const { verse, specificity: specificity } = context;
+      this.specificity = context.specificity;
 
-      switch (specifity) {
+      switch (specificity) {
         case 0: // Book
           this.list = VerseRef.booksOfTheBible.map(book => new VerseRef(book, 1, 1));
           break;
@@ -97,13 +92,13 @@ export class GoToVerseCategory extends CommandCategory<VerseRef, TouchGrassBible
           break;
       }
     } else {
-      this.specifity = 0;
+      this.specificity = 0;
       this.list = VerseRef.booksOfTheBible.map(book => new VerseRef(book, 1, 1));
     }
   }
 
   getCommands(query: string): VerseRef[] {
-    switch (this.specifity) {
+    switch (this.specificity) {
       case 0: // Book
         return this.getcompatible(query, this.list, ref => ref.book);
       case 1: // Book and Chapter
@@ -121,7 +116,7 @@ export class GoToVerseCategory extends CommandCategory<VerseRef, TouchGrassBible
   }
 
   renderCommand(verse: VerseRef, Item: CommandItem<VerseRef, TouchGrassBibleApp>): Partial<TGPaletteState> {
-    switch (this.specifity) {
+    switch (this.specificity) {
       case 0: // Book
         Item.setTitle(verse.book.toString().toTitleCase()).setContextMenuVisibility(true);
         return { topCategory: GoToVerseCategory, specificity: 1, verse };
@@ -138,7 +133,7 @@ export class GoToVerseCategory extends CommandCategory<VerseRef, TouchGrassBible
   }
 
   executeCommand(ref: VerseRef): void {
-    if (this.specifity > 0) this.app.commandPalette.close();
+    if (this.specificity > 0) this.app.commandPalette.close();
     else this.app.commandPalette.display();
   }
 }

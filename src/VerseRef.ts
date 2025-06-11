@@ -59,6 +59,7 @@ export class VerseRef {
   static booksOfTheBible: string[] = booksOfTheBible;
   static BookShortNames: string[] = BookShortNames;
   static bibleTranslations: { [translation: string]: bibleData } = {};
+  static myNotes: Map<string, string> = new Map<string, string>();
   static crossRefs: { [x: string]: never[] };
   static topics: BibleTopics;
   static Bookmarks: BibleTopics;
@@ -89,6 +90,26 @@ export class VerseRef {
     const bookIndex = VerseRef.booksOfTheBible.indexOf(this.book);
     const bookCode = VerseRef.BookShortNames[bookIndex] || this.book;
     return `${bookCode}.${this.chapter}.${this.verse}`;
+  }
+  get note(): string {
+    return VerseRef.myNotes.get(this.OSIS) || "";
+  }
+  set note(value: string) {
+    if (value.trim() === "") {
+      VerseRef.myNotes.delete(this.OSIS);
+    } else {
+      VerseRef.myNotes.set(this.OSIS, value);
+    }
+  }
+  get notes(): VerseRef[] {
+    const notes: VerseRef[] = [];
+    Array.from(VerseRef.myNotes.keys()).forEach(osis => {
+      if (osis.startsWith(this.OSIS)) {
+        const ref = VerseRef.fromOSIS(osis);
+        notes.push(ref);
+      }
+    });
+    return notes;
   }
   static fromOSIS(osis: string): VerseRef {
     const [[book, chapter, verse]] = osis.split("-").map(ft => ft.split("."));

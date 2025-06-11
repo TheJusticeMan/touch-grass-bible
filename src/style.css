@@ -12,40 +12,71 @@ body {
   color: #f0fc;
 }
 
-.content {
-  .verse {
-    text-indent: 1em;
-    padding: 0.4em;
-    max-width: var(--readingwidth);
-    margin: auto;
-    display: var(--textdisplay);
-    cursor: pointer;
-  }
-
-  .verse:hover {
-    text-shadow: 0 0 5px #fff4;
-  }
-
-  .verse .verseNumber {
-    color: #fff8;
-    padding: 0.5em;
-  }
-
-  .verseActive .verseNumber {
-    color: #f0fc;
-  }
-
-  .verse .versePBreak {
-    color: #fff8;
-  }
-
-  > :last-child {
-    min-height: 100%;
-    padding-bottom: 2rem;
-  }
+.content .verse {
+  text-indent: 1em;
+  padding: 0.4em;
+  max-width: var(--readingwidth);
+  margin: auto;
+  display: var(--textdisplay);
+  cursor: pointer;
 }
 
-.content.wrap {
+.content .verse:hover {
+  text-shadow: 0 0 5px #fff4;
+}
+
+.content .verse .verseNumber {
+  color: #fff8;
+  padding: 0.5em;
+}
+
+.content .verseActive .verseNumber {
+  color: #f0fc;
+}
+
+.content .verse .versePBreak {
+  color: #fff8;
+}
+
+.content > :last-child {
+  min-height: 100%;
+  padding-bottom: 2rem;
+}
+
+.sidepanel-content {
+  padding: 2em;
+  color: var(--foreground);
+  font-family: var(--font);
+  font-size: var(--font-size);
+  overflow: scroll;
+}
+
+.sidepanel-content .note {
+  text-indent: 1em;
+  padding: 0.4em;
+  max-width: var(--readingwidth);
+  margin: auto;
+}
+
+.sidepanel-content .note .verseNumber {
+  color: #fff8;
+  padding: 0.5em;
+}
+
+.sidepanel-content textarea {
+  width: 100%;
+  min-height: 10em;
+  background-color: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  border: 1px solid #fff4;
+  padding: 1em;
+  outline: none;
+  resize: vertical;
+}
+
+/* .content.wrap {
   .verse {
     display: inline;
   }
@@ -57,7 +88,7 @@ body {
 
   .versePBreak .verseNumber,
   > :first-child .verseNumber {
-    /* display: inline-block; */
+    /* display: inline-block; * /
     font-size: 2em;
     text-transform: capitalize;
     float: left;
@@ -69,3 +100,4 @@ body {
     display: none;
   }
 }
+ */

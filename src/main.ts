@@ -1,7 +1,6 @@
-import { ChevronLeft, ChevronRight } from "lucide";
+import { ChevronLeft, ChevronRight, Sidebar } from "lucide";
 import { BibleTopics, BibleTopicsType } from "./BibleTopics";
-import { App, Command, DefaultCommandCategory, ScreenView } from "./external/App";
-import { Scrollpast } from "./external/screen";
+import { App, Command, DefaultCommandCategory, ScreenView, Scrollpast, sidePanel } from "./external/App";
 import info from "./info.json";
 import "./style.css";
 import { DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
@@ -17,6 +16,7 @@ import {
   VerseListCategory,
 } from "./TGPaletteCategories";
 import { bibleData, VerseHighlight, VerseRef } from "./VerseRef";
+import { notesPanel } from "./sidepanels";
 
 /**
  * Represents the main screen for displaying and interacting with a single verse in the TouchGrassBibleApp.
@@ -62,7 +62,9 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
 
     // Initialize with a default verse
     this.verse = this.app.commandPalette.state.verse || new VerseRef("GENESIS", 1, 1);
-    new Scrollpast(this.content);
+    new Scrollpast(this.content)
+      .on("scrollpasttop", () => this.goprevChapter())
+      .on("scrollpastbottom", () => this.gonextChapter());
   }
   // Title property syncs app title and DOM
   get title(): string {
@@ -100,10 +102,13 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
   }
 
   set verse(value: VerseRef) {
-    this.scrollToTop = this._verse ? value.isSame(this._verse) : true; // Reset scrollToTop if the verse changes
+    const sameChapter =
+      this._verse && this._verse.book === value.book && this._verse.chapter === value.chapter;
+    this.scrollToTop = this._verse ? !sameChapter : true; // Reset scrollToTop if the verse changes
     this._verse = value;
     this.app.commandPalette.state.verse = value;
     this.update();
+    this.app.leftpanel?.updateContent(value);
     this.scrollToTop = true; // Reset scrollToTop after updating
   }
 
@@ -224,6 +229,8 @@ export default class TouchGrassBibleApp extends App {
   MainScreen: VerseScreen;
   commands: DefaultCommandCategory<TouchGrassBibleApp>;
   firstLoad = true;
+  leftpanel: notesPanel;
+  saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   constructor(doc: Document) {
     super(doc, "Touch Grass Bible");
@@ -231,6 +238,9 @@ export default class TouchGrassBibleApp extends App {
 
   async onload() {
     this.MainScreen = new VerseScreen(this.contentEl, this);
+    //this.MainScreen.onload();
+    this.leftpanel = new notesPanel(this, this.contentEl);
+    this.on("ArrowRightKeyDown", e => this.leftpanel.toggle());
     this.commandPalette = new TGCommandPalette(this);
     this.commandPalette.state = new TGPaletteState(this, "");
     this.commandPalette
@@ -266,7 +276,7 @@ export default class TouchGrassBibleApp extends App {
     this.commandPalette.state.verse = VerseRef.RandomVerse;
     this.console.enabled = this.settings.enableLogging;
     this.console.log(info.name, info.version, "loaded");
-    this.on("keydown", e => e.key === "Enter" && !this.commandPalette.isOpen && this.openCommandPalette());
+    this.on("EnterKeyDown", e => !this.commandPalette.isOpen && this.openCommandPalette());
 
     this.console.log(new Date().getTime() - processstart, "ms startup time");
     this.addCommand({
@@ -408,11 +418,28 @@ export default class TouchGrassBibleApp extends App {
 
   async loadsettings(DEFAULT_SETTINGS: TGAppSettings) {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    VerseRef.myNotes = new Map(this.settings.myNotes);
   }
 
   saveSettings() {
     this.settings.Bookmarks = VerseRef.Bookmarks.toJSON();
+    this.settings.myNotes = Array.from(VerseRef.myNotes.entries());
     this.saveData(this.settings);
+  }
+
+  saveSettingsAfterDelay(delay: number = 5000) {
+    // Clear the previous timeout if it exists
+    if (this.saveTimeoutId !== null) {
+      clearTimeout(this.saveTimeoutId);
+      this.saveTimeoutId = null; // Reset the timeout ID
+    }
+
+    // Set a new timeout
+    this.saveTimeoutId = setTimeout(() => {
+      this.saveSettings();
+      this.console.log("Settings saved after 5 seconds");
+      this.saveTimeoutId = null; // Reset after execution
+    }, delay);
   }
 }
 

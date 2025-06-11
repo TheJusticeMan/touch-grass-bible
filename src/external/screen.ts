@@ -1,5 +1,5 @@
 import { App } from "./App";
-import { ETarget } from "./Event";
+import { ETarget, touchDragger } from "./Event";
 import "./screen.css";
 
 export abstract class ScreenView<T extends App> extends ETarget {
@@ -198,5 +198,77 @@ export class Scrollpast extends ETarget {
    */
   protected animateSwipe(direction: "up" | "down"): void {
     // Optionally implement visual feedback for swipe, e.g. flicker, bounce, confetti, guilt...
+  }
+}
+
+export class sidePanel<T extends App> extends touchDragger {
+  private element: HTMLElement;
+  private isOpen: boolean = false;
+  content: HTMLDivElement;
+
+  constructor(public app: T, parent: HTMLElement, private direction: "left" | "right" = "right") {
+    super(parent);
+    this.direction = direction;
+    this.element = parent.createEl("div", { cls: "sidepanel" });
+    this.element.classList.add(direction);
+    this.element.style.transform = `translateX(${direction === "left" ? "-100%" : "100%"})`;
+    this.content = this.element.createEl("div", { cls: "sidepanel-content" });
+    this.on("draggingX", e => {
+      const deltaX = e.deltaX;
+      if (this.isOpen) {
+        if (deltaX < 0 && this.direction === "right") return; // Prevent dragging left if only right is allowed
+        if (deltaX > 0 && this.direction === "left") return; // Prevent dragging right if only left is allowed
+        this.setTransform(`${deltaX}px`, false);
+      } else {
+        this.setTransform(`calc(${deltaX}px + ${this.direction === "left" ? "-100%" : "100%"})`, false);
+      }
+    });
+    this.on("dragX", e => {
+      const deltaX = e.deltaX;
+      if (this.isOpen) {
+        if (deltaX < 0 && this.direction === "left") {
+          this.toggle(); // Close panel
+        } else if (deltaX > 0 && this.direction === "right") {
+          this.toggle(); // Close panel
+        } else {
+          this.setTransform("0"); // Reset position
+        }
+      } else {
+        if (deltaX > 0 && this.direction === "left") {
+          this.toggle(); // Open panel
+        } else if (deltaX < 0 && this.direction === "right") {
+          this.toggle(); // Open panel
+        } else {
+          this.setTransform(this.direction === "left" ? "-100%" : "100%"); // Reset position
+        }
+      }
+    });
+    this.on("dragXcancel", () => {
+      this.setTransform(this.isOpen ? "0" : this.direction === "left" ? "-100%" : "100%");
+    });
+    this.on("keydown", e => {
+      if (e.key === "Escape" && this.isOpen) {
+        this.toggle(); // Close panel on Escape key
+      }
+    });
+  }
+
+  // Helper to set transform with optional animation
+  private setTransform(translateX: string, animate: boolean = true) {
+    if (animate) {
+      this.element.style.transition = "transform 0.3s ease";
+    } else {
+      this.element.style.transition = "none";
+    }
+    this.element.style.transform = `translateX(${translateX})`;
+  }
+
+  toggle(): void {
+    if (this.isOpen) this.app.target.pop(); // Remove from target stack
+    else this.app.target.push(this); // Add to target stack
+    this.isOpen = !this.isOpen;
+    if (this.isOpen) this.emit("open");
+    else this.emit("close");
+    this.setTransform(this.isOpen ? "0" : this.direction === "left" ? "-100%" : "100%");
   }
 }
