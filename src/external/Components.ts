@@ -13,6 +13,7 @@ export class Component<T extends HTMLElement> extends ETarget {
     this.element.classList.add(...cls);
     return this;
   }
+
   scrollIntoViewSS() {
     this.element.scrollIntoView({ behavior: "smooth", block: "start" });
     return this;
@@ -53,8 +54,8 @@ export class Button extends Component<HTMLButtonElement> {
 abstract class AbstractInput<T extends HTMLElement, V> extends Component<T> {
   constructor(parent: HTMLElement, tagName: keyof HTMLElementTagNameMap) {
     super(parent, tagName);
-    this.element.addEventListener("input", e => this.emit("input", () => this.getValue));
-    this.element.addEventListener("change", e => this.emit("change", () => this.getValue));
+    this.element.addEventListener("input", e => this.emit("input", this.getValue()));
+    this.element.addEventListener("change", e => this.emit("change", this.getValue()));
   }
 
   abstract setValue(value: V): this;
