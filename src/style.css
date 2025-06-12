@@ -64,6 +64,7 @@ body {
 }
 
 .sidepanel-content textarea {
+  box-sizing: border-box;
   width: 100%;
   min-height: 10em;
   background-color: transparent;

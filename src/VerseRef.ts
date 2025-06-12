@@ -1,3 +1,4 @@
+import exp from "constants";
 import { BibleTopics } from "./BibleTopics";
 import { BookShortNames, booksOfTheBible } from "./booksOfTheBible";
 import { Highlighter } from "./external/App";
@@ -17,6 +18,7 @@ export const VerseSHighlight: Highlighter = new Highlighter([
   { regEXP: /#/gi, cls: "versePBreak", replace: "\u00B6" },
 ]);
 
+export type OSIS = string;
 export type translation = "KJV" | "YLT" | "ASV";
 export const translationMetadata: { [key in translation]: { name: string; shortName: string } } = {
   KJV: { name: "King James Version", shortName: "KJV" },
@@ -57,10 +59,10 @@ export const translationMetadata: { [key in translation]: { name: string; shortN
  */
 export class VerseRef {
   static booksOfTheBible: string[] = booksOfTheBible;
-  static BookShortNames: string[] = BookShortNames;
+  static BookShortNames: OSIS[] = BookShortNames;
   static bibleTranslations: { [translation: string]: bibleData } = {};
-  static myNotes: Map<string, string> = new Map<string, string>();
-  static crossRefs: { [x: string]: never[] };
+  static myNotes: Map<OSIS, string> = new Map<OSIS, string>();
+  static crossRefs: { [OSIS: string]: [OSIS, number][] };
   static topics: BibleTopics;
   static Bookmarks: BibleTopics;
   static defaultTranslation: translation = "KJV";
@@ -84,7 +86,7 @@ export class VerseRef {
   }
   crossRefs(): VerseRef[] {
     const refs = VerseRef.crossRefs[this.toOSIS()] || [];
-    return refs.map(ref => VerseRef.fromOSIS(ref[0] as string));
+    return refs.map(([ref]) => VerseRef.fromOSIS(ref));
   }
   toOSIS(): string {
     const bookIndex = VerseRef.booksOfTheBible.indexOf(this.book);

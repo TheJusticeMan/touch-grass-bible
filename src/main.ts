@@ -1,7 +1,9 @@
-import { ChevronLeft, ChevronRight, Sidebar } from "lucide";
+export const processstart = new Date().getTime();
+import { ChevronLeft, ChevronRight } from "lucide";
 import { BibleTopics, BibleTopicsType } from "./BibleTopics";
-import { App, Command, DefaultCommandCategory, ScreenView, Scrollpast, sidePanel } from "./external/App";
+import { App, Command, DefaultCommandCategory, ScreenView, Scrollpast } from "./external/App";
 import info from "./info.json";
+import { notesPanel } from "./sidepanels";
 import "./style.css";
 import { DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
 import {
@@ -9,6 +11,7 @@ import {
   BookmarkCategory,
   CrossRefCategory,
   GoToVerseCategory,
+  myNotesCategory,
   TGCommandPalette,
   TGPaletteState,
   topicListCategory,
@@ -16,7 +19,6 @@ import {
   VerseListCategory,
 } from "./TGPaletteCategories";
 import { bibleData, VerseHighlight, VerseRef } from "./VerseRef";
-import { notesPanel } from "./sidepanels";
 
 /**
  * Represents the main screen for displaying and interacting with a single verse in the TouchGrassBibleApp.
@@ -176,9 +178,7 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
           const newVerse = new VerseRef(book, chapter, v);
 
           // Attach click event to select the verse
-          el.addEventListener("click", () => {
-            this.verse = newVerse;
-          });
+          el.addEventListener("click", () => (this.verse = newVerse));
 
           // Attach context menu to open command palette
           el.addEventListener("contextmenu", (e: Event) => {
@@ -198,8 +198,6 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
     });
   }
 }
-
-declare const processstart: number;
 
 /**
  * Main application class for the Touch Grass Bible app.
@@ -242,7 +240,7 @@ export default class TouchGrassBibleApp extends App {
     this.leftpanel = new notesPanel(this, this.contentEl);
     this.on("ArrowRightKeyDown", e => this.leftpanel.toggle());
     this.commandPalette = new TGCommandPalette(this);
-    this.commandPalette.state = new TGPaletteState(this, "");
+    this.commandPalette.state = new TGPaletteState(this, this.commandPalette, "");
     this.commandPalette
       .addPalette(VerseListCategory)
       .addPalette(CrossRefCategory)
@@ -251,6 +249,7 @@ export default class TouchGrassBibleApp extends App {
       .addPalette(topicListCategory)
       .addPalette(BibleSearchCategory)
       .addPalette(translationCategory)
+      .addPalette(myNotesCategory)
       .on("open", e => this.target.push(this.commandPalette))
       .on("close", e => this.target.pop())
       .on("display", e => {

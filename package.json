@@ -1,6 +1,6 @@
 {
   "name": "touch-grass-bible",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "description": "The bible app that keeps you grounded in the word while letting you into some functionality.",
   "keywords": [
     "bible",
@@ -29,11 +29,12 @@
     "init": "npm install",
     "getdatafiles": "node ./processing/online.mjs && cp src/translations.json dest",
     "build:web": "mkdir -p ./dest && npm run build && cp src/web/* dest",
-    "clean": "rm ./dest/*",
+    "clean": "rm -rf ./dest/* ./dest/",
     "ai": "node ./processing/filetochat.mjs",
     "build:electron": "mkdir -p ./dest && npm run build && cp ./src/electron/* ./dest && cd dest && npm install && npm run start"
   },
   "dependencies": {
+    "glob": "^11.0.2",
     "js-levenshtein": "^1.1.6"
   },
   "devDependencies": {

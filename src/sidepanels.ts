@@ -1,17 +1,15 @@
 import { sidePanel } from "./external/App";
+import { TextArea } from "./external/Components";
 import TouchGrassBibleApp from "./main";
 import { VerseRef } from "./VerseRef";
 
 export class notesPanel extends sidePanel<TouchGrassBibleApp> {
-  currentFocus: HTMLTextAreaElement | null = null;
+  currentFocus: TextArea | null = null;
   constructor(app: TouchGrassBibleApp, parent: HTMLElement) {
     super(app, parent, "left");
 
     this.on("open", () => {
-      if (this.currentFocus) {
-        this.currentFocus.focus();
-        this.currentFocus.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }
+      this.currentFocus?.focus().scrollIntoViewSS();
     });
   }
 
@@ -23,24 +21,15 @@ export class notesPanel extends sidePanel<TouchGrassBibleApp> {
       .forEach(v => {
         this.content.createEl("div", { cls: ["note"] }, el => {
           el.createEl("span", { text: `${v.verse}`, cls: "verseNumber" });
-
-          el.createEl(
-            "textarea",
-            {
-              value: v.note,
-              placeholder: ` - Add your note here...\n\n${v.vTXT.replace(/[\]\[#]/g, "").trim()}`,
-            },
-            textarea => {
-              textarea.addEventListener("input", () => {
-                v.note = textarea.value || "";
-                this.app.saveSettingsAfterDelay();
-              });
-              if (v.isSame(verse)) this.currentFocus = textarea;
-            }
-          );
+          new TextArea(el)
+            .setValue(v.note)
+            .setPlaceholder(` - Add your note here...\n\n${v.vTXT.replace(/[\]\[#]/g, "").trim()}`)
+            .on("input", (value: string) => {
+              v.note = value;
+              this.app.saveSettingsAfterDelay();
+            })
+            .next(t => v.isSame(verse) && (this.currentFocus = t));
         });
       });
-
-    this.content.createEl;
   }
 }

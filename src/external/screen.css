@@ -73,7 +73,6 @@ button:hover {
 
 /* Styles for the content area inside the sidepanel */
 .sidepanel-content {
-  padding: 20px; /* Basic padding for content */
   height: 100%; /* Occupy full height inside sidepanel */
   box-sizing: border-box; /* Include padding in height calculations */
   overflow-y: auto; /* Scroll if content overflows */

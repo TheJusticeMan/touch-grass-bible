@@ -1,12 +1,11 @@
 import levenshtein from "js-levenshtein";
-import { ChevronRight, ChevronsDownUp, ChevronsUpDown, Library, X } from "lucide";
+import { ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, Library, X } from "lucide";
 import { App, Highlighter } from "./App";
 import "./CommandPalette.css";
 import { ETarget } from "./Event";
 import { escapeRegExp } from "./escapeRegExp";
 import { translation } from "../VerseRef";
-
-type inputMode = "none" | "text" | "decimal" | "numeric" | "tel" | "search" | "email" | "url";
+import { Button, inputMode, TextArea, TextInput } from "./Components";
 
 /**
  * Abstract base class for a unified command palette UI component.
@@ -60,7 +59,7 @@ export abstract class UnifiedCommandPalette<AppType extends App> extends ETarget
   private containerEl: HTMLElement | null = null;
 
   private paletteEl!: HTMLElement;
-  private searchInputEl!: HTMLInputElement;
+  private searchInput: TextInput; // Search input element
   private contentEl!: HTMLElement;
 
   private commandItems: CommandItem<any, AppType>[] = [];
@@ -79,22 +78,20 @@ export abstract class UnifiedCommandPalette<AppType extends App> extends ETarget
   }
 
   prompt(text: string): Promise<string | null> {
-    let resolveFn: (value: string | null) => void;
-    const resOnClose = () => resolveFn(null);
-    const promptPromise = new Promise<string | null>(resolve => {
-      resolveFn = resolve;
-    });
-    this.categories.push(
-      new PromptCategory(this.app, (text: string | null) => {
-        resolveFn(text);
-        this.categories.pop(); // Remove the prompt category after resolving
+    return new Promise<string | null>(resolve => {
+      const promptCategory = new PromptCategory(this.app, (result: string | null) => {
+        resolve(result);
         this.off("close", resOnClose); // Remove the close handler
         this.close(); // Close the palette after resolving
-      })
-    );
-    this.display({ query: text, topCategory: PromptCategory });
-    this.on("close", resOnClose); // Ensure the prompt category is removed on close
-    return promptPromise;
+      });
+      this.categories.push(promptCategory);
+      this.display({ query: text, topCategory: PromptCategory });
+      const resOnClose = () => resolve(null);
+      this.on("close", resOnClose); // Ensure the prompt category is removed on close
+    }).then(result => {
+      this.categories.pop(); // Remove the prompt category on close
+      return result;
+    });
   }
 
   confirm(text: string): Promise<boolean> {
@@ -159,57 +156,55 @@ export abstract class UnifiedCommandPalette<AppType extends App> extends ETarget
     this.paletteEl = this.containerEl.createEl("div", { cls: "palette" });
     this.headerEl = this.paletteEl.createEl("div", { cls: "palette-header" });
 
-    this.headerEl.createEl("button", {}, el => {
-      el.setIcon(Library);
-      el.addEventListener("click", e => {
-        e.stopPropagation(); // Prevent bubbling to document
-        this.display({ topCategory: null }); // Show the list at the top level
+    new Button(this.headerEl)
+      .setIcon(ChevronLeft)
+      .setTooltip("Back to previous context")
+      .on("click", () => {
+        this.handleBack();
       });
-    });
 
-    this.headerEl.createEl("button", {}, el => {
-      el.setIcon(this.state.expanded ? ChevronsDownUp : ChevronsUpDown);
-      el.addEventListener("click", e => {
-        e.stopPropagation(); // Prevent bubbling to document
-        this.state.expanded = !this.state.expanded;
-        this.contentEl.classList.toggle("expanded", this.state.expanded);
-        el.empty();
-        el.setIcon(this.state.expanded ? ChevronsDownUp : ChevronsUpDown);
+    new Button(this.headerEl)
+      .setIcon(Library)
+      .setTooltip("List of Palettes")
+      .on("click", () => {
+        return this.display({ topCategory: null });
       });
-    });
 
-    this.headerEl.createEl("button", {}, el => {
-      el.addEventListener("click", e => {
-        e.stopPropagation();
+    new Button(this.headerEl)
+      .setIcon(this.state.expanded ? ChevronsDownUp : ChevronsUpDown)
+      .setTooltip("Toggle expanded view")
+      .next(btn =>
+        btn.on("click", () => {
+          this.state.expanded = !this.state.expanded;
+          this.contentEl.classList.toggle("expanded", this.state.expanded);
+          btn.setIcon(this.state.expanded ? ChevronsDownUp : ChevronsUpDown);
+        })
+      );
+
+    new Button(this.headerEl)
+      .setIcon(X)
+      .setTooltip("Close Palette")
+      .on("click", () => {
         this.close();
       });
-      return el.setIcon(X);
-    });
 
-    this.searchInputEl = this.paletteEl.createEl(
-      "input",
-      {
-        placeholder: `Search ${this.state.topCategory ? this.topCategory.title : "all"}...`,
-        type: "search",
-        cls: "palette-search",
-      },
-      el => {
-        el.inputMode = this.inputMode;
+    this.searchInput = new TextInput(this.paletteEl)
+      .addClass("palette-search")
+      .setPlaceholder(`Search ${this.state.topCategory ? this.topCategory.title : "all"}...`)
+      .setType("search", this.inputMode)
+      .on("input", (e: string) => {
+        this.state.query = e;
+        this.state.maxResults = this.maxResults;
+        this.render();
+      });
 
-        el.addEventListener("input", () => {
-          this.state.query = el.value;
-          this.state.maxResults = this.maxResults;
-          this.render();
-        });
-      }
-    );
     this.contentEl = this.paletteEl.createEl("div", { cls: "palette-content" }, el => {
       el.classList.toggle("expanded", this.state.expanded);
     });
 
     this.state.query = ""; //  Reset query on open
     this.render(); // initial load
-    this.searchInputEl.focus();
+    this.searchInput.element.focus();
 
     // Outside click closes palette
     document.addEventListener("click", this.handleOutsideClick);
@@ -237,7 +232,7 @@ export abstract class UnifiedCommandPalette<AppType extends App> extends ETarget
 
   private handleOutsideClick = (e: MouseEvent) => {
     if (this.containerEl && !this.containerEl.contains(e.target as Node)) this.close();
-    else this.searchInputEl.focus();
+    else this.searchInput.element.focus();
   };
 
   private handleMobileResize = (): void => {
@@ -292,8 +287,8 @@ export abstract class UnifiedCommandPalette<AppType extends App> extends ETarget
   };
 
   setValue(value: string, select = false) {
-    this.searchInputEl.value = value;
-    if (select) this.searchInputEl.select();
+    this.searchInput.setValue(value);
+    if (select) this.searchInput.element.select();
 
     this.state.query = value;
     this.state.maxResults = this.maxResults;
@@ -410,7 +405,12 @@ export class CommandPaletteState<AppType extends App> extends ETarget {
   maxResults: number = 100; // Maximum results to show
   expanded: boolean = false; // Whether the palette items are expanded
   defaultTranslation: translation = "KJV"; // Default translation for Bible references
-  constructor(public app: App, public query: string = "", public topCategory: Function | null = null) {
+  constructor(
+    public app: App,
+    public palette: UnifiedCommandPalette<AppType>,
+    public query: string = "",
+    public topCategory: Function | null = null
+  ) {
     super();
   }
   update(partial: Partial<CommandPaletteState<AppType>> = {}): CommandPaletteState<AppType> {
@@ -689,8 +689,10 @@ export class Command<AppType extends App> {
 export class DefaultCommandCategory<AppType extends App> extends CommandCategory<Command<AppType>, AppType> {
   readonly name: string = "Commands";
   commands: Command<AppType>[] = [];
+  state: CommandPaletteState<AppType>;
 
   onTrigger(context: CommandPaletteState<AppType>): void {
+    this.state = context;
     this.commands.forEach(cmd => {
       try {
         cmd.onTrigger();
@@ -703,7 +705,7 @@ export class DefaultCommandCategory<AppType extends App> extends CommandCategory
   getCommands(query: string): Command<AppType>[] {
     const commands: Command<AppType>[] = [];
     for (const cmd of this.commands) {
-      cmd.context = this.app.commandPalette.state;
+      cmd.context = this.state;
       if (cmd.getCommand) cmd.getCommand(query) ? commands.push(cmd) : "";
       else if (cmd.name.toLowerCase().includes(query.toLowerCase())) commands.push(cmd);
     }
@@ -764,6 +766,8 @@ class PromptCategory<AppType extends App> extends CommandCategory<string, AppTyp
 
   onTrigger(context: CommandPaletteState<AppType>): void {
     this.prompt = context.query;
+    //context.
+    //this.
   }
 
   getCommands(query: string): string[] {

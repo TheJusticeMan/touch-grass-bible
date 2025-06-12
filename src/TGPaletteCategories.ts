@@ -8,8 +8,12 @@ export class TGPaletteState extends CommandPaletteState<TouchGrassBibleApp> {
   specificity: number = 0; // 0: Book, 1: Chapter, 2: Verse, 3: Full Verse
   topic: string = "";
   tag: string = "Start Up Verses";
-  constructor(public app: TouchGrassBibleApp, public query: string) {
-    super(app, query, null);
+  constructor(
+    public app: TouchGrassBibleApp,
+    pallete: UnifiedCommandPalette<TouchGrassBibleApp>,
+    public query: string
+  ) {
+    super(app, pallete, query, null);
   }
   update(partial: Partial<TGPaletteState> = {}): TGPaletteState {
     this.emit("update", partial);
@@ -241,7 +245,7 @@ export class BookmarkCategory extends CommandCategory<string, TouchGrassBibleApp
   }
 
   getCommands(query: string): string[] {
-    return this.getcompatible(query, this.tags as string[], topic => topic);
+    return this.getcompatible(query, this.tags, topic => topic);
   }
 
   renderCommand(command: string, Item: CommandItem<string, TouchGrassBibleApp>): Partial<TGPaletteState> {
@@ -288,6 +292,33 @@ export class translationCategory extends CommandCategory<string, TouchGrassBible
 
   executeCommand(command: string): void {
     VerseRef.defaultTranslation = command as translation;
+    this.app.commandPalette.close();
+  }
+}
+
+export class myNotesCategory extends CommandCategory<VerseRef, TouchGrassBibleApp> {
+  readonly name = "My Notes";
+  notes: VerseRef[] = [];
+
+  onTrigger(context: TGPaletteState): void {
+    this.notes = Array.from(VerseRef.myNotes.keys())
+      .map(osis => VerseRef.fromOSIS(osis))
+      .sort((a, b) => a.toString().localeCompare(b.toString()));
+    this.title = "My Notes";
+  }
+
+  getCommands(query: string): VerseRef[] {
+    return this.getcompatible(query, this.notes, verse => verse.note);
+  }
+
+  renderCommand(verse: VerseRef, Item: CommandItem<VerseRef, TouchGrassBibleApp>): Partial<TGPaletteState> {
+    Item.setTitle(verse.toString().toTitleCase())
+      .setDescription(verse.note || "No note")
+      .setContextMenuVisibility(true);
+    return { topCategory: CrossRefCategory, verse };
+  }
+
+  executeCommand(command: VerseRef): void {
     this.app.commandPalette.close();
   }
 }

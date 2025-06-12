@@ -231,7 +231,7 @@ export class sidePanel<T extends App> extends touchDragger {
         } else if (deltaX > 0 && this.direction === "right") {
           this.toggle(); // Close panel
         } else {
-          this.setTransform("0"); // Reset position
+          this.setTransform("0", true); // Reset position
         }
       } else {
         if (deltaX > 0 && this.direction === "left") {
@@ -239,12 +239,12 @@ export class sidePanel<T extends App> extends touchDragger {
         } else if (deltaX < 0 && this.direction === "right") {
           this.toggle(); // Open panel
         } else {
-          this.setTransform(this.direction === "left" ? "-100%" : "100%"); // Reset position
+          this.setTransform(this.direction === "left" ? "-100%" : "100%", true); // Reset position
         }
       }
     });
     this.on("dragXcancel", () => {
-      this.setTransform(this.isOpen ? "0" : this.direction === "left" ? "-100%" : "100%");
+      this.setTransform(this.isOpen ? "0" : this.direction === "left" ? "-100%" : "100%", true);
     });
     this.on("keydown", e => {
       if (e.key === "Escape" && this.isOpen) {
@@ -254,13 +254,25 @@ export class sidePanel<T extends App> extends touchDragger {
   }
 
   // Helper to set transform with optional animation
-  private setTransform(translateX: string, animate: boolean = true) {
-    if (animate) {
-      this.element.style.transition = "transform 0.3s ease";
-    } else {
-      this.element.style.transition = "none";
-    }
-    this.element.style.transform = `translateX(${translateX})`;
+  private setTransform(translateX: string, final: boolean) {
+    this.element.style.display = "block"; // Ensure the element is visible during animation
+    this.waitFullUpdate(() => {
+      this.element.style.transition = final ? "transform 0.3s ease" : "none";
+      this.element.style.transform = `translateX(${translateX})`;
+    });
+    if (!this.isOpen && final) window.setTimeout(() => (this.element.style.display = "none"), 300); // Hide after transition if closed
+  }
+
+  waitFullUpdate(cb: () => void): void {
+    // Wait for the next full update cycle before executing the callback
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => cb()));
+  }
+
+  getFullUpdate(): Promise<void> {
+    // Returns a promise that resolves after the next full update cycle
+    return new Promise(resolve => {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+    });
   }
 
   toggle(): void {
@@ -269,6 +281,6 @@ export class sidePanel<T extends App> extends touchDragger {
     this.isOpen = !this.isOpen;
     if (this.isOpen) this.emit("open");
     else this.emit("close");
-    this.setTransform(this.isOpen ? "0" : this.direction === "left" ? "-100%" : "100%");
+    this.setTransform(this.isOpen ? "0" : this.direction === "left" ? "-100%" : "100%", true);
   }
 }

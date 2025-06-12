@@ -66,8 +66,8 @@ class AppState {
 abstract class App extends ETarget {
   console: BrowserConsole;
   contentEl: HTMLElement;
-  abstract commandPalette: UnifiedCommandPalette<App>;
-  abstract MainScreen: ScreenView<App>;
+  abstract commandPalette: UnifiedCommandPalette<any>;
+  abstract MainScreen: ScreenView<any>;
   target: ETarget[] = [];
   /**
    * Returns the current event target for keyboard and command events.
