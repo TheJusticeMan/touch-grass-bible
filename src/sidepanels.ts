@@ -1,5 +1,4 @@
-import { sidePanel } from "./external/App";
-import { TextArea } from "./external/Components";
+import { sidePanel, TextArea } from "./external/App";
 import TouchGrassBibleApp from "./main";
 import { VerseRef } from "./VerseRef";
 
@@ -20,7 +19,7 @@ export class notesPanel extends sidePanel<TouchGrassBibleApp> {
       .map((v, i) => new VerseRef(verse.book, verse.chapter, i + 1))
       .forEach(v => {
         this.content.createEl("div", { cls: ["note"] }, el => {
-          el.createEl("span", { text: `${v.verse}`, cls: "verseNumber" });
+          el.createEl("span", { text: `${v.toString().toTitleCase()}`, cls: "verseNumber" });
           new TextArea(el)
             .setValue(v.note)
             .setPlaceholder(` - Add your note here...\n\n${v.vTXT.replace(/[\]\[#]/g, "").trim()}`)

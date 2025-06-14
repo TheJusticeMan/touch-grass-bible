@@ -41,6 +41,10 @@ export abstract class ScreenView<T extends App> extends ETarget {
   update(): void {
     this.content.empty();
   }
+  waitFullUpdate(cb: () => void): void {
+    // Wait for the next full update cycle before executing the callback
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => cb()));
+  }
 }
 
 /**

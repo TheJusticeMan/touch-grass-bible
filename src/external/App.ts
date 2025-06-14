@@ -3,6 +3,7 @@ import { UnifiedCommandPalette } from "./CommandPalette";
 import { ETarget } from "./Event";
 import { BrowserConsole } from "./MyBrowserConsole";
 import { ScreenView } from "./screen";
+export * from "./Components";
 export * from "./CommandPalette";
 export * from "./Event";
 export * from "./highlighter";

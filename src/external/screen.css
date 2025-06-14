@@ -27,6 +27,11 @@
   font-family: var(--font);
   font-size: var(--font-size);
   overflow: scroll;
+  scrollbar-width: none; /* Firefox */
+}
+
+.content::-webkit-scrollbar {
+  display: none; /* Hide scrollbar for WebKit browsers */
 }
 
 button {
@@ -58,8 +63,13 @@ button:hover {
   background-color: #0008; /* Semi-transparent background */
   backdrop-filter: blur(8px);
   transition: transform 0.3s ease; /* Smooth transition for sliding effect */
-  overflow: auto; /* Enable scrolling if content overflows */
+  overflow: scroll; /* Enable scrolling if content overflows */
+  scrollbar-width: none; /* Firefox */
   z-index: 1000; /* Ensure it overlays other elements */
+}
+
+.sidepanel::-webkit-scrollbar {
+  display: none; /* Hide scrollbar for WebKit browsers */
 }
 
 /* Optional: Styles to handle directional slide-in, if not handled via inline styles * /

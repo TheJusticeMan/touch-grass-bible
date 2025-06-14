@@ -30,6 +30,8 @@ export class TGPaletteState extends CommandPaletteState<TouchGrassBibleApp> {
 }
 
 export class VerseListCategory extends CommandCategory<VerseRef, TouchGrassBibleApp> {
+  readonly description = "List of opened verses";
+
   verses: VerseRef[] = [];
   name = "Open"; // Name of the category
 
@@ -72,6 +74,7 @@ export class CrossRefCategory extends VerseListCategory {
 
 export class GoToVerseCategory extends CommandCategory<VerseRef, TouchGrassBibleApp> {
   readonly name = "Go to verse";
+  readonly description = "Navigate to a specific verse in the Bible";
   list: VerseRef[] = [];
   specificity: number = 0; // 0: Book, 1: Chapter, 2: Verse, 3: Full Verse
 
@@ -144,6 +147,7 @@ export class GoToVerseCategory extends CommandCategory<VerseRef, TouchGrassBible
 
 export class BibleSearchCategory extends CommandCategory<VerseRef, TouchGrassBibleApp> {
   readonly name = "Search bible";
+  readonly description = "Search for verses in the Bible";
   verses: VerseRef[] = [];
   bible: bibleData = {}; // Default to an empty object
   //SiblingCategories = [GoToVerseCategory, CrossRefCategory, topicListCategory, BookmarkCategory];
@@ -190,6 +194,7 @@ export class BibleSearchCategory extends CommandCategory<VerseRef, TouchGrassBib
 export class topicListCategory extends CommandCategory<VerseRef | string, TouchGrassBibleApp> {
   list: string[] | VerseRef[] = [];
   name = "Topics (www.openbible.info)"; // Name of the category
+  description = "List of topics from OpenBible.info";
 
   onTrigger(context: TGPaletteState): void {
     if (context.topic) {
@@ -239,6 +244,57 @@ export class topicListCategory extends CommandCategory<VerseRef | string, TouchG
 export class BookmarkCategory extends CommandCategory<string, TouchGrassBibleApp> {
   tags: string[] = [];
   name = "Bookmarks"; // Name of the category
+  description = "List of bookmark tags";
+
+  onInit(): void {
+    this.addCommand({
+      name: "Delete verse from tag",
+      description: "Delete a verse from a bookmark tag",
+      render: (cmd, item) => {
+        const { verse, tag } = cmd.context as TGPaletteState;
+        item.setTitle(`Delete ${verse.toString().toTitleCase()} from "${tag}"`);
+        return { topCategory: BookmarkCategory, tag };
+      },
+      action: cmd => {
+        const { verse, tag } = cmd.context as TGPaletteState;
+        VerseRef.Bookmarks.remove(tag, verse);
+        this.app.commandPalette.display();
+        this.app.saveSettings();
+      },
+    });
+    this.addCommand({
+      name: "Delete tag",
+      description: "Delete a bookmark tag",
+      render: (cmd, item) => {
+        const { tag } = cmd.context as TGPaletteState;
+        item.setTitle(`Delete tag: ${tag}`);
+        return { topCategory: BookmarkCategory, tag };
+      },
+      action: cmd => {
+        const { tag } = cmd.context as TGPaletteState;
+        VerseRef.Bookmarks.delete(tag);
+        this.app.commandPalette.display();
+        this.app.saveSettings();
+      },
+    });
+    this.addCommand({
+      name: "Save to bookmarks",
+      description: "Save the current verse to a bookmark tag",
+      getCommand: (query: string) => query !== "Welcome to Touch Grass Bible!",
+      render: (cmd, item) => {
+        const { verse, query } = cmd.context as TGPaletteState;
+        const tag = (query || "Start Up Verses").toTitleCase();
+        item.setTitle(`Save ${verse.toString().toTitleCase()} to "${tag}"`);
+        return { topCategory: BookmarkCategory, tag };
+      },
+      action: cmd => {
+        const { verse, query } = cmd.context as TGPaletteState;
+        VerseRef.Bookmarks.add(query.toTitleCase() || "Start Up Verses", verse);
+        this.app.commandPalette.display();
+        this.app.saveSettings();
+      },
+    });
+  }
 
   onTrigger(context: TGPaletteState): void {
     this.tags = VerseRef.Bookmarks.keys;
@@ -249,7 +305,14 @@ export class BookmarkCategory extends CommandCategory<string, TouchGrassBibleApp
   }
 
   renderCommand(command: string, Item: CommandItem<string, TouchGrassBibleApp>): Partial<TGPaletteState> {
-    Item.setTitle(this.getDateFromString(command)).setContextMenuVisibility(true);
+    Item.setTitle(this.getDateFromString(command))
+      .setContextMenuVisibility(true)
+      .setDescription(
+        VerseRef.Bookmarks.get(command)
+          .map(v => v.toString().toTitleCase())
+          .join(", ")
+      );
+
     return { topCategory: VerseListCategory, tag: command.toTitleCase() };
   }
 
@@ -275,6 +338,7 @@ export class BookmarkCategory extends CommandCategory<string, TouchGrassBibleApp
 
 export class translationCategory extends CommandCategory<string, TouchGrassBibleApp> {
   readonly name = "Translations";
+  readonly description = "List of available Bible translations";
   translations: string[];
 
   onTrigger(state: CommandPaletteState<TouchGrassBibleApp>): void {
@@ -297,14 +361,15 @@ export class translationCategory extends CommandCategory<string, TouchGrassBible
 }
 
 export class myNotesCategory extends CommandCategory<VerseRef, TouchGrassBibleApp> {
-  readonly name = "My Notes";
+  readonly name = "Notes";
+  readonly description = "List of your personal notes on verses";
   notes: VerseRef[] = [];
 
   onTrigger(context: TGPaletteState): void {
     this.notes = Array.from(VerseRef.myNotes.keys())
       .map(osis => VerseRef.fromOSIS(osis))
       .sort((a, b) => a.toString().localeCompare(b.toString()));
-    this.title = "My Notes";
+    this.title = "Notes";
   }
 
   getCommands(query: string): VerseRef[] {

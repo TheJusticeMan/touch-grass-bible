@@ -58,6 +58,10 @@ export const translationMetadata: { [key in translation]: { name: string; shortN
  * - `fromOSIS(osis)`: Creates a `VerseRef` from an OSIS string.
  */
 export class VerseRef {
+  setVerse(v: number): VerseRef {
+    this.verse = v;
+    return this;
+  }
   static booksOfTheBible: string[] = booksOfTheBible;
   static BookShortNames: OSIS[] = BookShortNames;
   static bibleTranslations: { [translation: string]: bibleData } = {};
@@ -155,5 +159,53 @@ export class VerseRef {
   }
   get OSIS(): string {
     return this.toOSIS();
+  }
+  get nextChapter(): VerseRef {
+    const { book, chapter } = this;
+    const nextChapter = chapter + 1;
+    const nextBookIndex = VerseRef.booksOfTheBible.indexOf(book) + 1;
+    if (nextChapter > VerseRef.bible[book].length - 1) {
+      if (nextBookIndex > VerseRef.booksOfTheBible.length) {
+        return new VerseRef(VerseRef.booksOfTheBible[0], 1, 1);
+      }
+      return new VerseRef(VerseRef.booksOfTheBible[nextBookIndex], 1, 1);
+    }
+    return new VerseRef(book, nextChapter, 1);
+  }
+  /**
+   * Returns a new {@link VerseRef} instance representing the last verse of the previous chapter.
+   *
+   * - If the current chapter is the first chapter of the book, it navigates to the last chapter of the previous book.
+   * - If the current book is the first book, it wraps around to the last book.
+   * - The returned reference always points to the last verse of the resolved previous chapter.
+   *
+   * @returns {VerseRef} A new VerseRef pointing to the last verse of the previous chapter.
+   */
+  get prevChapter(): VerseRef {
+    const { book, chapter } = this;
+    const books = VerseRef.booksOfTheBible;
+
+    const currentBookIndex = books.indexOf(book);
+    let prevBookIndex = currentBookIndex - 1;
+
+    let prevBook: string;
+    let prevChapter: number;
+
+    if (chapter > 1) {
+      // Previous chapter in the same book
+      prevBook = book;
+      prevChapter = chapter - 1;
+    } else {
+      // Need to go to previous book's last chapter
+      if (prevBookIndex < 0) {
+        // Wrap around to the last book
+        prevBookIndex = books.length - 1;
+      }
+      prevBook = books[prevBookIndex];
+      prevChapter = VerseRef.bible[prevBook].length - 1; // last chapter index
+    }
+
+    const lastVerseIndex = VerseRef.bible[prevBook][prevChapter].length - 1;
+    return new VerseRef(prevBook, prevChapter, lastVerseIndex);
   }
 }

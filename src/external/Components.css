@@ -1,0 +1,23 @@
+/* Style for the scrollBubble element */
+.scrollBubble {
+  position: fixed; /* Keep it fixed relative to viewport */
+  right: 0; /* Center horizontally, adjust as needed */
+  transform: translateY(-50%); /* Centering correction */
+  width: 2em; /* Example width, can be adjusted */
+  height: 4em; /* Example height, can be adjusted */
+  background-color: #fff4; /* A nice blue color */
+  border-radius: 0.5em 2em; /* Rounded corners for a bubble effect */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Subtle shadow for depth */
+  cursor: grab; /* Cursor indicates draggable */
+
+  /* Optional: add smooth transition when position updates */
+  transition: top 0.1s ease;
+
+  /* Optional: make sure it's above other elements */
+  z-index: 9999;
+}
+
+/* Change cursor when dragging */
+.scrollBubble.active {
+  cursor: grabbing;
+}

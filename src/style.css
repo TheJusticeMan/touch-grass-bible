@@ -14,9 +14,8 @@ body {
 
 .content .verse {
   text-indent: 1em;
+  text-align: justify;
   padding: 0.4em;
-  max-width: var(--readingwidth);
-  margin: auto;
   display: var(--textdisplay);
   cursor: pointer;
 }
@@ -38,9 +37,28 @@ body {
   color: #fff8;
 }
 
-.content > :last-child {
-  min-height: 100%;
+.content .chapterTitle {
+  text-align: center;
+  color: #fff8;
+  font-size: 1.5em;
+  font-weight: bold;
+  margin: 1em auto;
+  max-width: var(--readingwidth);
+}
+
+.content .chapter {
+  margin: 2em auto;
+  max-width: var(--readingwidth);
+}
+
+.content .chapter:last-of-type .verse:last-of-type {
+  min-height: 100vh;
   padding-bottom: 2rem;
+}
+.content .chapter {
+  word-spacing: 0.5em;
+  letter-spacing: 0.1em;
+  line-height: 1.5;
 }
 
 .sidepanel-content {
@@ -77,28 +95,25 @@ body {
   resize: vertical;
 }
 
-/* .content.wrap {
-  .verse {
-    display: inline;
-  }
-
-  div.versePBreak::before {
-    display: block;
-    content: "";
-  }
-
-  .versePBreak .verseNumber,
-  > :first-child .verseNumber {
-    /* display: inline-block; * /
-    font-size: 2em;
-    text-transform: capitalize;
-    float: left;
-    line-height: 0.8;
-    padding: 0.2em 0.1em 0 0;
-  }
-
-  .versePBreak .versePBreak {
-    display: none;
-  }
+.wrap .chapter .verse {
+  display: inline;
 }
- */
+
+.wrap .chapter div.versePBreak::before {
+  display: block;
+  content: "";
+}
+
+.wrap .chapter .versePBreak .verseNumber,
+.wrap .chapter > .verse:first-of-type .verseNumber {
+  /* display: inline-block; */
+  font-size: 2em;
+  text-transform: capitalize;
+  float: left;
+  line-height: 0.8;
+  padding: 0.2em 0.1em 0 0;
+}
+
+.wrap .chapter .versePBreak .versePBreak {
+  display: none;
+}
