@@ -126,7 +126,7 @@ export class VerseRef {
     );
   }
   toString(): string {
-    return `${this.book} ${this.chapter}:${this.verse}`;
+    return `${this.book.toTitleCase()} ${this.chapter}:${this.verse}`;
   }
   verseData(translation: translation): string {
     return VerseRef.bibleTranslations[translation]?.[this.book]?.[this.chapter]?.[this.verse] || "";

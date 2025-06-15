@@ -14,10 +14,83 @@
   transition: top 0.1s ease;
 
   /* Optional: make sure it's above other elements */
-  z-index: 9999;
 }
 
 /* Change cursor when dragging */
 .scrollBubble.active {
   cursor: grabbing;
+}
+
+/* Context Menu Styles */
+
+.context-menu {
+  position: absolute;
+  min-width: 180px;
+  max-width: 320px;
+  background: #0008; /* dark translucent */
+  color: #fff8;
+  border: 1px solid #444b;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px -6px #000d;
+  padding: 6px 0;
+  backdrop-filter: blur(6px);
+  font-family: inherit;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.67em;
+  padding: 8px 18px 8px 14px;
+  cursor: pointer;
+  border: 0;
+  background: none;
+  width: 100%;
+  transition: background 0.15s, color 0.13s;
+  user-select: none;
+}
+
+.menu-item:hover,
+.menu-item:focus {
+  background: #fff4;
+  color: #fff;
+}
+
+.menu-item:active {
+  background: #fff2;
+  color: #fff;
+}
+
+.menu-title {
+  font-weight: 500;
+  font-size: 1rem;
+  flex: 1 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menu-item svg {
+  flex: 0 0 auto;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 0.5em;
+  color: inherit;
+  width: 1.1em;
+  height: 1.1em;
+  opacity: 0.89;
+}
+
+.menu-item:active svg,
+.menu-item:hover svg {
+  color: #fff;
+  opacity: 1;
+}
+
+/* Optional: separator between groups of items */
+.context-menu-separator {
+  border: none;
+  border-top: 1px solid #3338;
+  margin: 4px 0;
+  height: 0;
 }

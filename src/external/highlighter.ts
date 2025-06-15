@@ -5,7 +5,7 @@
  * - `cls`: Optional CSS class name to apply to the wrapping element.
  * - `replace?: string`: Optional string for replacing matched groups (uses regex replacement syntax).
  */
-interface HighlightType {
+export interface HighlightType {
   regEXP: RegExp; // Must include 'g' for global matching
   elTag?: string;
   cls?: string;

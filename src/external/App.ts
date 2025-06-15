@@ -67,7 +67,6 @@ class AppState {
 abstract class App extends ETarget {
   console: BrowserConsole;
   contentEl: HTMLElement;
-  abstract commandPalette: UnifiedCommandPalette<any>;
   abstract MainScreen: ScreenView<any>;
   target: ETarget[] = [];
   /**
@@ -100,8 +99,9 @@ abstract class App extends ETarget {
         (e.shiftKey ? "Shift+" : "") +
         e.key;
       //if (this.ctarget !== this) e.preventDefault(); // Prevent default browser actions for key combinations
-      this.ctarget.emit("keydown", { key, event: e });
-      this.ctarget.emit(`${key}KeyDown`, { key, event: e });
+      const { ctarget } = this;
+      ctarget.emit("keydown", { key, event: e });
+      ctarget.emit(`${key}KeyDown`, { key, event: e });
     });
 
     // Handle page unload attempts

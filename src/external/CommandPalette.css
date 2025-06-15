@@ -11,7 +11,6 @@
   border-radius: 8px;
   box-shadow: 0 0 16px -8px #fff;
   backdrop-filter: blur(8px);
-  z-index: 9999;
   font-family: sans-serif;
   border: 1px solid #fff6;
   user-select: none;
@@ -74,9 +73,28 @@
 
 /* Content container for command items */
 .palette-content {
+  display: flex;
+  flex-direction: row;
+  box-sizing: border-box;
   margin-top: 8px;
-  overflow-y: auto;
   flex: 1;
+  gap: 1em; /* gap between columns */
+  overflow: hidden;
+}
+
+.palette-content-over {
+  width: 100px;
+  flex: 0.5;
+  overflow-y: auto;
+  display: none; /* show as needed */
+  border-right: 1px solid #fff4;
+  padding-right: 1em;
+}
+
+.palette-content-main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
 }
 
 .palette-content .category-title {
@@ -99,6 +117,7 @@
 /* Style for each command item */
 .command-item {
   display: flex;
+  line-height: 1.25;
   /* margin: 2px 0; */
   border-top: 1px solid #fff4;
   cursor: pointer;
@@ -108,8 +127,8 @@
   color: var(--foreground);
 }
 
-.category .command-item:first-child {
-  border: none;
+.category-title + .command-item {
+  border-top: none;
 }
 
 .command-item.selected {
@@ -117,31 +136,37 @@
 }
 
 .command-item-info {
+  display: block;
   padding: 8px 12px;
   flex: 1 1 auto;
 }
 
 .command-item .command-description {
+  display: block;
   color: #fff5;
 }
 
 .palette-content:not(.expanded) .command-item .command-description.hidden {
-  max-height: 0;
-  overflow: hidden;
+  display: none;
 }
 
 .palette-content .command-item.selected .command-description.hidden {
-  max-height: 500px;
+  display: block;
 }
 
-.command-item .command-submenu-button {
-  padding: 0 2em;
+.command-item .command-comp {
+  padding: 0;
   color: #fff5;
   align-self: stretch;
   display: flex;
   align-items: center;
 }
 
-.command-item .command-submenu-button:hover {
+.command-item .command-comp *:hover {
   color: #fffa;
+}
+
+.icon-button {
+  display: flex;
+  padding: 0.5em;
 }

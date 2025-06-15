@@ -13,6 +13,7 @@ export class ChapterScroll extends scrollBubble {
     this.maxScroll = chapter.bTXT.length - 2;
     this.scroll = chapter.chapter - 1;
     this._show();
+    return this;
   }
 
   setRef(chapter: VerseRef) {
@@ -48,6 +49,7 @@ export class BookScroll extends scrollBubble {
     this.onScroll(this.cb);
     this._show();
     this.element!.style.right = "2em";
+    return this;
   }
 
   setRef(book: VerseRef) {

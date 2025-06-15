@@ -1,6 +1,7 @@
-import { createElement, IconNode } from "lucide";
+import { ChevronRight, createElement, IconNode } from "lucide";
 import "./Components.css";
 import { ETarget } from "./Event";
+import { App, CommandCategory, Highlighter, HighlightType } from "./App";
 
 /**
  * Represents a generic UI component that wraps an HTMLElement and provides utility methods
@@ -26,12 +27,12 @@ import { ETarget } from "./Event";
  * @method scrollIntoViewSS - Smoothly scrolls the element into view at the start of the viewport.
  * @method remove - Removes the element from the DOM.
  */
-export class Component<T extends HTMLElement> extends ETarget {
-  element: T;
+export class Component<T extends keyof HTMLElementTagNameMap> extends ETarget {
+  element: HTMLElementTagNameMap[T];
 
-  constructor(parent: Node, tagName: keyof HTMLElementTagNameMap) {
+  constructor(parent: Node, tagName: T) {
     super();
-    this.element = parent.createEl(tagName) as T;
+    this.element = parent.createEl(tagName);
   }
 
   addClass(...cls: string[]) {
@@ -65,7 +66,7 @@ export class Component<T extends HTMLElement> extends ETarget {
  *   .setTooltip("Click to submit");
  * ```
  */
-export class Button extends Component<HTMLButtonElement> {
+export class Button extends Component<"button"> {
   constructor(parent: Node) {
     super(parent, "button");
     this.element.addEventListener("click", e => {
@@ -96,6 +97,33 @@ export class Button extends Component<HTMLButtonElement> {
   }
 }
 
+class IconButton extends Component<"div"> {
+  constructor(parent: Node) {
+    super(parent, "div");
+    this.element.classList.add("icon-button");
+    this.element.addEventListener("click", e => {
+      e.stopPropagation();
+      return this.emit("click", e);
+    });
+  }
+
+  setIcon(icon: IconNode) {
+    this.element.empty(); // Clear existing content
+    this.element.appendChild(createElement(icon, { "stroke-width": 1 }));
+    return this;
+  }
+
+  setTooltip(tooltip: string) {
+    this.element.title = tooltip;
+    return this;
+  }
+
+  setDisabled(disabled: boolean) {
+    this.element.classList.toggle("disabled", disabled);
+    return this;
+  }
+}
+
 /**
  * An abstract base class for input components, extending the `Component` class.
  *
@@ -111,8 +139,8 @@ export class Button extends Component<HTMLButtonElement> {
  *   // Implement setValue and getValue
  * }
  */
-abstract class AbstractInput<T extends HTMLElement, V> extends Component<T> {
-  constructor(parent: HTMLElement, tagName: keyof HTMLElementTagNameMap) {
+abstract class AbstractInput<T extends keyof HTMLElementTagNameMap, V> extends Component<T> {
+  constructor(parent: Node, tagName: T) {
     super(parent, tagName);
     this.element.addEventListener("input", e => this.emit("input", this.getValue()));
     this.element.addEventListener("change", e => this.emit("change", this.getValue()));
@@ -131,8 +159,8 @@ abstract class AbstractInput<T extends HTMLElement, V> extends Component<T> {
   }
 }
 
-export class TextArea extends AbstractInput<HTMLTextAreaElement, string> {
-  constructor(parent: HTMLElement) {
+export class TextArea extends AbstractInput<"textarea", string> {
+  constructor(parent: Node) {
     super(parent, "textarea");
   }
 
@@ -164,8 +192,8 @@ export type inputMode = "none" | "text" | "decimal" | "numeric" | "tel" | "searc
  *
  * @extends AbstractInput<HTMLInputElement, string>
  */
-export class TextInput extends AbstractInput<HTMLInputElement, string> {
-  constructor(parent: HTMLElement) {
+export class TextInput extends AbstractInput<"input", string> {
+  constructor(parent: Node) {
     super(parent, "input");
   }
 
@@ -223,7 +251,7 @@ export class TextInput extends AbstractInput<HTMLInputElement, string> {
  * @method setUpListeners() - Sets up internal event listeners for drag and scroll actions.
  * @method startHideTimer(delay?: number) - Starts or resets the auto-hide timer.
  */
-export class scrollBubble extends ETarget {
+export abstract class scrollBubble extends ETarget {
   element: HTMLElement | null = null; // The scroll bubble element
   private _scrollvalue: number = 0; // Current scroll position between 0 and 1
   maxScroll: number = 0; // Maximum scroll value
@@ -234,52 +262,61 @@ export class scrollBubble extends ETarget {
     super();
   }
 
+  abstract show(arg: any): this; // Abstract method to show the bubble, must be implemented by subclasses
+
   _show() {
     this.startHideTimer(); // Start the hide timer
     if (this.element) return this; // If already shown, do nothing
     document.body.createEl("div", { cls: "scrollBubble" }, el => {
       this.element = el;
       this.element.style.top = `${this.scrollvalue * 100}vh`;
-      el.addEventListener("mousedown", e => this.emit("grab", e));
-      el.addEventListener("touchstart", e => this.emit("grab", e));
-      document.addEventListener("mousemove", e => this.emit("move", e));
-      document.addEventListener("touchmove", e => this.emit("move", e));
-      document.addEventListener("mouseup", e => this.emit("release", e));
-      document.addEventListener("touchend", e => this.emit("release", e));
     });
     this.setUpListeners();
     return this;
   }
 
+  grab = (e: MouseEvent | TouchEvent) => {
+    this.startHideTimer(); // Start the hide timer
+    this.element?.classList.add("active");
+    //this.emit("scroll", this.scrollvalue);
+    this.scrollvalue =
+      (e instanceof MouseEvent ? e.clientY : e.touches[0].clientY) / this.parent.offsetHeight;
+    this.isGrabbed = true;
+  };
+
+  move = (e: MouseEvent | TouchEvent) => {
+    if (!this.isGrabbed) return; // Ignore moves if not grabbed
+    this.startHideTimer(); // Start the hide timer
+    this.emit("scroll", this.scrollvalue);
+    this.scrollvalue =
+      (e instanceof MouseEvent ? e.clientY : e.touches[0].clientY) / this.parent.offsetHeight;
+  };
+
+  release = (e: MouseEvent | TouchEvent) => {
+    if (!this.isGrabbed) return; // Ignore releases if not grabbed
+    this.startHideTimer(); // Start the hide timer
+    this.element?.classList.remove("active");
+    this.emit("scrollend", this.scrollvalue);
+    this.isGrabbed = false;
+  };
+
   setUpListeners() {
-    this.clear("grab").clear("move").clear("release");
-    this.on("grab", (e: MouseEvent | TouchEvent) => {
-      this.startHideTimer(); // Start the hide timer
-      this.element?.classList.add("active");
-      //this.emit("scroll", this.scrollvalue);
-      this.scrollvalue =
-        (e instanceof MouseEvent ? e.clientY : e.touches[0].clientY) / this.parent.offsetHeight;
-      this.isGrabbed = true;
-    });
+    this.element?.removeEventListener("mousedown", this.grab);
+    this.element?.removeEventListener("touchstart", this.grab);
+    document.removeEventListener("mousemove", this.move);
+    document.removeEventListener("touchmove", this.move);
+    document.removeEventListener("mouseup", this.release);
+    document.removeEventListener("touchend", this.release);
 
-    this.on("move", (e: MouseEvent | TouchEvent) => {
-      if (!this.isGrabbed) return; // Ignore moves if not grabbed
-      this.startHideTimer(); // Start the hide timer
-      this.emit("scroll", this.scrollvalue);
-      this.scrollvalue =
-        (e instanceof MouseEvent ? e.clientY : e.touches[0].clientY) / this.parent.offsetHeight;
-    });
-
-    this.on("release", (e: MouseEvent | TouchEvent) => {
-      if (!this.isGrabbed) return; // Ignore releases if not grabbed
-      this.startHideTimer(); // Start the hide timer
-      this.element?.classList.remove("active");
-      this.emit("scrollend", this.scrollvalue);
-      this.isGrabbed = false;
-    });
+    this.element?.addEventListener("mousedown", this.grab);
+    this.element?.addEventListener("touchstart", this.grab);
+    document.addEventListener("mousemove", this.move);
+    document.addEventListener("touchmove", this.move);
+    document.addEventListener("mouseup", this.release);
+    document.addEventListener("touchend", this.release);
   }
 
-  startHideTimer(delay: number = 2000) {
+  startHideTimer(delay: number = 3000) {
     // Clear the previous timeout if it exists
     if (this.saveTimeoutId !== null) {
       clearTimeout(this.saveTimeoutId);
@@ -329,5 +366,265 @@ export class scrollBubble extends ETarget {
   }
   get offsetTop(): string {
     return `${this._scrollvalue * this.parent.offsetHeight}px`;
+  }
+}
+
+/**
+ * Represents a UI item within a command palette, encapsulating its DOM elements,
+ * state, and interaction logic.
+ *
+ * @template T - The type of the command represented by this item.
+ * @template AppType - The type of the application, extending `App`.
+ *
+ * @remarks
+ * This class is responsible for rendering a command item, managing its title,
+ * description, context menu visibility, and handling user interactions such as
+ * clicks and mouse events. It is designed to be used within a command palette
+ * component, supporting context menus and state management.
+ *
+ * @example
+ * ```typescript
+ * const item = new CommandItem(app, parentEl, command, paletteCategory)
+ *   .setTitle("My command")
+ *   .setDescription("Does something useful")
+ *   .setContextMenuVisibility(true)
+ *   .onClick(() => { /* handle click *\/ });
+ * ```
+ *
+ * @see CommandCategory
+ * @see CommandPaletteState
+ */
+export class Item extends ETarget {
+  el: HTMLElement;
+  protected infoEl: HTMLDivElement;
+  protected titleEl: HTMLDivElement;
+  protected descriptionEl: HTMLDivElement;
+  protected componentWrapper: HTMLDivElement;
+  components: Component<any>[] = []; // Array to hold additional components like buttons
+  private highlighter: Highlighter; // Highlighter for the category
+  get hili() {
+    return this.highlighter.highlight.bind(this.highlighter);
+  }
+
+  constructor(parent: HTMLElement) {
+    super();
+    this.highlighter = new Highlighter([]);
+    parent.createEl("div", { cls: "command-item" }, itemEl => {
+      this.el = itemEl;
+      this.infoEl = itemEl.createEl("div", { cls: "command-item-info" }, infoEl => {
+        this.titleEl = infoEl.createEl("div", { cls: "command-title" });
+        this.descriptionEl = infoEl.createEl("div", { cls: ["command-description", "hidden"] });
+      });
+      this.componentWrapper = itemEl.createEl("div", { cls: "command-comp" });
+    });
+  }
+
+  highlight(args: HighlightType[] | Highlighter) {
+    if (args instanceof Highlighter) {
+      this.highlighter = args;
+      return this;
+    }
+    this.highlighter = new Highlighter({ ...args });
+    return this;
+  }
+
+  addIconButton(cb: (el: IconButton) => void) {
+    this.addComponent(IconButton, cb);
+    this.componentWrapper.prepend(this.components.at(-1)?.element);
+    return this;
+  }
+
+  addButton(cb: (el: Button) => void) {
+    this.addComponent(Button, cb);
+    return this;
+  }
+
+  addTextInput(cb: (el: TextInput) => void) {
+    this.addComponent(TextInput, cb);
+    return this;
+  }
+
+  addTextArea(cb: (el: TextArea) => void) {
+    this.addComponent(TextArea, cb);
+    return this;
+  }
+
+  private addComponent<T extends Component<any>>(
+    ComponentCtor: new (parent: Node) => T,
+    cb?: (el: T) => void
+  ) {
+    const compInstance = new ComponentCtor(this.componentWrapper);
+    this.components.push(compInstance);
+    cb?.(compInstance);
+    return this;
+  }
+
+  setTitle(title: string | DocumentFragment) {
+    this.titleEl.replaceChildren(typeof title === "string" ? this.hili(title) : title);
+    return this;
+  }
+
+  setName = this.setTitle;
+
+  setDescription(text: string | DocumentFragment) {
+    this.descriptionEl.replaceChildren(typeof text === "string" ? this.hili(text) : text);
+    return this;
+  }
+
+  setHidden(hide: boolean) {
+    this.descriptionEl.classList.toggle("hidden", hide);
+    return this;
+  }
+}
+
+/**
+ * Represents a single item within a context menu.
+ */
+export class MenuItem extends ETarget {
+  private title: string = "";
+  private icon: IconNode | null = null;
+
+  /**
+   * Sets the title (main label) of the menu item.
+   * @param title - The display text for the item.
+   * @returns `this` for chaining.
+   */
+  setTitle(title: string): this {
+    this.title = title;
+    return this;
+  }
+
+  /**
+   * Sets the icon for the menu item.
+   * @param icon - The icon node (from lucide, or your icon system).
+   * @returns `this` for chaining.
+   */
+  setIcon(icon: IconNode): this {
+    this.icon = icon;
+    return this;
+  }
+
+  /**
+   * Registers a click handler for the menu item.
+   * All handlers are called when the item is clicked.
+   * @param cb - The function to call on click.
+   * @returns `this` for chaining.
+   */
+  onClick(cb: (e: MouseEvent) => any): this {
+    this.on("click", cb);
+    return this;
+  }
+
+  /**
+   * Renders this menu item as a child of the given parent node using `createEl`.
+   * @param parent - The parent Node to attach the item to.
+   * @returns The created menu item element.
+   */
+  render(parent: Node) {
+    parent.createEl("div", { cls: "menu-item" }, (itemEl: HTMLDivElement) => {
+      if (this.icon) itemEl.appendChild(createElement(this.icon, { "stroke-width": 1 }));
+      itemEl.createEl("span", { cls: "menu-title", text: this.title });
+
+      itemEl.addEventListener("click", e => {
+        e.stopPropagation(); // Prevent event bubbling
+        this.emit("click", e); // Emit click event
+      });
+    });
+    return this;
+  }
+}
+
+/**
+ * Represents a context menu that appears at a given position and holds MenuItems.
+ *
+ * Example:
+ * ```typescript
+ * const menu = new Menu();
+ * menu.setPosition(200, 180)
+ *   .addItem(item => item.setTitle("Copy").onClick(() => alert("Copy!")))
+ *   .addItem(item => item.setTitle("Move").onClick(() => alert("Move!")));
+ * menu.show();
+ * ```
+ */
+export class Menu extends ETarget {
+  private items: MenuItem[] = [];
+  private position: { x: number; y: number } = { x: 0, y: 0 };
+  private menuEl: HTMLDivElement | null = null;
+  private _onClickAway: ((e: MouseEvent) => void) | null = null;
+
+  /**
+   * Adds a menu item using a builder callback.
+   * @param cb - Callback to configure the MenuItem.
+   * @returns `this` for chaining.
+   */
+  addItem(cb: (item: MenuItem) => any): this {
+    const item = new MenuItem();
+    cb(item);
+    this.items.push(item);
+    return this;
+  }
+
+  /**
+   * Sets the screen position for the menu (top left corner).
+   * @param x - X coordinate in pixels.
+   * @param y - Y coordinate in pixels.
+   * @returns `this` for chaining.
+   */
+  setPosition(x: number, y: number): this {
+    this.position = { x, y };
+    return this;
+  }
+
+  showAtMouseEvent(e: MouseEvent): this {
+    this.setPosition(e.clientX, e.clientY);
+    return this.show();
+  }
+
+  /**
+   * Renders and displays the menu at the set position.
+   * Emits the "show" event with the MenuItems.
+   * @returns `this` for chaining.
+   */
+  show(): this {
+    this.hide(); // Remove any existing menu
+    if (this.items.length === 0) return this;
+
+    document.body.createEl("div", { cls: "context-menu" }, (menuEl: HTMLDivElement) => {
+      menuEl.style.left = `${this.position.x}px`;
+      menuEl.style.top = `${this.position.y}px`;
+      this.items.forEach(item => item.render(menuEl).on("click", e => this.hide()));
+      this.menuEl = menuEl;
+    });
+
+    this.emit("show", this.items);
+
+    this._onClickAway = (e: MouseEvent) => this.hide();
+    setTimeout(() => document.addEventListener("mousedown", this._onClickAway!), 0);
+
+    return this;
+  }
+
+  /**
+   * Hides and removes the menu from the DOM. Cleans up listeners.
+   */
+  hide(): this {
+    if (this.menuEl) {
+      this.menuEl.remove();
+      this.menuEl = null;
+    }
+    if (this._onClickAway) {
+      document.removeEventListener("mousedown", this._onClickAway);
+      this._onClickAway = null;
+    }
+    return this;
+  }
+
+  /**
+   * Removes all menu items.
+   * @returns `this` for chaining.
+   */
+  clear(): this {
+    this.items = [];
+    return this;
   }
 }
