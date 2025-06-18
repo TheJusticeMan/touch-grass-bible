@@ -1,7 +1,4 @@
-type HandlerInfo = {
-  eventName: string;
-  handler: (e: any) => void;
-};
+import { App } from "./App";
 
 export class Chainable {
   next(callback: (a: this) => void): this {
@@ -10,25 +7,37 @@ export class Chainable {
   }
 }
 
+export type HandlerInfo<E, K extends keyof E = keyof E> = {
+  eventName: K;
+  handler: (e: E[K]) => void;
+};
+
 /**
- * Abstract base class providing a simple event handling system.
+ * Abstract base class providing a chainable event handling system.
  *
- * `ETarget` allows attaching, detaching, and emitting event handlers for named events.
- * It supports method chaining for handler management and provides a mechanism to
- * automatically unsubscribe handlers when specific events occur.
+ * `ETarget` allows registering, removing, and emitting named events with associated handlers.
+ * It supports method chaining for fluent API usage and provides utilities for automatic handler
+ * unsubscription based on other events.
  *
- * @template HandlerInfo - The type describing information about the last registered handler.
+ * @remarks
+ * - Handlers are stored per event name and can be added or removed individually.
+ * - The `cancelOn` method enables automatic unsubscription of a handler when a specified event occurs.
  *
  * @example
+ * ```typescript
  * class MyEmitter extends ETarget {}
  * const emitter = new MyEmitter();
- * emitter.on('foo', (e) => console.log(e)).emit('foo', { data: 123 });
+ * emitter.on('foo', e => console.log(e)).emit('foo', 42); // logs 42
+ * ```
+ *
+ * @public
  */
-export abstract class ETarget extends Chainable {
+export abstract class ETarget<E extends Record<string, any> = Record<string, any>> extends Chainable {
   private handlers: {
-    [eventName: string]: Array<(e: any) => void>;
+    [K in keyof E]?: Array<(e: E[K]) => void>;
   } = {};
-  lastHandler: HandlerInfo;
+  lastHandler?: HandlerInfo<E, keyof E>;
+  _ActiveEvent: (keyof E)[] = [];
 
   /**
    * Registers an event handler for the specified event name.
@@ -37,10 +46,10 @@ export abstract class ETarget extends Chainable {
    * @param handler - The callback function to invoke when the event is emitted.
    * @returns The current instance for method chaining.
    */
-  on(eventName: string, handler: (e: any) => void): this {
+  on<K extends keyof E>(eventName: K, handler: (e: E[K]) => void): this {
     if (!this.handlers[eventName]) this.handlers[eventName] = [];
-    this.handlers[eventName].push(handler);
-    this.lastHandler = { eventName, handler };
+    this.handlers[eventName]!.push(handler);
+    this.lastHandler = { eventName, handler } as unknown as HandlerInfo<E, keyof E>;
     return this;
   }
 
@@ -51,9 +60,9 @@ export abstract class ETarget extends Chainable {
    * @param handler - The event handler function to remove.
    * @returns The current instance for method chaining.
    */
-  off(eventName: string, handler: (e: any) => void): this {
+  off<K extends keyof E>(eventName: K, handler: (e: E[K]) => void): this {
     if (!this.handlers[eventName]) return this;
-    this.handlers[eventName] = this.handlers[eventName].filter(h => h !== handler);
+    this.handlers[eventName] = this.handlers[eventName]!.filter(h => h !== handler);
     return this;
   }
 
@@ -66,7 +75,7 @@ export abstract class ETarget extends Chainable {
    * @param eventName - (Optional) The name of the event whose handlers should be removed.
    * @returns The current instance for method chaining.
    */
-  clear(eventName?: string): this {
+  clear(eventName?: keyof E): this {
     if (eventName) delete this.handlers[eventName];
     else this.handlers = {};
     return this;
@@ -76,25 +85,33 @@ export abstract class ETarget extends Chainable {
    * Emits an event with the specified name, invoking all registered handlers for that event.
    *
    * @param eventName - The name of the event to emit.
-   * @param e - Optional event data to pass to each handler. Defaults to `null`.
+   * @param e - Optional event data to pass to each handler.
    * @returns The current instance for method chaining.
    */
-  emit(eventName: string, e: any = null) {
+  emit<K extends keyof E>(eventName: K, e: E[K] = {} as E[K]): this {
+    this._ActiveEvent.push(eventName);
     this.handlers[eventName]?.forEach(handler => handler(e));
+    this._ActiveEvent.pop();
     return this;
   }
 
   /**
    * Registers a handler to automatically unsubscribe from a specific event when another event occurs.
    *
-   * @param unsubscribeOn - The name of the event that will trigger the unsubscription.
+   * @param unsubscribeOn - The event that will trigger the unsubscription.
    * @param event - The event object containing the handler to be unsubscribed.
    * @returns The current instance for method chaining.
    */
-  cancelOn(unsubscribeOn: string, event: ETarget) {
+  cancelOn<K extends keyof E>(unsubscribeOn: K, event: ETarget) {
     const theHandler = event.lastHandler;
-    this.on(unsubscribeOn, () => event.off(theHandler.eventName, theHandler.handler));
+    if (theHandler) {
+      this.on(unsubscribeOn, () => event.off(theHandler.eventName, theHandler.handler));
+    }
     return this;
+  }
+
+  get ActiveEvent(): keyof E | null {
+    return this._ActiveEvent.at(-1) || null;
   }
 }
 
@@ -127,7 +144,15 @@ export abstract class ETarget extends Chainable {
  *
  * @method setThreshold Sets the minimum distance (in pixels) required to trigger a drag event.
  */
-export class touchDragger extends ETarget {
+export class touchDragger extends ETarget<{
+  draggingX: { deltaX: number };
+  draggingY: { deltaY: number };
+  dragX: { deltaX: number };
+  dragY: { deltaY: number };
+  dragCancel: { deltaX: number; deltaY: number };
+  dragXcancel: { deltaX: number; deltaY: number };
+  dragYcancel: { deltaX: number; deltaY: number };
+}> {
   private startX: number = 0;
   private startY: number = 0;
   private currentX: number = 0;
@@ -159,9 +184,9 @@ export class touchDragger extends ETarget {
 
     // Apply translation to the element
     if (Math.abs(deltaY) < Math.abs(deltaX)) {
-      this.emit("draggingX", { deltaX });
+      this.emit("draggingX", { deltaX } as any);
     } else {
-      this.emit("draggingY", { deltaY });
+      this.emit("draggingY", { deltaY } as any);
     }
   };
 
@@ -171,15 +196,15 @@ export class touchDragger extends ETarget {
     const deltaY = this.currentY - this.startY;
 
     if (Math.abs(deltaX) > this.threshold && Math.abs(deltaY) < Math.abs(deltaX)) {
-      this.emit("dragX", { deltaX });
-      this.emit("dragYcancel", { deltaX: 0, deltaY: 0 });
+      this.emit("dragX", { deltaX } as any);
+      this.emit("dragYcancel", { deltaX: 0, deltaY: 0 } as any);
     } else if (Math.abs(deltaY) > this.threshold) {
-      this.emit("dragY", { deltaY });
-      this.emit("dragXcancel", { deltaX: 0, deltaY: 0 });
+      this.emit("dragY", { deltaY } as any);
+      this.emit("dragXcancel", { deltaX: 0, deltaY: 0 } as any);
     } else {
-      this.emit("dragCancel", { deltaX: 0, deltaY: 0 });
-      this.emit("dragXcancel", { deltaX: 0, deltaY: 0 });
-      this.emit("dragYcancel", { deltaX: 0, deltaY: 0 });
+      this.emit("dragCancel", { deltaX: 0, deltaY: 0 } as any);
+      this.emit("dragXcancel", { deltaX: 0, deltaY: 0 } as any);
+      this.emit("dragYcancel", { deltaX: 0, deltaY: 0 } as any);
     }
   };
 
@@ -193,4 +218,39 @@ export class touchDragger extends ETarget {
     this.threshold = value;
     return this;
   }
+}
+
+export abstract class Openable<AppType extends App, E extends Record<string, any>> extends ETarget<E> {
+  private _isOpen = false;
+  constructor(private appInstance: AppType) {
+    super();
+    this.on("EscapeKeyDown", () => this.close());
+  }
+
+  get isOpen(): boolean {
+    return this._isOpen;
+  }
+
+  open(): this {
+    if (!this._isOpen) {
+      this._isOpen = true;
+      this.appInstance.pushTarget(this);
+      this.onopen();
+      this.emit("open");
+    }
+    return this;
+  }
+
+  close(): this {
+    if (this._isOpen) {
+      this._isOpen = false;
+      this.appInstance.popTarget();
+      this.onclose();
+      this.emit("close");
+    }
+    return this;
+  }
+
+  abstract onopen(): void;
+  abstract onclose(): void;
 }

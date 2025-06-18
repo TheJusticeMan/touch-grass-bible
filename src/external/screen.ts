@@ -1,8 +1,12 @@
-import { App } from "./App";
+import { App, Openable } from "./App";
 import { ETarget, touchDragger } from "./Event";
 import "./screen.css";
 
-export abstract class ScreenView<T extends App> extends ETarget {
+export abstract class ScreenView<T extends App> extends ETarget<{
+  menuclick: MouseEvent;
+  titleclick: MouseEvent;
+  [key: string]: any;
+}> {
   protected header: HTMLElement;
   content: HTMLElement;
   protected titleEl: HTMLElement;
@@ -56,7 +60,11 @@ export abstract class ScreenView<T extends App> extends ETarget {
  *
  * @extends ETarget
  */
-export class Scrollpast extends ETarget {
+export class Scrollpast extends ETarget<{
+  scrollpasttop: number;
+  scrollpastbottom: number;
+  [key: string]: any;
+}> {
   /**
    * Y-coordinate where the touch started.
    * @private
@@ -183,12 +191,12 @@ export class Scrollpast extends ETarget {
     const distance = this.currentY - this.startY;
 
     if (distance > this.threshold && this.isAtTop) {
-      this.emit("scrollpasttop");
-      this.parent?.emit("scrollpasttop");
+      this.emit("scrollpasttop", distance);
+      this.parent?.emit("scrollpasttop", distance);
       this.animateSwipe("down");
     } else if (distance < -this.threshold && this.isAtBottom) {
-      this.emit("scrollpastbottom");
-      this.parent?.emit("scrollpastbottom");
+      this.emit("scrollpastbottom", distance);
+      this.parent?.emit("scrollpastbottom", distance);
       this.animateSwipe("up");
     } else this.resetValues();
   };
@@ -205,13 +213,19 @@ export class Scrollpast extends ETarget {
   }
 }
 
-export class sidePanel<T extends App> extends touchDragger {
+export class sidePanel<T extends App> extends Openable<
+  T,
+  {
+    open: void;
+    close: void;
+    [key: string]: any;
+  }
+> {
   private element: HTMLElement;
-  private isOpen: boolean = false;
   content: HTMLDivElement;
 
   constructor(public app: T, parent: HTMLElement, private direction: "left" | "right" = "right") {
-    super(parent);
+    super(app);
     this.direction = direction;
     this.element = parent.createEl("div", { cls: "sidepanel" });
     this.element.classList.add(direction);
@@ -228,33 +242,15 @@ export class sidePanel<T extends App> extends touchDragger {
       }
     });
     this.on("dragX", e => {
-      const deltaX = e.deltaX;
-      if (this.isOpen) {
-        if (deltaX < 0 && this.direction === "left") {
-          this.toggle(); // Close panel
-        } else if (deltaX > 0 && this.direction === "right") {
-          this.toggle(); // Close panel
-        } else {
-          this.setTransform("0", true); // Reset position
-        }
-      } else {
-        if (deltaX > 0 && this.direction === "left") {
-          this.toggle(); // Open panel
-        } else if (deltaX < 0 && this.direction === "right") {
-          this.toggle(); // Open panel
-        } else {
-          this.setTransform(this.direction === "left" ? "-100%" : "100%", true); // Reset position
-        }
-      }
+      if (this.direction === (e.deltaX < 0 ? "left" : "right")) this.close(); // Close panel
+      else this.setTransform("0", true); // Reset position
     });
-    this.on("dragXcancel", () => {
-      this.setTransform(this.isOpen ? "0" : this.direction === "left" ? "-100%" : "100%", true);
+    this.app.on("dragX", e => {
+      if (this.direction === (e.deltaX > 0 ? "left" : "right")) this.open(); // Open panel
+      else this.setTransform(this.direction === "left" ? "-100%" : "100%", true); // Reset position
     });
-    this.on("keydown", e => {
-      if (e.key === "Escape" && this.isOpen) {
-        this.toggle(); // Close panel on Escape key
-      }
-    });
+    this.on("dragXcancel", () => this.setTransform("0", true));
+    this.app.on("dragXcancel", () => this.setTransform(this.direction === "left" ? "-100%" : "100%", true));
   }
 
   // Helper to set transform with optional animation
@@ -279,10 +275,18 @@ export class sidePanel<T extends App> extends touchDragger {
     });
   }
 
-  toggle(): void {
-    if (this.isOpen) this.app.target.pop(); // Remove from target stack
-    else this.app.target.push(this); // Add to target stack
-    this.isOpen = !this.isOpen;
+  onopen(): void {
+    this.setTransform("0", true); // Open panel to visible position
+    this.emit("open");
+  }
+  onclose(): void {
+    this.setTransform(this.direction === "left" ? "-100%" : "100%", true); // Reset position when closed
+    this.emit("close");
+  }
+
+  _toggle(): void {
+    if (this.isOpen) this.app.popTarget(); // Remove from target stack
+    else this.app.pushTarget(this); // Add to target stack
     if (this.isOpen) this.emit("open");
     else this.emit("close");
     this.setTransform(this.isOpen ? "0" : this.direction === "left" ? "-100%" : "100%", true);

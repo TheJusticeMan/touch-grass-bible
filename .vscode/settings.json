@@ -5,6 +5,6 @@
   "liveServer.settings.CustomBrowser": "firefox:PrivateMode",
   "prettier.printWidth": 110,
   "prettier.arrowParens": "avoid",
-  "liveServer.settings.file": "dest/index.html",
+  "liveServer.settings.file": "./dest/index.html",
   "liveServer.settings.port": 5501
 }

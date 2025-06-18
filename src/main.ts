@@ -4,12 +4,11 @@ import { BibleTopics, BibleTopicsType } from "./BibleTopics";
 import {
   App,
   Button,
-  CommandReqired,
   Component,
-  DefaultCommandCategory,
   Highlighter,
   ScreenView,
   Scrollpast,
+  UnifiedCommandPalette,
 } from "./external/App";
 import info from "./info.json";
 import { BookScroll, ChapterScroll } from "./Scroll";
@@ -22,7 +21,7 @@ import {
   CrossRefCategory,
   GoToVerseCategory,
   myNotesCategory,
-  TGCommandPalette,
+  SettingsCategory,
   TGPaletteState,
   topicListCategory,
   translationCategory,
@@ -61,10 +60,10 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
   ChEls: ChapterComponent[];
   chapterScroll: ChapterScroll;
   bookScroll: BookScroll;
-  _delayBeforeScroll: number = 500; // Delay before scrolling to the next chapter
+  _delayBeforeScroll: number = 500;
 
   onload(): void {
-    this.app.MainScreen.delayBeforeScroll = 1000; // Set the delay for scrolling
+    this.app.MainScreen.delayBeforeScroll = 1000;
     this.on("titleclick", e => {
       e.stopPropagation();
       this.app.openCommandPalette({ topic: "", specificity: 0 });
@@ -109,7 +108,6 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
         new Button(frag).setIcon(ChevronRight).on("click", e => this.gonextChapter());
         return frag;
       });
-      //this.titleEl.textContent = value;
     }
   }
 
@@ -121,29 +119,29 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
   set verse(value: VerseRef) {
     const sameChapter =
       this._verse && this._verse.book === value.book && this._verse.chapter === value.chapter;
-    this.scrollToTop = this._verse ? !sameChapter : true; // Reset scrollToTop if the verse changes
+    this.scrollToTop = this._verse ? !sameChapter : true;
     this._verse = value;
     this.app.commandPalette.state.verse = value;
     this.update();
     this.chapterScroll?.setRef(value);
     this.bookScroll?.setRef(value);
     this.app.leftpanel?.updateContent(value);
-    this.scrollToTop = true; // Reset scrollToTop after updating
+    this.scrollToTop = true;
   }
 
   gonextChapter() {
-    this.delayBeforeScroll = 1000; // Set the delay for scrolling
+    this.delayBeforeScroll = 1000;
     this.verse = this._verse.nextChapter;
   }
 
   goprevChapter() {
-    this.delayBeforeScroll = 1000; // Set the delay for scrolling
-    this.verse = this._verse.prevChapter.setVerse(1); // Reset to verse 1 of the previous chapter
+    this.delayBeforeScroll = 1000;
+    this.verse = this._verse.prevChapter.setVerse(1);
   }
 
   set delayBeforeScroll(value: number) {
     // fixes the bug in scroll to next chapter
-    this._delayBeforeScroll = Date.now() + value; // Set the delay for scrolling
+    this._delayBeforeScroll = Date.now() + value;
   }
 
   /**
@@ -153,7 +151,6 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
     // Update the window title to the verse's title in Title Case
     this.title = this._verse.toString().toTitleCase();
 
-    // Clear previous content
     this.content.empty();
     const { prevChapter, nextChapter } = this._verse;
     this.ChEls = [
@@ -183,13 +180,37 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
     // Check if the top of the element is at or above the viewport's top
     if (rect.bottom < 0 || rect.top > 0) {
       this.verse = rect.bottom < 0 ? this._verse.nextChapter : this._verse.prevChapter;
-      this.ChEls[1].scrollToInstant(this.verse); // Scroll to the previous chapter
+      this.ChEls[1].scrollToInstant(this.verse);
       this.chapterScroll.show(this.verse);
       this.bookScroll.show(this.verse);
     }
   };
 }
 
+/**
+ * Represents a UI component for displaying a chapter of verses in the TouchGrass Bible application.
+ *
+ * This component renders a chapter header and a list of verses, each as a clickable element.
+ * Clicking a verse updates the application's main screen to focus on the selected verse.
+ * Right-clicking (context menu) on a verse opens the command palette with cross-reference options.
+ *
+ * @template "div" - The HTML element type for the root of this component.
+ *
+ * @extends Component<"div">
+ *
+ * @property verses - An array of HTMLDivElement references for each verse in the chapter.
+ * @property verse - The reference to the current chapter (and optionally verse) being displayed.
+ * @property app - The main application instance, used for navigation and command palette actions.
+ *
+ * @constructor
+ * @param parent - The parent HTML element to which this component will be attached.
+ * @param ref - The reference object containing book, chapter, and verse data.
+ * @param app - The main application instance.
+ *
+ * @method removeActive - Removes the "verseActive" class from any currently active verse element.
+ * @method scrollTo - Smoothly scrolls to the specified verse and marks it as active.
+ * @method scrollToInstant - Instantly scrolls to the specified verse and marks it as active.
+ */
 class ChapterComponent extends Component<"div"> {
   verses: HTMLDivElement[] = [];
   verse: VerseRef;
@@ -201,16 +222,16 @@ class ChapterComponent extends Component<"div"> {
     this.element.addClass("chapter");
     this.element.createEl("h2", { text: h(`${book.toTitleCase()} ${chapter}`), cls: "chapterTitle" });
     ref.cTXT.forEach((text: string, v: number) => {
-      if (v === 0) return; // Skip non-verse entries (headings, etc.)
+      if (v === 0) return;
       this.verses[v] = this.element.createEl(
         "div",
         { text: h(`${v} ${text}`), cls: "verse" },
         (el: HTMLElement) => {
           if (text.includes("#")) el.addClass("versePBreak");
-          //if (ref.verse === v) el.addClass("verseActive");
+
           const newVerse = new VerseRef(book, chapter, v);
           el.addEventListener("click", () => {
-            this.app.MainScreen.delayBeforeScroll = 1000; // Set the delay for scrolling
+            this.app.MainScreen.delayBeforeScroll = 1000;
             this.app.MainScreen.verse = newVerse;
           });
           el.addEventListener("contextmenu", (e: Event) => {
@@ -263,9 +284,8 @@ class ChapterComponent extends Component<"div"> {
  */
 export default class TouchGrassBibleApp extends App {
   settings: TGAppSettings;
-  commandPalette: TGCommandPalette;
+  commandPalette: UnifiedCommandPalette<TouchGrassBibleApp, TGPaletteState>;
   MainScreen: VerseScreen;
-  commands: DefaultCommandCategory<TouchGrassBibleApp>;
   firstLoad = true;
   leftpanel: notesPanel;
   saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -276,30 +296,28 @@ export default class TouchGrassBibleApp extends App {
 
   async onload() {
     this.MainScreen = new VerseScreen(this.contentEl, this);
-    //this.MainScreen.onload();
+
     this.leftpanel = new notesPanel(this, this.contentEl);
-    this.on("ArrowRightKeyDown", e => this.leftpanel.toggle());
-    this.commandPalette = new TGCommandPalette(this);
-    this.commandPalette.state = new TGPaletteState(this.commandPalette, "");
+    this.on("ArrowRightKeyDown", e => this.leftpanel.open());
+    this.commandPalette = new UnifiedCommandPalette<TouchGrassBibleApp, TGPaletteState>(this);
+    this.commandPalette.state = new TGPaletteState(this.commandPalette as any, "");
     this.commandPalette
-      .addPalette(VerseListCategory)
-      .addPalette(CrossRefCategory)
-      .addPalette(BookmarkCategory)
-      .addPalette(GoToVerseCategory)
-      .addPalette(topicListCategory)
-      .addPalette(BibleSearchCategory)
-      .addPalette(translationCategory)
-      .addPalette(myNotesCategory)
-      .on("open", e => this.target.push(this.commandPalette))
-      .on("close", e => this.target.pop())
-      .on("display", e => {
-        if (this.target.at(-1) !== this.commandPalette) {
-          this.target.push(this.commandPalette);
-        }
-        return (VerseRef.defaultTranslation = this.commandPalette.state.defaultTranslation);
+      .addPalettes(
+        VerseListCategory,
+        CrossRefCategory,
+        BookmarkCategory,
+        GoToVerseCategory,
+        topicListCategory,
+        BibleSearchCategory,
+        translationCategory,
+        myNotesCategory,
+        SettingsCategory
+      )
+      .on("update", e => {
+        VerseRef.defaultTranslation = e.defaultTranslation;
+        this.MainScreen.verse = e.verse;
       });
 
-    this.commands = this.commandPalette.addPalettereturns(DefaultCommandCategory);
     await this.loadsettings(DEFAULT_SETTINGS);
     // Load all JSON files in parallel for faster startup
     const [crossRefs, topics, translations] = await Promise.all([
@@ -328,90 +346,12 @@ export default class TouchGrassBibleApp extends App {
 
     this.console.log(new Date().getTime() - processstart, "ms startup time");
     this.console.log("Touch Grass Bible is ready!");
-    // Download command
-    this.addCommands(
-      {
-        name: "Download settings",
-        description: "Download your current settings as a JSON file",
-        action: () => {
-          this.saveSettings(); // Ensure settings are saved before download
-          this.downloadFile("TouchGrassBibleSettings.json", this.settings);
-        },
-      },
-      {
-        name: "Upload settings",
-        description: "Upload a JSON file to update your settings",
-        action: () => {
-          this.uploadFile(
-            ".json",
-            newSettings => {
-              this.settings = Object.assign({}, DEFAULT_SETTINGS, newSettings);
-              VerseRef.Bookmarks.addData(this.settings.Bookmarks);
-              this.saveSettings();
-            },
-            error => this.console.error("Failed to parse settings file:", error),
-            message => this.console.warn(message)
-          );
-        },
-      },
-      {
-        name: "Reset settings",
-        description: "Reset settings to default values",
-        action: () => {
-          this.commandPalette
-            .confirm("Are you sure you want to delete all your data including bookmarks?")
-            .then(confirmed => {
-              if (!confirmed) return;
-              this.settings = { ...DEFAULT_SETTINGS };
-              VerseRef.Bookmarks = new BibleTopics(this.settings.Bookmarks);
-              this.saveSettings();
-              this.commandPalette.display({ topCategory: null });
-            });
-        },
-      },
-      {
-        name: "Welcome to Touch Grass Bible!",
-        description:
-          "From here you can search for verses, topics, and more.  Remember to take breaks!  Touch grass!",
-        getCommand: (query: string) => query === "Welcome to Touch Grass Bible!",
-        render: (cmd, item) => {
-          item.setHidden(false);
-          return { topCategory: null };
-        },
-        action: cmd => {
-          this.settings.showHelp = !this.settings.showHelp;
-          this.saveSettings();
-          this.commandPalette.display();
-        },
-      },
-      {
-        name: info.name,
-        description: `Version: ${info.version}
-        Author: ${info.author}
-        Built: ${new Date(info.build).toString()}
-        License: ${info.license}
-        
-        ${info.description}`,
-        render: (cmd, item) => {
-          item.setHidden(false);
-          return { topCategory: null };
-        },
-      }
-    );
+
     this.MainScreen.onload();
   }
 
-  addCommand(cmd: CommandReqired<TouchGrassBibleApp>) {
-    if (!cmd.name || !cmd.description) this.console.warn("Command must have a name and description");
-    this.commands._addCommand(cmd);
-  }
-
-  addCommands(...cmds: CommandReqired<TouchGrassBibleApp>[]) {
-    cmds.forEach(cmd => this.addCommand(cmd));
-  }
-
   openCommandPalette(TGPaletteState: Partial<TGPaletteState> = {}): void {
-    this.commandPalette.open(TGPaletteState);
+    this.commandPalette.update(TGPaletteState).open();
     if (this.settings.showHelp && this.firstLoad) {
       this.firstLoad = false;
       this.commandPalette.setValue("Welcome to Touch Grass Bible!", true);

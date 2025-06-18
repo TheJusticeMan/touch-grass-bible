@@ -1,24 +1,23 @@
-import { match } from "assert";
-import { CommandPaletteState, CommandCategory, CommandItem, UnifiedCommandPalette } from "./external/App";
-import TouchGrassBibleApp from "./main";
-import { VerseRef, bibleData, translation, translationMetadata } from "./VerseRef";
-import { Cross, Settings } from "lucide";
 import { BibleTopics } from "./BibleTopics";
+import { CommandCategory, CommandItem, CommandPaletteState, UnifiedCommandPalette } from "./external/App";
+import info from "./info.json";
+import TouchGrassBibleApp from "./main";
+import { DEFAULT_SETTINGS } from "./TGAppSettings";
+import { VerseRef, bibleData, translation, translationMetadata } from "./VerseRef";
 
-export class TGPaletteState extends CommandPaletteState<TouchGrassBibleApp> {
+export class TGPaletteState extends CommandPaletteState {
   verse: VerseRef = new VerseRef("GENESIS", 1, 1);
   specificity: number = 0; // 0: Book, 1: Chapter, 2: Verse, 3: Full Verse
   topic: string = "";
   tag: string = "Start Up Verses";
+  defaultTranslation: translation = "KJV"; // Default translation for Bible references
   constructor(pallete: UnifiedCommandPalette<TouchGrassBibleApp>, public query: string) {
     super(pallete, query, null);
   }
-  update(partial: Partial<TGPaletteState> = {}): TGPaletteState {
-    this.emit("update", partial);
+  update(partial: Partial<TGPaletteState> = {}): this {
     return Object.assign(Object.create(this), this, partial).makeValid();
   }
   makeValid(): TGPaletteState {
-    // Ensure the state is valid by setting a default verse if none exists
     if (!this.verse) this.verse = new VerseRef("GENESIS", 1, 1);
     if (!this.query) this.query = "";
     if (!this.tag) this.tag = "Start Up Verses";
@@ -31,7 +30,7 @@ export class VerseListCategory extends CommandCategory<VerseRef, TouchGrassBible
   readonly description = "List of opened verses";
 
   verses: VerseRef[] = [];
-  name = "Open"; // Name of the category
+  name = "Open";
 
   onTrigger(context: TGPaletteState): void {
     this.title = `Bookmark tag: ${context.tag}`;
@@ -39,13 +38,12 @@ export class VerseListCategory extends CommandCategory<VerseRef, TouchGrassBible
   }
 
   getCommands(query: string): VerseRef[] {
-    // Filter verses based on the query
     return this.getcompatible(
       query,
       this.verses,
       verse => verse.toString(),
       verse => verse.vTXT
-    );
+    ).reverse();
   }
 
   renderCommand(verse: VerseRef, Item: CommandItem<VerseRef>): Partial<TGPaletteState> {
@@ -155,7 +153,6 @@ export class BibleSearchCategory extends CommandCategory<VerseRef, TouchGrassBib
   readonly description = "Search for verses in the Bible";
   verses: VerseRef[] = [];
   bible: bibleData = {}; // Default to an empty object
-  //SiblingCategories = [GoToVerseCategory, CrossRefCategory, topicListCategory, BookmarkCategory];
 
   onTrigger(context: TGPaletteState): void {
     this.bible = VerseRef.bible;
@@ -195,12 +192,12 @@ export class BibleSearchCategory extends CommandCategory<VerseRef, TouchGrassBib
 
 export class topicListCategory extends CommandCategory<VerseRef | string, TouchGrassBibleApp> {
   list: string[] | VerseRef[] = [];
-  name = "Topics (www.openbible.info)"; // Name of the category
+  name = "Topics (www.openbible.info)";
   description = "List of topics from OpenBible.info";
 
   onTrigger(context: TGPaletteState): void {
     if (context.topic) {
-      const { topic } = context; // Get the topic from the context
+      const { topic } = context;
       this.list = VerseRef.topics.get(topic);
       this.title = `Topic: ${topic.toTitleCase()}`;
     } else {
@@ -240,7 +237,7 @@ export class topicListCategory extends CommandCategory<VerseRef | string, TouchG
 
 export class BookmarkCategory extends CommandCategory<string, TouchGrassBibleApp> {
   tags: string[] = [];
-  name = "Bookmarks"; // Name of the category
+  name = "Bookmarks";
   description = "List of bookmark tags";
 
   onInit(): void {
@@ -294,7 +291,6 @@ export class BookmarkCategory extends CommandCategory<string, TouchGrassBibleApp
       }
     );
     if (false)
-      // This is a placeholder for future settings
       this.addSetting(setting => {
         setting
           .setName("Bookmark Settings")
@@ -312,7 +308,7 @@ export class BookmarkCategory extends CommandCategory<string, TouchGrassBibleApp
   }
 
   getCommands(query: string): string[] {
-    return this.getcompatible(query, this.tags, topic => topic);
+    return this.getcompatible(query, this.tags, topic => topic).sort();
   }
 
   renderCommand(command: string, Item: CommandItem<string>): Partial<TGPaletteState> {
@@ -352,7 +348,7 @@ export class translationCategory extends CommandCategory<string, TouchGrassBible
   readonly description = "List of available Bible translations";
   translations: string[];
 
-  onTrigger(state: CommandPaletteState<TouchGrassBibleApp>): void {
+  onTrigger(state: CommandPaletteState): void {
     this.translations = Object.keys(VerseRef.bibleTranslations);
   }
 
@@ -399,6 +395,91 @@ export class myNotesCategory extends CommandCategory<VerseRef, TouchGrassBibleAp
   }
 }
 
-export class TGCommandPalette extends UnifiedCommandPalette<TouchGrassBibleApp> {
-  state: TGPaletteState;
+export class SettingsCategory extends CommandCategory<string, TouchGrassBibleApp> {
+  readonly name = "Settings";
+  readonly description = "Configure Touch Grass Bible settings";
+
+  onInit(): void {
+    this.addCommands(
+      {
+        name: "Download settings",
+        description: "Download your current settings as a JSON file",
+        action: () => {
+          this.app.saveSettings();
+          this.app.downloadFile("TouchGrassBibleSettings.json", this.app.settings);
+        },
+      },
+      {
+        name: "Upload settings",
+        description: "Upload a JSON file to update your settings",
+        action: () => {
+          this.app.uploadFile(
+            ".json",
+            newSettings => {
+              this.app.settings = Object.assign({}, DEFAULT_SETTINGS, newSettings);
+              VerseRef.Bookmarks.addData(this.app.settings.Bookmarks);
+              this.app.saveSettings();
+            },
+            error => this.app.console.error("Failed to parse settings file:", error),
+            message => this.app.console.warn(message)
+          );
+        },
+      },
+      {
+        name: "Reset settings",
+        description: "Reset settings to default values",
+        action: () => {
+          this.app.commandPalette
+            .confirm("Are you sure you want to delete all your data including bookmarks?")
+            .then(confirmed => {
+              if (!confirmed) return;
+              this.app.settings = { ...DEFAULT_SETTINGS };
+              VerseRef.Bookmarks = new BibleTopics(this.app.settings.Bookmarks);
+              this.app.saveSettings();
+              this.app.commandPalette.display({ topCategory: null });
+            });
+        },
+      },
+      {
+        name: "Welcome to Touch Grass Bible!",
+        description:
+          "From here you can search for verses, topics, and more.  Remember to take breaks!  Touch grass!",
+        getCommand: (query: string) => query === "Welcome to Touch Grass Bible!",
+        render: (cmd, item) => {
+          item.setHidden(false);
+          return { topCategory: null };
+        },
+        action: cmd => {
+          this.app.settings.showHelp = !this.app.settings.showHelp;
+          this.app.saveSettings();
+          this.app.commandPalette.display();
+        },
+      },
+      {
+        name: info.name,
+        description: `Version: ${info.version}
+      Author: ${info.author}
+      Built: ${new Date(info.build).toString()}
+      License: ${info.license}
+      
+      ${info.description}`,
+        render: (cmd, item) => {
+          item.setHidden(false);
+          return { topCategory: null };
+        },
+      }
+    );
+  }
+
+  onTrigger(state: CommandPaletteState): void {}
+
+  getCommands(query: string): string[] {
+    return [];
+  }
+
+  renderCommand(command: string, Item: CommandItem<string>): Partial<TGPaletteState> {
+    return { topCategory: null };
+  }
+
+  executeCommand(command: string): void {}
 }

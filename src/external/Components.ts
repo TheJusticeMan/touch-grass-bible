@@ -1,7 +1,7 @@
-import { ChevronRight, createElement, IconNode } from "lucide";
+import { createElement, IconNode } from "lucide";
+import { Highlighter, HighlightType } from "./highlighter";
 import "./Components.css";
 import { ETarget } from "./Event";
-import { App, CommandCategory, Highlighter, HighlightType } from "./App";
 
 /**
  * Represents a generic UI component that wraps an HTMLElement and provides utility methods
@@ -27,7 +27,15 @@ import { App, CommandCategory, Highlighter, HighlightType } from "./App";
  * @method scrollIntoViewSS - Smoothly scrolls the element into view at the start of the viewport.
  * @method remove - Removes the element from the DOM.
  */
-export class Component<T extends keyof HTMLElementTagNameMap> extends ETarget {
+export class Component<
+  T extends keyof HTMLElementTagNameMap,
+  EventS extends Record<string, any> = {
+    click: MouseEvent;
+    input: string;
+    change: string;
+    [key: string]: any;
+  }
+> extends ETarget<EventS> {
   element: HTMLElementTagNameMap[T];
 
   constructor(parent: Node, tagName: T) {
@@ -139,7 +147,15 @@ class IconButton extends Component<"div"> {
  *   // Implement setValue and getValue
  * }
  */
-abstract class AbstractInput<T extends keyof HTMLElementTagNameMap, V> extends Component<T> {
+abstract class AbstractInput<T extends keyof HTMLElementTagNameMap, V> extends Component<
+  T,
+  {
+    input: V;
+    change: V;
+    click: MouseEvent;
+    [key: string]: any;
+  }
+> {
   constructor(parent: Node, tagName: T) {
     super(parent, tagName);
     this.element.addEventListener("input", e => this.emit("input", this.getValue()));
@@ -251,7 +267,10 @@ export class TextInput extends AbstractInput<"input", string> {
  * @method setUpListeners() - Sets up internal event listeners for drag and scroll actions.
  * @method startHideTimer(delay?: number) - Starts or resets the auto-hide timer.
  */
-export abstract class scrollBubble extends ETarget {
+export abstract class scrollBubble extends ETarget<{
+  scroll: number; // Fired when the scroll value changes, passing the new scroll value
+  scrollend: number; // Fired when scrolling ends, passing the final scroll value
+}> {
   element: HTMLElement | null = null; // The scroll bubble element
   private _scrollvalue: number = 0; // Current scroll position between 0 and 1
   maxScroll: number = 0; // Maximum scroll value
@@ -365,7 +384,9 @@ export abstract class scrollBubble extends ETarget {
     if (this.element && !this.isGrabbed) this.element.style.top = this.offsetTop; // Update position if not grabbed
   }
   get offsetTop(): string {
-    return `${this._scrollvalue * this.parent.offsetHeight}px`;
+    return `${
+      this._scrollvalue * this.parent.offsetHeight + (window.innerHeight - this.parent.offsetHeight)
+    }px`;
   }
 }
 
@@ -394,7 +415,12 @@ export abstract class scrollBubble extends ETarget {
  * @see CommandCategory
  * @see CommandPaletteState
  */
-export class Item extends ETarget {
+export class Item extends ETarget<{
+  click: MouseEvent;
+  contextmenu: MouseEvent;
+  hover: MouseEvent;
+  [key: string]: any;
+}> {
   el: HTMLElement;
   protected infoEl: HTMLDivElement;
   protected titleEl: HTMLDivElement;
@@ -586,7 +612,7 @@ export class Menu extends ETarget {
    * @returns `this` for chaining.
    */
   show(): this {
-    this.hide(); // Remove any existing menu
+    this.hide();
     if (this.items.length === 0) return this;
 
     document.body.createEl("div", { cls: "context-menu" }, (menuEl: HTMLDivElement) => {

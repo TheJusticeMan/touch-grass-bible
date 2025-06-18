@@ -1,16 +1,17 @@
 import "./App.css";
 import { UnifiedCommandPalette } from "./CommandPalette";
-import { ETarget } from "./Event";
+import { ETarget, touchDragger } from "./Event";
 import { BrowserConsole } from "./MyBrowserConsole";
 import { ScreenView } from "./screen";
-export * from "./Components";
 export * from "./CommandPalette";
+export * from "./Components";
+export * from "./escapeRegExp";
 export * from "./Event";
 export * from "./highlighter";
 export * from "./MyBrowserConsole";
 export * from "./MyHTML";
 export * from "./screen";
-export * from "./escapeRegExp";
+export * from "./settings";
 
 export { App, AppState };
 
@@ -64,25 +65,49 @@ class AppState {
  * - Integrates with browser history and prevents accidental page unloads.
  * - Provides utility methods for data import/export and persistence.
  */
-abstract class App extends ETarget {
+abstract class App extends ETarget<{
+  keydown: { key: string; event: KeyboardEvent };
+  historypop: {};
+  [key: string]: any;
+}> {
   console: BrowserConsole;
   contentEl: HTMLElement;
+  //commandPalette: UnifiedCommandPalette<this, any> = new UnifiedCommandPalette<this, any>(this);
+
   abstract MainScreen: ScreenView<any>;
-  target: ETarget[] = [];
+  private target: ETarget[] = [];
   /**
    * Returns the current event target for keyboard and command events.
    * Falls back to the app instance if the target stack is empty.
    */
   get ctarget(): ETarget {
-    return this.target.at(-1) ?? this;
+    return this.target.at(-1) ?? (this as ETarget);
+  }
+
+  pushTarget(target: ETarget | any): this {
+    this.target.push(target);
+    return this;
+  }
+
+  popTarget(): ETarget | undefined {
+    return this.target.pop();
   }
 
   constructor(private doc: Document, private _title: string) {
     super();
-    this.target.push(this); // Default to the app itself for keyboard events
+    this.target.push(this as ETarget); // Default to the app itself for keyboard events
     this.console = new BrowserConsole(true, `${this._title || "App"}:`);
     this.console.header("color:#f0f; font-size:40px; font-weight:bold;");
     this.contentEl = this.doc.body.createEl("div", { cls: "AppShellElement" });
+    new touchDragger(this.contentEl)
+      .on("dragX", e => this.ctarget.emit("dragX", e))
+      .on("dragY", e => this.ctarget.emit("dragY", e))
+      .on("dragCancel", e => this.ctarget.emit("dragCancel", e))
+      .on("dragXcancel", e => this.ctarget.emit("dragXcancel", e))
+      .on("dragYcancel", e => this.ctarget.emit("dragYcancel", e))
+      .on("draggingX", e => this.ctarget.emit("draggingX", e))
+      .on("draggingY", e => this.ctarget.emit("draggingY", e));
+
     this.title = this._title;
 
     // Bind load to DOMContentLoaded
@@ -98,6 +123,7 @@ abstract class App extends ETarget {
         (e.altKey ? "Alt+" : "") +
         (e.shiftKey ? "Shift+" : "") +
         e.key;
+      KeyboardEvent;
       //if (this.ctarget !== this) e.preventDefault(); // Prevent default browser actions for key combinations
       const { ctarget } = this;
       ctarget.emit("keydown", { key, event: e });
