@@ -288,7 +288,7 @@ export abstract class scrollBubble extends ETarget<{
     if (this.element) return this; // If already shown, do nothing
     document.body.createEl("div", { cls: "scrollBubble" }, el => {
       this.element = el;
-      this.element.style.top = `${this.scrollvalue * 100}vh`;
+      this.element.style.top = this.offsetTop;
     });
     this.setUpListeners();
     return this;
@@ -298,17 +298,15 @@ export abstract class scrollBubble extends ETarget<{
     this.startHideTimer(); // Start the hide timer
     this.element?.classList.add("active");
     //this.emit("scroll", this.scrollvalue);
-    this.scrollvalue =
-      (e instanceof MouseEvent ? e.clientY : e.touches[0].clientY) / this.parent.offsetHeight;
+    this.scrollvalue = this.getscrollvalue(e);
     this.isGrabbed = true;
   };
 
   move = (e: MouseEvent | TouchEvent) => {
     if (!this.isGrabbed) return; // Ignore moves if not grabbed
     this.startHideTimer(); // Start the hide timer
+    this.scrollvalue = this.getscrollvalue(e);
     this.emit("scroll", this.scrollvalue);
-    this.scrollvalue =
-      (e instanceof MouseEvent ? e.clientY : e.touches[0].clientY) / this.parent.offsetHeight;
   };
 
   release = (e: MouseEvent | TouchEvent) => {
@@ -318,6 +316,13 @@ export abstract class scrollBubble extends ETarget<{
     this.emit("scrollend", this.scrollvalue);
     this.isGrabbed = false;
   };
+
+  getscrollvalue(e: MouseEvent | TouchEvent): number {
+    return (
+      ((e instanceof MouseEvent ? e.clientY : e.touches[0].clientY) - this.parent.offsetTop) /
+      this.parent.offsetHeight
+    );
+  }
 
   setUpListeners() {
     this.element?.removeEventListener("mousedown", this.grab);
@@ -372,17 +377,21 @@ export abstract class scrollBubble extends ETarget<{
   public get scrollvalue(): number {
     return this._scrollvalue;
   }
+
   public set scrollvalue(value: number) {
     this._scrollvalue = Math.max(0, Math.min(1, value)); // Clamp value between 0 and 1
     if (this.element) this.element.style.top = this.offsetTop; // Update position if element exists
   }
+
   public get scroll(): number {
     return this._scrollvalue * this.maxScroll;
   }
+
   public set scroll(value: number) {
     this._scrollvalue = value / this.maxScroll; // Normalize to 0-1 range
     if (this.element && !this.isGrabbed) this.element.style.top = this.offsetTop; // Update position if not grabbed
   }
+
   get offsetTop(): string {
     return `${
       this._scrollvalue * this.parent.offsetHeight + (window.innerHeight - this.parent.offsetHeight)

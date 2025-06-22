@@ -1,5 +1,5 @@
-import { App, Openable } from "./App";
-import { ETarget, touchDragger } from "./Event";
+import { App } from "./App";
+import { ETarget, Openable } from "./Event";
 import "./screen.css";
 
 export abstract class ScreenView<T extends App> extends ETarget<{

@@ -1,12 +1,12 @@
 import levenshtein from "js-levenshtein";
 import { ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, TableOfContents, X } from "lucide";
-import { App, Openable } from "./App";
-import { Highlighter } from "./highlighter";
+import { App } from "./App";
 import "./CommandPalette.css";
 import { Button, inputMode, Item, Menu, TextInput } from "./Components";
-import { ETarget } from "./Event";
+import { Openable } from "./Event";
 import { StateClass } from "./State";
 import { escapeRegExp } from "./escapeRegExp";
+import { Highlighter } from "./highlighter";
 import { SettingsClass } from "./settings";
 
 /**

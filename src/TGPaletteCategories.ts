@@ -33,7 +33,7 @@ export class VerseListCategory extends CommandCategory<VerseRef, TouchGrassBible
   name = "Open";
 
   onTrigger(context: TGPaletteState): void {
-    this.title = `Bookmark tag: ${context.tag}`;
+    this.title = `Bookmark tag: ${this.convertTopicDate(context.tag)}`;
     this.verses = VerseRef.Bookmarks.get(context.tag);
   }
 
@@ -60,6 +60,21 @@ export class VerseListCategory extends CommandCategory<VerseRef, TouchGrassBible
       }); */
 
     return { topCategory: CrossRefCategory, verse, specificity: 0 };
+  }
+
+  convertTopicDate(str: string): string {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return str.toTitleCase();
+
+    const inputDate = new Date(str);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+    if (str === todayStr) return "Today";
+    if (str === yesterdayStr) return "Yesterday";
+    // in the last 7 days
+    if (inputDate.getTime() >= Date.now() - 6 * 86400000)
+      return inputDate.toLocaleDateString("en-US", { weekday: "long", day: "numeric" });
+    return inputDate.toDateString();
   }
 
   executeCommand(command: VerseRef): void {
@@ -161,6 +176,7 @@ export class BibleSearchCategory extends CommandCategory<VerseRef, TouchGrassBib
   getCommands(query: string): VerseRef[] {
     const maxResults = this.commandPalette.state.maxResults - this.commandPalette.length; // Limit the number of results to avoid performance issues
     if (!query) return [];
+    testLevenshtein(this.bible, query);
 
     const results: VerseRef[] = [];
     const quarylcase = query.toLowerCase();
@@ -188,6 +204,65 @@ export class BibleSearchCategory extends CommandCategory<VerseRef, TouchGrassBib
   executeCommand(command: VerseRef): void {
     this.commandPalette.close();
   }
+}
+
+function testLevenshtein(bible: bibleData, quary: string) {
+  const startTime = performance.now();
+  const lowerQuery = quary.toLowerCase();
+  const results: VerseRef[] = [];
+  const distances: number[] = [];
+  let length = 0;
+  function getDude(lowerQuery: string, maxLength: number) {
+    const dude: string[] = [];
+    for (let i = 0; i < lowerQuery.length; i++) {
+      for (let j = 0; j < i; j++) {
+        dude.push(lowerQuery.slice(j, 1 + j + (lowerQuery.length - i)));
+        if (dude.length >= maxLength) return new RegExp(dude.join("|"), "ig");
+      }
+    }
+    length = dude.length;
+    return new RegExp(dude.join("|"), "ig");
+  }
+  // it will be a lot of matches, so we limit the regex to 100000 characters that's not quite the calculation, but it works for now
+  const dudeRegex = getDude(lowerQuery, 100000 / lowerQuery.length);
+  for (const book in bible) {
+    const chapters = bible[book];
+    for (let chapter = 1; chapter < chapters.length; chapter++) {
+      const verses = chapters[chapter];
+      for (let verse = 1; verse < verses.length; verse++) {
+        const text = verses[verse];
+        let s = dudeRegex.exec(text);
+        if (!s) continue;
+        const length = s[0].length;
+        if (length < 2) continue; // Skip if the match is too short
+        let i = 0;
+        for (i = 0; s && length === s[0].length; i++) {
+          s = dudeRegex.exec(text);
+        }
+        const len = i * length;
+        if (len > quary.length / 2) {
+          results.push(new VerseRef(book, chapter, verse));
+          distances.push(len);
+        }
+        /* const distance = levenshtein(verses[verse].toLowerCase(), lowerQuery);
+        if (distance < 30) {
+          results.push(new VerseRef(book, chapter, verse));
+          //distances.push(distance);
+        } */
+      }
+    }
+  }
+  const endTime = performance.now();
+  console.log(
+    `Levenshtein search completed in ${endTime - startTime} ms`,
+    results.length,
+    "results found",
+    length,
+    "length of query"
+  );
+  //console.log(`Found ${results.length} results for query "${quary}"`);
+  //console.log("Results:", results);
+  //console.log("Distances:", distances);
 }
 
 export class topicListCategory extends CommandCategory<VerseRef | string, TouchGrassBibleApp> {
@@ -308,11 +383,31 @@ export class BookmarkCategory extends CommandCategory<string, TouchGrassBibleApp
   }
 
   getCommands(query: string): string[] {
-    return this.getcompatible(query, this.tags, topic => topic).sort();
+    this.console.log(Number(false) - Number(true));
+    return this.getcompatible(
+      query,
+      this.tags,
+      topic => topic,
+      topic => this.convertTopicDate(topic)
+    ).sort(this.dateCompare);
+  }
+
+  /**
+   * Compares two strings, sorting non-date strings before date strings (in `YYYY-MM-DD` format),
+   * and sorting date strings in descending order (most recent first).
+   *
+   * @param a - The first string to compare.
+   * @param b - The second string to compare.
+   * @returns A negative number if `a` should come before `b`, a positive number if `a` should come after `b`, or zero if they are considered equal.
+   */
+  dateCompare(a: string, b: string): number {
+    // sorts first non-date strings, then date strings starting with the most recent
+    const isdate = (s: string) => Number(/^\d{4}-\d{2}-\d{2}$/.test(s));
+    return isdate(b) - isdate(a) || isdate(a) ? b.localeCompare(a) : a.localeCompare(b);
   }
 
   renderCommand(command: string, Item: CommandItem<string>): Partial<TGPaletteState> {
-    Item.setTitle(this.getDateFromString(command))
+    Item.setTitle(this.convertTopicDate(command))
       .addctx()
       .setDescription(
         VerseRef.Bookmarks.get(command)
@@ -323,7 +418,7 @@ export class BookmarkCategory extends CommandCategory<string, TouchGrassBibleApp
     return { topCategory: VerseListCategory, tag: command.toTitleCase() };
   }
 
-  getDateFromString(str: string): string {
+  convertTopicDate(str: string): string {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return str.toTitleCase();
 
     const inputDate = new Date(str);

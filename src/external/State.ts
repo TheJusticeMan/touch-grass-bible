@@ -1,4 +1,5 @@
-import { App, ETarget } from "./App";
+import { App } from "./App";
+import { ETarget } from "./Event";
 
 export class MState<S extends StateClass> extends ETarget<{
   stateChange: S;
@@ -35,7 +36,7 @@ export class MState<S extends StateClass> extends ETarget<{
   }
 }
 
-export abstract class Openable<AppType extends App, E extends Record<string, any>> extends ETarget<E> {
+export abstract class _Openable<AppType extends App, E extends Record<string, any>> extends ETarget<E> {
   private _isOpen = false;
 
   constructor(private appInstance: AppType) {

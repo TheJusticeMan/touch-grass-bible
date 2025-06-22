@@ -1,5 +1,4 @@
 import "./App.css";
-import { UnifiedCommandPalette } from "./CommandPalette";
 import { ETarget, touchDragger } from "./Event";
 import { BrowserConsole } from "./MyBrowserConsole";
 import { ScreenView } from "./screen";
@@ -12,6 +11,7 @@ export * from "./MyBrowserConsole";
 export * from "./MyHTML";
 export * from "./screen";
 export * from "./settings";
+export * from "./State";
 
 export { App, AppState };
 
