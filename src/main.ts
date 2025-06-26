@@ -29,6 +29,11 @@ import {
 } from "./TGPaletteCategories";
 import { bibleData, VerseHighlight, VerseRef } from "./VerseRef";
 
+export * from "./external/App";
+export * from "./VerseRef";
+export * from "./TGAppSettings";
+export * from "./TGPaletteCategories";
+
 /**
  * Represents the main screen for displaying and interacting with a single verse in the TouchGrassBibleApp.
  *
@@ -389,5 +394,4 @@ export default class TouchGrassBibleApp extends App {
   }
 }
 
-const TGB = TouchGrassBibleApp;
 const app = new TouchGrassBibleApp(document);

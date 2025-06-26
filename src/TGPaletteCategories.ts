@@ -32,9 +32,9 @@ export class VerseListCategory extends CommandCategory<VerseRef, TouchGrassBible
   verses: VerseRef[] = [];
   name = "Open";
 
-  onTrigger(context: TGPaletteState): void {
-    this.title = `Bookmark tag: ${this.convertTopicDate(context.tag)}`;
-    this.verses = VerseRef.Bookmarks.get(context.tag);
+  onTrigger(state: TGPaletteState): void {
+    this.title = `Bookmark tag: ${this.convertTopicDate(state.tag)}`;
+    this.verses = VerseRef.Bookmarks.get(state.tag);
   }
 
   getCommands(query: string): VerseRef[] {
@@ -85,8 +85,8 @@ export class VerseListCategory extends CommandCategory<VerseRef, TouchGrassBible
 export class CrossRefCategory extends VerseListCategory {
   readonly name = "Cross references (TSK+)";
 
-  onTrigger(context: TGPaletteState): void {
-    const { verse } = context;
+  onTrigger(state: TGPaletteState): void {
+    const { verse } = state;
     if (verse) (this.verses = verse.crossRefs()), (this.title = `Cross references for ${verse.toString()}`);
     else this.verses = [];
   }
@@ -98,10 +98,10 @@ export class GoToVerseCategory extends CommandCategory<VerseRef, TouchGrassBible
   list: VerseRef[] = [];
   specificity: number = 0; // 0: Book, 1: Chapter, 2: Verse, 3: Full Verse
 
-  onTrigger(context: TGPaletteState): void {
-    if (context) {
-      const { verse, specificity: specificity } = context;
-      this.specificity = context.specificity;
+  onTrigger(state: TGPaletteState): void {
+    if (state) {
+      const { verse, specificity: specificity } = state;
+      this.specificity = state.specificity;
 
       switch (specificity) {
         case 0: // Book
@@ -169,7 +169,7 @@ export class BibleSearchCategory extends CommandCategory<VerseRef, TouchGrassBib
   verses: VerseRef[] = [];
   bible: bibleData = {}; // Default to an empty object
 
-  onTrigger(context: TGPaletteState): void {
+  onTrigger(state: TGPaletteState): void {
     this.bible = VerseRef.bible;
   }
 
@@ -270,9 +270,9 @@ export class topicListCategory extends CommandCategory<VerseRef | string, TouchG
   name = "Topics (www.openbible.info)";
   description = "List of topics from OpenBible.info";
 
-  onTrigger(context: TGPaletteState): void {
-    if (context.topic) {
-      const { topic } = context;
+  onTrigger(state: TGPaletteState): void {
+    if (state.topic) {
+      const { topic } = state;
       this.list = VerseRef.topics.get(topic);
       this.title = `Topic: ${topic.toTitleCase()}`;
     } else {
@@ -378,7 +378,7 @@ export class BookmarkCategory extends CommandCategory<string, TouchGrassBibleApp
       });
   }
 
-  onTrigger(context: TGPaletteState): void {
+  onTrigger(state: TGPaletteState): void {
     this.tags = VerseRef.Bookmarks.keys;
   }
 
@@ -467,7 +467,7 @@ export class myNotesCategory extends CommandCategory<VerseRef, TouchGrassBibleAp
   readonly description = "List of your personal notes on verses";
   notes: VerseRef[] = [];
 
-  onTrigger(context: TGPaletteState): void {
+  onTrigger(state: TGPaletteState): void {
     this.notes = Array.from(VerseRef.myNotes.keys())
       .map(osis => VerseRef.fromOSIS(osis))
       .sort((a, b) => a.toString().localeCompare(b.toString()));

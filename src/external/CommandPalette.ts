@@ -489,7 +489,7 @@ export class UnifiedCommandPalette<
  */
 export class CommandPaletteState extends StateClass {
   maxResults: number = 100; // Maximum results to show
-  expanded: boolean = false; // Whether the palette items are expanded
+  expanded: boolean = true; // Whether the palette items are expanded
   constructor(
     public palette: UnifiedCommandPalette<any, any>,
     public query: string = "",
@@ -594,14 +594,14 @@ export abstract class CommandCategory<
 
   onInit?(): void; // Called when the category is initialized
 
-  tryTrigger(context: CommandPaletteState): this {
+  tryTrigger(state: CommandPaletteState): this {
     this.title = this.name;
     try {
       if (this.extraCMD) {
-        this.extraCMD.setUp(context);
-        this.extraCMD.onTrigger(context);
+        this.extraCMD.setUp(state);
+        this.extraCMD.onTrigger(state);
       }
-      this.onTrigger(context);
+      this.onTrigger(state);
     } catch (e) {
       this.app.console.error(`Error in ${this.constructor.name}.onTrigger`, e);
     }
@@ -833,7 +833,7 @@ class CategoryNavigator<AppType extends App> extends CommandCategory<CommandCate
   readonly description = "List of all command categories";
   names: CommandCategory<any, AppType>[];
 
-  onTrigger(context: CommandPaletteState): void {
+  onTrigger(state: CommandPaletteState): void {
     this.names = this.commandPalette.palettes;
   }
   getCommands(query: string): CommandCategory<any, AppType>[] {
@@ -885,8 +885,8 @@ export class DefaultCommandCategory<AppType extends App> extends CommandCategory
     "Default command category for commands that do not fit into other categories";
   state: CommandPaletteState;
 
-  onTrigger(context: CommandPaletteState): void {
-    this.state = context;
+  onTrigger(state: CommandPaletteState): void {
+    this.state = state;
     this.commands.forEach(cmd => {
       try {
         cmd.onTrigger();
@@ -968,7 +968,7 @@ class PromptCategory<AppType extends App> extends CommandCategory<string, AppTyp
     this.cb(null); // Call callback with null on close
   };
 
-  onTrigger(context: CommandPaletteState): void {}
+  onTrigger(state: CommandPaletteState): void {}
 
   getCommands(query: string): string[] {
     return [this._prompt, "Ok", "Cancel"];
