@@ -90,7 +90,7 @@ export class VerseRef {
   }
   crossRefs(): VerseRef[] {
     const refs = VerseRef.crossRefs[this.toOSIS()] || [];
-    return refs.map(([ref]) => VerseRef.fromOSIS(ref));
+    return refs.sort(([, avotes], [, bvotes]) => bvotes - avotes).map(([ref]) => VerseRef.fromOSIS(ref));
   }
   toOSIS(): string {
     const bookIndex = VerseRef.booksOfTheBible.indexOf(this.book);

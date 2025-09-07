@@ -34,7 +34,7 @@ export class VerseListCategory extends CommandCategory<VerseRef, TouchGrassBible
 
   onTrigger(state: TGPaletteState): void {
     this.title = `Bookmark tag: ${this.convertTopicDate(state.tag)}`;
-    this.verses = VerseRef.Bookmarks.get(state.tag);
+    this.verses = VerseRef.Bookmarks.get(state.tag).reverse();
   }
 
   getCommands(query: string): VerseRef[] {
@@ -43,7 +43,7 @@ export class VerseListCategory extends CommandCategory<VerseRef, TouchGrassBible
       this.verses,
       verse => verse.toString(),
       verse => verse.vTXT
-    ).reverse();
+    ); //.reverse();
   }
 
   renderCommand(verse: VerseRef, Item: CommandItem<VerseRef>): Partial<TGPaletteState> {
