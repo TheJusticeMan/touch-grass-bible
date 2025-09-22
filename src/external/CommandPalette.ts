@@ -1,6 +1,6 @@
 import levenshtein from "js-levenshtein";
 import { ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, TableOfContents, X } from "lucide";
-import { App } from "./App";
+import { App, BrowserConsole } from "./App";
 import "./CommandPalette.css";
 import { Button, inputMode, Item, Menu, TextInput } from "./Components";
 import { Openable } from "./Event";
@@ -70,7 +70,7 @@ export class UnifiedCommandPalette<
     [key: string]: any; // Allow additional events
   }
 > {
-  private _state: stateType; // State of the command palette
+  private _state!: stateType; // State of the command palette
   public get state(): stateType {
     return this._state;
   }
@@ -83,20 +83,20 @@ export class UnifiedCommandPalette<
   private containerEl: HTMLElement | null = null;
 
   private paletteEl!: HTMLElement;
-  private searchInput: TextInput; // Search input element
+  private searchInput!: TextInput; // Search input element
   private contentEl!: HTMLElement;
 
   private commandItems: CommandItem<any>[] = [];
   private selectedIndex = -1;
   private contexts: stateType[] = []; // Stack of contexts for back navigation
-  private headerEl: HTMLDivElement;
+  private headerEl!: HTMLDivElement;
   private maxResults: number = 100; // Maximum results to show
   //private CategoryNavigator: CategoryNavigator<AppType>;
-  private contentOverview: HTMLDivElement;
+  private contentOverview!: HTMLDivElement;
 
   inputMode: inputMode = "search"; // Default input type
   columns: boolean = true; // Whether to display in columns
-  c: HTMLDivElement;
+  c!: HTMLDivElement;
 
   constructor(private app: AppType) {
     super(app);
@@ -554,15 +554,16 @@ export abstract class CommandCategory<
   abstract readonly name: string;
   abstract readonly description: string; // Description for the category, can be used in UI
   //state: CommandCategoryState = new CommandCategoryState();
-  title: string; // Title for the category, can be used in UI
+  title!: string; // Title for the category, can be used in UI
   protected commands: T[] = [];
-  highlighter: Highlighter; // Highlighter for the category
-  hili: Highlighter["highlight"]; // Function to highlight text
-  query: string;
+  highlighter!: Highlighter; // Highlighter for the category
+  hili!: Highlighter["highlight"]; // Function to highlight text
+  query!: string;
   siblings?: (new (app: AppType, palette: UnifiedCommandPalette<AppType, any>) => CommandCategory<
     any,
     AppType
   >)[];
+  console: BrowserConsole = new BrowserConsole(false, `${this.constructor.name}:`); // Console for logging
   // younger siblings
   private _extraCMD?: DefaultCommandCategory<AppType>;
 
@@ -831,7 +832,7 @@ export class CommandItem<T> extends Item {
 class CategoryNavigator<AppType extends App> extends CommandCategory<CommandCategory<any, AppType>, AppType> {
   readonly name = "Quick access";
   readonly description = "List of all command categories";
-  names: CommandCategory<any, AppType>[];
+  names!: CommandCategory<any, AppType>[];
 
   onTrigger(state: CommandPaletteState): void {
     this.names = this.commandPalette.palettes;
@@ -883,7 +884,7 @@ export class DefaultCommandCategory<AppType extends App> extends CommandCategory
   readonly name: string = "Commands";
   readonly description: string =
     "Default command category for commands that do not fit into other categories";
-  state: CommandPaletteState;
+  state!: CommandPaletteState;
 
   onTrigger(state: CommandPaletteState): void {
     this.state = state;
@@ -935,11 +936,10 @@ class PromptCategory<AppType extends App> extends CommandCategory<string, AppTyp
   readonly description = "Prompt for user input";
   private _prompt: string = "";
   siblings = [];
-  cb: (prompt: string | null) => void;
-  wasopen: boolean;
-  currentTopCategory:
-    | (new (app: AppType, palette: UnifiedCommandPalette<AppType, any>) => CommandCategory<any, AppType, {}>)
-    | null;
+  cb!: (prompt: string | null) => void;
+  wasopen!: boolean;
+  currentTopCategory!: (new (app: AppType, palette: UnifiedCommandPalette<AppType, any>) => CommandCategory<any, AppType, {}>) |
+    null;
 
   constructor(public app: AppType, UnifiedCommandPalette: UnifiedCommandPalette<AppType, any>) {
     super(app, UnifiedCommandPalette);

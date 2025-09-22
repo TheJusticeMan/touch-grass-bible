@@ -1,13 +1,15 @@
 export const processstart = new Date().getTime();
-import { ChevronLeft, ChevronRight } from "lucide";
+import { ChevronLeft, ChevronRight, SquarePen } from "lucide";
 import { BibleTopics, BibleTopicsType } from "./BibleTopics";
 import {
   App,
   Button,
   Component,
   Highlighter,
+  IconButton,
   ScreenView,
   Scrollpast,
+  TextArea,
   UnifiedCommandPalette,
 } from "./external/App";
 import info from "./info.json";
@@ -16,6 +18,7 @@ import { notesPanel } from "./sidepanels";
 import "./style.css";
 import { DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
 import {
+  AI,
   BibleSearchCategory,
   BookmarkCategory,
   CrossRefCategory,
@@ -60,11 +63,11 @@ export * from "./TGPaletteCategories";
  * @param {TouchGrassBibleApp} app - The application instance.
  */
 class VerseScreen extends ScreenView<TouchGrassBibleApp> {
-  _verse: VerseRef;
-  scrollToTop: boolean;
-  ChEls: ChapterComponent[];
-  chapterScroll: ChapterScroll;
-  bookScroll: BookScroll;
+  _verse!: VerseRef;
+  scrollToTop!: boolean;
+  ChEls!: ChapterComponent[];
+  chapterScroll!: ChapterScroll;
+  bookScroll!: BookScroll;
   _delayBeforeScroll: number = 500;
 
   onload(): void {
@@ -236,6 +239,7 @@ class ChapterComponent extends Component<"div"> {
 
           const newVerse = new VerseRef(book, chapter, v);
           el.addEventListener("click", () => {
+            if (this.app.MainScreen.verse.isSame(newVerse)) return;
             this.app.MainScreen.delayBeforeScroll = 1000;
             this.app.MainScreen.verse = newVerse;
           });
@@ -244,6 +248,30 @@ class ChapterComponent extends Component<"div"> {
             e.stopPropagation();
             this.app.openCommandPalette({ topCategory: CrossRefCategory, verse: newVerse });
           });
+          const note = newVerse.note;
+          const createNoteInput = () => {
+            new TextArea(el)
+              .setValue(note)
+              .addClass("noteArea")
+              .setPlaceholder(" - Add your note here...")
+              .on("click", e => e.stopPropagation())
+              .on("input", (value: string) => {
+                newVerse.note = value;
+                this.app.saveSettingsAfterDelay();
+              });
+          };
+          //new Button(el).setIcon(SquarePen);
+          if (note) createNoteInput();
+          else
+            new IconButton(el)
+              .setIcon(SquarePen)
+              .addClass("notebutton")
+              .on("click", e => {
+                e.stopPropagation();
+                createNoteInput();
+
+                el.querySelector("textarea")?.focus();
+              });
         }
       );
     });
@@ -288,11 +316,11 @@ class ChapterComponent extends Component<"div"> {
  * @method saveSettings - Persists the current settings.
  */
 export default class TouchGrassBibleApp extends App {
-  settings: TGAppSettings;
-  commandPalette: UnifiedCommandPalette<TouchGrassBibleApp, TGPaletteState>;
-  MainScreen: VerseScreen;
+  settings!: TGAppSettings;
+  commandPalette!: UnifiedCommandPalette<TouchGrassBibleApp, TGPaletteState>;
+  MainScreen!: VerseScreen;
   firstLoad = true;
-  leftpanel: notesPanel;
+  leftpanel!: notesPanel;
   saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   constructor(doc: Document) {
@@ -302,7 +330,7 @@ export default class TouchGrassBibleApp extends App {
   async onload() {
     this.MainScreen = new VerseScreen(this.contentEl, this);
 
-    this.leftpanel = new notesPanel(this, this.contentEl);
+    //this.leftpanel = new notesPanel(this, this.contentEl);
     this.on("ArrowRightKeyDown", e => this.leftpanel.open());
     this.commandPalette = new UnifiedCommandPalette<TouchGrassBibleApp, TGPaletteState>(this);
     this.commandPalette.state = new TGPaletteState(this.commandPalette as any, "");
@@ -316,6 +344,7 @@ export default class TouchGrassBibleApp extends App {
         BibleSearchCategory,
         translationCategory,
         myNotesCategory,
+        //AI,
         SettingsCategory
       )
       .on("update", e => {

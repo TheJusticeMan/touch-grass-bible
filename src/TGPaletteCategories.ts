@@ -176,7 +176,7 @@ export class BibleSearchCategory extends CommandCategory<VerseRef, TouchGrassBib
   getCommands(query: string): VerseRef[] {
     const maxResults = this.commandPalette.state.maxResults - this.commandPalette.length; // Limit the number of results to avoid performance issues
     if (!query) return [];
-    testLevenshtein(this.bible, query);
+    //testLevenshtein(this.bible, query);
 
     const results: VerseRef[] = [];
     const quarylcase = query.toLowerCase();
@@ -441,7 +441,7 @@ export class BookmarkCategory extends CommandCategory<string, TouchGrassBibleApp
 export class translationCategory extends CommandCategory<string, TouchGrassBibleApp> {
   readonly name = "Translations";
   readonly description = "List of available Bible translations";
-  translations: string[];
+  translations!: string[];
 
   onTrigger(state: CommandPaletteState): void {
     this.translations = Object.keys(VerseRef.bibleTranslations);
@@ -574,6 +574,42 @@ export class SettingsCategory extends CommandCategory<string, TouchGrassBibleApp
 
   renderCommand(command: string, Item: CommandItem<string>): Partial<TGPaletteState> {
     return { topCategory: null };
+  }
+
+  executeCommand(command: string): void {}
+}
+
+export class AI extends CommandCategory<string, TouchGrassBibleApp> {
+  name: string = "AI";
+  description: string = "Interact with AI-powered features such as chat and suggestions.";
+
+  onInit(): void {
+    this.addCommands(
+      {
+        name: "Chat with AI",
+        description: "Start a conversation with the AI assistant.",
+        getCommand: (query: string) => query !== "Welcome to Touch Grass Bible!",
+        render: (cmd, item) => {
+          item.setDescription(cmd.context?.query || "Start a conversation with the AI assistant");
+          return { topCategory: null };
+        },
+        action: cmd => {
+          //this.app.openAIChat();
+          this.commandPalette.close();
+        },
+      },
+      { name: "AI Suggestions", description: "Get suggestions from the AI assistant." }
+    );
+  }
+
+  onTrigger(state: CommandPaletteState): void {}
+
+  getCommands(query: string): string[] {
+    return [];
+  }
+
+  renderCommand(command: string, el: CommandItem<string>): Partial<TGPaletteState> {
+    return {};
   }
 
   executeCommand(command: string): void {}

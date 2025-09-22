@@ -20,7 +20,7 @@ export const VerseSHighlight: Highlighter = new Highlighter([
 
 export type OSIS = string;
 export type translation = "KJV" | "YLT" | "ASV";
-export const translationMetadata: { [key in translation]: { name: string; shortName: string } } = {
+export const translationMetadata: { [key: string]: { name: string; shortName: string } } = {
   KJV: { name: "King James Version", shortName: "KJV" },
   YLT: { name: "Young's Literal Translation", shortName: "YLT" },
   ASV: { name: "American Standard Version", shortName: "ASV" },

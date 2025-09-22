@@ -105,7 +105,7 @@ export class Button extends Component<"button"> {
   }
 }
 
-class IconButton extends Component<"div"> {
+export class IconButton extends Component<"div"> {
   constructor(parent: Node) {
     super(parent, "div");
     this.element.classList.add("icon-button");
@@ -430,11 +430,11 @@ export class Item extends ETarget<{
   hover: MouseEvent;
   [key: string]: any;
 }> {
-  el: HTMLElement;
-  protected infoEl: HTMLDivElement;
-  protected titleEl: HTMLDivElement;
-  protected descriptionEl: HTMLDivElement;
-  protected componentWrapper: HTMLDivElement;
+  el!: HTMLElement;
+  protected infoEl!: HTMLDivElement;
+  protected titleEl!: HTMLDivElement;
+  protected descriptionEl!: HTMLDivElement;
+  protected componentWrapper!: HTMLDivElement;
   components: Component<any>[] = []; // Array to hold additional components like buttons
   private highlighter: Highlighter; // Highlighter for the category
   get hili() {
