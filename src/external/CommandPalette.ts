@@ -2,7 +2,7 @@ import levenshtein from "js-levenshtein";
 import { ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, TableOfContents, X } from "lucide";
 import { App, BrowserConsole } from "./App";
 import "./CommandPalette.css";
-import { Button, inputMode, Item, Menu, TextInput } from "./Components";
+import { Button, inputMode, Item, TextInput } from "./Components";
 import { Openable } from "./Event";
 import { StateClass } from "./State";
 import { escapeRegExp } from "./escapeRegExp";
@@ -103,6 +103,10 @@ export class UnifiedCommandPalette<
     this.app.console.log("CommandPalette initialized");
     this.on("keydown", this.handleKey);
     this.on("historypop", this.handleBack);
+  }
+
+  menu() {
+    this.update({ topCategory: CategoryNavigator }).open();
   }
 
   prompt(text: string): Promise<string | null> {
@@ -405,6 +409,12 @@ export class UnifiedCommandPalette<
           this.display({ topCategory: cat.constructor as any } as any);
         })
       );
+      if (commands.length === 0 && extras.length === 0) {
+        new Item(catEl)
+          .setName("No results found")
+          .setDescription(this.state.query ? "Try somthing else." : "Type to search...")
+          .setHidden(false);
+      }
 
       for (const command of commands) {
         if (this.commandItems.length > state.maxResults) return;
@@ -792,22 +802,6 @@ export class CommandItem<T> extends Item {
     super(parent);
     this.highlight(PaletteCat.highlighter);
     this.toState = this.PaletteCat.commandPalette.state.update({});
-
-    this.el.addEventListener("click", e => {
-      e.stopPropagation(); // Prevent triggering the main click
-      this.emit("click", e); // Emit click event
-    });
-
-    this.el.addEventListener("mousemove", e => {
-      this.emit("mousemove", e); // Emit mouse move event
-    });
-
-    this.el.addEventListener("contextmenu", e => {
-      e.stopPropagation(); // Prevent triggering the main click
-      e.preventDefault(); // Prevent default context menu
-      new Menu().next(menu => this.emit("contextmenu", e)).showAtMouseEvent(e); // Show custom context menu
-      this.emit("contextmenu", e); // Emit context menu event
-    });
   }
 
   addctx() {
@@ -938,8 +932,9 @@ class PromptCategory<AppType extends App> extends CommandCategory<string, AppTyp
   siblings = [];
   cb!: (prompt: string | null) => void;
   wasopen!: boolean;
-  currentTopCategory!: (new (app: AppType, palette: UnifiedCommandPalette<AppType, any>) => CommandCategory<any, AppType, {}>) |
-    null;
+  currentTopCategory!:
+    | (new (app: AppType, palette: UnifiedCommandPalette<AppType, any>) => CommandCategory<any, AppType, {}>)
+    | null;
 
   constructor(public app: AppType, UnifiedCommandPalette: UnifiedCommandPalette<AppType, any>) {
     super(app, UnifiedCommandPalette);

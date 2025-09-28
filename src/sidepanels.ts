@@ -1,5 +1,5 @@
-import { sidePanel, TextArea } from "./external/App";
-import TouchGrassBibleApp from "./main";
+import { Item, sidePanel, TextArea } from "./external/App";
+import TouchGrassBibleApp, { BibleSearchCategory, BookmarkCategory, myNotesCategory } from "./main";
 import { VerseRef } from "./VerseRef";
 
 export class notesPanel extends sidePanel<TouchGrassBibleApp> {
@@ -30,5 +30,32 @@ export class notesPanel extends sidePanel<TouchGrassBibleApp> {
             .next(t => v.isSame(verse) && (this.currentFocus = t));
         });
       });
+  }
+}
+
+/**
+ * Navigation panel for navigating through books and chapters.
+ * The side will be a menu for opening the command palette.
+ */
+export class navigationPanel extends sidePanel<TouchGrassBibleApp> {
+  constructor(app: TouchGrassBibleApp, parent: HTMLElement) {
+    super(app, parent, "left");
+
+    this.on("open", () => {});
+    this.updateContent();
+  }
+
+  updateContent() {
+    this.content.empty();
+    new Item(this.content)
+      .setName("Search")
+      .on("click", () => this.close().app.commandPalette.update({ topCategory: BibleSearchCategory }).open());
+    new Item(this.content)
+      .setName("Notes")
+      .on("click", () => this.close().app.commandPalette.update({ topCategory: myNotesCategory }).open());
+    new Item(this.content)
+      .setName("Bookmarks")
+      .on("click", () => this.close().app.commandPalette.update({ topCategory: BookmarkCategory }).open());
+    new Item(this.content).setName("Menu").on("click", () => this.close().app.commandPalette.menu());
   }
 }

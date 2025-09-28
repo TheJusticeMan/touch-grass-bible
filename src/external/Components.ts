@@ -169,6 +169,7 @@ abstract class AbstractInput<T extends keyof HTMLElementTagNameMap, V> extends C
     (this.element as any).placeholder = placeholder;
     return this;
   }
+
   focus() {
     this.element.focus();
     return this;
@@ -451,6 +452,13 @@ export class Item extends ETarget<{
         this.descriptionEl = infoEl.createEl("div", { cls: ["command-description", "hidden"] });
       });
       this.componentWrapper = itemEl.createEl("div", { cls: "command-comp" });
+      itemEl.addEventListener("click", e => this.emit("click", e));
+      itemEl.addEventListener("contextmenu", e => {
+        e.preventDefault();
+        this.emit("contextmenu", e);
+      });
+      itemEl.addEventListener("mouseenter", e => this.emit("hover", e));
+      itemEl.addEventListener("mousemove", e => this.emit("mousemove", e));
     });
   }
 

@@ -175,11 +175,11 @@ export class BibleSearchCategory extends CommandCategory<VerseRef, TouchGrassBib
 
   getCommands(query: string): VerseRef[] {
     const maxResults = this.commandPalette.state.maxResults - this.commandPalette.length; // Limit the number of results to avoid performance issues
-    if (!query) return [];
+    if (!query && this.commandPalette.state.topCategory !== BibleSearchCategory) return [];
     //testLevenshtein(this.bible, query);
 
     const results: VerseRef[] = [];
-    const quarylcase = query.toLowerCase();
+    const quarylcase = query.toLowerCase() || "search the scriptures";
 
     for (const book in this.bible) {
       const chapters = this.bible[book];

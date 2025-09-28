@@ -14,11 +14,10 @@ import {
 } from "./external/App";
 import info from "./info.json";
 import { BookScroll, ChapterScroll } from "./Scroll";
-import { notesPanel } from "./sidepanels";
+import { navigationPanel } from "./sidepanels";
 import "./style.css";
 import { DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
 import {
-  AI,
   BibleSearchCategory,
   BookmarkCategory,
   CrossRefCategory,
@@ -33,9 +32,9 @@ import {
 import { bibleData, VerseHighlight, VerseRef } from "./VerseRef";
 
 export * from "./external/App";
-export * from "./VerseRef";
 export * from "./TGAppSettings";
 export * from "./TGPaletteCategories";
+export * from "./VerseRef";
 
 /**
  * Represents the main screen for displaying and interacting with a single verse in the TouchGrassBibleApp.
@@ -75,6 +74,12 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
     this.on("titleclick", e => {
       e.stopPropagation();
       this.app.openCommandPalette({ topic: "", specificity: 0 });
+    });
+
+    this.on("menuclick", e => {
+      e.stopPropagation();
+      e.preventDefault();
+      this.app.commandPalette.menu();
     });
 
     this.app.commandPalette.on("close", () => {
@@ -133,7 +138,7 @@ class VerseScreen extends ScreenView<TouchGrassBibleApp> {
     this.update();
     this.chapterScroll?.setRef(value);
     this.bookScroll?.setRef(value);
-    this.app.leftpanel?.updateContent(value);
+    //this.app.leftpanel?.updateContent(value);
     this.scrollToTop = true;
   }
 
@@ -231,13 +236,11 @@ class ChapterComponent extends Component<"div"> {
     this.element.createEl("h2", { text: h(`${book.toTitleCase()} ${chapter}`), cls: "chapterTitle" });
     ref.cTXT.forEach((text: string, v: number) => {
       if (v === 0) return;
-      this.verses[v] = this.element.createEl(
-        "div",
-        { text: h(`${v} ${text}`), cls: "verse" },
-        (el: HTMLElement) => {
+      const newVerse = new VerseRef(book, chapter, v);
+      this.verses[v] = this.element.createEl("div", {}, (el: HTMLElement) => {
+        el.createEl("div", { text: h(`${v} ${text}`), cls: "verse" }, (el: HTMLElement) => {
           if (text.includes("#")) el.addClass("versePBreak");
 
-          const newVerse = new VerseRef(book, chapter, v);
           el.addEventListener("click", () => {
             if (this.app.MainScreen.verse.isSame(newVerse)) return;
             this.app.MainScreen.delayBeforeScroll = 1000;
@@ -248,32 +251,33 @@ class ChapterComponent extends Component<"div"> {
             e.stopPropagation();
             this.app.openCommandPalette({ topCategory: CrossRefCategory, verse: newVerse });
           });
-          const note = newVerse.note;
-          const createNoteInput = () => {
-            new TextArea(el)
-              .setValue(note)
-              .addClass("noteArea")
-              .setPlaceholder(" - Add your note here...")
-              .on("click", e => e.stopPropagation())
-              .on("input", (value: string) => {
-                newVerse.note = value;
-                this.app.saveSettingsAfterDelay();
-              });
-          };
-          //new Button(el).setIcon(SquarePen);
-          if (note) createNoteInput();
-          else
-            new IconButton(el)
-              .setIcon(SquarePen)
-              .addClass("notebutton")
-              .on("click", e => {
-                e.stopPropagation();
-                createNoteInput();
-
-                el.querySelector("textarea")?.focus();
-              });
-        }
-      );
+        });
+        const note = newVerse.note;
+        const createNoteInput = () => {
+          new TextArea(el)
+            .setValue(note)
+            .addClass("noteArea")
+            .setPlaceholder(" - Add your note here...")
+            .on("click", e => e.stopPropagation())
+            .on("input", (value: string) => {
+              newVerse.note = value;
+              this.app.saveSettingsAfterDelay();
+            });
+        };
+        //new Button(el).setIcon(SquarePen);
+        let l: IconButton;
+        if (note) createNoteInput();
+        else
+          l = new IconButton(el)
+            .setIcon(SquarePen)
+            .addClass("notebutton")
+            .on("click", e => {
+              l.remove();
+              e.stopPropagation();
+              createNoteInput();
+              el.querySelector("textarea")?.focus();
+            });
+      });
     });
   }
 
@@ -320,7 +324,7 @@ export default class TouchGrassBibleApp extends App {
   commandPalette!: UnifiedCommandPalette<TouchGrassBibleApp, TGPaletteState>;
   MainScreen!: VerseScreen;
   firstLoad = true;
-  leftpanel!: notesPanel;
+  leftpanel!: navigationPanel;
   saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   constructor(doc: Document) {
@@ -331,6 +335,7 @@ export default class TouchGrassBibleApp extends App {
     this.MainScreen = new VerseScreen(this.contentEl, this);
 
     //this.leftpanel = new notesPanel(this, this.contentEl);
+    this.leftpanel = new navigationPanel(this, this.contentEl);
     this.on("ArrowRightKeyDown", e => this.leftpanel.open());
     this.commandPalette = new UnifiedCommandPalette<TouchGrassBibleApp, TGPaletteState>(this);
     this.commandPalette.state = new TGPaletteState(this.commandPalette as any, "");
@@ -376,7 +381,8 @@ export default class TouchGrassBibleApp extends App {
     this.commandPalette.state.verse = VerseRef.RandomVerse;
     this.console.enabled = this.settings.enableLogging;
     this.console.log(info.name, info.version, "loaded");
-    this.on("EnterKeyDown", e => !this.commandPalette.isOpen && this.openCommandPalette());
+    //this.on("EnterKeyDown", e => !this.commandPalette.isOpen && this.openCommandPalette());
+    this.on("Ctrl+EnterKeyDown", e => !this.commandPalette.isOpen && this.openCommandPalette());
 
     this.console.log(new Date().getTime() - processstart, "ms startup time");
     this.console.log("Touch Grass Bible is ready!");

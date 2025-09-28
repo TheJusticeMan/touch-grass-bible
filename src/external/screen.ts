@@ -9,7 +9,7 @@ export abstract class ScreenView<T extends App> extends ETarget<{
 }> {
   protected header: HTMLElement;
   content: HTMLElement;
-  protected titleEl: HTMLElement;
+  protected titleEl!: HTMLElement;
   constructor(element: HTMLElement, protected app: T) {
     super();
     // Create the main navbar container
