@@ -58,6 +58,9 @@ export const translationMetadata: { [key: string]: { name: string; shortName: st
  * - `fromOSIS(osis)`: Creates a `VerseRef` from an OSIS string.
  */
 export class VerseRef {
+  isSameChapter(value: VerseRef) {
+    return this.book === value.book && this.chapter === value.chapter;
+  }
   setVerse(v: number): VerseRef {
     this.verse = v;
     return this;
@@ -172,6 +175,12 @@ export class VerseRef {
     }
     return new VerseRef(book, nextChapter, 1);
   }
+
+  Chapteroffset(offset: number): VerseRef {
+    let { book, chapter } = this;
+    return this;
+  }
+
   /**
    * Returns a new {@link VerseRef} instance representing the last verse of the previous chapter.
    *

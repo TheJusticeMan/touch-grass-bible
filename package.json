@@ -1,6 +1,6 @@
 {
   "name": "touch-grass-bible",
-  "version": "2.2.5",
+  "version": "2.2.6",
   "description": "The bible app that keeps you grounded in the word while letting you into some functionality.",
   "keywords": [
     "bible",
@@ -32,15 +32,26 @@
     "clean": "rm -rf ./dest/* ./dest/",
     "ai": "node ./processing/filetochat.mjs",
     "build:electron": "mkdir -p ./dest && npm run build && cp ./src/electron/* ./dest && cd dest && npm install && npm run start",
-    "run:embed": "esbuild processing/embedding.ts --bundle --platform=node --format=esm --outfile=processing/embedding.js && node processing/embedding.js && rm processing/embedding.js"
+    "run:embed": "esbuild processing/embedding.ts --bundle --platform=node --format=esm --outfile=processing/embedding.js && node processing/embedding.js && rm processing/embedding.js",
+    "build:capacitor": "npm run build:web && npx cap sync",
+    "sync:capacitor": "npx cap sync",
+    "run:android": "npx cap run android",
+    "run:ios": "npx cap run ios"
   },
   "dependencies": {
+    "@capacitor/android": "^7.4.4",
+    "@capacitor/cli": "^7.4.4",
+    "@capacitor/core": "^7.4.4",
+    "@capacitor/filesystem": "^7.1.4",
+    "@capacitor/ios": "^7.4.4",
+    "@capacitor/status-bar": "^7.0.3",
     "glob": "^11.0.2",
     "js-levenshtein": "^1.1.6",
     "ollama": "^0.5.16",
     "p-limit": "^6.2.0"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/js-levenshtein": "^1.1.3",
     "@types/node": "^16.11.6",
     "@types/p-limit": "^2.1.0",

@@ -96,7 +96,7 @@ export class UnifiedCommandPalette<
 
   inputMode: inputMode = "search"; // Default input type
   columns: boolean = true; // Whether to display in columns
-  c!: HTMLDivElement;
+  paletteContentContainer!: HTMLDivElement;
 
   constructor(private app: AppType) {
     super(app);
@@ -143,9 +143,10 @@ export class UnifiedCommandPalette<
   }
 
   addPalettes(
-    ...categories: (new (app: AppType, palette: UnifiedCommandPalette<AppType, any>) =>
-      | CommandCategory<any, AppType>
-      | CommandCategory<any, AppType>)[]
+    ...categories: (new (app: AppType, palette: UnifiedCommandPalette<AppType, any>) => CommandCategory<
+      any,
+      AppType
+    >)[]
   ): this {
     categories.forEach(category => this.addPalette(category));
     return this;
@@ -181,6 +182,16 @@ export class UnifiedCommandPalette<
     if (this.app.ctarget !== this) this.app.pushTarget(this);
     this.contexts = [];
     this.display();
+  }
+
+  opencategory(
+    category: new (app: AppType, palette: UnifiedCommandPalette<AppType, any>) => CommandCategory<
+      any,
+      AppType
+    >
+  ) {
+    this.hiddenCategories.find(cat => cat.constructor === category) || this._addHiddenPalette(category);
+    this.update({ topCategory: category }).open();
   }
 
   update<stateType extends CommandPaletteState>(context: Partial<stateType> = {}) {
@@ -229,7 +240,7 @@ export class UnifiedCommandPalette<
       .next(btn =>
         btn.on("click", () => {
           this.state.expanded = !this.state.expanded;
-          this.c.classList.toggle("expanded", this.state.expanded);
+          this.paletteContentContainer.classList.toggle("expanded", this.state.expanded);
           btn.setIcon(this.state.expanded ? ChevronsDownUp : ChevronsUpDown);
         })
       );
@@ -251,7 +262,7 @@ export class UnifiedCommandPalette<
         this.render();
       });
 
-    this.c = this.paletteEl.createEl("div", { cls: "palette-content" }, el => {
+    this.paletteContentContainer = this.paletteEl.createEl("div", { cls: "palette-content" }, el => {
       this.contentOverview = el.createEl("div", { cls: "palette-content-over" });
       this.contentEl = el.createEl("div", { cls: "palette-content-main" });
       el.classList.toggle("expanded", this.state.expanded);
