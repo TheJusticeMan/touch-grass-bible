@@ -2,7 +2,7 @@ import { scrollBubble } from "./external/App";
 import { VerseRef } from "./VerseRef";
 
 export class ChapterScroll extends scrollBubble {
-  chapter: VerseRef;
+  chapter: VerseRef = new VerseRef();
   constructor(parent: HTMLElement, private cb: (book: VerseRef) => void) {
     super(parent);
     this.onScroll(this.cb);
@@ -20,6 +20,7 @@ export class ChapterScroll extends scrollBubble {
     this.chapter = chapter;
     this.maxScroll = chapter.bTXT.length - 2;
     this.scroll = chapter.chapter - 1;
+    return this;
   }
 
   onScroll(cb: (chapter: VerseRef) => void) {
@@ -32,11 +33,12 @@ export class ChapterScroll extends scrollBubble {
       this.chapter = newChapter;
       cb(this.chapter);
     });
+    return this;
   }
 }
 
 export class BookScroll extends scrollBubble {
-  book: VerseRef;
+  book: VerseRef = new VerseRef();
 
   constructor(parent: HTMLElement, private cb: (book: VerseRef) => void) {
     super(parent);
@@ -56,6 +58,7 @@ export class BookScroll extends scrollBubble {
     this.book = book;
     this.maxScroll = VerseRef.booksOfTheBible.length - 1;
     this.scroll = VerseRef.booksOfTheBible.indexOf(book.book);
+    return this;
   }
 
   onScroll(cb: (book: VerseRef) => void) {
@@ -67,5 +70,6 @@ export class BookScroll extends scrollBubble {
       this.book = new VerseRef(newBook, 1, 1);
       cb(this.book);
     });
+    return this;
   }
 }

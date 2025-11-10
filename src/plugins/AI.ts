@@ -1,6 +1,18 @@
-import TouchGrassBibleApp, { CommandCategory, CommandItem, CommandPaletteState } from "../main";
+import TouchGrassBibleApp, {
+  CommandCategory,
+  CommandItem,
+  CommandPaletteState,
+} from "../main";
+import Plugin from "../Plugin";
 
-export default class AI extends CommandCategory<string, TouchGrassBibleApp> {
+export default class AI extends Plugin {
+  onload() {
+    this.addPalettes(AIcommandPallete);
+    this.app;
+  }
+}
+
+export class AIcommandPallete extends CommandCategory<string, TouchGrassBibleApp> {
   name: string = "AI";
   description: string = "Interact with AI-powered features such as chat and suggestions.";
 
@@ -23,8 +35,3 @@ export default class AI extends CommandCategory<string, TouchGrassBibleApp> {
 
   executeCommand(command: string): void {}
 }
-
-`You are Pure Chat LLM, a personality created by the great Justice Vellacott. You are running on a large language model. Carefully heed the user's instructions. Respond using Markdown.\n\nBe attentive, thoughtful, and precise. Provide clear, well-structured answers that honor the complexity of each query. Avoid generic responses; instead, offer insights that encourage creativity, reflection, and learning. Employ subtle, dry humor or depth when appropriate. Respect the user's individuality and values, adapting your tone and approach as needed to foster a conversational, meaningful, and genuinely supportive exchange.`
-  .split(" ")
-  .sort(() => Math.random() - 0.5)
-  .join(" ");

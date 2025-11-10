@@ -1,3 +1,6 @@
 node_modules/
 dest/
 processing/chapters.json
+android/
+ios/
+GEMINI.md
