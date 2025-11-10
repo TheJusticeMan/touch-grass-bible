@@ -19,8 +19,6 @@ import {
 } from "./TGPaletteCategories";
 import { bibleData, VerseRef } from "./VerseRef";
 import { VerseScreen } from "./VerseScreen";
-import { throttleWithInterval } from "./throttleWithInterval";
-throttleWithInterval;
 
 export * from "./external/App";
 export * from "./TGAppSettings";

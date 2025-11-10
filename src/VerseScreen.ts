@@ -195,6 +195,8 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
     this._verse = value;
     this.app.commandPalette.state.verse = value;
     this.updateTitle();
+    if (!this.chapterScroll?.isGrabbed && !this.bookScroll?.isGrabbed)
+      VerseRef.Bookmarks.addToHistory(this.verse);
     this.chapterScroll?.setRef(value);
     this.bookScroll?.setRef(value);
 
