@@ -99,14 +99,7 @@ abstract class App extends ETarget<{
     this.console = new BrowserConsole(true, `${this._title || "App"}:`);
     this.console.header("color:#f0f; font-size:40px; font-weight:bold;");
     this.contentEl = this.doc.body.createEl("div", { cls: "AppShellElement" });
-    new touchDragger(this.contentEl)
-      .on("dragX", e => this.ctarget.emit("dragX", e))
-      .on("dragY", e => this.ctarget.emit("dragY", e))
-      .on("dragCancel", e => this.ctarget.emit("dragCancel", e))
-      .on("dragXcancel", e => this.ctarget.emit("dragXcancel", e))
-      .on("dragYcancel", e => this.ctarget.emit("dragYcancel", e))
-      .on("draggingX", e => this.ctarget.emit("draggingX", e))
-      .on("draggingY", e => this.ctarget.emit("draggingY", e));
+    new touchDragger(this.contentEl).onany((name, e) => this.ctarget.emit(name, e));
 
     this.title = this._title;
 
@@ -129,11 +122,27 @@ abstract class App extends ETarget<{
       ctarget.emit("keydown", { key, event: e });
       ctarget.emit(`${key}KeyDown`, { key, event: e });
     });
+    this.handlescrollmobile();
 
     // Handle page unload attempts
     window.addEventListener("beforeunload", e => this.unload());
     // Handle browser history navigation
     window.addEventListener("popstate", () => this.ctarget.emit("historypop", {}));
+  }
+
+  handlescrollmobile() {
+    const visual = window.visualViewport;
+    const ctr = this.contentEl;
+    if (visual && ctr) {
+      visual?.addEventListener(
+        "scroll",
+        () => {
+          const viewportOffsetY = visual.offsetTop;
+          ctr.style.transform = `translateY(${viewportOffsetY}px)`;
+        },
+        { passive: false }
+      );
+    }
   }
 
   private load = () => this.onload();

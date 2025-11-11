@@ -249,6 +249,14 @@ export class sidePanel<T extends App> extends Openable<
       if (this.direction === (e.deltaX > 0 ? "left" : "right")) this.open(); // Open panel
       else this.setTransform(this.direction === "left" ? "-100%" : "100%", true); // Reset position
     });
+    this.app.on("draggingX", e => {
+      const deltaX = e.deltaX;
+      if (!this.isOpen) {
+        if (deltaX > 0 && this.direction === "right") return; // Prevent dragging right if only right is allowed
+        if (deltaX < 0 && this.direction === "left") return; // Prevent dragging left if only left is allowed
+        this.setTransform(`calc(${deltaX}px + ${this.direction === "left" ? "-100%" : "100%"})`, false);
+      }
+    });
     this.on("dragXcancel", () => this.setTransform("0", true));
     this.app.on("dragXcancel", () => this.setTransform(this.direction === "left" ? "-100%" : "100%", true));
   }
@@ -279,6 +287,7 @@ export class sidePanel<T extends App> extends Openable<
     this.setTransform("0", true); // Open panel to visible position
     this.emit("open");
   }
+
   onclose(): void {
     this.setTransform(this.direction === "left" ? "-100%" : "100%", true); // Reset position when closed
     this.emit("close");

@@ -2,11 +2,15 @@ body {
   position: fixed;
   top: 0;
   left: 0;
+  width: 100vw;
+  height: 100vh;
   margin: 0;
   padding: 0;
-  touch-action: none;
+  overflow: hidden;
   user-select: none;
   background-color: black;
+  overscroll-behavior: contain;
+  touch-action: none;
 }
 
 .AppShellElement {

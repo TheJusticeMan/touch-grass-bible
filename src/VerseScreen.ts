@@ -5,6 +5,7 @@ import TouchGrassBibleApp, {
   CrossRefCategory,
   Highlighter,
   IconButton,
+  pdsp,
   ScreenView,
   TextArea,
   VerseHighlight,
@@ -55,11 +56,10 @@ export class ChapterComponent extends Component<"div"> {
           if (text.includes("#")) el.addClass("versePBreak");
 
           el.addEventListener("click", () => (this.app.MainScreen.verse = newVerse));
-          el.addEventListener("contextmenu", (e: Event) => {
-            /* e.preventDefault();
-            e.stopPropagation(); */
-            this.app.openCommandPalette({ topCategory: CrossRefCategory, verse: newVerse });
-          });
+          el.addEventListener(
+            "contextmenu",
+            pdsp(() => this.app.openCommandPalette({ topCategory: CrossRefCategory, verse: newVerse }))
+          );
         });
         const note = newVerse.note;
         const createNoteInput = () => {
@@ -158,11 +158,10 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
       this.app.openCommandPalette({ topic: "", specificity: 0 });
     });
 
-    this.on("menuclick", e => {
-      e.stopPropagation();
-      e.preventDefault();
-      this.app.commandPalette.menu();
-    });
+    this.on(
+      "menuclick",
+      pdsp(() => this.app.commandPalette.menu())
+    );
 
     this.app.commandPalette.on("close", () => {
       const { verse } = this.app.commandPalette.state;

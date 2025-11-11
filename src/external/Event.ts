@@ -36,6 +36,7 @@ export abstract class ETarget<E extends Record<string, any> = Record<string, any
   private handlers: {
     [K in keyof E]?: Array<(e: E[K]) => void>;
   } = {};
+  private anyhandlers: Array<(eventName: keyof E, e: E[keyof E]) => void> = [];
   lastHandler?: HandlerInfo<E, keyof E>;
   _ActiveEvent: (keyof E)[] = [];
 
@@ -50,6 +51,11 @@ export abstract class ETarget<E extends Record<string, any> = Record<string, any
     if (!this.handlers[eventName]) this.handlers[eventName] = [];
     this.handlers[eventName]!.push(handler);
     this.lastHandler = { eventName, handler } as unknown as HandlerInfo<E, keyof E>;
+    return this;
+  }
+
+  onany(handler: (eventName: keyof E, e: E[keyof E]) => void): this {
+    this.anyhandlers.push(handler);
     return this;
   }
 
@@ -91,6 +97,7 @@ export abstract class ETarget<E extends Record<string, any> = Record<string, any
   emit<K extends keyof E>(eventName: K, e: E[K] = {} as E[K]): this {
     this._ActiveEvent.push(eventName);
     this.handlers[eventName]?.forEach(handler => handler(e));
+    this.anyhandlers.forEach(handler => handler(eventName, e));
     this._ActiveEvent.pop();
     return this;
   }
@@ -253,4 +260,11 @@ export abstract class Openable<AppType extends App, E extends Record<string, any
 
   abstract onopen(): void;
   abstract onclose(): void;
+}
+export function pdsp(cb: (e: Event) => void): (e: Event) => void {
+  return (e: Event) => {
+    e.preventDefault();
+    e.stopPropagation();
+    cb(e);
+  };
 }

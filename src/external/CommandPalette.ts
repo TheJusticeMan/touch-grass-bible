@@ -67,6 +67,13 @@ export class UnifiedCommandPalette<
     update: stateType;
     keydown: { key: string };
     historypop: stateType;
+    draggingX: { deltaX: number };
+    draggingY: { deltaY: number };
+    dragX: { deltaX: number };
+    dragY: { deltaY: number };
+    dragCancel: { deltaX: number; deltaY: number };
+    dragXcancel: { deltaX: number; deltaY: number };
+    dragYcancel: { deltaX: number; deltaY: number };
     [key: string]: any; // Allow additional events
   }
 > {
@@ -103,6 +110,9 @@ export class UnifiedCommandPalette<
     this.app.console.log("CommandPalette initialized");
     this.on("keydown", this.handleKey);
     this.on("historypop", this.handleBack);
+    this.on("dragX", e => {
+      if (e.deltaX > 100) this.display({ topCategory: CategoryNavigator } as any);
+    });
   }
 
   menu() {
@@ -284,7 +294,7 @@ export class UnifiedCommandPalette<
             .setDescription("Seriously, you want to load more results?") // Just a joke;
             .setHidden(false)
             .on("click", () =>
-              this.update({ maxResults: 100000 }).render().selectIndex(currentselection, true)
+              this.update({ maxResults: 40000 }).render().selectIndex(currentselection, true)
             );
       }
     });
@@ -296,7 +306,7 @@ export class UnifiedCommandPalette<
     const ctr = this.containerEl;
     if (visual && ctr) {
       const viewportHeight = visual.height;
-      ctr.style.cssText = `height: calc(${viewportHeight}px - 2em);`;
+      ctr.style.height = `calc(${viewportHeight}px - 2em)`;
       visual.addEventListener("resize", this.handleMobileResize, { once: true });
     }
   };
