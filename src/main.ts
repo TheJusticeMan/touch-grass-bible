@@ -122,7 +122,6 @@ export default class TouchGrassBibleApp extends App {
     this.commandPalette.update(TGPaletteState).open();
     if (this.settings.showHelp && this.firstLoad) {
       this.firstLoad = false;
-      this.commandPalette.setValue("Welcome to Touch Grass Bible!", true);
     }
   }
 

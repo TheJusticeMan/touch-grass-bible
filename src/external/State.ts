@@ -71,6 +71,7 @@ export abstract class _Openable<AppType extends App, E extends Record<string, an
   abstract onopen(): void;
   abstract onclose(): void;
 }
+
 export class StateClass {
   update(partial: Partial<this> = {}): this {
     return Object.assign(Object.create(this), this, partial);

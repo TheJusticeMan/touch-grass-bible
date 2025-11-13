@@ -1,4 +1,4 @@
-import { createElement, IconNode } from "lucide";
+import { CheckSquare, createElement, IconNode, Square } from "lucide";
 import { Highlighter, HighlightType } from "./highlighter";
 import "./Components.css";
 import { ETarget } from "./Event";
@@ -41,6 +41,17 @@ export class Component<
   constructor(parent: Node, tagName: T) {
     super();
     this.element = parent.createEl(tagName);
+  }
+
+  setIcon(icon: IconNode) {
+    this.element.empty(); // Clear existing content
+    this.element.appendChild(createElement(icon, { "stroke-width": 1 }));
+    return this;
+  }
+
+  setTooltip(tooltip: string) {
+    this.element.title = tooltip;
+    return this;
   }
 
   addClass(...cls: string[]) {
@@ -88,19 +99,8 @@ export class Button extends Component<"button"> {
     return this;
   }
 
-  setIcon(icon: IconNode) {
-    this.element.empty(); // Clear existing content
-    this.element.appendChild(createElement(icon, { "stroke-width": 1 }));
-    return this;
-  }
-
   setDisabled(disabled: boolean) {
     this.element.disabled = disabled;
-    return this;
-  }
-
-  setTooltip(tooltip: string) {
-    this.element.title = tooltip;
     return this;
   }
 }
@@ -113,17 +113,6 @@ export class IconButton extends Component<"div"> {
       e.stopPropagation();
       return this.emit("click", e);
     });
-  }
-
-  setIcon(icon: IconNode) {
-    this.element.empty(); // Clear existing content
-    this.element.appendChild(createElement(icon, { "stroke-width": 1 }));
-    return this;
-  }
-
-  setTooltip(tooltip: string) {
-    this.element.title = tooltip;
-    return this;
   }
 
   setDisabled(disabled: boolean) {
@@ -230,6 +219,27 @@ export class TextInput extends AbstractInput<"input", string> {
   }
 }
 
+class toggleInput extends AbstractInput<"button", boolean> {
+  value: boolean = false;
+  constructor(parent: Node) {
+    super(parent, "button");
+    this.element.classList.add("icon-button");
+  }
+  setValue(value: boolean) {
+    this.value = value;
+    this.update(value);
+    return this;
+  }
+  getValue(): boolean {
+    return this.value;
+  }
+  update(value: boolean) {
+    this.element.empty();
+    this.setIcon(value ? CheckSquare : Square);
+    return this;
+  }
+}
+
 /**
  * Represents a draggable scroll bubble UI component that can be attached to a parent HTMLElement.
  *
@@ -271,6 +281,7 @@ export class TextInput extends AbstractInput<"input", string> {
 export abstract class scrollBubble extends ETarget<{
   scroll: number; // Fired when the scroll value changes, passing the new scroll value
   scrollend: number; // Fired when scrolling ends, passing the final scroll value
+  hide: {}; // Fired when the scroll bubble is hidden
 }> {
   element: HTMLElement | null = null; // The scroll bubble element
   private _scrollvalue: number = 0; // Current scroll position between 0 and 1
@@ -287,10 +298,12 @@ export abstract class scrollBubble extends ETarget<{
   _show() {
     this.startHideTimer(); // Start the hide timer
     if (this.element) return this; // If already shown, do nothing
-    document.body.createEl("div", { cls: "scrollBubble" }, el => {
-      this.element = el;
-      this.element.style.top = this.offsetTop;
-    });
+    this.element = document.body.createEl(
+      "div",
+      { cls: "scrollBubble" },
+      el => (el.style.top = this.offsetTop)
+    );
+    //this.parent.after(this.element);
     this.setUpListeners();
     return this;
   }
@@ -356,6 +369,7 @@ export abstract class scrollBubble extends ETarget<{
   }
 
   _hide() {
+    this.emit("hide");
     this.element?.remove();
     this.element = null; // Clear the element reference
     //this.clear();
@@ -492,13 +506,16 @@ export class Item extends ETarget<{
     return this;
   }
 
-  private addComponent<T extends Component<any>>(
-    ComponentCtor: new (parent: Node) => T,
-    cb?: (el: T) => void
-  ) {
+  addComponent<T extends Component<any>>(ComponentCtor: new (parent: Node) => T, cb?: (el: T) => void) {
     const compInstance = new ComponentCtor(this.componentWrapper);
     this.components.push(compInstance);
     cb?.(compInstance);
+    return this;
+  }
+
+  removeComponents() {
+    this.components.forEach(comp => comp.remove());
+    this.components = [];
     return this;
   }
 

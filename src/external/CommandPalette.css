@@ -100,8 +100,8 @@
 .palette-content .category-title {
   position: sticky;
   top: 0;
-  background-color: #0008;
-  backdrop-filter: blur(1px);
+  background: #0008;
+  backdrop-filter: blur(2px);
   border-bottom: 1px solid #fff4;
   padding: 8px 12px;
   padding-top: 12px;

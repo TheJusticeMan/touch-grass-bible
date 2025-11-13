@@ -1,0 +1,37 @@
+.icon-button {
+  display: inline;
+}
+
+.noteArea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  background-color: transparent;
+  color: #fff4;
+
+  font-family: inherit;
+  font-size: inherit;
+  border: none;
+  padding: 1em;
+  outline: none;
+  resize: vertical;
+}
+
+.infoContainer {
+  display: none;
+}
+.bookmarkNotAdded {
+  color: #fff;
+}
+.bookmarkAdded {
+  color: #f0f;
+}
+
+.verseActive .infoContainer {
+  display: block;
+  /* margin-top: 1em;
+  padding: 1em;
+  border: 1px solid #fff4;
+  border-radius: 0.5em 1em;
+  background-color: #0008; */
+}

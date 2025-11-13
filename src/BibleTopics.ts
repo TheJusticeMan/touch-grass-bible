@@ -133,9 +133,24 @@ export class BibleTopics {
     return Array.from(this.topics.keys());
   }
 
+  getTopicsFromVerse(verse: VerseRef): string[] {
+    const osis = verse.toOSIS();
+    return Array.from(this.topics.entries())
+      .filter(([_, refs]) => refs.has(osis))
+      .map(([topic]) => topic);
+  }
+
   addToHistory(verse: VerseRef): void {
-    const [today] = new Date().toISOString().split("T");
+    const today = this.CurrentDateLocal;
     this.add(today, verse);
+  }
+
+  private get CurrentDateLocal() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   }
 
   toJSON(): BibleTopicsType {

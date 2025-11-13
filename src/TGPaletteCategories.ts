@@ -1,9 +1,11 @@
+import { Cross, X } from "lucide";
 import { BibleTopics } from "./BibleTopics";
 import { CommandCategory, CommandItem, CommandPaletteState, UnifiedCommandPalette } from "./external/App";
+import { CMD, toggleCMD } from "./external/Comands";
 import info from "./info.json";
 import TouchGrassBibleApp from "./main";
 import { DEFAULT_SETTINGS } from "./TGAppSettings";
-import { VerseRef, bibleData, translation, translationMetadata } from "./VerseRef";
+import { bibleData, translation, translationMetadata, VerseRef } from "./VerseRef";
 
 export class TGPaletteState extends CommandPaletteState {
   verse: VerseRef = new VerseRef("GENESIS", 1, 1);
@@ -31,9 +33,30 @@ export class VerseListCategory extends CommandCategory<VerseRef, TouchGrassBible
 
   verses: VerseRef[] = [];
   name = "Open";
+  isediting = false;
 
   onTrigger(state: TGPaletteState): void {
-    this.title = `Bookmark tag: ${this.convertTopicDate(state.tag)}`;
+    new CMD(this.defaultCMD)
+      .setName(this.isediting ? "Stop Editing Bookmark Tag" : "Edit Bookmark Tag")
+      .on("_click", () => {
+        this.isediting = !this.isediting;
+        this.app.commandPalette.update({ topCategory: VerseListCategory }).display();
+      });
+    new CMD(this.defaultCMD).setName("Merge verses from the same chapter").on("_click", () => {
+      const { verse, tag } = this.commandPalette.state as TGPaletteState;
+
+      const versesToKeep = VerseRef.Bookmarks.get(tag)
+        .reverse()
+        .reduce((acc: VerseRef[], v) => {
+          if (!acc.some(av => av.isSameChapter(v))) acc.push(v);
+          return acc;
+        }, [])
+        .reverse();
+      VerseRef.Bookmarks.set(tag, ...versesToKeep);
+      this.commandPalette.display();
+      this.app.saveSettings();
+    });
+    this.title = `Bookmark tag: ${VerseListCategory.convertTopicDate(state.tag)}`;
     this.verses = VerseRef.Bookmarks.get(state.tag).reverse();
   }
 
@@ -48,33 +71,46 @@ export class VerseListCategory extends CommandCategory<VerseRef, TouchGrassBible
 
   renderCommand(verse: VerseRef, Item: CommandItem<VerseRef>): Partial<TGPaletteState> {
     Item.setTitle(verse.toString()).setDescription(verse.vTXT).addctx();
-    /* .addIconButton(btn => {
+    if (this.isediting) {
+      Item.addIconButton(btn =>
         btn
-          .setIcon(Cross)
+          .setIcon(X)
           .setTooltip("Delete verse from tag")
           .on("click", () => {
-            VerseRef.Bookmarks.remove(this.title, verse);
+            VerseRef.Bookmarks.remove(this.commandPalette.state.tag, verse);
             this.commandPalette.display();
             this.app.saveSettings();
-          });
-      }); */
+          })
+      );
+    }
 
     return { topCategory: CrossRefCategory, verse, specificity: 0 };
   }
 
-  convertTopicDate(str: string): string {
+  static convertTopicDate(str: string): string {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return str.toTitleCase();
 
     const inputDate = new Date(str);
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const { today, yesterday } = this.LocalDateStrings;
 
-    if (str === todayStr) return "Today";
-    if (str === yesterdayStr) return "Yesterday";
+    if (str === today) return "Today";
+    if (str === yesterday) return "Yesterday";
     // in the last 7 days
     if (inputDate.getTime() >= Date.now() - 6 * 86400000)
       return inputDate.toLocaleDateString("en-US", { weekday: "long", day: "numeric" });
     return inputDate.toDateString();
+  }
+
+  static get LocalDateStrings(): { today: string; yesterday: string } {
+    const formatDate = (date: Date) =>
+      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+        date.getDate()
+      ).padStart(2, "0")}`;
+    const now = new Date();
+    return {
+      today: formatDate(now),
+      yesterday: formatDate(new Date(now.getTime() - 86400000)),
+    };
   }
 
   executeCommand(command: VerseRef): void {
@@ -89,6 +125,9 @@ export class CrossRefCategory extends VerseListCategory {
     const { verse } = state;
     if (verse) (this.verses = verse.crossRefs()), (this.title = `Cross references for ${verse.toString()}`);
     else this.verses = [];
+    /* new CMD(this.defaultCMD).setName("Clear cross reference filter").on("_click", () => {
+      this.commandPalette.update({ verse: state.verse } as TGPaletteState).display();
+    }); */
   }
 }
 
@@ -275,6 +314,9 @@ export class topicListCategory extends CommandCategory<VerseRef | string, TouchG
       const { topic } = state;
       this.list = VerseRef.topics.get(topic);
       this.title = `Topic: ${topic.toTitleCase()}`;
+      new CMD(this.defaultCMD).setName("Clear topic filter").on("_click", () => {
+        this.commandPalette.update({ topic: "" } as TGPaletteState).display();
+      });
     } else {
       this.list = VerseRef.topics.keys;
     }
@@ -315,80 +357,53 @@ export class BookmarkCategory extends CommandCategory<string, TouchGrassBibleApp
   name = "Bookmarks";
   description = "List of bookmark tags";
 
-  onInit(): void {
-    this.addCommands(
-      {
-        name: "Delete verse from tag",
-        description: "Delete a verse from a bookmark tag",
-        render: (cmd, item) => {
-          const { verse, tag } = cmd.context as TGPaletteState;
-          item.setTitle(`Delete ${verse.toString()} from "${tag}"`);
-          return { topCategory: BookmarkCategory, tag };
-        },
-        action: cmd => {
-          const { verse, tag } = cmd.context as TGPaletteState;
-          VerseRef.Bookmarks.remove(tag, verse);
-          this.commandPalette.display();
-          this.app.saveSettings();
-        },
-      },
-      {
-        name: "Delete tag",
-        description: "Delete a bookmark tag",
-        render: (cmd, item) => {
-          const { tag } = cmd.context as TGPaletteState;
-          item.setTitle(`Delete tag: ${tag}`);
-          return { topCategory: BookmarkCategory, tag };
-        },
-        action: cmd => {
-          const { tag } = cmd.context as TGPaletteState;
-          VerseRef.Bookmarks.delete(tag);
-          this.commandPalette.display();
-          this.app.saveSettings();
-        },
-      },
-      {
-        name: "Save to bookmarks",
-        description: "Save the current verse to a bookmark tag",
-        getCommand: (query: string) => query !== "Welcome to Touch Grass Bible!",
-        render: (cmd, item) => {
-          const { verse, query } = cmd.context as TGPaletteState;
-          const tag = (query || "Start Up Verses").toTitleCase();
-          item.setTitle(`Save ${verse.toString()} to "${tag}"`);
-          return { topCategory: BookmarkCategory, tag };
-        },
-        action: cmd => {
-          const { verse, query } = cmd.context as TGPaletteState;
-          VerseRef.Bookmarks.add(query.toTitleCase() || "Start Up Verses", verse);
-          this.commandPalette.display();
-          this.app.saveSettings();
-        },
-      }
-    );
-    if (false)
-      this.addSetting(setting => {
-        setting
-          .setName("Bookmark Settings")
-          .setDescription("Manage your bookmark settings")
-          .addButton(button => {
-            button.setButtonText("Reset Bookmarks").on("click", () => {
-              VerseRef.Bookmarks = new BibleTopics({});
-            });
-          });
-      });
-  }
-
   onTrigger(state: TGPaletteState): void {
+    const { verse, query, tag } = this.commandPalette.state as TGPaletteState;
+    const newtag = (query || "Start Up Verses").toTitleCase();
+    new CMD(this.defaultCMD)
+      .setName(`Delete ${verse.toString()} from "${tag}"`)
+      .setDescription("Delete a verse from a bookmark tag")
+      .on("_click", ({}) => {
+        const { verse, tag } = this.commandPalette.state as TGPaletteState;
+        VerseRef.Bookmarks.remove(tag, verse);
+        this.commandPalette.display();
+        this.app.saveSettings();
+      });
+
+    new CMD(this.defaultCMD)
+      .setName(`Delete tag: ${(this.commandPalette.state as TGPaletteState).tag}`)
+      .setDescription("Delete a bookmark tag")
+      .on("_click", ({}) => {
+        const { tag } = this.commandPalette.state as TGPaletteState;
+        VerseRef.Bookmarks.delete(tag);
+        this.commandPalette.display();
+        this.app.saveSettings();
+      });
+    new CMD(this.defaultCMD)
+      .setName(`Save ${verse.toString()} to new tag`)
+      .setDescription("Save the current verse to a bookmark tag")
+      .on("_click", ({}) => {
+        this.console.log("Prompting for new bookmark tag for", verse.toString());
+        this.commandPalette.prompt("Enter new bookmark tag").then(st => {
+          this.console.log("Adding bookmark", verse.toString(), "to tag", st);
+          if (!st) return;
+          this.console.log("Adding bookmark", verse.toString(), "to tag", st);
+          const tag = st.toTitleCase();
+          VerseRef.Bookmarks.add(tag, verse);
+          this.commandPalette.display();
+          this.app.saveSettings();
+        });
+      });
+
     this.tags = VerseRef.Bookmarks.keys;
   }
 
   getCommands(query: string): string[] {
-    this.console.log(Number(false) - Number(true));
     return this.getcompatible(
       query,
       this.tags,
       topic => topic,
-      topic => this.convertTopicDate(topic)
+      topic => VerseListCategory.convertTopicDate(topic)
     ).sort(this.dateCompare);
   }
 
@@ -407,7 +422,7 @@ export class BookmarkCategory extends CommandCategory<string, TouchGrassBibleApp
   }
 
   renderCommand(command: string, Item: CommandItem<string>): Partial<TGPaletteState> {
-    Item.setTitle(this.convertTopicDate(command))
+    Item.setTitle(VerseListCategory.convertTopicDate(command))
       .addctx()
       .setDescription(
         VerseRef.Bookmarks.get(command)
@@ -416,21 +431,6 @@ export class BookmarkCategory extends CommandCategory<string, TouchGrassBibleApp
       );
 
     return { topCategory: VerseListCategory, tag: command.toTitleCase() };
-  }
-
-  convertTopicDate(str: string): string {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return str.toTitleCase();
-
-    const inputDate = new Date(str);
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-
-    if (str === todayStr) return "Today";
-    if (str === yesterdayStr) return "Yesterday";
-    // in the last 7 days
-    if (inputDate.getTime() >= Date.now() - 6 * 86400000)
-      return inputDate.toLocaleDateString("en-US", { weekday: "long", day: "numeric" });
-    return inputDate.toDateString();
   }
 
   executeCommand(command: VerseRef | string): void {
@@ -494,79 +494,59 @@ export class SettingsCategory extends CommandCategory<string, TouchGrassBibleApp
   readonly name = "Settings";
   readonly description = "Configure Touch Grass Bible settings";
 
-  onInit(): void {
-    this.addCommands(
-      {
-        name: "Download settings",
-        description: "Download your current settings as a JSON file",
-        action: () => {
-          this.app.saveSettings();
-          this.app.downloadFile("TouchGrassBibleSettings.json", this.app.settings);
-        },
-      },
-      {
-        name: "Upload settings",
-        description: "Upload a JSON file to update your settings",
-        action: () => {
-          this.app.uploadFile(
-            ".json",
-            newSettings => {
-              this.app.settings = Object.assign({}, DEFAULT_SETTINGS, newSettings);
-              VerseRef.Bookmarks.addData(this.app.settings.Bookmarks);
-              this.app.saveSettings();
-            },
-            error => this.app.console.error("Failed to parse settings file:", error),
-            message => this.app.console.warn(message)
-          );
-        },
-      },
-      {
-        name: "Reset settings",
-        description: "Reset settings to default values",
-        action: () => {
-          this.app.commandPalette
-            .confirm("Are you sure you want to delete all your data including bookmarks?")
-            .then(confirmed => {
-              if (!confirmed) return;
-              this.app.settings = { ...DEFAULT_SETTINGS };
-              VerseRef.Bookmarks = new BibleTopics(this.app.settings.Bookmarks);
-              this.app.saveSettings();
-              this.app.commandPalette.display({ topCategory: null });
-            });
-        },
-      },
-      {
-        name: "Welcome to Touch Grass Bible!",
-        description:
-          "From here you can search for verses, topics, and more.  Remember to take breaks!  Touch grass!",
-        getCommand: (query: string) => query === "Welcome to Touch Grass Bible!",
-        render: (cmd, item) => {
-          item.setHidden(false);
-          return { topCategory: null };
-        },
-        action: cmd => {
-          this.app.settings.showHelp = !this.app.settings.showHelp;
-          this.app.saveSettings();
-          this.app.commandPalette.display();
-        },
-      },
-      {
-        name: info.name,
-        description: `Version: ${info.version}
-      Author: ${info.author}
-      Built: ${new Date(info.build).toString()}
-      License: ${info.license}
-      
-      ${info.description}`,
-        render: (cmd, item) => {
-          item.setHidden(false);
-          return { topCategory: null };
-        },
-      }
-    );
+  onTrigger(state: CommandPaletteState): void {
+    new toggleCMD(this.defaultCMD)
+      .setValue(this.app.settings.enableLogging)
+      .setName("Debug console")
+      .on("change", (enabled: boolean) => {
+        this.app.console.enabled = enabled;
+        this.app.settings.enableLogging = enabled;
+        this.app.saveSettings();
+      });
+    new CMD(this.defaultCMD)
+      .setName("Download settings")
+      .setDescription("Download your current settings as a JSON file")
+      .on("_click", () => {
+        this.app.saveSettings();
+        this.app.downloadFile("TouchGrassBibleSettings.json", this.app.settings);
+      });
+    new CMD(this.defaultCMD)
+      .setName("Upload settings")
+      .setDescription("Upload a JSON file to update your settings")
+      .on("_click", () => {
+        this.app.uploadFile(
+          ".json",
+          newSettings => {
+            this.app.settings = Object.assign({}, DEFAULT_SETTINGS, newSettings);
+            VerseRef.Bookmarks.addData(this.app.settings.Bookmarks);
+            this.app.saveSettings();
+          },
+          error => this.app.console.error("Failed to parse settings file:", error),
+          message => this.app.console.warn(message)
+        );
+      });
+    new CMD(this.defaultCMD)
+      .setName("Reset settings")
+      .setDescription("Reset settings to default values")
+      .on("_click", () => {
+        this.app.commandPalette
+          .confirm("Are you sure you want to delete all your data including bookmarks?")
+          .then(confirmed => {
+            if (!confirmed) return;
+            this.app.settings = { ...DEFAULT_SETTINGS };
+            VerseRef.Bookmarks = new BibleTopics(this.app.settings.Bookmarks);
+            this.app.saveSettings();
+            this.app.commandPalette.display({ topCategory: null });
+          });
+      });
+    new CMD(this.defaultCMD)
+      .setName(info.name)
+      .setDescription(
+        `Version: ${info.version}\nAuthor: ${info.author}\nBuilt: ${new Date(
+          info.build
+        ).toString()}\nLicense: ${info.license}\n\n${info.description}`
+      );
   }
-
-  onTrigger(state: CommandPaletteState): void {}
 
   getCommands(query: string): string[] {
     return [];
@@ -583,26 +563,15 @@ export class AI extends CommandCategory<string, TouchGrassBibleApp> {
   name: string = "AI";
   description: string = "Interact with AI-powered features such as chat and suggestions.";
 
-  onInit(): void {
-    this.addCommands(
-      {
-        name: "Chat with AI",
-        description: "Start a conversation with the AI assistant.",
-        getCommand: (query: string) => query !== "Welcome to Touch Grass Bible!",
-        render: (cmd, item) => {
-          item.setDescription(cmd.context?.query || "Start a conversation with the AI assistant");
-          return { topCategory: null };
-        },
-        action: cmd => {
-          //this.app.openAIChat();
-          this.commandPalette.close();
-        },
-      },
-      { name: "AI Suggestions", description: "Get suggestions from the AI assistant." }
-    );
+  onTrigger(state: CommandPaletteState): void {
+    new CMD(this.defaultCMD)
+      .setName("Chat with AI")
+      .setDescription("Start a conversation with the AI assistant")
+      .on("_click", () => {
+        //this.app.openAIChat();
+        this.commandPalette.close();
+      });
   }
-
-  onTrigger(state: CommandPaletteState): void {}
 
   getCommands(query: string): string[] {
     return [];

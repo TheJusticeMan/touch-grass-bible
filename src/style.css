@@ -95,33 +95,6 @@ body {
   resize: vertical;
 }
 
-.notebutton {
-  display: none;
-}
-
-.verseActive .notebutton {
-  display: inline;
-}
-
-.noteArea {
-  display: none;
-}
-
-.verseActive .noteArea {
-  display: block;
-  box-sizing: border-box;
-  width: 100%;
-  background-color: transparent;
-  color: #fff4;
-
-  font-family: inherit;
-  font-size: inherit;
-  border: none;
-  padding: 1em;
-  outline: none;
-  resize: vertical;
-}
-
 .wrap .chapter .verse {
   display: inline;
 }

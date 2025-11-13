@@ -1,5 +1,17 @@
-import { ChevronLeft, ChevronRight, SquarePen } from "lucide";
+import {
+  Book,
+  Bookmark,
+  ChevronDown,
+  GitCompare,
+  List,
+  Pencil,
+  Plus,
+  ScrollText,
+  SquarePen,
+  Waypoints,
+} from "lucide";
 import TouchGrassBibleApp, {
+  BookmarkCategory,
   Button,
   Component,
   CrossRefCategory,
@@ -8,11 +20,14 @@ import TouchGrassBibleApp, {
   pdsp,
   ScreenView,
   TextArea,
+  topicListCategory,
   VerseHighlight,
+  VerseListCategory,
   VerseRef,
 } from "./main";
 import { BookScroll, ChapterScroll } from "./Scroll";
 import { throttleWithInterval } from "./throttleWithInterval";
+import "./VerseScreen.css";
 
 /**
  * Represents a UI component for displaying a chapter of verses in the TouchGrass Bible application.
@@ -39,15 +54,17 @@ import { throttleWithInterval } from "./throttleWithInterval";
  * @method scrollToInstant - Instantly scrolls to the specified verse and marks it as active.
  */
 export class ChapterComponent extends Component<"div"> {
-  verses: HTMLDivElement[] = [];
   verse: VerseRef;
+  verses: HTMLDivElement[] = [];
+  verseInfos: VerseInfoComponent[] = []; // New: Array of components instead of raw elements
+
   constructor(parent: HTMLElement, ref: VerseRef, private app: TouchGrassBibleApp) {
     super(parent, "div");
     this.verse = ref;
     const h: Highlighter["highlight"] = VerseHighlight.highlight.bind(VerseHighlight);
     const { book, chapter } = ref;
     this.element.addClass("chapter");
-    this.element.createEl("h2", { text: h(`${book.toTitleCase()} ${chapter}`), cls: "chapterTitle" });
+    this.element.createEl("h2", { text: h(ref.toChaperString()), cls: "chapterTitle" });
     ref.cTXT.forEach((text: string, v: number) => {
       if (v === 0) return;
       const newVerse = new VerseRef(book, chapter, v);
@@ -61,32 +78,8 @@ export class ChapterComponent extends Component<"div"> {
             pdsp(() => this.app.openCommandPalette({ topCategory: CrossRefCategory, verse: newVerse }))
           );
         });
-        const note = newVerse.note;
-        const createNoteInput = () => {
-          new TextArea(el)
-            .setValue(note)
-            .addClass("noteArea")
-            .setPlaceholder(" - Add your note here...")
-            .on("click", e => e.stopPropagation())
-            .on("input", (value: string) => {
-              newVerse.note = value;
-              this.app.saveSettingsAfterDelay();
-            });
-        };
-        //new Button(el).setIcon(SquarePen);
-        //new IconButton(el).setIcon(SquarePen).addClass("notebutton");
-        let l: IconButton;
-        if (note) createNoteInput();
-        else
-          l = new IconButton(el)
-            .setIcon(SquarePen)
-            .addClass("notebutton")
-            .on("click", e => {
-              l.remove();
-              e.stopPropagation();
-              createNoteInput();
-              el.querySelector("textarea")?.focus();
-            });
+        // Replace raw div creation with the new component
+        this.verseInfos[v] = new VerseInfoComponent(el, newVerse, this.app);
       });
     });
   }
@@ -95,16 +88,21 @@ export class ChapterComponent extends Component<"div"> {
     this.element.querySelector(".verseActive")?.classList.remove("verseActive");
   }
 
+  setActive(verse: VerseRef) {
+    this.verses[verse.verse]?.classList.add("verseActive");
+    this.verseInfos[verse.verse]?.render(); // Render the info container when active
+  }
+
   scrollTo(verse: VerseRef) {
     this.removeActive();
     this.verses[verse.verse]?.scrollIntoView({ behavior: "smooth", block: "start" });
-    this.verses[verse.verse]?.classList.add("verseActive");
+    this.setActive(verse);
   }
 
   scrollToInstant(verse: VerseRef) {
     this.removeActive();
     this.verses[verse.verse]?.scrollIntoView({ block: "start" });
-    this.verses[verse.verse]?.classList.add("verseActive");
+    this.setActive(verse);
   }
 }
 
@@ -190,7 +188,6 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
 
   set verse(value: VerseRef) {
     if (value.isSame(this._verse)) return;
-    const shouldScroll = !this._verse || !this._verse.isSameChapter(value);
     this._verse = value;
     this.app.commandPalette.state.verse = value;
     this.updateTitle();
@@ -201,39 +198,13 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
 
     if (!this.renderedChapters.some(c => c.verse.isSameChapter(value))) {
       this.renderInitialChapters();
-    } else if (shouldScroll) {
-      this.highlightVerse(true);
     } else {
       this.highlightVerse(false);
     }
   }
 
-  get title(): string {
-    return this.app.title;
-  }
-
-  set title(value: string) {
-    this.app.title = value;
-    if (this.titleEl) {
-      this.sptitle(frag => {
-        new Button(frag).setIcon(ChevronLeft).on("click", () => this.goprevChapter());
-        frag.createEl("span", { text: value, cls: "titleText" });
-        new Button(frag).setIcon(ChevronRight).on("click", () => this.gonextChapter());
-        return frag;
-      });
-    }
-  }
-
-  goprevChapter() {
-    this.verse = this._verse.prevChapter;
-  }
-
-  gonextChapter() {
-    this.verse = this._verse.nextChapter;
-  }
-
   updateTitle() {
-    this.title = this._verse.toString().toTitleCase();
+    this.title = this._verse.toString();
   }
 
   renderInitialChapters() {
@@ -264,7 +235,12 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
     });
   }
 
+  removeActive() {
+    this.renderedChapters.forEach(c => c.removeActive());
+  }
+
   highlightVerse(instant = false) {
+    this.removeActive();
     const component = this.renderedChapters.find(c => c.verse.isSameChapter(this._verse));
     if (component) {
       if (instant) {
@@ -289,6 +265,11 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
   }, 100);
 
   get CurrentVisibleChapter(): VerseRef {
+    // get the last chapter starting above the top of the view
+    const viewTop = this.content.scrollTop;
+    const chapter = this.renderedChapters.findLast(c => c.element.offsetTop < viewTop);
+    return chapter?.verse || this.renderedChapters[0].verse;
+    // Alternatively, get the chapter closest to the midpoint of the view
     const viewMidpoint = this.content.scrollTop + this.content.clientHeight / 2;
     return this.renderedChapters.reduce(
       (closest, chapter) =>
@@ -338,6 +319,132 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
   showScrollIndicators(v: VerseRef): this {
     this.chapterScroll?.show(v);
     this.bookScroll?.show(v);
+    if (!v.isSameChapter(this._verse)) this.title = v.toChaperString();
+    else this.updateTitle();
     return this;
+  }
+}
+
+/**
+ * A component for displaying and managing verse-specific information (e.g., notes, bookmarks, topics).
+ * Encapsulates the logic for rendering an info container below each verse.
+ *
+ * This replaces the raw `infoContainer[v]` div and the `renderNoteArea` method,
+ * promoting reusability and modularity. It handles dynamic rendering of notes (as a textarea),
+ * bookmarks, and topics based on the provided VerseRef.
+ *
+ * @extends Component<"div">
+ *
+ * @property verse - The VerseRef associated with this info container.
+ * @property app - The main TouchGrassBibleApp instance for navigation and state management.
+ *
+ * @method render - Updates and renders the info container's contents (notes, buttons) based on the current verse state.
+ */
+export class VerseInfoComponent extends Component<"div"> {
+  constructor(parent: HTMLElement, private verse: VerseRef, private app: TouchGrassBibleApp) {
+    super(parent, "div");
+    this.addClass("infoContainer");
+    // Initial render can be empty; it will be populated via render() when the verse is active.
+  }
+
+  /**
+   * Renders the info container's contents, including notes, bookmark buttons, and topic buttons.
+   * Mirrors the logic from the original renderNoteArea, but encapsulated here.
+   */
+  render() {
+    this.element.empty(); // Clear previous contents to re-render
+
+    const { topicList, note } = this.verse;
+
+    // Handle note input: Show textarea if note exists, otherwise show a button to add one.
+    new IconButton(this.element).setIcon(SquarePen).on("click", e => {
+      e.stopPropagation();
+      this.initiateRenderReset();
+      const noteInput = new TextArea(this.element)
+        .setValue("")
+        .addClass("noteArea")
+        .setPlaceholder(" - Add your note here...")
+        .on("click", e => e.stopPropagation())
+        .on("input", (value: string) => {
+          this.verse.note = value;
+          this.app.saveSettingsAfterDelay();
+        });
+      noteInput.focus(); // Auto-focus for better UX
+    });
+    new IconButton(this.element).setIcon(ScrollText).on("click", e => {
+      this.initiateRenderReset();
+      const links = [
+        { name: "YouVersion", url: this.verse.YouVersionURL },
+        { name: "Blue Letter Bible", url: this.verse.blbURL },
+        { name: "Bible Gateway", url: this.verse.gatewayURL },
+      ];
+      links.forEach(link => {
+        new Button(this.element).setButtonText(`Open in ${link.name}`).on("click", e => {
+          e.stopPropagation();
+          window.open(link.url, "_blank");
+        });
+      });
+    });
+
+    // Handle bookmarks: Show buttons for each bookmark date.
+    new IconButton(this.element).setIcon(Bookmark).on("click", e => {
+      this.initiateRenderReset();
+      this.verse.bookmarkList.forEach(topic => {
+        new Button(this.element)
+          .setButtonText(`${VerseListCategory.convertTopicDate(topic)}`)
+          .on("click", () => {
+            this.app.openCommandPalette({ topCategory: VerseListCategory, tag: topic });
+          });
+      });
+      new Button(this.element).setIcon(Pencil).on("click", () => {
+        this.syncBookmarkStatus();
+      });
+    });
+
+    // Handle topics: Show buttons for each topic if any exist.
+    if (topicList.length > 0) {
+      new IconButton(this.element).setIcon(GitCompare).on("click", e => {
+        // On click, expand to show topic buttons (replacing the chevron)
+        this.initiateRenderReset();
+        topicList.forEach(topic => {
+          new Button(this.element).setButtonText(`${topic.toTitleCase()}`).on("click", () => {
+            this.app.openCommandPalette({ topCategory: topicListCategory, topic: topic });
+          });
+        });
+        // Optionally, add a way to collapse back, but for simplicity, keep it expanded.
+      });
+    }
+    new IconButton(this.element).setIcon(Waypoints).on("click", e => {
+      this.app.openCommandPalette({ topCategory: CrossRefCategory, verse: this.verse });
+    });
+  }
+
+  private syncBookmarkStatus() {
+    const { bookmarkList } = this.verse;
+    this.element.empty();
+    VerseRef.Bookmarks.keys.forEach(tag => {
+      const hastag = bookmarkList.some(t => t === tag);
+      new Button(this.element)
+        .setButtonText(`${VerseListCategory.convertTopicDate(tag)}`)
+        .addClass(hastag ? "bookmarkAdded" : "bookmarkNotAdded")
+        .on("click", () => {
+          if (hastag) VerseRef.Bookmarks.remove(tag, this.verse);
+          else VerseRef.Bookmarks.add(tag, this.verse);
+          this.syncBookmarkStatus();
+        });
+    });
+  }
+
+  private initiateRenderReset(element = this.element) {
+    this.element.empty();
+    const reset = (e: Event) => {
+      e.stopPropagation();
+      // do not proceed if the click is inside the element
+      if (element.contains(e.target as Node))
+        return document.addEventListener("click", reset, { once: true });
+      this.render(); // Re-render to restore original state
+    };
+
+    document.addEventListener("click", reset, { once: true });
   }
 }

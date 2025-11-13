@@ -12,6 +12,7 @@ export * from "./MyHTML";
 export * from "./screen";
 export * from "./settings";
 export * from "./State";
+export * from "./Comands";
 
 export { App, AppState };
 

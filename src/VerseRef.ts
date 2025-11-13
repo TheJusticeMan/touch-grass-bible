@@ -1,6 +1,6 @@
 import exp from "constants";
 import { BibleTopics } from "./BibleTopics";
-import { BookShortNames, booksOfTheBible } from "./booksOfTheBible";
+import { BookShortNames, booksOfTheBible, books3letter } from "./booksOfTheBible";
 import { Highlighter } from "./external/App";
 export type bibleData = { [book: string]: string[][] };
 
@@ -58,15 +58,9 @@ export const translationMetadata: { [key: string]: { name: string; shortName: st
  * - `fromOSIS(osis)`: Creates a `VerseRef` from an OSIS string.
  */
 export class VerseRef {
-  isSameChapter(value: VerseRef) {
-    return this.book === value.book && this.chapter === value.chapter;
-  }
-  setVerse(v: number): VerseRef {
-    this.verse = v;
-    return this;
-  }
   static booksOfTheBible: string[] = booksOfTheBible;
   static BookShortNames: OSIS[] = BookShortNames;
+  static books3letter: string[] = books3letter;
   static bibleTranslations: { [translation: string]: bibleData } = {};
   static myNotes: Map<OSIS, string> = new Map<OSIS, string>();
   static crossRefs: { [OSIS: string]: [OSIS, number][] };
@@ -85,6 +79,13 @@ export class VerseRef {
   }
 
   constructor(public book: string = "GENESIS", public chapter: number = 1, public verse: number = 1) {}
+  isSameChapter(value: VerseRef) {
+    return this.book === value.book && this.chapter === value.chapter;
+  }
+  setVerse(v: number): VerseRef {
+    this.verse = v;
+    return this;
+  }
   isSame(verse: VerseRef) {
     return this.book === verse.book && this.chapter === verse.chapter && this.verse === verse.verse;
   }
@@ -128,8 +129,26 @@ export class VerseRef {
       parseInt(verse)
     );
   }
+  Bookmarks(): string[] {
+    return VerseRef.Bookmarks.getTopicsFromVerse(this);
+  }
+  Topics(): string[] {
+    return VerseRef.topics.getTopicsFromVerse(this);
+  }
+
+  get bookmarkList(): string[] {
+    return VerseRef.Bookmarks.getTopicsFromVerse(this);
+  }
+
+  get topicList(): string[] {
+    return VerseRef.topics.getTopicsFromVerse(this);
+  }
+
   toString(): string {
     return `${this.book.toTitleCase()} ${this.chapter}:${this.verse}`;
+  }
+  toChaperString(): string {
+    return `${this.book.toTitleCase()} ${this.chapter}`;
   }
   verseData(translation: translation): string {
     return VerseRef.bibleTranslations[translation]?.[this.book]?.[this.chapter]?.[this.verse] || "";
@@ -163,6 +182,19 @@ export class VerseRef {
   get OSIS(): string {
     return this.toOSIS();
   }
+  get letter3(): string {
+    return VerseRef.books3letter[VerseRef.booksOfTheBible.indexOf(this.book)] || this.book;
+  }
+  get YouVersionURL(): string {
+    return `https://www.bible.com/bible/1/${this.letter3}.${this.chapter}.${this.verse}`;
+  }
+  get blbURL(): string {
+    return `https://www.blueletterbible.org/kjv/${this.letter3}/${this.chapter}/${this.verse}`;
+  }
+  get gatewayURL(): string {
+    const book = this.book === "SONG SOLOMON" ? "SONG OF SOLOMON" : this.book;
+    return `https://www.biblegateway.com/passage/?search=${book}+${this.chapter}%3A${this.verse}&version=${VerseRef.defaultTranslation}`;
+  }
   get nextChapter(): VerseRef {
     const { book, chapter } = this;
     const nextChapter = chapter + 1;
@@ -178,7 +210,26 @@ export class VerseRef {
 
   Chapteroffset(offset: number): VerseRef {
     let { book, chapter } = this;
-    return this;
+    chapter += offset;
+    while (chapter < 1) {
+      const prevBookIndex = VerseRef.booksOfTheBible.indexOf(book) - 1;
+      if (prevBookIndex < 0) {
+        book = VerseRef.booksOfTheBible[VerseRef.booksOfTheBible.length - 1];
+      } else {
+        book = VerseRef.booksOfTheBible[prevBookIndex];
+      }
+      chapter += VerseRef.bible[book].length - 1;
+    }
+    while (chapter > VerseRef.bible[book].length - 1) {
+      chapter -= VerseRef.bible[book].length - 1;
+      const nextBookIndex = VerseRef.booksOfTheBible.indexOf(book) + 1;
+      if (nextBookIndex >= VerseRef.booksOfTheBible.length) {
+        book = VerseRef.booksOfTheBible[0];
+      } else {
+        book = VerseRef.booksOfTheBible[nextBookIndex];
+      }
+    }
+    return new VerseRef(book, chapter, 1);
   }
 
   /**
