@@ -32,5 +32,14 @@ button,
 textarea,
 select,
 .input {
-  border-radius: 0.6em 0.2em;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 4px;
+  background-color: #fff1;
+  /* semi-transparent for dark tone */
+  color: #fffa;
+  font-size: 1rem;
+  outline: none;
+  transition: background-color 0.2s;
+  box-sizing: border-box;
 }

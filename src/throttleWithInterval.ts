@@ -118,7 +118,7 @@ export function throttleWithInterval<T extends any[]>(
 }
 
 // --- Test Setup ---
-async function testThrottleWithInterval() {
+export async function testThrottleWithInterval() {
   // Mocking console.log to capture output
   let capturedThrottledCalls: { message: string; count: number }[] = [];
   let capturedLogMessages: string[] = []; // To capture the "Calling with...", "Waiting for...", etc.

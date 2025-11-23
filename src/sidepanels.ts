@@ -1,8 +1,9 @@
 import { Item, sidePanel, TextArea } from "./external/App";
 import TouchGrassBibleApp, { BibleSearchCategory, BookmarkCategory, myNotesCategory } from "./main";
+import "./NotesPanel.css";
 import { VerseRef } from "./VerseRef";
 
-export class notesPanel extends sidePanel<TouchGrassBibleApp> {
+export class notesPanelZZZ extends sidePanel<TouchGrassBibleApp> {
   currentFocus: TextArea | null = null;
   constructor(app: TouchGrassBibleApp, parent: HTMLElement) {
     super(app, parent, "left");
@@ -16,7 +17,7 @@ export class notesPanel extends sidePanel<TouchGrassBibleApp> {
     this.content.empty();
     verse.cTXT
       .slice(1)
-      .map((v, i) => new VerseRef(verse.book, verse.chapter, i + 1))
+      .map((_v, i) => new VerseRef(verse.book, verse.chapter, i + 1))
       .forEach(v => {
         this.content.createEl("div", { cls: ["note"] }, el => {
           el.createEl("span", { text: `${v.toString().toTitleCase()}`, cls: "verseNumber" });

@@ -17,7 +17,6 @@ export class Ref {
             parseInt(verse ?? 0, 10)
           )
       );
-    const to2 = new VerseRef(to.book || from.book, to.chapter || from.chapter, to.verse || from.verse);
     return new Ref(from, to);
   }
 }

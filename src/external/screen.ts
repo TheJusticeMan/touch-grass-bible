@@ -160,8 +160,6 @@ export class Scrollpast extends ETarget<{
     if (event.touches.length > 1) return this.resetValues();
     if (!this.isAtBottom && !this.isAtTop) return this.resetValues();
 
-    const { scrollTop, offsetHeight, scrollHeight } = this.element;
-
     // If touchMove happens before touchStart (e.g., interrupted sequence), re-initialize
     if (this.startY === 0) this.touchStart(event);
 
@@ -205,10 +203,10 @@ export class Scrollpast extends ETarget<{
    * Optionally override to implement custom animation for swipe-past feedback.
    * Default implementation does nothing.
    *
-   * @param direction - 'up' for swipe past bottom, 'down' for swipe past top.
+   * @param _direction - 'up' for swipe past bottom, 'down' for swipe past top.
    * @protected
    */
-  protected animateSwipe(direction: "up" | "down"): void {
+  protected animateSwipe(_direction: "up" | "down"): void {
     // Optionally implement visual feedback for swipe, e.g. flicker, bounce, confetti, guilt...
   }
 }

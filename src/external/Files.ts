@@ -267,6 +267,7 @@ export class FilesFromLocalStorage implements Files {
     return Promise.resolve();
   }
   createFolder(path: string): Promise<void> {
+    path;
     return Promise.resolve();
   }
 }

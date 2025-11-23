@@ -1,17 +1,5 @@
-import {
-  Book,
-  Bookmark,
-  ChevronDown,
-  GitCompare,
-  List,
-  Pencil,
-  Plus,
-  ScrollText,
-  SquarePen,
-  Waypoints,
-} from "lucide";
+import { Bookmark, GitCompare, ScrollText, SquarePen, Waypoints } from "lucide";
 import TouchGrassBibleApp, {
-  BookmarkCategory,
   Button,
   Component,
   CrossRefCategory,
@@ -269,6 +257,9 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
     const viewTop = this.content.scrollTop;
     const chapter = this.renderedChapters.findLast(c => c.element.offsetTop < viewTop);
     return chapter?.verse || this.renderedChapters[0].verse;
+  }
+
+  get midViewChapter(): VerseRef {
     // Alternatively, get the chapter closest to the midpoint of the view
     const viewMidpoint = this.content.scrollTop + this.content.clientHeight / 2;
     return this.renderedChapters.reduce(
@@ -354,14 +345,14 @@ export class VerseInfoComponent extends Component<"div"> {
   render() {
     this.element.empty(); // Clear previous contents to re-render
 
-    const { topicList, note } = this.verse;
+    const { topicList } = this.verse;
 
     // Handle note input: Show textarea if note exists, otherwise show a button to add one.
     new IconButton(this.element).setIcon(SquarePen).on("click", e => {
       e.stopPropagation();
       this.initiateRenderReset();
       const noteInput = new TextArea(this.element)
-        .setValue("")
+        .setValue(this.verse.note || "")
         .addClass("noteArea")
         .setPlaceholder(" - Add your note here...")
         .on("click", e => e.stopPropagation())
@@ -371,7 +362,7 @@ export class VerseInfoComponent extends Component<"div"> {
         });
       noteInput.focus(); // Auto-focus for better UX
     });
-    new IconButton(this.element).setIcon(ScrollText).on("click", e => {
+    new IconButton(this.element).setIcon(ScrollText).on("click", () => {
       this.initiateRenderReset();
       const links = [
         { name: "YouVersion", url: this.verse.YouVersionURL },
@@ -387,23 +378,14 @@ export class VerseInfoComponent extends Component<"div"> {
     });
 
     // Handle bookmarks: Show buttons for each bookmark date.
-    new IconButton(this.element).setIcon(Bookmark).on("click", e => {
+    new IconButton(this.element).setIcon(Bookmark).on("click", () => {
       this.initiateRenderReset();
-      this.verse.bookmarkList.forEach(topic => {
-        new Button(this.element)
-          .setButtonText(`${VerseListCategory.convertTopicDate(topic)}`)
-          .on("click", () => {
-            this.app.openCommandPalette({ topCategory: VerseListCategory, tag: topic });
-          });
-      });
-      new Button(this.element).setIcon(Pencil).on("click", () => {
-        this.syncBookmarkStatus();
-      });
+      this.syncBookmarkStatus();
     });
 
     // Handle topics: Show buttons for each topic if any exist.
     if (topicList.length > 0) {
-      new IconButton(this.element).setIcon(GitCompare).on("click", e => {
+      new IconButton(this.element).setIcon(GitCompare).on("click", () => {
         // On click, expand to show topic buttons (replacing the chevron)
         this.initiateRenderReset();
         topicList.forEach(topic => {
@@ -414,23 +396,41 @@ export class VerseInfoComponent extends Component<"div"> {
         // Optionally, add a way to collapse back, but for simplicity, keep it expanded.
       });
     }
-    new IconButton(this.element).setIcon(Waypoints).on("click", e => {
+    new IconButton(this.element).setIcon(Waypoints).on("click", () => {
       this.app.openCommandPalette({ topCategory: CrossRefCategory, verse: this.verse });
     });
   }
 
   private syncBookmarkStatus() {
-    const { bookmarkList } = this.verse;
+    const { bookmarkList: usedTags } = this.verse;
     this.element.empty();
-    VerseRef.Bookmarks.keys.forEach(tag => {
-      const hastag = bookmarkList.some(t => t === tag);
+    const unusedTags = VerseRef.Bookmarks.keys.filter(tag => !usedTags.includes(tag));
+
+    usedTags.forEach(topic => {
       new Button(this.element)
-        .setButtonText(`${VerseListCategory.convertTopicDate(tag)}`)
-        .addClass(hastag ? "bookmarkAdded" : "bookmarkNotAdded")
+        .setButtonText(`${VerseListCategory.convertTopicDate(topic)}`)
+        .addClass("bookmarkAdded")
         .on("click", () => {
-          if (hastag) VerseRef.Bookmarks.remove(tag, this.verse);
-          else VerseRef.Bookmarks.add(tag, this.verse);
+          VerseRef.Bookmarks.remove(topic, this.verse);
           this.syncBookmarkStatus();
+        })
+        .on("menu", e => {
+          e.stopPropagation();
+          this.app.openCommandPalette({ topCategory: VerseListCategory, tag: topic });
+        });
+    });
+    this.element.createEl("hr");
+    unusedTags.forEach(topic => {
+      new Button(this.element)
+        .setButtonText(`${VerseListCategory.convertTopicDate(topic)}`)
+        .addClass("bookmarkNotAdded")
+        .on("click", () => {
+          VerseRef.Bookmarks.add(topic, this.verse);
+          this.syncBookmarkStatus();
+        })
+        .on("menu", e => {
+          e.stopPropagation();
+          this.app.openCommandPalette({ topCategory: VerseListCategory, tag: topic });
         });
     });
   }

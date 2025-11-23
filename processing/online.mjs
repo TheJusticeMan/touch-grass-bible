@@ -6,7 +6,7 @@ import { Open } from "unzipper";
 import { readdirSync, readFileSync } from "fs";
 
 const _dirname = dirname(fileURLToPath(import.meta.url));
-const _dest = "./dest";
+const _dest = "./dist";
 const files = [
   {
     url: "https://a.openbible.info/data/topic-scores.zip",
@@ -18,9 +18,9 @@ const files = [
   },
 ];
 
-function downloadZip(url, dest) {
+function downloadZip(url, dist) {
   return new Promise((resolve, reject) => {
-    const file = createWriteStream(dest);
+    const file = createWriteStream(dist);
     get(url, res => {
       if (res.statusCode !== 200) return reject(new Error(`Failed to get '${url}' (${res.statusCode})`));
       res.pipe(file);

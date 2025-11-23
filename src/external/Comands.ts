@@ -19,7 +19,7 @@ export class CMD<Events extends CMDEvents = CMDEvents> extends ETarget<Events> {
     Category.addCMD(this);
   }
 
-  render(command: CMD, el: CommandItem<CMD>): Partial<CommandPaletteState> {
+  render(_command: CMD, el: CommandItem<CMD>): Partial<CommandPaletteState> {
     this.item = el;
     this.updateItem();
     return this.newState;
@@ -51,7 +51,9 @@ export class CMD<Events extends CMDEvents = CMDEvents> extends ETarget<Events> {
   }
 
   // Methods to be overridden by subclasses
-  protected _onUpdate(item: CommandItem<CMD>): void {}
+  protected _onUpdate(item: CommandItem<CMD>): void {
+    item;
+  }
 }
 
 export abstract class SettingCMD<T> extends CMD<{ change: T } & CMDEvents> {

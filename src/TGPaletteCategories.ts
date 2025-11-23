@@ -1,4 +1,4 @@
-import { Cross, X } from "lucide";
+import { X } from "lucide";
 import { BibleTopics } from "./BibleTopics";
 import { CommandCategory, CommandItem, CommandPaletteState, UnifiedCommandPalette } from "./external/App";
 import { CMD, toggleCMD } from "./external/Comands";
@@ -43,7 +43,7 @@ export class VerseListCategory extends CommandCategory<VerseRef, TouchGrassBible
         this.app.commandPalette.update({ topCategory: VerseListCategory }).display();
       });
     new CMD(this.defaultCMD).setName("Merge verses from the same chapter").on("_click", () => {
-      const { verse, tag } = this.commandPalette.state as TGPaletteState;
+      const { tag } = this.commandPalette.state as TGPaletteState;
 
       const versesToKeep = VerseRef.Bookmarks.get(tag)
         .reverse()
@@ -113,7 +113,7 @@ export class VerseListCategory extends CommandCategory<VerseRef, TouchGrassBible
     };
   }
 
-  executeCommand(command: VerseRef): void {
+  executeCommand(_command: VerseRef): void {
     this.commandPalette.close();
   }
 }
@@ -149,12 +149,12 @@ export class GoToVerseCategory extends CommandCategory<VerseRef, TouchGrassBible
         case 1: // Book and Chapter
           this.title = `Go to verse: ${verse.book}`;
           this.commandPalette.inputMode = "numeric";
-          this.list = verse.bTXT?.slice(1).map((c, index) => new VerseRef(verse.book, index + 1, 1)) || [];
+          this.list = verse.bTXT?.slice(1).map((_c, index) => new VerseRef(verse.book, index + 1, 1)) || [];
           break;
         case 2: // Book, Chapter, and Verse
           this.title = `Go to verse: ${verse.book}:${verse.chapter}`;
           this.list =
-            verse.cTXT.slice(1).map((v, index) => new VerseRef(verse.book, verse.chapter, index + 1)) || [];
+            verse.cTXT.slice(1).map((_v, index) => new VerseRef(verse.book, verse.chapter, index + 1)) || [];
           break;
       }
     } else {
@@ -196,7 +196,7 @@ export class GoToVerseCategory extends CommandCategory<VerseRef, TouchGrassBible
     return { topCategory: CrossRefCategory, specificity: 0, verse };
   }
 
-  executeCommand(ref: VerseRef): void {
+  executeCommand(_ref: VerseRef): void {
     if (this.specificity > 0) this.commandPalette.close();
     else this.commandPalette.display();
   }
@@ -208,7 +208,7 @@ export class BibleSearchCategory extends CommandCategory<VerseRef, TouchGrassBib
   verses: VerseRef[] = [];
   bible: bibleData = {}; // Default to an empty object
 
-  onTrigger(state: TGPaletteState): void {
+  onTrigger(_state: TGPaletteState): void {
     this.bible = VerseRef.bible;
   }
 
@@ -240,12 +240,12 @@ export class BibleSearchCategory extends CommandCategory<VerseRef, TouchGrassBib
     return { topCategory: CrossRefCategory, verse };
   }
 
-  executeCommand(command: VerseRef): void {
+  executeCommand(_command: VerseRef): void {
     this.commandPalette.close();
   }
 }
 
-function testLevenshtein(bible: bibleData, quary: string) {
+export function testLevenshtein(bible: bibleData, quary: string) {
   const startTime = performance.now();
   const lowerQuery = quary.toLowerCase();
   const results: VerseRef[] = [];
@@ -357,9 +357,8 @@ export class BookmarkCategory extends CommandCategory<string, TouchGrassBibleApp
   name = "Bookmarks";
   description = "List of bookmark tags";
 
-  onTrigger(state: TGPaletteState): void {
-    const { verse, query, tag } = this.commandPalette.state as TGPaletteState;
-    const newtag = (query || "Start Up Verses").toTitleCase();
+  onTrigger(_state: TGPaletteState): void {
+    const { verse, tag } = this.commandPalette.state as TGPaletteState;
     new CMD(this.defaultCMD)
       .setName(`Delete ${verse.toString()} from "${tag}"`)
       .setDescription("Delete a verse from a bookmark tag")
@@ -433,7 +432,7 @@ export class BookmarkCategory extends CommandCategory<string, TouchGrassBibleApp
     return { topCategory: VerseListCategory, tag: command.toTitleCase() };
   }
 
-  executeCommand(command: VerseRef | string): void {
+  executeCommand(_command: VerseRef | string): void {
     this.commandPalette.display();
   }
 }
@@ -443,7 +442,7 @@ export class translationCategory extends CommandCategory<string, TouchGrassBible
   readonly description = "List of available Bible translations";
   translations!: string[];
 
-  onTrigger(state: CommandPaletteState): void {
+  onTrigger(_state: CommandPaletteState): void {
     this.translations = Object.keys(VerseRef.bibleTranslations);
   }
 
@@ -467,7 +466,7 @@ export class myNotesCategory extends CommandCategory<VerseRef, TouchGrassBibleAp
   readonly description = "List of your personal notes on verses";
   notes: VerseRef[] = [];
 
-  onTrigger(state: TGPaletteState): void {
+  onTrigger(_state: TGPaletteState): void {
     this.notes = Array.from(VerseRef.myNotes.keys())
       .map(osis => VerseRef.fromOSIS(osis))
       .sort((a, b) => a.toString().localeCompare(b.toString()));
@@ -485,7 +484,7 @@ export class myNotesCategory extends CommandCategory<VerseRef, TouchGrassBibleAp
     return { topCategory: CrossRefCategory, verse };
   }
 
-  executeCommand(command: VerseRef): void {
+  executeCommand(_command: VerseRef): void {
     this.commandPalette.close();
   }
 }
@@ -494,7 +493,7 @@ export class SettingsCategory extends CommandCategory<string, TouchGrassBibleApp
   readonly name = "Settings";
   readonly description = "Configure Touch Grass Bible settings";
 
-  onTrigger(state: CommandPaletteState): void {
+  onTrigger(_state: CommandPaletteState): void {
     new toggleCMD(this.defaultCMD)
       .setValue(this.app.settings.enableLogging)
       .setName("Debug console")
@@ -548,22 +547,22 @@ export class SettingsCategory extends CommandCategory<string, TouchGrassBibleApp
       );
   }
 
-  getCommands(query: string): string[] {
+  getCommands(_query: string): string[] {
     return [];
   }
 
-  renderCommand(command: string, Item: CommandItem<string>): Partial<TGPaletteState> {
+  renderCommand(_command: string, _Item: CommandItem<string>): Partial<TGPaletteState> {
     return { topCategory: null };
   }
 
-  executeCommand(command: string): void {}
+  executeCommand(_command: string): void {}
 }
 
 export class AI extends CommandCategory<string, TouchGrassBibleApp> {
   name: string = "AI";
   description: string = "Interact with AI-powered features such as chat and suggestions.";
 
-  onTrigger(state: CommandPaletteState): void {
+  onTrigger(_state: CommandPaletteState): void {
     new CMD(this.defaultCMD)
       .setName("Chat with AI")
       .setDescription("Start a conversation with the AI assistant")
@@ -573,13 +572,13 @@ export class AI extends CommandCategory<string, TouchGrassBibleApp> {
       });
   }
 
-  getCommands(query: string): string[] {
+  getCommands(_query: string): string[] {
     return [];
   }
 
-  renderCommand(command: string, el: CommandItem<string>): Partial<TGPaletteState> {
+  renderCommand(_command: string, _el: CommandItem<string>): Partial<TGPaletteState> {
     return {};
   }
 
-  executeCommand(command: string): void {}
+  executeCommand(_command: string): void {}
 }

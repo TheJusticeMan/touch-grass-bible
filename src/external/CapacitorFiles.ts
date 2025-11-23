@@ -50,9 +50,11 @@ export class CapacitorFilesAdapter implements Files {
     }).then(() => {});
   }
   delete(path: string): Promise<void> {
+    path;
     throw new Error("Method not implemented.");
   }
   createFolder(path: string): Promise<void> {
+    path;
     throw new Error("Method not implemented.");
   }
 }

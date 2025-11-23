@@ -13,6 +13,12 @@ export interface TGAppSettings {
     fontSize: number;
   };
   Bookmarks: BibleTopicsType;
+  ExtraNotes: {
+    name: string;
+    content: string;
+    dateCreated: string;
+    dateModified: string;
+  }[];
 }
 
 export const DEFAULT_SETTINGS: TGAppSettings = {
@@ -36,4 +42,5 @@ export const DEFAULT_SETTINGS: TGAppSettings = {
       [new VerseRef("ROMANS", 8, 28).toOSIS(), 0],
     ],
   },
+  ExtraNotes: [],
 };

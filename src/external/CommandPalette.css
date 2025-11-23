@@ -57,7 +57,7 @@
   color: var(--foreground);
   font-size: 1rem;
   outline: none;
-  transition: background-color 0.2s, box-shadow 0.2s;
+  transition: background-color 0.2s;
   width: 100%;
   box-sizing: border-box;
 }
@@ -68,7 +68,6 @@
 
 .palette-search:focus {
   background-color: #fff2;
-  /* box-shadow: 0 0 0 2px var(--accent1); */
 }
 
 /* Content container for command items */
@@ -164,6 +163,13 @@
 
 .command-item .command-comp *:hover {
   color: #fffa;
+}
+
+.command-description .highlighted-query {
+  color: #fff8;
+}
+.command-title .highlighted-query {
+  color: #fff7;
 }
 
 .icon-button {

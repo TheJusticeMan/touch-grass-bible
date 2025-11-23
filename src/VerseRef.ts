@@ -1,6 +1,5 @@
-import exp from "constants";
 import { BibleTopics } from "./BibleTopics";
-import { BookShortNames, booksOfTheBible, books3letter } from "./booksOfTheBible";
+import { books3letter, BookShortNames, booksOfTheBible } from "./booksOfTheBible";
 import { Highlighter } from "./external/App";
 export type bibleData = { [book: string]: string[][] };
 

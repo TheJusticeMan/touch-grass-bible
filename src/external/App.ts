@@ -2,6 +2,7 @@ import "./App.css";
 import { ETarget, touchDragger } from "./Event";
 import { BrowserConsole } from "./MyBrowserConsole";
 import { ScreenView } from "./screen";
+export * from "./Comands";
 export * from "./CommandPalette";
 export * from "./Components";
 export * from "./escapeRegExp";
@@ -12,7 +13,6 @@ export * from "./MyHTML";
 export * from "./screen";
 export * from "./settings";
 export * from "./State";
-export * from "./Comands";
 
 export { App, AppState };
 
@@ -126,7 +126,7 @@ abstract class App extends ETarget<{
     this.handlescrollmobile();
 
     // Handle page unload attempts
-    window.addEventListener("beforeunload", e => this.unload());
+    window.addEventListener("beforeunload", () => this.unload());
     // Handle browser history navigation
     window.addEventListener("popstate", () => this.ctarget.emit("historypop", {}));
   }

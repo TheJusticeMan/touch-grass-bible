@@ -37,7 +37,7 @@ const context = await esbuild.context({
   },
   entryPoints: ["src/main.ts"],
   bundle: true,
-  outfile: "dest/main.js",
+  outfile: "dist/main.js",
   format: "iife",
   sourcemap: prod ? false : true,
   platform: "browser",

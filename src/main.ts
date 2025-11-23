@@ -2,6 +2,7 @@ export const processstart = new Date().getTime();
 import { BibleTopics, BibleTopicsType } from "./BibleTopics";
 import { App, UnifiedCommandPalette } from "./external/App";
 import info from "./info.json";
+import { Note, NotesPanel, NoteVault } from "./NotesPanel";
 import { navigationPanel } from "./sidepanels";
 import "./style.css";
 import { DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
@@ -53,7 +54,9 @@ export default class TouchGrassBibleApp extends App {
   MainScreen!: VerseScreen;
   firstLoad = true;
   leftpanel!: navigationPanel;
+  rightpanel!: NotesPanel;
   saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  Notes: NoteVault = new NoteVault();
 
   constructor(doc: Document) {
     super(doc, "Touch Grass Bible");
@@ -64,7 +67,8 @@ export default class TouchGrassBibleApp extends App {
 
     //this.leftpanel = new notesPanel(this, this.contentEl);
     this.leftpanel = new navigationPanel(this, this.contentEl);
-    this.on("ArrowRightKeyDown", e => this.leftpanel.open());
+    this.rightpanel = new NotesPanel(this, this.contentEl);
+    this.on("ArrowRightKeyDown", () => this.leftpanel.open());
     this.commandPalette = new UnifiedCommandPalette<TouchGrassBibleApp, TGPaletteState>(this);
     this.commandPalette.state = new TGPaletteState(this.commandPalette as any, "");
     this.commandPalette
@@ -86,6 +90,8 @@ export default class TouchGrassBibleApp extends App {
       });
 
     await this.loadsettings(DEFAULT_SETTINGS);
+    this.Notes.loadNotes(this.settings.ExtraNotes.map(nj => Note.fromJSON(nj)));
+
     // Load all JSON files in parallel for faster startup
     const [crossRefs, topics, translations] = await Promise.all([
       this.loadJSON<{ [x: string]: never[] }>("crossrefs.json"),
@@ -110,12 +116,13 @@ export default class TouchGrassBibleApp extends App {
     this.console.enabled = this.settings.enableLogging;
     this.console.log(info.name, info.version, "loaded");
     //this.on("EnterKeyDown", e => !this.commandPalette.isOpen && this.openCommandPalette());
-    this.on("Ctrl+EnterKeyDown", e => !this.commandPalette.isOpen && this.openCommandPalette());
+    this.on("Ctrl+EnterKeyDown", () => !this.commandPalette.isOpen && this.openCommandPalette());
 
     this.console.log(new Date().getTime() - processstart, "ms startup time");
     this.console.log("Touch Grass Bible is ready!");
 
     this.MainScreen.onload();
+    /* this.rightpanel.open(); */
   }
 
   openCommandPalette(TGPaletteState: Partial<TGPaletteState> = {}): void {
@@ -156,4 +163,4 @@ export default class TouchGrassBibleApp extends App {
   }
 }
 
-const app = new TouchGrassBibleApp(document);
+export const app = new TouchGrassBibleApp(document);

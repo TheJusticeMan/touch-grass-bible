@@ -33,9 +33,13 @@ export class Component<
     click: MouseEvent;
     input: string;
     change: string;
+    menu: Event;
     [key: string]: any;
   }
 > extends ETarget<EventS> {
+  destroy() {
+    this.clear().remove();
+  }
   element: HTMLElementTagNameMap[T];
 
   constructor(parent: Node, tagName: T) {
@@ -92,6 +96,10 @@ export class Button extends Component<"button"> {
       e.stopPropagation();
       return this.emit("click", e);
     });
+    this.element.addEventListener("contextmenu", e => {
+      e.preventDefault();
+      return this.emit("menu", e);
+    });
   }
 
   setButtonText(text: string) {
@@ -141,14 +149,21 @@ abstract class AbstractInput<T extends keyof HTMLElementTagNameMap, V> extends C
   {
     input: V;
     change: V;
-    click: MouseEvent;
+    click: Event;
+    menu: Event;
     [key: string]: any;
   }
 > {
   constructor(parent: Node, tagName: T) {
     super(parent, tagName);
-    this.element.addEventListener("input", e => this.emit("input", this.getValue()));
-    this.element.addEventListener("change", e => this.emit("change", this.getValue()));
+    this.element.addEventListener("input", () => this.emit("input", this.getValue()));
+    this.element.addEventListener("change", () => this.emit("change", this.getValue()));
+    this.element.addEventListener("click", e => this.emit("click", e));
+    this.element.addEventListener("contextmenu", e => {
+      e.preventDefault();
+      return this.emit("menu", e);
+    });
+    this.element.focus();
   }
 
   abstract setValue(value: V): this;
@@ -219,7 +234,7 @@ export class TextInput extends AbstractInput<"input", string> {
   }
 }
 
-class toggleInput extends AbstractInput<"button", boolean> {
+export class toggleInput extends AbstractInput<"button", boolean> {
   value: boolean = false;
   constructor(parent: Node) {
     super(parent, "button");
@@ -323,7 +338,7 @@ export abstract class scrollBubble extends ETarget<{
     this.emit("scroll", this.scrollvalue);
   };
 
-  release = (e: MouseEvent | TouchEvent) => {
+  release = () => {
     if (!this.isGrabbed) return; // Ignore releases if not grabbed
     this.startHideTimer(); // Start the hide timer
     this.element?.classList.remove("active");
@@ -652,13 +667,13 @@ export class Menu extends ETarget {
     document.body.createEl("div", { cls: "context-menu" }, (menuEl: HTMLDivElement) => {
       menuEl.style.left = `${this.position.x}px`;
       menuEl.style.top = `${this.position.y}px`;
-      this.items.forEach(item => item.render(menuEl).on("click", e => this.hide()));
+      this.items.forEach(item => item.render(menuEl).on("click", () => this.hide()));
       this.menuEl = menuEl;
     });
 
     this.emit("show", this.items);
 
-    this._onClickAway = (e: MouseEvent) => this.hide();
+    this._onClickAway = () => this.hide();
     setTimeout(() => document.addEventListener("mousedown", this._onClickAway!), 0);
 
     return this;

@@ -1,5 +1,5 @@
 import levenshtein from "js-levenshtein";
-import { ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, TableOfContents, X } from "lucide";
+import { ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, X } from "lucide";
 import { App, BrowserConsole, CMD } from "./App";
 import "./CommandPalette.css";
 import { Button, inputMode, Item, TextInput } from "./Components";
@@ -116,7 +116,7 @@ export class UnifiedCommandPalette<
       if (e.deltaX > 0)
         this.contentEl.style.transform = `scale(${1 - Math.min(Math.abs(e.deltaX) / 1000, 0.1)})`;
     });
-    this.on("dragXcancel", e => {
+    this.on("dragXcancel", () => {
       this.contentEl.style.transform = "";
     });
   }
@@ -428,7 +428,7 @@ export class UnifiedCommandPalette<
       this.selectedIndex = this.commandItems.length; // Reset selection index
     }
 
-    this.categoriesToShow.forEach((cat, index) => {
+    this.categoriesToShow.forEach(cat => {
       if (this.commandItems.length > state.maxResults) return;
       cat.setUp(state);
       cat.extraCMD?.setUp(state);
@@ -543,8 +543,6 @@ export class CommandPaletteState extends StateClass {
     super();
   }
 }
-
-class CommandCategoryState extends StateClass {}
 
 /**
  * Abstract base class representing a category of commands for a command palette.
@@ -783,7 +781,7 @@ class CategoryNavigator<AppType extends App> extends CommandCategory<CommandCate
   readonly description = "List of all command categories";
   names!: CommandCategory<any, AppType>[];
 
-  onTrigger(state: CommandPaletteState): void {
+  onTrigger(_state: CommandPaletteState): void {
     this.names = this.commandPalette.palettes;
   }
   getCommands(query: string): CommandCategory<any, AppType>[] {
@@ -796,7 +794,7 @@ class CategoryNavigator<AppType extends App> extends CommandCategory<CommandCate
     Item.setTitle(command.name).setDescription(command.description);
     return { topCategory: command.constructor as any };
   }
-  executeCommand(command: CommandCategory<any, AppType>): void {
+  executeCommand(_command: CommandCategory<any, AppType>): void {
     this.commandPalette.display();
   }
 }
@@ -839,9 +837,9 @@ class PromptCategory<AppType extends App> extends CommandCategory<string, AppTyp
     this.cb(null); // Call callback with null on close
   };
 
-  onTrigger(state: CommandPaletteState): void {}
+  onTrigger(_state: CommandPaletteState): void {}
 
-  getCommands(query: string): string[] {
+  getCommands(_query: string): string[] {
     return [this._prompt, "Ok", "Cancel"];
   }
 
@@ -875,7 +873,7 @@ export class CMDCategory<AppType extends App> extends CommandCategory<CMD, AppTy
   resetCommands() {
     this.commands = [];
   }
-  onTrigger(state: CommandPaletteState): void {
+  onTrigger(_state: CommandPaletteState): void {
     return;
   }
   getCommands(query: string): CMD[] {

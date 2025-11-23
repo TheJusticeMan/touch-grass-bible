@@ -5,33 +5,6 @@ export type OSISString = string; // e.g., "JOHN.3.16"
 type BibleTopicReference = [OSISString, number];
 export type BibleTopicsType = { [topic: string]: BibleTopicReference[] };
 
-const BibleTopicsExmp: BibleTopicsType = {
-  "666": [
-    ["Rev.13.18", 10],
-    ["Rev.13.1-Rev.13.18", 6],
-    ["Rev.13.16-Rev.13.18", 5],
-    ["Rev.13.17", 2],
-    ["2Chr.9.13", 2],
-    ["Rev.12.1-Rev.12.17", 2],
-    ["Rev.14.1-Rev.14.20", 2],
-    ["Rev.20.4", 2],
-    ["Rev.13.16", 2],
-    ["Rev.13.8", 2],
-  ],
-  "911": [["Isa.30.25", 9]],
-  "2012": [["Matt.24.36", 39]],
-  "10 commandments": [
-    ["Exod.20.1-Exod.20.26", 7],
-    ["Gal.5.14", 3],
-    ["Rom.13.8-Rom.13.10", 3],
-    ["Deut.4.13", 2],
-    ["Exod.34.28", 2],
-    ["Exod.20.13", 2],
-    ["Exod.20.14", 2],
-    ["Luke.6.27-Luke.6.33", 2],
-  ],
-};
-
 /**
  * Manages a collection of Bible topics, each associated with a set of verse references and optional ratings.
  *
