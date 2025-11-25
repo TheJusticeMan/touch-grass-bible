@@ -30,10 +30,11 @@ import { ETarget } from "./Event";
 export class Component<
   T extends keyof HTMLElementTagNameMap,
   EventS extends Record<string, any> = {
-    click: MouseEvent;
     input: string;
     change: string;
+    click: Event;
     menu: Event;
+    keydown: Event;
     [key: string]: any;
   }
 > extends ETarget<EventS> {
@@ -151,6 +152,7 @@ abstract class AbstractInput<T extends keyof HTMLElementTagNameMap, V> extends C
     change: V;
     click: Event;
     menu: Event;
+    keydown: Event;
     [key: string]: any;
   }
 > {
@@ -163,6 +165,7 @@ abstract class AbstractInput<T extends keyof HTMLElementTagNameMap, V> extends C
       e.preventDefault();
       return this.emit("menu", e);
     });
+    this.element.addEventListener("keydown", e => this.emit("keydown", e));
     this.element.focus();
   }
 

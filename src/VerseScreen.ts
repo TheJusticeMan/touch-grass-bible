@@ -1,4 +1,4 @@
-import { Bookmark, GitCompare, ScrollText, SquarePen, Waypoints } from "lucide";
+import { Bookmark, GitCompare, Plus, ScrollText, SquarePen, Waypoints } from "lucide";
 import TouchGrassBibleApp, {
   Button,
   Component,
@@ -8,6 +8,7 @@ import TouchGrassBibleApp, {
   pdsp,
   ScreenView,
   TextArea,
+  TextInput,
   topicListCategory,
   VerseHighlight,
   VerseListCategory,
@@ -419,7 +420,27 @@ export class VerseInfoComponent extends Component<"div"> {
           this.app.openCommandPalette({ topCategory: VerseListCategory, tag: topic });
         });
     });
-    this.element.createEl("hr");
+    // add new tag button
+    new IconButton(this.element).setIcon(Plus).on("click", () => {
+      this.initiateRenderReset();
+      let tag = "";
+      this.verse.bookmarkList.length;
+      const addBookmark = () => {
+        if (tag.length === 0) return;
+        VerseRef.Bookmarks.add(tag, this.verse);
+        this.syncBookmarkStatus();
+      };
+
+      new TextInput(this.element)
+        .setPlaceholder("Enter bookmark name...")
+        .addClass("noteArea")
+        .on("click", e => e.stopPropagation())
+        .on("input", (value: string) => (tag = value.trim()))
+        .on("keydown", e => (e as KeyboardEvent).key === "Enter" && addBookmark());
+
+      new Button(this.element).setButtonText("Add").on("click", () => addBookmark());
+    });
+    if (unusedTags.length > 0) this.element.createEl("hr");
     unusedTags.forEach(topic => {
       new Button(this.element)
         .setButtonText(`${VerseListCategory.convertTopicDate(topic)}`)
@@ -435,12 +456,12 @@ export class VerseInfoComponent extends Component<"div"> {
     });
   }
 
-  private initiateRenderReset(element = this.element) {
+  private initiateRenderReset() {
     this.element.empty();
     const reset = (e: Event) => {
       e.stopPropagation();
       // do not proceed if the click is inside the element
-      if (element.contains(e.target as Node))
+      if (this.element.contains(e.target as Node))
         return document.addEventListener("click", reset, { once: true });
       this.render(); // Re-render to restore original state
     };
