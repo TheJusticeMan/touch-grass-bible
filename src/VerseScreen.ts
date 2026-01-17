@@ -1,3 +1,4 @@
+import apocalypseThrottle from "apocalypse-throttle";
 import { Bookmark, GitCompare, Plus, ScrollText, SquarePen, Waypoints } from "lucide";
 import TouchGrassBibleApp, {
   Button,
@@ -15,7 +16,6 @@ import TouchGrassBibleApp, {
   VerseRef,
 } from "./main";
 import { BookScroll, ChapterScroll } from "./Scroll";
-import { throttleWithInterval } from "./throttleWithInterval";
 import "./VerseScreen.css";
 
 /**
@@ -240,7 +240,7 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
     }
   }
 
-  handleScroll = throttleWithInterval(() => {
+  handleScroll = apocalypseThrottle(() => {
     if (this.chapterScroll.isGrabbed || this.bookScroll.isGrabbed) return;
     const { scrollTop, scrollHeight, clientHeight } = this.content;
 

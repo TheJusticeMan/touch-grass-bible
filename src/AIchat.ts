@@ -83,14 +83,14 @@ Be attentive, thoughtful, and precise. Provide clear, well-structured answers th
     let done = false;
     let buffer = "";
     let fullText = "";
-    let fullcalls: any[] = [];
+    const fullcalls: any[] = [];
 
     while (!done) {
       const { value, done: streamDone } = await reader.read();
       if (streamDone) break;
       buffer += decoder.decode(value, { stream: true });
 
-      let lines = buffer.split("\n");
+      const lines = buffer.split("\n");
       buffer = lines.pop() || "";
 
       for (const line of lines) {

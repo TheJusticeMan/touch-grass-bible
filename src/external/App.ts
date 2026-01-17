@@ -68,14 +68,14 @@ class AppState {
  */
 abstract class App extends ETarget<{
   keydown: { key: string; event: KeyboardEvent };
-  historypop: {};
-  [key: string]: any;
+  historypop: object;
+  [key: string]: unknown;
 }> {
   console: BrowserConsole;
   contentEl: HTMLElement;
   //commandPalette: UnifiedCommandPalette<this, any> = new UnifiedCommandPalette<this, any>(this);
 
-  abstract MainScreen: ScreenView<any>;
+  abstract MainScreen: ScreenView<never>;
   private target: ETarget[] = [];
   /**
    * Returns the current event target for keyboard and command events.
@@ -85,7 +85,7 @@ abstract class App extends ETarget<{
     return this.target.at(-1) ?? (this as ETarget);
   }
 
-  pushTarget(target: ETarget | any): this {
+  pushTarget(target: ETarget): this {
     this.target.push(target);
     return this;
   }
@@ -117,7 +117,6 @@ abstract class App extends ETarget<{
         (e.altKey ? "Alt+" : "") +
         (e.shiftKey ? "Shift+" : "") +
         e.key;
-      KeyboardEvent;
       //if (this.ctarget !== this) e.preventDefault(); // Prevent default browser actions for key combinations
       const { ctarget } = this;
       ctarget.emit("keydown", { key, event: e });
@@ -166,14 +165,14 @@ abstract class App extends ETarget<{
    * @param data - An object containing key-value pairs representing application settings to be saved.
    * @returns A promise that resolves when the data has been saved.
    */
-  async saveData(data: { [setting: string]: any }) {
+  async saveData(data: { [setting: string]: unknown }) {
     localStorage.setItem("app-data", JSON.stringify(data));
   }
 
   /**
    * Load data from local storage
    */
-  async loadData(): Promise<{ [setting: string]: any }> {
+  async loadData(): Promise<{ [setting: string]: unknown }> {
     const dataStr = localStorage.getItem("app-data");
     return Promise.resolve(dataStr ? JSON.parse(dataStr) : {});
   }
@@ -214,8 +213,8 @@ abstract class App extends ETarget<{
    */
   async uploadFile(
     accept: string,
-    onFileContent: (content: any) => void,
-    onError?: (error: any) => void,
+    onFileContent: (content: unknown) => void,
+    onError?: (error: unknown) => void,
     onWarn?: (message: string) => void
   ): Promise<void> {
     const input = document.createElement("input");
@@ -255,7 +254,7 @@ abstract class App extends ETarget<{
    * @param filename - The name of the file to download
    * @param data - The data to include in the file
    */
-  downloadFile(filename: string, data: any): void {
+  downloadFile(filename: string, data: unknown): void {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
     const downloadAnchorNode = document.createElement("a");
     downloadAnchorNode.setAttribute("href", dataStr);

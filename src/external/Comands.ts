@@ -52,7 +52,7 @@ export class CMD<Events extends CMDEvents = CMDEvents> extends ETarget<Events> {
 
   // Methods to be overridden by subclasses
   protected _onUpdate(item: CommandItem<CMD>): void {
-    item;
+    item.clear();
   }
 }
 

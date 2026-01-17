@@ -228,6 +228,6 @@ HTMLElement.prototype.setIcon = function <K extends keyof HTMLElementTagNameMap>
   return this;
 };
 
-String.prototype.toTitleCase = function (this: String): string {
+String.prototype.toTitleCase = function (this: string): string {
   return this.toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
 };

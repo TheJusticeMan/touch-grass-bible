@@ -40,7 +40,7 @@ export class Highlighter {
     }
 
     // Collect all matches from all patterns
-    let allMatches: MatchInfo[] = [];
+    const allMatches: MatchInfo[] = [];
 
     for (const patternConfig of this.args) {
       const regex = patternConfig.regEXP;

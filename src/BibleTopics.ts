@@ -109,7 +109,7 @@ export class BibleTopics {
   getTopicsFromVerse(verse: VerseRef): string[] {
     const osis = verse.toOSIS();
     return Array.from(this.topics.entries())
-      .filter(([_, refs]) => refs.has(osis))
+      .filter(([, refs]) => refs.has(osis))
       .map(([topic]) => topic);
   }
 

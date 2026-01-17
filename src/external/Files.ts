@@ -174,7 +174,7 @@ export interface Files {
 export class FilesFromLocalStorage implements Files {
   root: Folder = new Folder(null, this);
   constructor() {
-    let listoffiles = Array.from(new Set(localStorage.getItem(":FILE_LIST:")?.split("\n") || []));
+    const listoffiles = Array.from(new Set(localStorage.getItem(":FILE_LIST:")?.split("\n") || []));
     listoffiles.forEach(file => {
       const parts = file.split("/");
       let currentFolder: Folder = this.root;
@@ -246,7 +246,7 @@ export class FilesFromLocalStorage implements Files {
       }
       return Promise.resolve();
     } else {
-      let listoffiles = Array.from(new Set(localStorage.getItem(":FILE_LIST:")?.split("\n") || []));
+      const listoffiles = Array.from(new Set(localStorage.getItem(":FILE_LIST:")?.split("\n") || []));
       listoffiles.forEach(file => {
         if (file.startsWith(path.fullPath)) {
           const data = localStorage.getItem(file);

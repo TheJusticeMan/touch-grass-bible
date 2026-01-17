@@ -32,7 +32,7 @@ export type HandlerInfo<E, K extends keyof E = keyof E> = {
  *
  * @public
  */
-export abstract class ETarget<E extends Record<string, any> = Record<string, any>> extends Chainable {
+export abstract class ETarget<E extends Record<string, unknown> = Record<string, unknown>> extends Chainable {
   private handlers: {
     [K in keyof E]?: Array<(e: E[K]) => void>;
   } = {};

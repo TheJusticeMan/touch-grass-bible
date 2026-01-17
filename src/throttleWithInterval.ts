@@ -4,6 +4,8 @@
 // while still ensuring we handle the most recent event data.
 // My goal is to make the ultimate debounce that triggers immediately on the first call, and triggers after the last call in a burst,
 
+import { apocalypseThrottle } from "apocalypse-throttle";
+
 /**
  * Creates a throttled version of the provided callback that executes at most once per specified interval.
  * The first call executes immediately. Subsequent calls within the interval are queued and will execute
@@ -123,13 +125,13 @@ export async function testThrottleWithInterval() {
   let capturedThrottledCalls: { message: string; count: number }[] = [];
   let capturedLogMessages: string[] = []; // To capture the "Calling with...", "Waiting for...", etc.
 
-  const mockConsoleLog = (...args: any[]) => {
+  const mockConsoleLog = (...args: unknown[]) => {
     const message = args.join(" ");
     capturedLogMessages.push(message); // Capture all console messages for debugging
 
     // Check if this is a throttled call output
     if (message.startsWith("[THROTTLED]")) {
-      const match = message.match(/Message: "(.*?)"\,\sCount:\s(\d+)/);
+      const match = message.match(/Message: "(.*?)",\sCount:\s(\d+)/);
       if (match) {
         capturedThrottledCalls.push({ message: match[1], count: parseInt(match[2], 10) });
       }
@@ -150,7 +152,7 @@ export async function testThrottleWithInterval() {
   capturedLogMessages = [];
 
   // Define the throttled function
-  const throttledLogger = throttleWithInterval((message: string, count: number) => {
+  const throttledLogger = apocalypseThrottle((message: string, count: number) => {
     mockConsoleLog(`[THROTTLED] Message: "${message}", Count: ${count}`); // This is what gets captured
   }, 200); // 200ms delay
 
