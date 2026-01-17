@@ -3,7 +3,10 @@ import { VerseRef } from "./VerseRef";
 
 export class ChapterScroll extends scrollBubble {
   chapter: VerseRef = new VerseRef();
-  constructor(parent: HTMLElement, private cb: (book: VerseRef) => void) {
+  constructor(
+    parent: HTMLElement,
+    private cb: (book: VerseRef) => void,
+  ) {
     super(parent);
     this.onScroll(this.cb);
   }
@@ -28,7 +31,11 @@ export class ChapterScroll extends scrollBubble {
     this.on("scroll", () => {
       if (!this.maxScroll) return;
       if (!this.chapter) return;
-      const newChapter = new VerseRef(this.chapter.book, Math.round(this.scroll) + 1, 1);
+      const newChapter = new VerseRef(
+        this.chapter.book,
+        Math.round(this.scroll) + 1,
+        1,
+      );
       if (this.chapter.chapter === newChapter.chapter) return;
       this.chapter = newChapter;
       cb(this.chapter);
@@ -40,7 +47,10 @@ export class ChapterScroll extends scrollBubble {
 export class BookScroll extends scrollBubble {
   book: VerseRef = new VerseRef();
 
-  constructor(parent: HTMLElement, private cb: (book: VerseRef) => void) {
+  constructor(
+    parent: HTMLElement,
+    private cb: (book: VerseRef) => void,
+  ) {
     super(parent);
   }
 

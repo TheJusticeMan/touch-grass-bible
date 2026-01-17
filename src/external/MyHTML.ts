@@ -60,7 +60,7 @@ declare global {
       this: Node,
       tag: K,
       o?: DomElementInfo | string,
-      callback?: (el: HTMLElementTagNameMap[K]) => void
+      callback?: (el: HTMLElementTagNameMap[K]) => void,
     ): HTMLElementTagNameMap[K];
 
     /**
@@ -91,12 +91,14 @@ declare global {
      * myElement.empty();
      * ```
      */
-    empty<K extends keyof HTMLElementTagNameMap>(this: HTMLElementTagNameMap[K]): HTMLElementTagNameMap[K];
+    empty<K extends keyof HTMLElementTagNameMap>(
+      this: HTMLElementTagNameMap[K],
+    ): HTMLElementTagNameMap[K];
   }
   interface HTMLElement {
     setIcon<K extends keyof HTMLElementTagNameMap>(
       this: HTMLElementTagNameMap[K],
-      icon: IconNode
+      icon: IconNode,
     ): HTMLElementTagNameMap[K];
   }
 
@@ -127,7 +129,7 @@ Node.prototype.createEl = function <K extends keyof HTMLElementTagNameMap>(
   this: Node,
   tag: K,
   o?: DomElementInfo | string,
-  callback?: (el: HTMLElementTagNameMap[K]) => void
+  callback?: (el: HTMLElementTagNameMap[K]) => void,
 ): HTMLElementTagNameMap[K] {
   // Create the element
   const el = document.createElement<K>(tag);
@@ -193,7 +195,8 @@ Node.prototype.createEl = function <K extends keyof HTMLElementTagNameMap>(
 
       // Set placeholder
       if (options.placeholder !== undefined) {
-        (el as HTMLInputElement | HTMLTextAreaElement).placeholder = options.placeholder;
+        (el as HTMLInputElement | HTMLTextAreaElement).placeholder =
+          options.placeholder;
       }
 
       // Set href
@@ -214,20 +217,19 @@ Node.prototype.createEl = function <K extends keyof HTMLElementTagNameMap>(
 };
 
 Node.prototype.empty = function <K extends keyof HTMLElementTagNameMap>(
-  this: HTMLElementTagNameMap[K]
+  this: HTMLElementTagNameMap[K],
 ): HTMLElementTagNameMap[K] {
   this.textContent = "";
   return this;
 };
 
-HTMLElement.prototype.setIcon = function <K extends keyof HTMLElementTagNameMap>(
-  this: HTMLElementTagNameMap[K],
-  icon: IconNode
-): HTMLElementTagNameMap[K] {
+HTMLElement.prototype.setIcon = function <
+  K extends keyof HTMLElementTagNameMap,
+>(this: HTMLElementTagNameMap[K], icon: IconNode): HTMLElementTagNameMap[K] {
   this.appendChild(createElement(icon, { "stroke-width": 1 }));
   return this;
 };
 
 String.prototype.toTitleCase = function (this: string): string {
-  return this.toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
+  return this.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
 };

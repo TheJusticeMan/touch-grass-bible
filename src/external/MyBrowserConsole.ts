@@ -20,7 +20,10 @@ export class BrowserConsole {
    * @param enabled - Determines whether the console is enabled.
    * @param consoleName - The name to assign to the console instance.
    */
-  constructor(public enabled: boolean = true, public consoleName: string = "Console:") {}
+  constructor(
+    public enabled: boolean = true,
+    public consoleName: string = "Console:",
+  ) {}
 
   /**
    * Logs messages to the browser console if logging is enabled.

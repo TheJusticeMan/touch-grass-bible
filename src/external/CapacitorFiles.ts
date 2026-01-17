@@ -4,15 +4,19 @@ import { Files, FileSystemItem, Folder } from "./Files";
 export class CapacitorFilesAdapter implements Files {
   root: Folder = new Folder(null, this);
   readFile(path: string): Promise<string> {
-    return Filesystem.readFile({ path, directory: Directory.Documents }).then(result => {
-      if (typeof result.data === "string") {
-        return result.data;
-      } else if (result.data instanceof Blob) {
-        return result.data.text();
-      } else {
-        throw new Error("Unknown data type returned from Filesystem.readFile");
-      }
-    });
+    return Filesystem.readFile({ path, directory: Directory.Documents }).then(
+      (result) => {
+        if (typeof result.data === "string") {
+          return result.data;
+        } else if (result.data instanceof Blob) {
+          return result.data.text();
+        } else {
+          throw new Error(
+            "Unknown data type returned from Filesystem.readFile",
+          );
+        }
+      },
+    );
   }
   writeFile(path: string, data: string): Promise<void> {
     return Filesystem.writeFile({

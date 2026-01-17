@@ -69,8 +69,14 @@ export default class TouchGrassBibleApp extends App {
     this.leftpanel = new navigationPanel(this, this.contentEl);
     this.rightpanel = new NotesPanel(this, this.contentEl);
     this.on("ArrowRightKeyDown", () => this.leftpanel.open());
-    this.commandPalette = new UnifiedCommandPalette<TouchGrassBibleApp, TGPaletteState>(this);
-    this.commandPalette.state = new TGPaletteState(this.commandPalette as any, "");
+    this.commandPalette = new UnifiedCommandPalette<
+      TouchGrassBibleApp,
+      TGPaletteState
+    >(this);
+    this.commandPalette.state = new TGPaletteState(
+      this.commandPalette as any,
+      "",
+    );
     this.commandPalette
       .addPalettes(
         VerseListCategory,
@@ -82,15 +88,17 @@ export default class TouchGrassBibleApp extends App {
         translationCategory,
         myNotesCategory,
         //AI,
-        SettingsCategory
+        SettingsCategory,
       )
-      .on("update", e => {
+      .on("update", (e) => {
         VerseRef.defaultTranslation = e.defaultTranslation;
         this.MainScreen.verse = e.verse;
       });
 
     await this.loadsettings(DEFAULT_SETTINGS);
-    this.Notes.loadNotes(this.settings.ExtraNotes.map(nj => Note.fromJSON(nj)));
+    this.Notes.loadNotes(
+      this.settings.ExtraNotes.map((nj) => Note.fromJSON(nj)),
+    );
 
     // Load all JSON files in parallel for faster startup
     const [crossRefs, topics, translations] = await Promise.all([
@@ -116,7 +124,10 @@ export default class TouchGrassBibleApp extends App {
     this.console.enabled = this.settings.enableLogging;
     this.console.log(info.name, info.version, "loaded");
     //this.on("EnterKeyDown", e => !this.commandPalette.isOpen && this.openCommandPalette());
-    this.on("Ctrl+EnterKeyDown", () => !this.commandPalette.isOpen && this.openCommandPalette());
+    this.on(
+      "Ctrl+EnterKeyDown",
+      () => !this.commandPalette.isOpen && this.openCommandPalette(),
+    );
 
     this.console.log(new Date().getTime() - processstart, "ms startup time");
     this.console.log("Touch Grass Bible is ready!");

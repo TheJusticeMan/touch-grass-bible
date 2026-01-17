@@ -1,4 +1,3 @@
-
 import TouchGrassBibleApp, {
   CommandCategory,
   UnifiedCommandPalette,
@@ -9,7 +8,7 @@ export default class Plugin {
   addPalettes(
     ...categories: (new (
       app: TouchGrassBibleApp,
-      palette: UnifiedCommandPalette<TouchGrassBibleApp, any>
+      palette: UnifiedCommandPalette<TouchGrassBibleApp, any>,
     ) => CommandCategory<any, TouchGrassBibleApp>)[]
   ) {
     this.app.commandPalette.addPalettes(...categories);

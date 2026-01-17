@@ -69,7 +69,7 @@ import { apocalypseThrottle } from "apocalypse-throttle";
  */
 export function throttleWithInterval<T extends any[]>(
   callback: (...args: T) => void,
-  delay: number = 100
+  delay: number = 100,
 ): { (...args: T): void; cancel(): void } {
   // Input validation
   if (delay < 1) {
@@ -133,14 +133,17 @@ export async function testThrottleWithInterval() {
     if (message.startsWith("[THROTTLED]")) {
       const match = message.match(/Message: "(.*?)",\sCount:\s(\d+)/);
       if (match) {
-        capturedThrottledCalls.push({ message: match[1], count: parseInt(match[2], 10) });
+        capturedThrottledCalls.push({
+          message: match[1],
+          count: parseInt(match[2], 10),
+        });
       }
     }
   };
 
   // Helper to simulate time passing
   const simulateTime = (ms: number) => {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   };
 
   // --- Test Case ---
@@ -152,9 +155,12 @@ export async function testThrottleWithInterval() {
   capturedLogMessages = [];
 
   // Define the throttled function
-  const throttledLogger = apocalypseThrottle((message: string, count: number) => {
-    mockConsoleLog(`[THROTTLED] Message: "${message}", Count: ${count}`); // This is what gets captured
-  }, 200); // 200ms delay
+  const throttledLogger = apocalypseThrottle(
+    (message: string, count: number) => {
+      mockConsoleLog(`[THROTTLED] Message: "${message}", Count: ${count}`); // This is what gets captured
+    },
+    200,
+  ); // 200ms delay
 
   // --- Test Sequence ---
 
@@ -208,7 +214,9 @@ export async function testThrottleWithInterval() {
 
   // --- Verification ---
   console.log("\n--- Captured Throttled Calls ---");
-  capturedThrottledCalls.forEach(call => console.log(`Message: "${call.message}", Count: ${call.count}`));
+  capturedThrottledCalls.forEach((call) =>
+    console.log(`Message: "${call.message}", Count: ${call.count}`),
+  );
 
   const expectedCalls = [
     { message: "Initial", count: 1 }, // Immediate first call
@@ -223,10 +231,13 @@ export async function testThrottleWithInterval() {
     capturedThrottledCalls.length === expectedCalls.length &&
     capturedThrottledCalls.every(
       (call, index) =>
-        call.message === expectedCalls[index].message && call.count === expectedCalls[index].count
+        call.message === expectedCalls[index].message &&
+        call.count === expectedCalls[index].count,
     )
   ) {
-    console.log("✅ Test passed: Captured throttled calls match expected behavior.");
+    console.log(
+      "✅ Test passed: Captured throttled calls match expected behavior.",
+    );
   } else {
     console.error("❌ Test failed: Captured throttled calls mismatch.");
     console.error("Expected Calls:", expectedCalls);

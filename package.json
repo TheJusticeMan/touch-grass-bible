@@ -27,6 +27,7 @@
     "dev": "node esbuild.config.mjs",
     "build": "npm run getdatafiles && node esbuild.config.mjs production",
     "init": "npm install",
+    "format": "prettier --write \"src/**/*.ts\" && prettier --write \"*.md\"",
     "getdatafiles": "node ./processing/online.mjs && cp src/translations.json dist",
     "build:web": "mkdir -p ./dist && npm run build && cp src/web/* dist",
     "clean": "rm -rf ./dist/* ./dist/",

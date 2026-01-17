@@ -12,14 +12,24 @@ export default class AI extends Plugin {
   }
 }
 
-export class AIcommandPallete extends CommandCategory<string, TouchGrassBibleApp> {
+export class AIcommandPallete extends CommandCategory<
+  string,
+  TouchGrassBibleApp
+> {
   name: string = "AI";
-  description: string = "Interact with AI-powered features such as chat and suggestions.";
+  description: string =
+    "Interact with AI-powered features such as chat and suggestions.";
 
   onInit(): void {
     this.addCommands(
-      { name: "Chat with AI", description: "Start a conversation with the AI assistant." },
-      { name: "AI Suggestions", description: "Get suggestions from the AI assistant." }
+      {
+        name: "Chat with AI",
+        description: "Start a conversation with the AI assistant.",
+      },
+      {
+        name: "AI Suggestions",
+        description: "Get suggestions from the AI assistant.",
+      },
     );
   }
 
@@ -29,7 +39,10 @@ export class AIcommandPallete extends CommandCategory<string, TouchGrassBibleApp
     return [];
   }
 
-  renderCommand(command: string, el: CommandItem<string>): Partial<CommandPaletteState> {
+  renderCommand(
+    command: string,
+    el: CommandItem<string>,
+  ): Partial<CommandPaletteState> {
     return {};
   }
 

@@ -17,11 +17,16 @@ export * from "./State";
 export { App, AppState };
 
 class AppState {
-  constructor(public name: string = "", public time: Date = new Date()) {}
+  constructor(
+    public name: string = "",
+    public time: Date = new Date(),
+  ) {}
 
   // Creates a new AppHistory with updated properties
   update(partial: Partial<AppState>): AppState {
-    return Object.assign(Object.create(this), this, partial, { time: new Date() });
+    return Object.assign(Object.create(this), this, partial, {
+      time: new Date(),
+    });
   }
 }
 
@@ -94,13 +99,18 @@ abstract class App extends ETarget<{
     return this.target.pop();
   }
 
-  constructor(private doc: Document, private _title: string) {
+  constructor(
+    private doc: Document,
+    private _title: string,
+  ) {
     super();
     this.target.push(this as ETarget); // Default to the app itself for keyboard events
     this.console = new BrowserConsole(true, `${this._title || "App"}:`);
     this.console.header("color:#f0f; font-size:40px; font-weight:bold;");
     this.contentEl = this.doc.body.createEl("div", { cls: "AppShellElement" });
-    new touchDragger(this.contentEl).onany((name, e) => this.ctarget.emit(name, e));
+    new touchDragger(this.contentEl).onany((name, e) =>
+      this.ctarget.emit(name, e),
+    );
 
     this.title = this._title;
 
@@ -110,7 +120,7 @@ abstract class App extends ETarget<{
     } else {
       this.load(); // immediate call if already loaded
     }
-    document.addEventListener("keydown", e => {
+    document.addEventListener("keydown", (e) => {
       const key =
         (e.metaKey ? "Meta+" : "") + // Meta is the command key on macOS, Windows key on Windows, and Super key on Linux
         (e.ctrlKey ? "Ctrl+" : "") +
@@ -127,7 +137,9 @@ abstract class App extends ETarget<{
     // Handle page unload attempts
     window.addEventListener("beforeunload", () => this.unload());
     // Handle browser history navigation
-    window.addEventListener("popstate", () => this.ctarget.emit("historypop", {}));
+    window.addEventListener("popstate", () =>
+      this.ctarget.emit("historypop", {}),
+    );
   }
 
   handlescrollmobile() {
@@ -140,7 +152,7 @@ abstract class App extends ETarget<{
           const viewportOffsetY = visual.offsetTop;
           ctr.style.transform = `translateY(${viewportOffsetY}px)`;
         },
-        { passive: false }
+        { passive: false },
       );
     }
   }
@@ -215,7 +227,7 @@ abstract class App extends ETarget<{
     accept: string,
     onFileContent: (content: unknown) => void,
     onError?: (error: unknown) => void,
-    onWarn?: (message: string) => void
+    onWarn?: (message: string) => void,
   ): Promise<void> {
     const input = document.createElement("input");
     input.type = "file";
@@ -255,7 +267,9 @@ abstract class App extends ETarget<{
    * @param data - The data to include in the file
    */
   downloadFile(filename: string, data: unknown): void {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+    const dataStr =
+      "data:text/json;charset=utf-8," +
+      encodeURIComponent(JSON.stringify(data, null, 2));
     const downloadAnchorNode = document.createElement("a");
     downloadAnchorNode.setAttribute("href", dataStr);
     downloadAnchorNode.setAttribute("download", filename);

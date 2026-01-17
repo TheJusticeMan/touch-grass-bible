@@ -1,7 +1,9 @@
 import { ETarget } from "./Event";
 import { BrowserConsole } from "./MyBrowserConsole";
 
-export class SettingsClass<SettingsType extends { [key: string]: any }> extends ETarget<{
+export class SettingsClass<
+  SettingsType extends { [key: string]: any },
+> extends ETarget<{
   settingsChange: SettingsType;
   [key: string]: any;
 }> {
@@ -9,7 +11,10 @@ export class SettingsClass<SettingsType extends { [key: string]: any }> extends 
   console: BrowserConsole = new BrowserConsole(true, "Settings:");
   isemiting = false;
 
-  private afterset(key: keyof SettingsType, value: SettingsType[keyof SettingsType]): void {
+  private afterset(
+    key: keyof SettingsType,
+    value: SettingsType[keyof SettingsType],
+  ): void {
     this.console.log(`Property '${String(key)}' set to`, value);
   }
 
@@ -21,7 +26,8 @@ export class SettingsClass<SettingsType extends { [key: string]: any }> extends 
       set: (target, prop, value, receiver) => {
         const result = Reflect.set(target, prop, value, receiver);
         this.afterset(prop as keyof SettingsType, value);
-        if (this.ActiveEvent !== "settingsChange") this.emit("settingsChange", this.settings);
+        if (this.ActiveEvent !== "settingsChange")
+          this.emit("settingsChange", this.settings);
         return result;
       },
     };
@@ -35,6 +41,7 @@ export class SettingsClass<SettingsType extends { [key: string]: any }> extends 
         this.afterset(key as keyof SettingsType, newSettings[key]!);
       }
     }
-    if (this.ActiveEvent !== "settingsChange") this.emit("settingsChange", this.settings);
+    if (this.ActiveEvent !== "settingsChange")
+      this.emit("settingsChange", this.settings);
   }
 }

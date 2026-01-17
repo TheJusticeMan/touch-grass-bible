@@ -10,13 +10,23 @@ export abstract class ScreenView<T extends App> extends ETarget<{
   protected header: HTMLElement;
   content: HTMLElement;
   protected titleEl!: HTMLElement;
-  constructor(element: HTMLElement, protected app: T) {
+  constructor(
+    element: HTMLElement,
+    protected app: T,
+  ) {
     super();
     // Create the main navbar container
-    this.header = element.createEl("div", { cls: "navbar" }, el => {
-      this.titleEl = el.createEl("div", { cls: "navBarTitle", text: app.title });
-      el.addEventListener("contextmenu", e => this.emit("menuclick", e), true);
-      el.addEventListener("click", e => this.emit("titleclick", e));
+    this.header = element.createEl("div", { cls: "navbar" }, (el) => {
+      this.titleEl = el.createEl("div", {
+        cls: "navBarTitle",
+        text: app.title,
+      });
+      el.addEventListener(
+        "contextmenu",
+        (e) => this.emit("menuclick", e),
+        true,
+      );
+      el.addEventListener("click", (e) => this.emit("titleclick", e));
     });
 
     // Create main content area
@@ -47,7 +57,9 @@ export abstract class ScreenView<T extends App> extends ETarget<{
   }
   waitFullUpdate(cb: () => void): void {
     // Wait for the next full update cycle before executing the callback
-    window.requestAnimationFrame(() => window.requestAnimationFrame(() => cb()));
+    window.requestAnimationFrame(() =>
+      window.requestAnimationFrame(() => cb()),
+    );
   }
 }
 
@@ -95,7 +107,10 @@ export class Scrollpast extends ETarget<{
    * @param element - The scrollable HTML element to attach handlers to.
    * @param parent - (Optional) A parent ETarget to propagate "scroll past" events to.
    */
-  constructor(private element: HTMLElement, private parent?: ETarget) {
+  constructor(
+    private element: HTMLElement,
+    private parent?: ETarget,
+  ) {
     super();
     element.addEventListener("touchstart", this.touchStart, { passive: true });
     element.addEventListener("touchmove", this.touchMove, { passive: true });
@@ -120,7 +135,10 @@ export class Scrollpast extends ETarget<{
    * @private
    */
   private get isAtBottom(): boolean {
-    return this.element.scrollTop + this.element.offsetHeight >= this.element.scrollHeight - this.buffer;
+    return (
+      this.element.scrollTop + this.element.offsetHeight >=
+      this.element.scrollHeight - this.buffer
+    );
   }
 
   /**
@@ -170,7 +188,8 @@ export class Scrollpast extends ETarget<{
     if ((this.isAtTop && distance > 0) || (this.isAtBottom && distance < 0)) {
       // Non-linear visual stretch
       this.element.style.transition = "";
-      this.element.style.transformOrigin = this.isAtBottom && distance < 0 ? "top" : "bottom";
+      this.element.style.transformOrigin =
+        this.isAtBottom && distance < 0 ? "top" : "bottom";
       const farness = 1 - Math.exp(-Math.abs(distance) / 200);
       this.element.style.transform = `scale(1,${1 - farness * 0.1}) `;
     }
@@ -222,41 +241,56 @@ export class sidePanel<T extends App> extends Openable<
   private element: HTMLElement;
   content: HTMLDivElement;
 
-  constructor(public app: T, parent: HTMLElement, private direction: "left" | "right" = "right") {
+  constructor(
+    public app: T,
+    parent: HTMLElement,
+    private direction: "left" | "right" = "right",
+  ) {
     super(app);
     this.direction = direction;
     this.element = parent.createEl("div", { cls: "sidepanel" });
     this.element.classList.add(direction);
     this.element.style.transform = `translateX(${direction === "left" ? "-100%" : "100%"})`;
     this.content = this.element.createEl("div", { cls: "sidepanel-content" });
-    this.on("draggingX", e => {
+    this.on("draggingX", (e) => {
       const deltaX = e.deltaX;
       if (this.isOpen) {
         if (deltaX < 0 && this.direction === "right") return; // Prevent dragging left if only right is allowed
         if (deltaX > 0 && this.direction === "left") return; // Prevent dragging right if only left is allowed
         this.setTransform(`${deltaX}px`, false);
       } else {
-        this.setTransform(`calc(${deltaX}px + ${this.direction === "left" ? "-100%" : "100%"})`, false);
+        this.setTransform(
+          `calc(${deltaX}px + ${this.direction === "left" ? "-100%" : "100%"})`,
+          false,
+        );
       }
     });
-    this.on("dragX", e => {
-      if (this.direction === (e.deltaX < 0 ? "left" : "right")) this.close(); // Close panel
+    this.on("dragX", (e) => {
+      if (this.direction === (e.deltaX < 0 ? "left" : "right"))
+        this.close(); // Close panel
       else this.setTransform("0", true); // Reset position
     });
-    this.app.on("dragX", e => {
-      if (this.direction === (e.deltaX > 0 ? "left" : "right")) this.open(); // Open panel
-      else this.setTransform(this.direction === "left" ? "-100%" : "100%", true); // Reset position
+    this.app.on("dragX", (e) => {
+      if (this.direction === (e.deltaX > 0 ? "left" : "right"))
+        this.open(); // Open panel
+      else
+        this.setTransform(this.direction === "left" ? "-100%" : "100%", true); // Reset position
     });
-    this.app.on("draggingX", e => {
+    this.app.on("draggingX", (e) => {
       const deltaX = e.deltaX;
       if (!this.isOpen) {
         if (deltaX > 0 && this.direction === "right") return; // Prevent dragging right if only right is allowed
         if (deltaX < 0 && this.direction === "left") return; // Prevent dragging left if only left is allowed
-        this.setTransform(`calc(${deltaX}px + ${this.direction === "left" ? "-100%" : "100%"})`, false);
+        this.setTransform(
+          `calc(${deltaX}px + ${this.direction === "left" ? "-100%" : "100%"})`,
+          false,
+        );
       }
     });
     this.on("dragXcancel", () => this.setTransform("0", true));
-    this.app.on("dragXcancel", () => this.setTransform(this.direction === "left" ? "-100%" : "100%", true));
+    this.app.on("dragXcancel", () =>
+      this.setTransform(this.direction === "left" ? "-100%" : "100%", true),
+    );
   }
 
   // Helper to set transform with optional animation
@@ -266,18 +300,23 @@ export class sidePanel<T extends App> extends Openable<
       this.element.style.transition = final ? "transform 0.3s ease" : "none";
       this.element.style.transform = `translateX(${translateX})`;
     });
-    if (!this.isOpen && final) window.setTimeout(() => (this.element.style.display = "none"), 300); // Hide after transition if closed
+    if (!this.isOpen && final)
+      window.setTimeout(() => (this.element.style.display = "none"), 300); // Hide after transition if closed
   }
 
   waitFullUpdate(cb: () => void): void {
     // Wait for the next full update cycle before executing the callback
-    window.requestAnimationFrame(() => window.requestAnimationFrame(() => cb()));
+    window.requestAnimationFrame(() =>
+      window.requestAnimationFrame(() => cb()),
+    );
   }
 
   getFullUpdate(): Promise<void> {
     // Returns a promise that resolves after the next full update cycle
-    return new Promise(resolve => {
-      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+    return new Promise((resolve) => {
+      window.requestAnimationFrame(() =>
+        window.requestAnimationFrame(() => resolve()),
+      );
     });
   }
 
@@ -292,10 +331,14 @@ export class sidePanel<T extends App> extends Openable<
   }
 
   _toggle(): void {
-    if (this.isOpen) this.app.popTarget(); // Remove from target stack
+    if (this.isOpen)
+      this.app.popTarget(); // Remove from target stack
     else this.app.pushTarget(this); // Add to target stack
     if (this.isOpen) this.emit("open");
     else this.emit("close");
-    this.setTransform(this.isOpen ? "0" : this.direction === "left" ? "-100%" : "100%", true);
+    this.setTransform(
+      this.isOpen ? "0" : this.direction === "left" ? "-100%" : "100%",
+      true,
+    );
   }
 }

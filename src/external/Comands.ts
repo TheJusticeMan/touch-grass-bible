@@ -82,11 +82,11 @@ export class toggleCMD extends SettingCMD<boolean> {
   }
 
   protected _onUpdate(item: CommandItem<CMD>): void {
-    item.addIconButton(btn =>
+    item.addIconButton((btn) =>
       btn
         .setIcon(this.value ? CheckSquare : Square)
         .setTooltip(this.value ? "Enabled" : "Disabled")
-        .setDisabled(true)
+        .setDisabled(true),
     );
   }
 }

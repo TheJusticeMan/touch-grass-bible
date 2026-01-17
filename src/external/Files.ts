@@ -15,7 +15,10 @@
  * @method setParent - Abstract method to set the parent folder of the item.
  */
 export abstract class FileSystemItem {
-  constructor(public parent: Folder | null = null, public vault: Files) {}
+  constructor(
+    public parent: Folder | null = null,
+    public vault: Files,
+  ) {}
   // File or folder of Files
   _name: string = "Untitled";
   public get name(): string {
@@ -174,13 +177,17 @@ export interface Files {
 export class FilesFromLocalStorage implements Files {
   root: Folder = new Folder(null, this);
   constructor() {
-    const listoffiles = Array.from(new Set(localStorage.getItem(":FILE_LIST:")?.split("\n") || []));
-    listoffiles.forEach(file => {
+    const listoffiles = Array.from(
+      new Set(localStorage.getItem(":FILE_LIST:")?.split("\n") || []),
+    );
+    listoffiles.forEach((file) => {
       const parts = file.split("/");
       let currentFolder: Folder = this.root;
       for (let i = 0; i < parts.length; i++) {
         const part = parts[i];
-        let existing = currentFolder.children.find(child => child.name === part);
+        let existing = currentFolder.children.find(
+          (child) => child.name === part,
+        );
         if (!existing) {
           if (i === parts.length - 1) {
             // it's a file
@@ -220,8 +227,10 @@ export class FilesFromLocalStorage implements Files {
         localStorage.removeItem(oldPath);
         localStorage.setItem(newPath, data);
       }
-      let listoffiles = Array.from(new Set(localStorage.getItem(":FILE_LIST:")?.split("\n") || []));
-      listoffiles = listoffiles.map(f => (f === oldPath ? newPath : f));
+      let listoffiles = Array.from(
+        new Set(localStorage.getItem(":FILE_LIST:")?.split("\n") || []),
+      );
+      listoffiles = listoffiles.map((f) => (f === oldPath ? newPath : f));
       localStorage.setItem(":FILE_LIST:", listoffiles.join("\n"));
     }
     // For folders, moving is only tracked in memory (no localStorage update needed)
@@ -246,8 +255,10 @@ export class FilesFromLocalStorage implements Files {
       }
       return Promise.resolve();
     } else {
-      const listoffiles = Array.from(new Set(localStorage.getItem(":FILE_LIST:")?.split("\n") || []));
-      listoffiles.forEach(file => {
+      const listoffiles = Array.from(
+        new Set(localStorage.getItem(":FILE_LIST:")?.split("\n") || []),
+      );
+      listoffiles.forEach((file) => {
         if (file.startsWith(path.fullPath)) {
           const data = localStorage.getItem(file);
           if (data !== null) {
@@ -259,7 +270,9 @@ export class FilesFromLocalStorage implements Files {
         }
       });
       localStorage.setItem(":FILE_LIST:", listoffiles.join("\n"));
-      return Promise.reject("Renaming folders is not supported in LocalStorage");
+      return Promise.reject(
+        "Renaming folders is not supported in LocalStorage",
+      );
     }
   }
   delete(path: string): Promise<void> {
