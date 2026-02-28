@@ -1,19 +1,24 @@
 import levenshtein from "js-levenshtein";
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsDownUp,
-  ChevronsUpDown,
-  X,
-} from "lucide";
+import { ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, X } from "lucide";
 import { App, BrowserConsole, CMD } from "./App";
 import "./CommandPalette.css";
 import { Button, inputMode, Item, TextInput } from "./Components";
-import { Openable } from "./Event";
+import { ETarget, Openable } from "./Event";
 import { StateClass } from "./State";
 import { escapeRegExp } from "./escapeRegExp";
 import { Highlighter } from "./highlighter";
-import { SettingsClass } from "./settings";
+
+export class CategoryLoader<T> {
+  private _palette: CommandCategory<T> | null = null;
+  constructor(
+    private load: () => CommandCategory<T>,
+    readonly id: string,
+  ) {}
+
+  public getPalette(): CommandCategory<T> {
+    return this._palette || (this._palette = this.load());
+  }
+}
 
 /**
  * Abstract base class for a unified command palette UI component.
@@ -22,9 +27,9 @@ import { SettingsClass } from "./settings";
  * for applications, supporting categories, keyboard navigation, context stacks, and
  * dynamic command filtering. It manages the UI lifecycle, user input, and command execution.
  *
- * @typeParam AppType - The application type, extending `App`, that this palette is bound to.
+ * @typeParam  - The application type, extending `App`, that this palette is bound to.
  *
- * @template AppType
+ * @template
  * @extends ETarget
  *
  * @remarks
@@ -61,64 +66,59 @@ import { SettingsClass } from "./settings";
  *   state = new MyCommandPaletteState();
  * }
  */
-export class UnifiedCommandPalette<
-  AppType extends App,
-  stateType extends CommandPaletteState = CommandPaletteState,
-> extends Openable<
-  AppType,
-  {
-    open: void;
-    display: stateType;
-    close: void;
-    update: stateType;
-    keydown: { key: string };
-    historypop: stateType;
-    draggingX: { deltaX: number };
-    draggingY: { deltaY: number };
-    dragX: { deltaX: number };
-    dragY: { deltaY: number };
-    dragCancel: { deltaX: number; deltaY: number };
-    dragXcancel: { deltaX: number; deltaY: number };
-    dragYcancel: { deltaX: number; deltaY: number };
-    [key: string]: any; // Allow additional events
-  }
-> {
-  private _state!: stateType; // State of the command palette
-  public get state(): stateType {
+export class UnifiedCommandPalette extends Openable<{
+  open: void;
+  display: CommandPaletteState;
+  close: void;
+  update: CommandPaletteState;
+  keydown: { key: string };
+  historypop: CommandPaletteState;
+  draggingX: { deltaX: number };
+  draggingY: { deltaY: number };
+  dragX: { deltaX: number };
+  dragY: { deltaY: number };
+  dragCancel: { deltaX: number; deltaY: number };
+  dragXcancel: { deltaX: number; deltaY: number };
+  dragYcancel: { deltaX: number; deltaY: number };
+}> {
+  private _state!: CommandPaletteState; // State of the command palette
+  public get state(): CommandPaletteState {
     return this._state;
   }
-  public set state(value: stateType) {
+  public set state(value: CommandPaletteState) {
     this.emit("update", value);
     this._state = value;
   }
-  private categories: CommandCategory<any, AppType>[] = [];
-  private hiddenCategories: CommandCategory<any, AppType>[] = []; // Hidden categories
+  private categories: CategoryLoader<unknown>[] = [];
+  private hiddenCategories: CategoryLoader<unknown>[] = []; // Hidden categories
   private containerEl: HTMLElement | null = null;
 
   private paletteEl!: HTMLElement;
   private searchInput?: TextInput; // Search input element
   private contentEl!: HTMLElement;
 
-  private commandItems: CommandItem<any>[] = [];
+  private commandItems: CommandItem<unknown>[] = [];
   private selectedIndex = -1;
-  private contexts: stateType[] = []; // Stack of contexts for back navigation
+  private contexts: CommandPaletteState[] = []; // Stack of contexts for back navigation
   private headerEl!: HTMLDivElement;
   private maxResults: number = 100; // Maximum results to show
-  //private CategoryNavigator: CategoryNavigator<AppType>;
+  //private CategoryNavigator: CategoryNavigator<>;
   private contentOverview!: HTMLDivElement;
 
   inputMode: inputMode = "search"; // Default input type
   columns: boolean = true; // Whether to display in columns
   paletteContentContainer!: HTMLDivElement;
 
-  constructor(private app: AppType) {
+  constructor(private app: App) {
     super(app);
+    this.addPalette(() => new CategoryNavigator(this), "navigator");
+    this.addPalette(() => new PromptCategory(this), "prompt");
     this.on("keydown", this.handleKey);
     this.on("historypop", this.handleBack);
-    this.on("dragX", (e) => {
-      if (e.deltaX > 0) this.display({ topCategory: CategoryNavigator } as any);
+    this.on("dragX", e => {
+      if (e.deltaX > 0) this.display({ topCategory: "category-navigator" });
     });
-    this.on("draggingX", (e) => {
+    this.on("draggingX", e => {
       if (e.deltaX > 0)
         this.contentEl.style.transform = `scale(${1 - Math.min(Math.abs(e.deltaX) / 1000, 0.1)})`;
     });
@@ -128,120 +128,87 @@ export class UnifiedCommandPalette<
   }
 
   menu() {
-    this.update({ topCategory: CategoryNavigator }).open();
+    this.update({ topCategory: "category-navigator" }).open();
   }
 
   prompt(text: string): Promise<string | null> {
-    return this.getCategory(PromptCategory).prompt(text);
+    return this.getPromptCategory()?.prompt(text) ?? Promise.resolve(null);
   }
 
   confirm(text: string): Promise<boolean> {
-    return this.getCategory(PromptCategory).confirm(text);
+    return this.getPromptCategory()?.confirm(text) ?? Promise.resolve(false);
+  }
+
+  private getPromptCategory(): PromptCategory | undefined {
+    const promptCategory = this.getCategory("prompt")?.getPalette();
+    if (promptCategory instanceof PromptCategory) return promptCategory;
   }
 
   get length(): number {
     return this.commandItems.length;
   }
 
-  get topCategory(): CommandCategory<any, AppType> {
-    return this.state.topCategory
-      ? this.getCategory(this.state.topCategory)
-      : this.categories[0];
+  get topCategory(): CategoryLoader<unknown> | undefined {
+    return this.getCategory(this.state.topCategory) || this.categories[0];
   }
 
-  get palettes(): CommandCategory<any, AppType>[] {
+  get palettes(): CategoryLoader<unknown>[] {
     return this.categories; // Exclude the ListOfPalettes category
   }
 
-  get selCMD(): CommandItem<any> | null {
+  get selCMD(): CommandItem<unknown> | null {
     return this.commandItems[this.selectedIndex] || null; // Return the currently selected command item or null if none
   }
 
   // Add category (class constructor or instance)
-  addPalette<T extends CommandCategory<any, AppType>>(
-    category: new (
-      app: AppType,
-      palette: UnifiedCommandPalette<AppType, any>,
-    ) => T | T,
-  ) {
-    const instance =
-      typeof category === "function" ? new category(this.app, this) : category;
-    this.categories.push(instance);
+  addPalette(load: () => CommandCategory<unknown>, id: string): this {
+    this.categories.push(new CategoryLoader(load, id));
     return this;
   }
 
-  addPalettes(
-    ...categories: (new (
-      app: AppType,
-      palette: UnifiedCommandPalette<AppType, any>,
-    ) => CommandCategory<any, AppType>)[]
-  ): this {
-    categories.forEach((category) => this.addPalette(category));
+  addPalettes(...categories: { load: () => CommandCategory<unknown>; id: string }[]): this {
+    categories.forEach(category => this.addPalette(category.load, category.id));
     return this;
   }
 
-  addHiddenPalette<T extends CommandCategory<any, AppType>>(
-    category: new (
-      app: AppType,
-      palette: UnifiedCommandPalette<AppType, any>,
-    ) => T | T,
-  ) {
-    const instance =
-      typeof category === "function" ? new category(this.app, this) : category;
-    this.hiddenCategories.push(instance);
+  removePalette(load: () => CommandCategory<unknown>, id: string): void {
+    this.categories = this.categories.filter(cat => cat.id !== id || cat.getPalette !== load);
+  }
+
+  addHiddenPalette(load: () => CommandCategory<unknown>, id: string): this {
+    this.hiddenCategories.push(new CategoryLoader(load, id));
     return this;
   }
 
-  addHiddenPalettes(
-    ...categories: (new (
-      app: AppType,
-      palette: UnifiedCommandPalette<AppType, any>,
-    ) => CommandCategory<any, AppType> | CommandCategory<any, AppType>)[]
-  ): this {
-    categories.forEach((category) => this.addHiddenPalette(category));
+  addHiddenPalettes(...categories: { load: () => CommandCategory<unknown>; id: string }[]): this {
+    categories.forEach(category => this.addHiddenPalette(category.load, category.id));
     return this;
   }
 
-  _addHiddenPalette<T extends CommandCategory<any, AppType>>(
-    category: new (
-      app: AppType,
-      palette: UnifiedCommandPalette<AppType, any>,
-    ) => T | T,
-  ): CommandCategory<any, AppType> {
-    const instance =
-      typeof category === "function" ? new category(this.app, this) : category;
-    this.hiddenCategories.push(instance);
-    return instance;
+  removeHiddenPalette(load: () => CommandCategory<unknown>, id: string): void {
+    this.hiddenCategories = this.hiddenCategories.filter(cat => cat.id !== id || cat.getPalette !== load);
   }
 
   // Open and initialize palette UI
   onopen() {
-    if (this.app.ctarget !== this) this.app.pushTarget(this);
+    if (this.app.ctarget !== this) this.app.pushTarget(this as ETarget);
     this.contexts = [];
     this.display();
   }
 
-  opencategory(
-    category: new (
-      app: AppType,
-      palette: UnifiedCommandPalette<AppType, any>,
-    ) => CommandCategory<any, AppType>,
-  ) {
-    this.hiddenCategories.find((cat) => cat.constructor === category) ||
-      this._addHiddenPalette(category);
+  opencategory(category: string) {
+    /* this.hiddenCategories.find(cat => cat.constructor === category) || this._addHiddenPalette(category); */
     this.update({ topCategory: category }).open();
   }
 
-  update<stateType extends CommandPaletteState>(
-    context: Partial<stateType> = {},
-  ) {
-    this.state = this.state.update(context as any);
+  update(context: Partial<CommandPaletteState> = {}) {
+    this.state = this.state.update(context);
     this.emit("update", this.state);
     return this;
   }
 
-  display(context: Partial<stateType> = {}) {
-    if (this.app.ctarget !== this) this.app.pushTarget(this);
+  display(context: Partial<CommandPaletteState> = {}) {
+    if (this.app.ctarget !== this) this.app.pushTarget(this as ETarget);
     this.emit("display", this.state);
     this.update(context);
     this.app.historyPush();
@@ -250,8 +217,8 @@ export class UnifiedCommandPalette<
     this.checkclose();
 
     // Trigger data fetching for categories
-    this.categories.forEach((cat) => cat.tryTrigger(this.state));
-    this.hiddenCategories.forEach((cat) => cat.tryTrigger(this.state));
+    this.categories.forEach(cat => cat.getPalette().tryTrigger(this.state));
+    this.hiddenCategories.forEach(cat => cat.getPalette().tryTrigger(this.state));
 
     this.containerEl = this.app.contentEl.createEl("div", {
       cls: "command-palette",
@@ -274,19 +241,16 @@ export class UnifiedCommandPalette<
         .setIcon(TableOfContents)
         .setTooltip("List of Palettes")
         .on("click", () => {
-          return this.display({ topCategory: CategoryNavigator } as any);
+          return this.display({ topCategory: CategoryNavigator } );
         }); */
 
     new Button(this.headerEl)
       .setIcon(this.state.expanded ? ChevronsDownUp : ChevronsUpDown)
       .setTooltip("Toggle expanded view")
-      .next((btn) =>
+      .next(btn =>
         btn.on("click", () => {
           this.state.expanded = !this.state.expanded;
-          this.paletteContentContainer.classList.toggle(
-            "expanded",
-            this.state.expanded,
-          );
+          this.paletteContentContainer.classList.toggle("expanded", this.state.expanded);
           btn.setIcon(this.state.expanded ? ChevronsDownUp : ChevronsUpDown);
         }),
       );
@@ -300,9 +264,8 @@ export class UnifiedCommandPalette<
 
     this.searchInput = new TextInput(this.paletteEl)
       .addClass("palette-search")
-      .setPlaceholder(
-        `Search ${this.state.topCategory ? this.topCategory.title : "all"}...`,
-      )
+      .setPlaceholder(`Search ${this.state.topCategory ? this.topCategory?.getPalette().title : "all"}...`)
+
       .setType("search", this.inputMode)
       .on("input", (e: string) => {
         this.state.query = e;
@@ -310,17 +273,13 @@ export class UnifiedCommandPalette<
         this.render();
       });
 
-    this.paletteContentContainer = this.paletteEl.createEl(
-      "div",
-      { cls: "palette-content" },
-      (el) => {
-        this.contentOverview = el.createEl("div", {
-          cls: "palette-content-over",
-        });
-        this.contentEl = el.createEl("div", { cls: "palette-content-main" });
-        el.classList.toggle("expanded", this.state.expanded);
-      },
-    );
+    this.paletteContentContainer = this.paletteEl.createEl("div", { cls: "palette-content" }, el => {
+      this.contentOverview = el.createEl("div", {
+        cls: "palette-content-over",
+      });
+      this.contentEl = el.createEl("div", { cls: "palette-content-main" });
+      el.classList.toggle("expanded", this.state.expanded);
+    });
 
     this.state.query = ""; //  Reset query on open
     this.render(); // initial load
@@ -328,29 +287,21 @@ export class UnifiedCommandPalette<
   }
 
   hideKeyboardOnScroll(containerEl: HTMLElement) {
-    containerEl.addEventListener(
-      "touchmove",
-      () => this.searchInput?.element.blur(),
-      { passive: true },
-    );
+    containerEl.addEventListener("touchmove", () => this.searchInput?.element.blur(), { passive: true });
   }
 
   private handleScroll = () => {
     window.requestAnimationFrame(() => {
       if (this.state.maxResults < 1000) {
         const currentselection = this.selectedIndex;
-        this.update({ maxResults: 1000 })
-          .render()
-          .selectIndex(currentselection, true); // Restore selection after rendering
+        this.update({ maxResults: 1000 }).render().selectIndex(currentselection, true); // Restore selection after rendering
         if (this.commandItems.length > this.state.maxResults)
-          new CommandItem(this.contentEl, null, this.topCategory)
+          new CommandItem(this.contentEl, null, this.topCategory!.getPalette())
             .setTitle("Are you kidding me?")
             .setDescription("Seriously, you want to load more results?") // Just a joke;
             .setHidden(false)
             .on("click", () =>
-              this.update({ maxResults: 40000 })
-                .render()
-                .selectIndex(currentselection, true),
+              this.update({ maxResults: 40000 }).render().selectIndex(currentselection, true),
             );
       }
     });
@@ -393,9 +344,8 @@ export class UnifiedCommandPalette<
     }
   };
 
-  private ActivateContextFromCommand(command: CommandItem<any>) {
-    if (command.contextMenuAllowed)
-      this.display(command.toState as typeof this._state);
+  private ActivateContextFromCommand(command: CommandItem<unknown>) {
+    if (command.contextMenuAllowed) this.display(command.toState as typeof this._state);
   }
 
   handleBack = () => {
@@ -429,11 +379,7 @@ export class UnifiedCommandPalette<
       this.containerEl.remove();
       this.containerEl = null;
     }
-    this.state = this.state.update({
-      query: "",
-      maxResults: 100,
-      topCategory: null,
-    } as any);
+    this.state = this.state.update({ query: "", maxResults: 100, topCategory: "" });
     this.contexts = [];
   }
 
@@ -456,111 +402,96 @@ export class UnifiedCommandPalette<
 
     contentOverview.style.display = this.columns ? "block" : "";
     if (this.columns) {
-      const Navigator = this.getCategory(CategoryNavigator);
+      const Navigator = this.getCategory("navigator")!.getPalette();
+
       Navigator.setUp(state);
       const commands = Navigator.trygetCommands(state.query);
       if (commands.length > 0) {
         const catEl = contentOverview.createEl("div", { cls: "category" });
-        catEl.createEl(
-          "div",
-          { text: Navigator.title, cls: "category-title" },
-          (el) =>
-            el.addEventListener("click", (e) => {
-              e.stopPropagation();
-              this.display({ topCategory: CategoryNavigator } as any);
-            }),
+        catEl.createEl("div", { text: Navigator.title, cls: "category-title" }, el =>
+          el.addEventListener("click", e => {
+            e.stopPropagation();
+            this.display({ topCategory: "navigator" });
+          }),
         );
-        commands.forEach((command) => {
+        commands.forEach(command => {
           const cmdindex = this.commandItems.length;
           const itemEl = new CommandItem(catEl, command, Navigator)
             .on("click", () => Navigator.tryexecute(command, itemEl.toState))
             .on("mousemove", () => this.selectIndex(cmdindex))
-            .on("context", () =>
-              this.ActivateContextFromCommand(this.commandItems[cmdindex]),
-            );
-          itemEl.toState = state.update(
-            Navigator.tryrender(command, itemEl) as any,
-          );
+            .on("context", () => this.ActivateContextFromCommand(this.commandItems[cmdindex]));
+          itemEl.toState = state.update(Navigator.tryrender(command, itemEl));
           this.commandItems.push(itemEl);
         });
       }
       this.selectedIndex = this.commandItems.length; // Reset selection index
     }
 
-    this.categoriesToShow.forEach((cat) => {
-      if (this.commandItems.length > state.maxResults) return;
-      cat.setUp(state);
-      cat.extraCMD?.setUp(state);
-      const commands = cat.trygetCommands(state.query);
-      const extras = cat.extraCMD?.trygetCommands(state.query) || [];
-      if (
-        commands.length === 0 &&
-        extras.length === 0 &&
-        state.topCategory !== cat.constructor
-      )
-        return;
-      const catEl = contentEl.createEl("div", { cls: "category" });
-      catEl.createEl("div", { text: cat.title, cls: "category-title" }, (el) =>
-        el.addEventListener("click", (e) => {
-          e.stopPropagation();
-          this.display({ topCategory: cat.constructor as any } as any);
-        }),
-      );
-      if (commands.length === 0 && extras.length === 0) {
-        new Item(catEl)
-          .setName("No results found")
-          .setDescription(
-            this.state.query ? "Try somthing else." : "Type to search...",
-          )
-          .setHidden(false);
-      }
-
-      for (const command of commands) {
+    this.categoriesToShow
+      .map(cat => ({ cat: cat.getPalette(), id: cat.id }))
+      .forEach(({ cat, id }) => {
         if (this.commandItems.length > state.maxResults) return;
-        const cmdindex = this.commandItems.length;
-        const itemEl = new CommandItem(catEl, command, cat)
-          .on("click", () => cat.tryexecute(command, itemEl.toState))
-          .on("mousemove", () => this.selectIndex(cmdindex))
-          .on("context", () =>
-            this.ActivateContextFromCommand(this.commandItems[cmdindex]),
-          );
-        itemEl.toState = state.update(cat.tryrender(command, itemEl) as any);
-        this.commandItems.push(itemEl);
-      }
+        cat.setUp(state);
+        cat.extraCMD?.setUp(state);
+        const commands = cat.trygetCommands(state.query);
+        const extras = cat.extraCMD?.trygetCommands(state.query) || [];
+        if (commands.length === 0 && extras.length === 0 && state.topCategory !== id) return;
+        const catEl = contentEl.createEl("div", { cls: "category" });
+        catEl.createEl("div", { text: cat.title, cls: "category-title" }, el =>
+          el.addEventListener("click", e => {
+            e.stopPropagation();
+            this.display({ topCategory: id });
+          }),
+        );
+        if (commands.length === 0 && extras.length === 0) {
+          new Item(catEl)
+            .setName("No results found")
+            .setDescription(this.state.query ? "Try somthing else." : "Type to search...")
+            .setHidden(false);
+        }
 
-      if (cat.extraCMD)
-        extras.forEach((command, i) => {
+        for (const command of commands) {
           if (this.commandItems.length > state.maxResults) return;
           const cmdindex = this.commandItems.length;
-          const itemEl = new CommandItem(catEl, command, cat.extraCMD!)
-            .on("click", () =>
-              cat.extraCMD?.tryexecute(command, itemEl.toState),
-            )
+          const itemEl = new CommandItem(catEl, command, cat)
+            .on("click", () => cat.tryexecute(command, itemEl.toState))
             .on("mousemove", () => this.selectIndex(cmdindex))
-            .on("context", () =>
-              this.ActivateContextFromCommand(this.commandItems[cmdindex]),
-            );
-          itemEl.toState = state.update(
-            cat.extraCMD?.tryrender(command, itemEl) || ({} as any),
-          );
+            .on("context", () => this.ActivateContextFromCommand(this.commandItems[cmdindex]));
+          itemEl.toState = state.update(cat.tryrender(command, itemEl));
           this.commandItems.push(itemEl);
-          i === 0 &&
-            (itemEl.el.style.borderTopStyle = "none") &&
-            (itemEl.el.style.marginTop = "1em");
-        });
-    });
+        }
+
+        if (cat.extraCMD)
+          extras.forEach((command, i) => {
+            if (this.commandItems.length > state.maxResults) return;
+            const cmdindex = this.commandItems.length;
+            const itemEl = new CommandItem(catEl, command, cat.extraCMD!)
+              .on("click", () => cat.extraCMD?.tryexecute(command, itemEl.toState))
+              .on("mousemove", () => this.selectIndex(cmdindex))
+              .on("context", () => this.ActivateContextFromCommand(this.commandItems[cmdindex]));
+            itemEl.toState = state.update(cat.extraCMD?.tryrender(command, itemEl) || {});
+            this.commandItems.push(itemEl);
+            void (
+              i === 0 &&
+              (itemEl.el.style.borderTopStyle = "none") &&
+              (itemEl.el.style.marginTop = "1em")
+            );
+          });
+      });
     this.updateSelection();
     return this; // Return this for chaining
   }
 
-  get categoriesToShow(): CommandCategory<any, AppType>[] {
+  get categoriesToShow(): CategoryLoader<unknown>[] {
     const { topCategory } = this.state;
     const top = this.topCategory;
+    const siblings = top?.getPalette().siblings;
     // If SiblingCategories is set (even if empty)
-    if (topCategory && top.siblings)
-      return [top, ...top.siblings?.map((catfn) => this.getCategory(catfn))];
-    if (topCategory)
-      return [top, ...this.categories.filter((cat) => cat !== top)];
+    if (topCategory && siblings)
+      return [top, ...siblings.map(catfn => this.getCategory(catfn.id))].filter(
+        Boolean,
+      ) as CategoryLoader<unknown>[];
+    if (topCategory && top) return [top, ...this.categories.filter(cat => cat !== top)];
     return this.categories;
   }
 
@@ -568,24 +499,18 @@ export class UnifiedCommandPalette<
    * Retrieves a command category instance by its constructor from the visible or hidden categories.
    * If the category is not found, it is created and added to the hidden categories.
    *
-   * @param name - The constructor function of the command category to retrieve.
+   * @param id - The constructor function of the command category to retrieve.
    * @returns The instance of the requested command category.
    */
-  getCategory<T extends CommandCategory<any, AppType>>(
-    name: new (app: AppType, palette: UnifiedCommandPalette<AppType, any>) => T,
-  ): T {
-    return (this.categories.find((cat) => cat.constructor === name) ||
-      this.hiddenCategories.find((cat) => cat.constructor === name) ||
-      this._addHiddenPalette(name).tryTrigger(this.state)) as T; // Create and trigger if not found
+  getCategory(id: string): CategoryLoader<unknown> | undefined {
+    if (!id) return undefined;
+    return this.categories.find(cat => cat.id === id) || this.hiddenCategories.find(cat => cat.id === id);
   }
 
   // Keyboard navigation
   private moveSelection(delta: number) {
     const maxIndex = this.commandItems.length - 1;
-    this.selectIndex(
-      Math.min(Math.max(this.selectedIndex + delta, 0), maxIndex),
-      true,
-    );
+    this.selectIndex(Math.min(Math.max(this.selectedIndex + delta, 0), maxIndex), true);
   }
 
   private selectIndex(index: number, scroll = false) {
@@ -614,20 +539,15 @@ export class UnifiedCommandPalette<
  * Represents the state of a command palette, including the current query,
  * the maximum number of results to display, and the currently selected top category.
  *
- * @typeParam AppType - The type of the application instance.
+ * @typeParam  - The type of the application instance.
  */
 export class CommandPaletteState extends StateClass {
   maxResults: number = 100; // Maximum results to show
   expanded: boolean = true; // Whether the palette items are expanded
   constructor(
-    public palette: UnifiedCommandPalette<any, any>,
+    public palette: UnifiedCommandPalette,
     public query: string = "",
-    public topCategory:
-      | (new (
-          app: any,
-          palette: UnifiedCommandPalette<any, any>,
-        ) => CommandCategory<any, any>)
-      | null = null,
+    public topCategory: string = "",
   ) {
     super();
   }
@@ -637,7 +557,6 @@ export class CommandPaletteState extends StateClass {
  * Abstract base class representing a category of commands for a command palette.
  *
  * @template T - The type representing individual commands in the category.
- * @template AppType - The application type, extending `App`, that this category operates on.
  *
  * @remarks
  * - Each command category has a name, description, and title for UI representation.
@@ -653,12 +572,12 @@ export class CommandPaletteState extends StateClass {
  * @property {T[]} commands - The list of commands in this category.
  * @property {Highlighter} highlighter - The highlighter instance for query highlighting.
  * @property {Function[]} [SiblingCategories] - Optional array of sibling category constructors.
- * @property {DefaultCommandCategory<AppType>} [extraCMD] - Optional default command category for extra commands.
+ * @property {DefaultCommandCategory<>} [extraCMD] - Optional default command category for extra commands.
  * @property {string} query - The current query string for filtering commands.
  *
  * @constructor
- * @param {AppType} app - The application instance.
- * @param {UnifiedCommandPalette<AppType>} commandPalette - The command palette instance.
+ * @param {} app - The application instance.
+ * @param {UnifiedCommandPalette<>} commandPalette - The command palette instance.
  *
  * @method setUp - Initializes the category with the current command palette state.
  * @method onTrigger - Abstract; called when the category is triggered.
@@ -676,11 +595,7 @@ export class CommandPaletteState extends StateClass {
  * @method addCommands - Adds multiple commands to the default command category.
  * @method addSetting - Adds a setting callback to the default command category.
  */
-export abstract class CommandCategory<
-  T,
-  AppType extends App,
-  SettingsType extends { [key: string]: any } = {},
-> extends SettingsClass<SettingsType> {
+export abstract class CommandCategory<T> {
   abstract readonly name: string;
   abstract readonly description: string; // Description for the category, can be used in UI
   //state: CommandCategoryState = new CommandCategoryState();
@@ -689,36 +604,24 @@ export abstract class CommandCategory<
   highlighter!: Highlighter; // Highlighter for the category
   hili!: Highlighter["highlight"]; // Function to highlight text
   query!: string;
-  siblings?: (new (
-    app: AppType,
-    palette: UnifiedCommandPalette<AppType, any>,
-  ) => CommandCategory<any, AppType>)[];
-  console: BrowserConsole = new BrowserConsole(
-    true,
-    `${this.constructor.name}:`,
-  ); // Console for logging
-  // younger siblings
-  private _extraCMD?: CMDCategory<AppType>;
+  siblings?: CategoryLoader<unknown>[];
+  console: BrowserConsole = new BrowserConsole(true, `${this.constructor.name}:`); // Console for logging
 
-  get extraCMD(): CMDCategory<AppType> | undefined {
+  // younger siblings
+  private _extraCMD?: CMDCategory;
+
+  get extraCMD(): CMDCategory | undefined {
     return this._extraCMD;
   }
 
-  constructor(
-    public app: AppType,
-    public commandPalette: UnifiedCommandPalette<AppType, any>,
-  ) {
-    super(); // Initialize settings
+  constructor(public commandPalette: UnifiedCommandPalette) {
     this.onInit?.(); // Call onInit if defined
   }
 
   setUp(state: CommandPaletteState): this {
     this.highlighter = new Highlighter([
       {
-        regEXP: new RegExp(
-          `(${escapeRegExp(state.query) || "this will never match"})`,
-          "ig",
-        ),
+        regEXP: new RegExp(`(${escapeRegExp(state.query) || "this will never match"})`, "ig"),
         cls: "highlighted-query",
       },
       { regEXP: /\n/g, elTag: "br" },
@@ -729,10 +632,7 @@ export abstract class CommandCategory<
   }
   abstract onTrigger(state: CommandPaletteState): void;
   abstract getCommands(query: string): T[];
-  abstract renderCommand(
-    command: T,
-    el: CommandItem<T>,
-  ): Partial<CommandPaletteState>;
+  abstract renderCommand(command: T, el: CommandItem<T>): Partial<CommandPaletteState>;
   abstract executeCommand(command: T): void;
 
   onInit?(): void; // Called when the category is initialized
@@ -745,7 +645,7 @@ export abstract class CommandCategory<
       this.extraCMD?.setUp(state);
       this.extraCMD?.onTrigger(state);
     } catch (e) {
-      this.app.console.error(`Error in ${this.constructor.name}.onTrigger`, e);
+      this.console.error(`Error in ${this.constructor.name}.onTrigger`, e);
     }
     return this;
   }
@@ -754,10 +654,7 @@ export abstract class CommandCategory<
     try {
       return this.getCommands(query);
     } catch (e) {
-      this.app.console.error(
-        `Error in ${this.constructor.name}.getCommands`,
-        e,
-      );
+      this.console.error(`Error in ${this.constructor.name}.getCommands`, e);
       return [];
     }
   }
@@ -766,10 +663,7 @@ export abstract class CommandCategory<
     try {
       return this.renderCommand(command, el);
     } catch (e) {
-      this.app.console.error(
-        `Error in ${this.constructor.name}.renderCommand`,
-        e,
-      );
+      this.console.error(`Error in ${this.constructor.name}.renderCommand`, e);
     }
     return {};
   }
@@ -779,26 +673,19 @@ export abstract class CommandCategory<
     try {
       this.executeCommand(command);
     } catch (e) {
-      this.app.console.error(
-        `Error in ${this.constructor.name}.executeCommand`,
-        e,
-      );
+      this.console.error(`Error in ${this.constructor.name}.executeCommand`, e);
     }
     return this;
   }
 
-  getcompatible<T>(
-    query: string,
-    array: T[],
-    ...criteria: Array<(item: T) => string>
-  ): T[] {
+  getcompatible<T>(query: string, array: T[], ...criteria: Array<(item: T) => string>): T[] {
     if (!query) return array;
 
     const lowerQuery = query.toLowerCase();
     const matchedIndices = new Set<number>();
 
     return criteria
-      .map((cb) =>
+      .map(cb =>
         array.filter((item, index) => {
           return (
             !matchedIndices.has(index) &&
@@ -810,17 +697,13 @@ export abstract class CommandCategory<
       .flat();
   }
 
-  getcompatibleWithLevenshtein<T>(
-    query: string,
-    array: T[],
-    ...criteria: ((item: T) => string)[]
-  ): T[] {
+  getcompatibleWithLevenshtein<T>(query: string, array: T[], ...criteria: ((item: T) => string)[]): T[] {
     if (!query) return array; // Return all items if no query
     const lowerQuery = query.toLowerCase();
     const matchedIndices = new Set<number>();
     const maxdiff: number = query.length * 0.3; // Maximum Levenshtein distance to consider a match
     return criteria
-      .map((cb) =>
+      .map(cb =>
         array
           .map((item, index) =>
             matchedIndices.has(index)
@@ -831,16 +714,15 @@ export abstract class CommandCategory<
                   index,
                 },
           )
-          .filter((item) => item.d < maxdiff) // Filter items within the max distance
+          .filter(item => item.d < maxdiff) // Filter items within the max distance
           .sort((a, b) => a.d - b.d) // Sort by distance
-          .map((item) => (matchedIndices.add(item.index), item.item)),
+          .map(item => (matchedIndices.add(item.index), item.item)),
       )
       .flat();
   }
 
-  get defaultCMD(): CMDCategory<AppType> {
-    if (!this._extraCMD)
-      this._extraCMD = new CMDCategory<AppType>(this.app, this.commandPalette);
+  get defaultCMD(): CMDCategory {
+    if (!this._extraCMD) this._extraCMD = new CMDCategory(this.commandPalette);
     return this._extraCMD;
   }
 }
@@ -850,7 +732,7 @@ export abstract class CommandCategory<
  * state, and interaction logic.
  *
  * @template T - The type of the command represented by this item.
- * @template AppType - The type of the application, extending `App`.
+ * @template  - The type of the application, extending `App`.
  *
  * @remarks
  * This class is responsible for rendering a command item, managing its title,
@@ -877,7 +759,7 @@ export class CommandItem<T> extends Item {
   constructor(
     parent: HTMLElement,
     public command: T,
-    private PaletteCat: CommandCategory<T, any>,
+    private PaletteCat: CommandCategory<T>,
   ) {
     super(parent);
     this.highlight(PaletteCat.highlighter);
@@ -885,11 +767,11 @@ export class CommandItem<T> extends Item {
   }
 
   addctx() {
-    this.addIconButton((btn) => {
+    this.addIconButton(btn => {
       btn
         .setIcon(ChevronRight)
         .setTooltip("Open context menu")
-        .on("click", (e) => {
+        .on("click", e => {
           e.stopPropagation(); // Prevent triggering the main click
           this.emit("context", e); // Emit context menu event
         });
@@ -903,55 +785,41 @@ export class CommandItem<T> extends Item {
   }
 }
 
-class CategoryNavigator<AppType extends App> extends CommandCategory<
-  CommandCategory<any, AppType>,
-  AppType
-> {
+class CategoryNavigator extends CommandCategory<CategoryLoader<unknown>> {
   readonly name = "Quick access";
   readonly description = "List of all command categories";
-  names!: CommandCategory<any, AppType>[];
+  names!: CategoryLoader<unknown>[];
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onTrigger(_state: CommandPaletteState): void {
     this.names = this.commandPalette.palettes;
   }
-  getCommands(query: string): CommandCategory<any, AppType>[] {
-    return this.getcompatible(query, this.names, (category) => category.name);
+  getCommands(query: string): CategoryLoader<unknown>[] {
+    return this.getcompatible(query, this.names, category => category.getPalette().name);
   }
   renderCommand(
-    command: CommandCategory<any, AppType>,
-    Item: CommandItem<CommandCategory<any, AppType>>,
+    command: CategoryLoader<unknown>,
+    Item: CommandItem<CategoryLoader<unknown>>,
   ): Partial<CommandPaletteState> {
-    Item.setTitle(command.name).setDescription(command.description);
-    return { topCategory: command.constructor as any };
+    Item.setTitle(command.getPalette().name).setDescription(command.getPalette().description);
+    return { topCategory: command.id };
   }
-  executeCommand(_command: CommandCategory<any, AppType>): void {
+  executeCommand(): void {
     this.commandPalette.display();
   }
 }
 
-class PromptCategory<AppType extends App> extends CommandCategory<
-  string,
-  AppType
-> {
+class PromptCategory extends CommandCategory<string> {
   readonly name = "Prompt";
   readonly description = "Prompt for user input";
   private _prompt: string = "";
   siblings = [];
   cb!: (prompt: string | null) => void;
   wasopen!: boolean;
-  currentTopCategory!:
-    | (new (
-        app: AppType,
-        palette: UnifiedCommandPalette<AppType, any>,
-      ) => CommandCategory<any, AppType, {}>)
-    | null;
+  currentTopCategory: string = "";
 
-  constructor(
-    public app: AppType,
-    UnifiedCommandPalette: UnifiedCommandPalette<AppType, any>,
-  ) {
-    super(app, UnifiedCommandPalette);
-    UnifiedCommandPalette;
+  constructor(UnifiedCommandPalette: UnifiedCommandPalette) {
+    super(UnifiedCommandPalette);
   }
 
   show(cb: (prompt: string | null) => void = () => {}, text: string): void {
@@ -959,20 +827,16 @@ class PromptCategory<AppType extends App> extends CommandCategory<
     this._prompt = text;
     this.wasopen = this.commandPalette.isOpen;
     this.currentTopCategory = this.commandPalette.state.topCategory; // Save current top category
-    this.commandPalette.display({ topCategory: PromptCategory });
+    this.commandPalette.display({ topCategory: "prompt" });
     this.commandPalette.on("close", this.invokeCallbackOnClose);
   }
 
   prompt(text: string): Promise<string | null> {
-    return new Promise((resolve) =>
-      this.show((prompt) => resolve(prompt), text),
-    );
+    return new Promise(resolve => this.show(prompt => resolve(prompt), text));
   }
 
   confirm(text: string): Promise<boolean> {
-    return new Promise((resolve) =>
-      this.show((prompt) => resolve(prompt !== null), text),
-    );
+    return new Promise(resolve => this.show(prompt => resolve(prompt !== null), text));
   }
 
   private invokeCallbackOnClose = () => {
@@ -980,16 +844,14 @@ class PromptCategory<AppType extends App> extends CommandCategory<
     this.cb(null); // Call callback with null on close
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onTrigger(_state: CommandPaletteState): void {}
 
-  getCommands(_query: string): string[] {
+  getCommands(): string[] {
     return [this._prompt, "Ok", "Cancel"];
   }
 
-  renderCommand(
-    command: string,
-    Item: CommandItem<string>,
-  ): Partial<CommandPaletteState> {
+  renderCommand(command: string, Item: CommandItem<string>): Partial<CommandPaletteState> {
     Item.setTitle(command);
     return { topCategory: this.currentTopCategory };
   }
@@ -1013,32 +875,27 @@ class PromptCategory<AppType extends App> extends CommandCategory<
   }
 }
 
-export class CMDCategory<AppType extends App> extends CommandCategory<
-  CMD,
-  AppType
-> {
+export class CMDCategory extends CommandCategory<CMD> {
   name: string = "";
   description: string = "";
   protected commands: CMD[] = [];
   resetCommands() {
     this.commands = [];
   }
-  onTrigger(_state: CommandPaletteState): void {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onTrigger(_state: CommandPaletteState) {
     return;
   }
   getCommands(query: string): CMD[] {
-    return this.getcompatible(query, this.commands, (a) => a.name);
+    return this.getcompatible(query, this.commands, a => a.name);
   }
-  renderCommand(
-    command: CMD,
-    el: CommandItem<CMD>,
-  ): Partial<CommandPaletteState> {
+  renderCommand(command: CMD, el: CommandItem<CMD>): Partial<CommandPaletteState> {
     return command.render(command, el);
   }
   executeCommand(command: CMD): void {
     command.click(command);
   }
-  addCMD(command: CMD<any>): CMDCategory<AppType> {
+  addCMD(command: CMD): CMDCategory {
     this.commands.push(command);
     return this;
   }

@@ -50,7 +50,6 @@ export * from "./VerseScreen";
  */
 export default class TouchGrassBibleApp extends App {
   settings!: TGAppSettings;
-  commandPalette!: UnifiedCommandPalette<TouchGrassBibleApp, TGPaletteState>;
   MainScreen!: VerseScreen;
   firstLoad = true;
   leftpanel!: navigationPanel;
@@ -69,14 +68,8 @@ export default class TouchGrassBibleApp extends App {
     this.leftpanel = new navigationPanel(this, this.contentEl);
     this.rightpanel = new NotesPanel(this, this.contentEl);
     this.on("ArrowRightKeyDown", () => this.leftpanel.open());
-    this.commandPalette = new UnifiedCommandPalette<
-      TouchGrassBibleApp,
-      TGPaletteState
-    >(this);
-    this.commandPalette.state = new TGPaletteState(
-      this.commandPalette as any,
-      "",
-    );
+    this.commandPalette = new UnifiedCommandPalette(this as App);
+    this.commandPalette.state = new TGPaletteState(this.commandPalette, "") as TGPaletteState;
     this.commandPalette
       .addPalettes(
         VerseListCategory,
@@ -90,15 +83,13 @@ export default class TouchGrassBibleApp extends App {
         //AI,
         SettingsCategory,
       )
-      .on("update", (e) => {
-        VerseRef.defaultTranslation = e.defaultTranslation;
-        this.MainScreen.verse = e.verse;
+      .on("update", e => {
+        VerseRef.defaultTranslation = (e as TGPaletteState).defaultTranslation;
+        this.MainScreen.verse = (e as TGPaletteState).verse;
       });
 
     await this.loadsettings(DEFAULT_SETTINGS);
-    this.Notes.loadNotes(
-      this.settings.ExtraNotes.map((nj) => Note.fromJSON(nj)),
-    );
+    this.Notes.loadNotes(this.settings.ExtraNotes.map(nj => Note.fromJSON(nj)));
 
     // Load all JSON files in parallel for faster startup
     const [crossRefs, topics, translations] = await Promise.all([
@@ -112,7 +103,7 @@ export default class TouchGrassBibleApp extends App {
       const isWide = this.contentEl.offsetWidth > 800;
       if (this.commandPalette.columns !== isWide) {
         this.commandPalette.columns = isWide;
-        this.commandPalette.isOpen && this.commandPalette.display();
+        void (this.commandPalette.isOpen && this.commandPalette.display());
       }
     });
 
@@ -120,14 +111,11 @@ export default class TouchGrassBibleApp extends App {
     VerseRef.crossRefs = crossRefs;
     VerseRef.topics = new BibleTopics(topics);
     VerseRef.Bookmarks = new BibleTopics(this.settings.Bookmarks);
-    this.commandPalette.state.verse = VerseRef.RandomVerse;
+    (this.commandPalette.state as TGPaletteState).verse = VerseRef.RandomVerse;
     this.console.enabled = this.settings.enableLogging;
     this.console.log(info.name, info.version, "loaded");
     //this.on("EnterKeyDown", e => !this.commandPalette.isOpen && this.openCommandPalette());
-    this.on(
-      "Ctrl+EnterKeyDown",
-      () => !this.commandPalette.isOpen && this.openCommandPalette(),
-    );
+    this.on("Ctrl+EnterKeyDown", () => !this.commandPalette.isOpen && this.openCommandPalette());
 
     this.console.log(new Date().getTime() - processstart, "ms startup time");
     this.console.log("Touch Grass Bible is ready!");
@@ -155,7 +143,7 @@ export default class TouchGrassBibleApp extends App {
   saveSettings() {
     this.settings.Bookmarks = VerseRef.Bookmarks.toJSON();
     this.settings.myNotes = Array.from(VerseRef.myNotes.entries());
-    this.saveData(this.settings);
+    this.saveData(this.settings as Partial<TGAppSettings>);
   }
 
   saveSettingsAfterDelay(delay: number = 5000) {

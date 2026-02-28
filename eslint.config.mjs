@@ -9,8 +9,6 @@ export default [
   ...tseslint.configs.recommended,
   {
     files: ["src/electron/**/*.js"],
-    rules: {
-      "@typescript-eslint/no-require-imports": "off",
-    },
+    rules: { "@typescript-eslint/no-require-imports": "off" },
   },
 ];

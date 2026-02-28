@@ -1,12 +1,5 @@
 import apocalypseThrottle from "apocalypse-throttle";
-import {
-  Bookmark,
-  GitCompare,
-  Plus,
-  ScrollText,
-  SquarePen,
-  Waypoints,
-} from "lucide";
+import { Bookmark, GitCompare, Plus, ScrollText, SquarePen, Waypoints } from "lucide";
 import TouchGrassBibleApp, {
   Button,
   Component,
@@ -17,6 +10,7 @@ import TouchGrassBibleApp, {
   ScreenView,
   TextArea,
   TextInput,
+  TGPaletteState,
   topicListCategory,
   VerseHighlight,
   VerseListCategory,
@@ -61,8 +55,7 @@ export class ChapterComponent extends Component<"div"> {
   ) {
     super(parent, "div");
     this.verse = ref;
-    const h: Highlighter["highlight"] =
-      VerseHighlight.highlight.bind(VerseHighlight);
+    const h: Highlighter["highlight"] = VerseHighlight.highlight.bind(VerseHighlight);
     const { book, chapter } = ref;
     this.element.addClass("chapter");
     this.element.createEl("h2", {
@@ -73,27 +66,20 @@ export class ChapterComponent extends Component<"div"> {
       if (v === 0) return;
       const newVerse = new VerseRef(book, chapter, v);
       this.verses[v] = this.element.createEl("div", {}, (el: HTMLElement) => {
-        el.createEl(
-          "div",
-          { text: h(`${v} ${text}`), cls: "verse" },
-          (el: HTMLElement) => {
-            if (text.includes("#")) el.addClass("versePBreak");
+        el.createEl("div", { text: h(`${v} ${text}`), cls: "verse" }, (el: HTMLElement) => {
+          if (text.includes("#")) el.addClass("versePBreak");
 
-            el.addEventListener(
-              "click",
-              () => (this.app.MainScreen.verse = newVerse),
-            );
-            el.addEventListener(
-              "contextmenu",
-              pdsp(() =>
-                this.app.openCommandPalette({
-                  topCategory: CrossRefCategory,
-                  verse: newVerse,
-                }),
-              ),
-            );
-          },
-        );
+          el.addEventListener("click", () => (this.app.MainScreen.verse = newVerse));
+          el.addEventListener(
+            "contextmenu",
+            pdsp(() =>
+              this.app.openCommandPalette({
+                topCategory: CrossRefCategory,
+                verse: newVerse,
+              }),
+            ),
+          );
+        });
         // Replace raw div creation with the new component
         this.verseInfos[v] = new VerseInfoComponent(el, newVerse, this.app);
       });
@@ -170,7 +156,7 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
   bookScroll!: BookScroll;
 
   onload(): void {
-    this.on("titleclick", (e) => {
+    this.on("titleclick", e => {
       e.stopPropagation();
       this.app.openCommandPalette({ topic: "", specificity: 0 });
     });
@@ -181,7 +167,7 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
     );
 
     this.app.commandPalette.on("close", () => {
-      const { verse } = this.app.commandPalette.state;
+      const { verse } = this.app.commandPalette.state as TGPaletteState;
       this.verse = verse;
       VerseRef.Bookmarks.addToHistory(this.verse);
       this.app.saveSettings();
@@ -192,13 +178,12 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
       passive: true,
     });
 
-    this.verse =
-      this.app.commandPalette.state.verse || new VerseRef("GENESIS", 1, 1);
-    this.bookScroll = new BookScroll(this.content, (v) => {
+    this.verse = (this.app.commandPalette.state as TGPaletteState).verse || new VerseRef("GENESIS", 1, 1);
+    this.bookScroll = new BookScroll(this.content, v => {
       this.chapterScroll.show(v);
       return (this.verse = v);
     });
-    this.chapterScroll = new ChapterScroll(this.content, (v) => {
+    this.chapterScroll = new ChapterScroll(this.content, v => {
       this.bookScroll.show(v);
       return (this.verse = v);
     });
@@ -211,14 +196,14 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
   set verse(value: VerseRef) {
     if (value.isSame(this._verse)) return;
     this._verse = value;
-    this.app.commandPalette.state.verse = value;
+    (this.app.commandPalette.state as TGPaletteState).verse = value;
     this.updateTitle();
     if (!this.chapterScroll?.isGrabbed && !this.bookScroll?.isGrabbed)
       VerseRef.Bookmarks.addToHistory(this.verse);
     this.chapterScroll?.setRef(value);
     this.bookScroll?.setRef(value);
 
-    if (!this.renderedChapters.some((c) => c.verse.isSameChapter(value))) {
+    if (!this.renderedChapters.some(c => c.verse.isSameChapter(value))) {
       this.renderInitialChapters();
     } else {
       this.highlightVerse(false);
@@ -248,11 +233,7 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
     }
 
     for (const ref of chaptersToRender) {
-      const component = new ChapterComponent(
-        this.chapterContainer,
-        ref,
-        this.app,
-      );
+      const component = new ChapterComponent(this.chapterContainer, ref, this.app);
       this.renderedChapters.push(component);
     }
 
@@ -262,14 +243,12 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
   }
 
   removeActive() {
-    this.renderedChapters.forEach((c) => c.removeActive());
+    this.renderedChapters.forEach(c => c.removeActive());
   }
 
   highlightVerse(instant = false) {
     this.removeActive();
-    const component = this.renderedChapters.find((c) =>
-      c.verse.isSameChapter(this._verse),
-    );
+    const component = this.renderedChapters.find(c => c.verse.isSameChapter(this._verse));
     if (component) {
       if (instant) {
         component.scrollToInstant(this._verse);
@@ -285,10 +264,7 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
 
     if (scrollTop < clientHeight * this.scrollTriggerThreshold) {
       this.loadPreviousChapter();
-    } else if (
-      scrollHeight - scrollTop - clientHeight <
-      clientHeight * this.scrollTriggerThreshold
-    ) {
+    } else if (scrollHeight - scrollTop - clientHeight < clientHeight * this.scrollTriggerThreshold) {
       this.loadNextChapter();
     }
 
@@ -298,9 +274,7 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
   get CurrentVisibleChapter(): VerseRef {
     // get the last chapter starting above the top of the view
     const viewTop = this.content.scrollTop;
-    const chapter = this.renderedChapters.findLast(
-      (c) => c.element.offsetTop < viewTop,
-    );
+    const chapter = this.renderedChapters.findLast(c => c.element.offsetTop < viewTop);
     return chapter?.verse || this.renderedChapters[0].verse;
   }
 
@@ -309,14 +283,8 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
     const viewMidpoint = this.content.scrollTop + this.content.clientHeight / 2;
     return this.renderedChapters.reduce(
       (closest, chapter) =>
-        Math.abs(
-          viewMidpoint -
-            (chapter.element.offsetTop + chapter.element.offsetHeight / 2),
-        ) <
-        Math.abs(
-          viewMidpoint -
-            (closest.element.offsetTop + closest.element.offsetHeight / 2),
-        )
+        Math.abs(viewMidpoint - (chapter.element.offsetTop + chapter.element.offsetHeight / 2)) <
+        Math.abs(viewMidpoint - (closest.element.offsetTop + closest.element.offsetHeight / 2))
           ? chapter
           : closest,
       this.renderedChapters[0],
@@ -328,14 +296,9 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
     if (!firstChapter) return;
 
     const prevRef = firstChapter.verse.prevChapter;
-    if (this.renderedChapters.some((c) => c.verse.isSameChapter(prevRef)))
-      return;
+    if (this.renderedChapters.some(c => c.verse.isSameChapter(prevRef))) return;
 
-    const component = new ChapterComponent(
-      this.chapterContainer,
-      prevRef,
-      this.app,
-    );
+    const component = new ChapterComponent(this.chapterContainer, prevRef, this.app);
     this.chapterContainer.prepend(component.element);
     this.renderedChapters.unshift(component);
 
@@ -352,14 +315,9 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
     if (!lastChapter) return;
 
     const nextRef = lastChapter.verse.nextChapter;
-    if (this.renderedChapters.some((c) => c.verse.isSameChapter(nextRef)))
-      return;
+    if (this.renderedChapters.some(c => c.verse.isSameChapter(nextRef))) return;
 
-    const component = new ChapterComponent(
-      this.chapterContainer,
-      nextRef,
-      this.app,
-    );
+    const component = new ChapterComponent(this.chapterContainer, nextRef, this.app);
     this.renderedChapters.push(component);
 
     if (this.renderedChapters.length > this.maxRenderedChapters) {
@@ -413,14 +371,14 @@ export class VerseInfoComponent extends Component<"div"> {
     const { topicList } = this.verse;
 
     // Handle note input: Show textarea if note exists, otherwise show a button to add one.
-    new IconButton(this.element).setIcon(SquarePen).on("click", (e) => {
+    new IconButton(this.element).setIcon(SquarePen).on("click", e => {
       e.stopPropagation();
       this.initiateRenderReset();
       const noteInput = new TextArea(this.element)
         .setValue(this.verse.note || "")
         .addClass("noteArea")
         .setPlaceholder(" - Add your note here...")
-        .on("click", (e) => e.stopPropagation())
+        .on("click", e => e.stopPropagation())
         .on("input", (value: string) => {
           this.verse.note = value;
           this.app.saveSettingsAfterDelay();
@@ -434,13 +392,11 @@ export class VerseInfoComponent extends Component<"div"> {
         { name: "Blue Letter Bible", url: this.verse.blbURL },
         { name: "Bible Gateway", url: this.verse.gatewayURL },
       ];
-      links.forEach((link) => {
-        new Button(this.element)
-          .setButtonText(`Open in ${link.name}`)
-          .on("click", (e) => {
-            e.stopPropagation();
-            window.open(link.url, "_blank");
-          });
+      links.forEach(link => {
+        new Button(this.element).setButtonText(`Open in ${link.name}`).on("click", e => {
+          e.stopPropagation();
+          window.open(link.url, "_blank");
+        });
       });
     });
 
@@ -455,15 +411,13 @@ export class VerseInfoComponent extends Component<"div"> {
       new IconButton(this.element).setIcon(GitCompare).on("click", () => {
         // On click, expand to show topic buttons (replacing the chevron)
         this.initiateRenderReset();
-        topicList.forEach((topic) => {
-          new Button(this.element)
-            .setButtonText(`${topic.toTitleCase()}`)
-            .on("click", () => {
-              this.app.openCommandPalette({
-                topCategory: topicListCategory,
-                topic: topic,
-              });
+        topicList.forEach(topic => {
+          new Button(this.element).setButtonText(`${topic.toTitleCase()}`).on("click", () => {
+            this.app.openCommandPalette({
+              topCategory: topicListCategory,
+              topic: topic,
             });
+          });
         });
         // Optionally, add a way to collapse back, but for simplicity, keep it expanded.
       });
@@ -479,11 +433,9 @@ export class VerseInfoComponent extends Component<"div"> {
   private syncBookmarkStatus() {
     const { bookmarkList: usedTags } = this.verse;
     this.element.empty();
-    const unusedTags = VerseRef.Bookmarks.keys.filter(
-      (tag) => !usedTags.includes(tag),
-    );
+    const unusedTags = VerseRef.Bookmarks.keys.filter(tag => !usedTags.includes(tag));
 
-    usedTags.forEach((topic) => {
+    usedTags.forEach(topic => {
       new Button(this.element)
         .setButtonText(`${VerseListCategory.convertTopicDate(topic)}`)
         .addClass("bookmarkAdded")
@@ -491,7 +443,7 @@ export class VerseInfoComponent extends Component<"div"> {
           VerseRef.Bookmarks.remove(topic, this.verse);
           this.syncBookmarkStatus();
         })
-        .on("menu", (e) => {
+        .on("menu", e => {
           e.stopPropagation();
           this.app.openCommandPalette({
             topCategory: VerseListCategory,
@@ -503,7 +455,7 @@ export class VerseInfoComponent extends Component<"div"> {
     new IconButton(this.element).setIcon(Plus).on("click", () => {
       this.initiateRenderReset();
       let tag = "";
-      this.verse.bookmarkList.length;
+
       const addBookmark = () => {
         if (tag.length === 0) return;
         VerseRef.Bookmarks.add(tag, this.verse);
@@ -513,19 +465,14 @@ export class VerseInfoComponent extends Component<"div"> {
       new TextInput(this.element)
         .setPlaceholder("Enter bookmark name...")
         .addClass("noteArea")
-        .on("click", (e) => e.stopPropagation())
+        .on("click", e => e.stopPropagation())
         .on("input", (value: string) => (tag = value.trim()))
-        .on(
-          "keydown",
-          (e) => (e as KeyboardEvent).key === "Enter" && addBookmark(),
-        );
+        .on("keydown", e => (e as KeyboardEvent).key === "Enter" && addBookmark());
 
-      new Button(this.element)
-        .setButtonText("Add")
-        .on("click", () => addBookmark());
+      new Button(this.element).setButtonText("Add").on("click", () => addBookmark());
     });
     if (unusedTags.length > 0) this.element.createEl("hr");
-    unusedTags.forEach((topic) => {
+    unusedTags.forEach(topic => {
       new Button(this.element)
         .setButtonText(`${VerseListCategory.convertTopicDate(topic)}`)
         .addClass("bookmarkNotAdded")
@@ -533,7 +480,7 @@ export class VerseInfoComponent extends Component<"div"> {
           VerseRef.Bookmarks.add(topic, this.verse);
           this.syncBookmarkStatus();
         })
-        .on("menu", (e) => {
+        .on("menu", e => {
           e.stopPropagation();
           this.app.openCommandPalette({
             topCategory: VerseListCategory,

@@ -5,7 +5,6 @@ import "./screen.css";
 export abstract class ScreenView<T extends App> extends ETarget<{
   menuclick: MouseEvent;
   titleclick: MouseEvent;
-  [key: string]: any;
 }> {
   protected header: HTMLElement;
   content: HTMLElement;
@@ -16,17 +15,13 @@ export abstract class ScreenView<T extends App> extends ETarget<{
   ) {
     super();
     // Create the main navbar container
-    this.header = element.createEl("div", { cls: "navbar" }, (el) => {
+    this.header = element.createEl("div", { cls: "navbar" }, el => {
       this.titleEl = el.createEl("div", {
         cls: "navBarTitle",
         text: app.title,
       });
-      el.addEventListener(
-        "contextmenu",
-        (e) => this.emit("menuclick", e),
-        true,
-      );
-      el.addEventListener("click", (e) => this.emit("titleclick", e));
+      el.addEventListener("contextmenu", e => this.emit("menuclick", e), true);
+      el.addEventListener("click", e => this.emit("titleclick", e));
     });
 
     // Create main content area
@@ -57,9 +52,7 @@ export abstract class ScreenView<T extends App> extends ETarget<{
   }
   waitFullUpdate(cb: () => void): void {
     // Wait for the next full update cycle before executing the callback
-    window.requestAnimationFrame(() =>
-      window.requestAnimationFrame(() => cb()),
-    );
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => cb()));
   }
 }
 
@@ -75,7 +68,6 @@ export abstract class ScreenView<T extends App> extends ETarget<{
 export class Scrollpast extends ETarget<{
   scrollpasttop: number;
   scrollpastbottom: number;
-  [key: string]: any;
 }> {
   /**
    * Y-coordinate where the touch started.
@@ -135,10 +127,7 @@ export class Scrollpast extends ETarget<{
    * @private
    */
   private get isAtBottom(): boolean {
-    return (
-      this.element.scrollTop + this.element.offsetHeight >=
-      this.element.scrollHeight - this.buffer
-    );
+    return this.element.scrollTop + this.element.offsetHeight >= this.element.scrollHeight - this.buffer;
   }
 
   /**
@@ -188,8 +177,7 @@ export class Scrollpast extends ETarget<{
     if ((this.isAtTop && distance > 0) || (this.isAtBottom && distance < 0)) {
       // Non-linear visual stretch
       this.element.style.transition = "";
-      this.element.style.transformOrigin =
-        this.isAtBottom && distance < 0 ? "top" : "bottom";
+      this.element.style.transformOrigin = this.isAtBottom && distance < 0 ? "top" : "bottom";
       const farness = 1 - Math.exp(-Math.abs(distance) / 200);
       this.element.style.transform = `scale(1,${1 - farness * 0.1}) `;
     }
@@ -225,24 +213,28 @@ export class Scrollpast extends ETarget<{
    * @param _direction - 'up' for swipe past bottom, 'down' for swipe past top.
    * @protected
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected animateSwipe(_direction: "up" | "down"): void {
     // Optionally implement visual feedback for swipe, e.g. flicker, bounce, confetti, guilt...
   }
 }
 
-export class sidePanel<T extends App> extends Openable<
-  T,
-  {
-    open: void;
-    close: void;
-    [key: string]: any;
-  }
-> {
+export class sidePanel extends Openable<{
+  open: void;
+  close: void;
+  draggingX: { deltaX: number };
+  draggingY: { deltaY: number };
+  dragX: { deltaX: number };
+  dragY: { deltaY: number };
+  dragCancel: { deltaX: number; deltaY: number };
+  dragXcancel: { deltaX: number; deltaY: number };
+  dragYcancel: { deltaX: number; deltaY: number };
+}> {
   private element: HTMLElement;
   content: HTMLDivElement;
 
   constructor(
-    public app: T,
+    public app: App,
     parent: HTMLElement,
     private direction: "left" | "right" = "right",
   ) {
@@ -252,45 +244,36 @@ export class sidePanel<T extends App> extends Openable<
     this.element.classList.add(direction);
     this.element.style.transform = `translateX(${direction === "left" ? "-100%" : "100%"})`;
     this.content = this.element.createEl("div", { cls: "sidepanel-content" });
-    this.on("draggingX", (e) => {
+    this.on("draggingX", e => {
       const deltaX = e.deltaX;
       if (this.isOpen) {
         if (deltaX < 0 && this.direction === "right") return; // Prevent dragging left if only right is allowed
         if (deltaX > 0 && this.direction === "left") return; // Prevent dragging right if only left is allowed
         this.setTransform(`${deltaX}px`, false);
       } else {
-        this.setTransform(
-          `calc(${deltaX}px + ${this.direction === "left" ? "-100%" : "100%"})`,
-          false,
-        );
+        this.setTransform(`calc(${deltaX}px + ${this.direction === "left" ? "-100%" : "100%"})`, false);
       }
     });
-    this.on("dragX", (e) => {
+    this.on("dragX", e => {
       if (this.direction === (e.deltaX < 0 ? "left" : "right"))
         this.close(); // Close panel
       else this.setTransform("0", true); // Reset position
     });
-    this.app.on("dragX", (e) => {
+    this.app.on("dragX", e => {
       if (this.direction === (e.deltaX > 0 ? "left" : "right"))
         this.open(); // Open panel
-      else
-        this.setTransform(this.direction === "left" ? "-100%" : "100%", true); // Reset position
+      else this.setTransform(this.direction === "left" ? "-100%" : "100%", true); // Reset position
     });
-    this.app.on("draggingX", (e) => {
+    this.app.on("draggingX", e => {
       const deltaX = e.deltaX;
       if (!this.isOpen) {
         if (deltaX > 0 && this.direction === "right") return; // Prevent dragging right if only right is allowed
         if (deltaX < 0 && this.direction === "left") return; // Prevent dragging left if only left is allowed
-        this.setTransform(
-          `calc(${deltaX}px + ${this.direction === "left" ? "-100%" : "100%"})`,
-          false,
-        );
+        this.setTransform(`calc(${deltaX}px + ${this.direction === "left" ? "-100%" : "100%"})`, false);
       }
     });
     this.on("dragXcancel", () => this.setTransform("0", true));
-    this.app.on("dragXcancel", () =>
-      this.setTransform(this.direction === "left" ? "-100%" : "100%", true),
-    );
+    this.app.on("dragXcancel", () => this.setTransform(this.direction === "left" ? "-100%" : "100%", true));
   }
 
   // Helper to set transform with optional animation
@@ -300,23 +283,18 @@ export class sidePanel<T extends App> extends Openable<
       this.element.style.transition = final ? "transform 0.3s ease" : "none";
       this.element.style.transform = `translateX(${translateX})`;
     });
-    if (!this.isOpen && final)
-      window.setTimeout(() => (this.element.style.display = "none"), 300); // Hide after transition if closed
+    if (!this.isOpen && final) window.setTimeout(() => (this.element.style.display = "none"), 300); // Hide after transition if closed
   }
 
   waitFullUpdate(cb: () => void): void {
     // Wait for the next full update cycle before executing the callback
-    window.requestAnimationFrame(() =>
-      window.requestAnimationFrame(() => cb()),
-    );
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => cb()));
   }
 
   getFullUpdate(): Promise<void> {
     // Returns a promise that resolves after the next full update cycle
-    return new Promise((resolve) => {
-      window.requestAnimationFrame(() =>
-        window.requestAnimationFrame(() => resolve()),
-      );
+    return new Promise(resolve => {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
     });
   }
 
@@ -333,12 +311,9 @@ export class sidePanel<T extends App> extends Openable<
   _toggle(): void {
     if (this.isOpen)
       this.app.popTarget(); // Remove from target stack
-    else this.app.pushTarget(this); // Add to target stack
+    else this.app.pushTarget(this as ETarget); // Add to target stack
     if (this.isOpen) this.emit("open");
     else this.emit("close");
-    this.setTransform(
-      this.isOpen ? "0" : this.direction === "left" ? "-100%" : "100%",
-      true,
-    );
+    this.setTransform(this.isOpen ? "0" : this.direction === "left" ? "-100%" : "100%", true);
   }
 }

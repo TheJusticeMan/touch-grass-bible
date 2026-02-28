@@ -2,7 +2,7 @@ import { CheckSquare, Square } from "lucide";
 import { CMDCategory, CommandItem, CommandPaletteState, ETarget } from "./App";
 
 // Define base event types
-interface CMDEvents {
+interface CMDEvents extends Record<string, unknown> {
   _click: CMD;
   // Additional events can be defined in subclasses
 }
@@ -14,9 +14,9 @@ export class CMD<Events extends CMDEvents = CMDEvents> extends ETarget<Events> {
   item: CommandItem<CMD> | null = null;
   newState: Partial<CommandPaletteState> = {};
 
-  constructor(Category: CMDCategory<any>) {
+  constructor(Category: CMDCategory) {
     super();
-    Category.addCMD(this);
+    Category.addCMD(this as CMD);
   }
 
   render(_command: CMD, el: CommandItem<CMD>): Partial<CommandPaletteState> {
@@ -58,7 +58,7 @@ export class CMD<Events extends CMDEvents = CMDEvents> extends ETarget<Events> {
 
 export abstract class SettingCMD<T> extends CMD<{ change: T } & CMDEvents> {
   value: T;
-  constructor(Category: CMDCategory<any>, initialValue: T) {
+  constructor(Category: CMDCategory, initialValue: T) {
     super(Category);
     this.value = initialValue;
   }
@@ -76,13 +76,13 @@ export abstract class SettingCMD<T> extends CMD<{ change: T } & CMDEvents> {
 
 // Additional events can be defined in subclasses
 export class toggleCMD extends SettingCMD<boolean> {
-  constructor(Category: CMDCategory<any>, initialValue: boolean = false) {
+  constructor(Category: CMDCategory, initialValue: boolean = false) {
     super(Category, initialValue);
     this.on("_click", () => this.setValue(!this.value));
   }
 
   protected _onUpdate(item: CommandItem<CMD>): void {
-    item.addIconButton((btn) =>
+    item.addIconButton(btn =>
       btn
         .setIcon(this.value ? CheckSquare : Square)
         .setTooltip(this.value ? "Enabled" : "Disabled")

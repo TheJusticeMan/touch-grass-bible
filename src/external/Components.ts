@@ -29,13 +29,13 @@ import { ETarget } from "./Event";
  */
 export class Component<
   T extends keyof HTMLElementTagNameMap,
-  EventS extends Record<string, any> = {
+  EventS extends Record<string, unknown> = {
     input: string;
     change: string;
     click: Event;
     menu: Event;
     keydown: Event;
-    [key: string]: any;
+    [key: string]: unknown;
   },
 > extends ETarget<EventS> {
   destroy() {
@@ -93,11 +93,11 @@ export class Component<
 export class Button extends Component<"button"> {
   constructor(parent: Node) {
     super(parent, "button");
-    this.element.addEventListener("click", (e) => {
+    this.element.addEventListener("click", e => {
       e.stopPropagation();
       return this.emit("click", e);
     });
-    this.element.addEventListener("contextmenu", (e) => {
+    this.element.addEventListener("contextmenu", e => {
       e.preventDefault();
       return this.emit("menu", e);
     });
@@ -118,7 +118,7 @@ export class IconButton extends Component<"div"> {
   constructor(parent: Node) {
     super(parent, "div");
     this.element.classList.add("icon-button");
-    this.element.addEventListener("click", (e) => {
+    this.element.addEventListener("click", e => {
       e.stopPropagation();
       return this.emit("click", e);
     });
@@ -145,10 +145,7 @@ export class IconButton extends Component<"div"> {
  *   // Implement setValue and getValue
  * }
  */
-abstract class AbstractInput<
-  T extends keyof HTMLElementTagNameMap,
-  V,
-> extends Component<
+abstract class AbstractInput<T extends keyof HTMLElementTagNameMap, V> extends Component<
   T,
   {
     input: V;
@@ -156,23 +153,19 @@ abstract class AbstractInput<
     click: Event;
     menu: Event;
     keydown: Event;
-    [key: string]: any;
+    [key: string]: unknown;
   }
 > {
   constructor(parent: Node, tagName: T) {
     super(parent, tagName);
-    this.element.addEventListener("input", () =>
-      this.emit("input", this.getValue()),
-    );
-    this.element.addEventListener("change", () =>
-      this.emit("change", this.getValue()),
-    );
-    this.element.addEventListener("click", (e) => this.emit("click", e));
-    this.element.addEventListener("contextmenu", (e) => {
+    this.element.addEventListener("input", () => this.emit("input", this.getValue()));
+    this.element.addEventListener("change", () => this.emit("change", this.getValue()));
+    this.element.addEventListener("click", e => this.emit("click", e));
+    this.element.addEventListener("contextmenu", e => {
       e.preventDefault();
       return this.emit("menu", e);
     });
-    this.element.addEventListener("keydown", (e) => this.emit("keydown", e));
+    this.element.addEventListener("keydown", e => this.emit("keydown", e));
     this.element.focus();
   }
 
@@ -180,7 +173,7 @@ abstract class AbstractInput<
   abstract getValue(): V;
 
   setPlaceholder(placeholder: string) {
-    (this.element as any).placeholder = placeholder;
+    (this.element as HTMLInputElement | HTMLTextAreaElement).placeholder = placeholder;
     return this;
   }
 
@@ -205,15 +198,7 @@ export class TextArea extends AbstractInput<"textarea", string> {
   }
 }
 
-export type inputMode =
-  | "none"
-  | "text"
-  | "decimal"
-  | "numeric"
-  | "tel"
-  | "search"
-  | "email"
-  | "url";
+export type inputMode = "none" | "text" | "decimal" | "numeric" | "tel" | "search" | "email" | "url";
 
 /**
  * Represents a text input component that extends the `AbstractInput` class for HTML input elements.
@@ -314,7 +299,7 @@ export class toggleInput extends AbstractInput<"button", boolean> {
 export abstract class scrollBubble extends ETarget<{
   scroll: number; // Fired when the scroll value changes, passing the new scroll value
   scrollend: number; // Fired when scrolling ends, passing the final scroll value
-  hide: {}; // Fired when the scroll bubble is hidden
+  hide: void; // Fired when the scroll bubble is hidden
 }> {
   element: HTMLElement | null = null; // The scroll bubble element
   private _scrollvalue: number = 0; // Current scroll position between 0 and 1
@@ -326,7 +311,7 @@ export abstract class scrollBubble extends ETarget<{
     super();
   }
 
-  abstract show(arg: any): this; // Abstract method to show the bubble, must be implemented by subclasses
+  abstract show(arg: unknown): this; // Abstract method to show the bubble, must be implemented by subclasses
 
   _show() {
     this.startHideTimer(); // Start the hide timer
@@ -334,7 +319,7 @@ export abstract class scrollBubble extends ETarget<{
     this.element = document.body.createEl(
       "div",
       { cls: "scrollBubble" },
-      (el) => (el.style.top = this.offsetTop),
+      el => (el.style.top = this.offsetTop),
     );
     //this.parent.after(this.element);
     this.setUpListeners();
@@ -366,8 +351,7 @@ export abstract class scrollBubble extends ETarget<{
 
   getscrollvalue(e: MouseEvent | TouchEvent): number {
     return (
-      ((e instanceof MouseEvent ? e.clientY : e.touches[0].clientY) -
-        this.parent.offsetTop) /
+      ((e instanceof MouseEvent ? e.clientY : e.touches[0].clientY) - this.parent.offsetTop) /
       this.parent.offsetHeight
     );
   }
@@ -438,14 +422,12 @@ export abstract class scrollBubble extends ETarget<{
 
   public set scroll(value: number) {
     this._scrollvalue = value / this.maxScroll; // Normalize to 0-1 range
-    if (this.element && !this.isGrabbed)
-      this.element.style.top = this.offsetTop; // Update position if not grabbed
+    if (this.element && !this.isGrabbed) this.element.style.top = this.offsetTop; // Update position if not grabbed
   }
 
   get offsetTop(): string {
     return `${
-      this._scrollvalue * this.parent.offsetHeight +
-      (window.innerHeight - this.parent.offsetHeight)
+      this._scrollvalue * this.parent.offsetHeight + (window.innerHeight - this.parent.offsetHeight)
     }px`;
   }
 }
@@ -455,7 +437,7 @@ export abstract class scrollBubble extends ETarget<{
  * state, and interaction logic.
  *
  * @template T - The type of the command represented by this item.
- * @template AppType - The type of the application, extending `App`.
+ * @template  - The type of the application, extending `App`.
  *
  * @remarks
  * This class is responsible for rendering a command item, managing its title,
@@ -479,14 +461,14 @@ export class Item extends ETarget<{
   click: MouseEvent;
   contextmenu: MouseEvent;
   hover: MouseEvent;
-  [key: string]: any;
+  [key: string]: unknown;
 }> {
   el!: HTMLElement;
   protected infoEl!: HTMLDivElement;
   protected titleEl!: HTMLDivElement;
   protected descriptionEl!: HTMLDivElement;
   protected componentWrapper!: HTMLDivElement;
-  components: Component<any>[] = []; // Array to hold additional components like buttons
+  components: Component<keyof HTMLElementTagNameMap>[] = []; // Array to hold additional components like buttons
   private highlighter: Highlighter; // Highlighter for the category
   get hili() {
     return this.highlighter.highlight.bind(this.highlighter);
@@ -495,26 +477,22 @@ export class Item extends ETarget<{
   constructor(parent: HTMLElement) {
     super();
     this.highlighter = new Highlighter([]);
-    parent.createEl("div", { cls: "command-item" }, (itemEl) => {
+    parent.createEl("div", { cls: "command-item" }, itemEl => {
       this.el = itemEl;
-      this.infoEl = itemEl.createEl(
-        "div",
-        { cls: "command-item-info" },
-        (infoEl) => {
-          this.titleEl = infoEl.createEl("div", { cls: "command-title" });
-          this.descriptionEl = infoEl.createEl("div", {
-            cls: ["command-description", "hidden"],
-          });
-        },
-      );
+      this.infoEl = itemEl.createEl("div", { cls: "command-item-info" }, infoEl => {
+        this.titleEl = infoEl.createEl("div", { cls: "command-title" });
+        this.descriptionEl = infoEl.createEl("div", {
+          cls: ["command-description", "hidden"],
+        });
+      });
       this.componentWrapper = itemEl.createEl("div", { cls: "command-comp" });
-      itemEl.addEventListener("click", (e) => this.emit("click", e));
-      itemEl.addEventListener("contextmenu", (e) => {
+      itemEl.addEventListener("click", e => this.emit("click", e));
+      itemEl.addEventListener("contextmenu", e => {
         e.preventDefault();
         this.emit("contextmenu", e);
       });
-      itemEl.addEventListener("mouseenter", (e) => this.emit("hover", e));
-      itemEl.addEventListener("mousemove", (e) => this.emit("mousemove", e));
+      itemEl.addEventListener("mouseenter", e => this.emit("hover", e));
+      itemEl.addEventListener("mousemove", e => this.emit("mousemove", e));
     });
   }
 
@@ -529,7 +507,8 @@ export class Item extends ETarget<{
 
   addIconButton(cb: (el: IconButton) => void) {
     this.addComponent(IconButton, cb);
-    this.componentWrapper.prepend(this.components.at(-1)?.element);
+    const lastComp = this.components.at(-1);
+    if (lastComp) this.componentWrapper.prepend(lastComp.element);
     return this;
   }
 
@@ -548,7 +527,7 @@ export class Item extends ETarget<{
     return this;
   }
 
-  addComponent<T extends Component<any>>(
+  addComponent<T extends Component<keyof HTMLElementTagNameMap>>(
     ComponentCtor: new (parent: Node) => T,
     cb?: (el: T) => void,
   ) {
@@ -559,24 +538,20 @@ export class Item extends ETarget<{
   }
 
   removeComponents() {
-    this.components.forEach((comp) => comp.remove());
+    this.components.forEach(comp => comp.remove());
     this.components = [];
     return this;
   }
 
   setTitle(title: string | DocumentFragment) {
-    this.titleEl.replaceChildren(
-      typeof title === "string" ? this.hili(title) : title,
-    );
+    this.titleEl.replaceChildren(typeof title === "string" ? this.hili(title) : title);
     return this;
   }
 
   setName = this.setTitle;
 
   setDescription(text: string | DocumentFragment) {
-    this.descriptionEl.replaceChildren(
-      typeof text === "string" ? this.hili(text) : text,
-    );
+    this.descriptionEl.replaceChildren(typeof text === "string" ? this.hili(text) : text);
     return this;
   }
 
@@ -589,7 +564,9 @@ export class Item extends ETarget<{
 /**
  * Represents a single item within a context menu.
  */
-export class MenuItem extends ETarget {
+export class MenuItem extends ETarget<{
+  click: MouseEvent;
+}> {
   private title: string = "";
   private icon: IconNode | null = null;
 
@@ -619,7 +596,7 @@ export class MenuItem extends ETarget {
    * @param cb - The function to call on click.
    * @returns `this` for chaining.
    */
-  onClick(cb: (e: MouseEvent) => any): this {
+  onClick(cb: (e: MouseEvent) => void): this {
     this.on("click", cb);
     return this;
   }
@@ -631,11 +608,10 @@ export class MenuItem extends ETarget {
    */
   render(parent: Node) {
     parent.createEl("div", { cls: "menu-item" }, (itemEl: HTMLDivElement) => {
-      if (this.icon)
-        itemEl.appendChild(createElement(this.icon, { "stroke-width": 1 }));
+      if (this.icon) itemEl.appendChild(createElement(this.icon, { "stroke-width": 1 }));
       itemEl.createEl("span", { cls: "menu-title", text: this.title });
 
-      itemEl.addEventListener("click", (e) => {
+      itemEl.addEventListener("click", e => {
         e.stopPropagation(); // Prevent event bubbling
         this.emit("click", e); // Emit click event
       });
@@ -667,7 +643,7 @@ export class Menu extends ETarget {
    * @param cb - Callback to configure the MenuItem.
    * @returns `this` for chaining.
    */
-  addItem(cb: (item: MenuItem) => any): this {
+  addItem(cb: (item: MenuItem) => void): this {
     const item = new MenuItem();
     cb(item);
     this.items.push(item);
@@ -699,26 +675,17 @@ export class Menu extends ETarget {
     this.hide();
     if (this.items.length === 0) return this;
 
-    document.body.createEl(
-      "div",
-      { cls: "context-menu" },
-      (menuEl: HTMLDivElement) => {
-        menuEl.style.left = `${this.position.x}px`;
-        menuEl.style.top = `${this.position.y}px`;
-        this.items.forEach((item) =>
-          item.render(menuEl).on("click", () => this.hide()),
-        );
-        this.menuEl = menuEl;
-      },
-    );
+    document.body.createEl("div", { cls: "context-menu" }, (menuEl: HTMLDivElement) => {
+      menuEl.style.left = `${this.position.x}px`;
+      menuEl.style.top = `${this.position.y}px`;
+      this.items.forEach(item => item.render(menuEl).on("click", () => this.hide()));
+      this.menuEl = menuEl;
+    });
 
     this.emit("show", this.items);
 
     this._onClickAway = () => this.hide();
-    setTimeout(
-      () => document.addEventListener("mousedown", this._onClickAway!),
-      0,
-    );
+    setTimeout(() => document.addEventListener("mousedown", this._onClickAway!), 0);
 
     return this;
   }

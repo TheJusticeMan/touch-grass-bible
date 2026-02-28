@@ -34,7 +34,7 @@ Be attentive, thoughtful, and precise. Provide clear, well-structured answers th
         stream: true,
       },
       streamcallback,
-    ).then((response) => this.addAssistantMessage(response.content));
+    ).then(response => this.addAssistantMessage(response.content));
     //.catch(error => this.console.error("Error during chat request:", error));
   }
 
@@ -76,9 +76,7 @@ Be attentive, thoughtful, and precise. Provide clear, well-structured answers th
     streamcallback: (textFragment: any) => boolean,
   ): Promise<{ role: string; content?: string; tool_calls?: any[] }> {
     if (!response.body) {
-      throw new Error(
-        "Response body is null. Streaming is not supported in this environment.",
-      );
+      throw new Error("Response body is null. Streaming is not supported in this environment.");
     }
     const reader = response.body.getReader();
     const decoder = new TextDecoder("utf-8");
@@ -121,12 +119,11 @@ Be attentive, thoughtful, and precise. Provide clear, well-structured answers th
                   if (!fullcalls[index].function.arguments) {
                     fullcalls[index].function.arguments = "";
                   }
-                  fullcalls[index].function.arguments +=
-                    `${call.function.arguments}`;
+                  fullcalls[index].function.arguments += `${call.function.arguments}`;
                 }
               });
             }
-          } catch (err) {
+          } catch {
             // Optionally handle parse errors
           }
         }
@@ -134,7 +131,7 @@ Be attentive, thoughtful, and precise. Provide clear, well-structured answers th
     }
 
     if (fullcalls.length > 0) {
-      fullcalls.forEach((call) => {
+      fullcalls.forEach(call => {
         delete call.index; // Remove index from tool calls
       });
       console.log("Full tool calls:", fullcalls);
@@ -157,10 +154,7 @@ Be attentive, thoughtful, and precise. Provide clear, well-structured answers th
    * it returns the first message choice from the API response.
    * @throws An error if the network request fails or the response is not successful.
    */
-  async sendChatRequest(
-    options: any,
-    streamcallback?: (textFragment: any) => boolean,
-  ): Promise<any> {
+  async sendChatRequest(options: any, streamcallback?: (textFragment: any) => boolean): Promise<any> {
     this.console.log("Sending chat request with options:", options);
     const response = await fetch(this.endpoint.endpoint, {
       method: "POST",
@@ -177,10 +171,7 @@ Be attentive, thoughtful, and precise. Provide clear, well-structured answers th
     }
 
     if (options.stream && !!streamcallback) {
-      const fullText = await AIchat.handleStreamingResponse(
-        response,
-        streamcallback,
-      );
+      const fullText = await AIchat.handleStreamingResponse(response, streamcallback);
       return fullText;
     } else {
       const data = await response.json();

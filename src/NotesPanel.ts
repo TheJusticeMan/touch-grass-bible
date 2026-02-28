@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { ChevronLeft, Plus, Trash, X } from "lucide";
 import TouchGrassBibleApp, {
   Button,
@@ -56,13 +57,7 @@ export class Note extends ETarget<{ change: Note }> {
     this.emit("change", this);
   }
 
-  constructor(
-    name: string,
-    content: string,
-    dateCreated: Date,
-    dateModified: Date,
-    tags: string[] = [],
-  ) {
+  constructor(name: string, content: string, dateCreated: Date, dateModified: Date, tags: string[] = []) {
     super();
     this._name = name;
     this._content = content;
@@ -84,7 +79,13 @@ export class Note extends ETarget<{ change: Note }> {
     };
   }
 
-  static fromJSON(json: any): Note {
+  static fromJSON(json: {
+    name: string;
+    content: string;
+    dateCreated: string;
+    dateModified: string;
+    tags?: string[];
+  }): Note {
     return new Note(
       json.name,
       json.content,
@@ -107,7 +108,7 @@ export class NoteVault {
   }
 
   removeNote(note: Note) {
-    this.Notes = this.Notes.filter((n) => n !== note);
+    this.Notes = this.Notes.filter(n => n !== note);
   }
 
   getAllNotes(): Note[] {
@@ -119,7 +120,7 @@ export class NoteVault {
  * Side panel for managing and viewing notes.
  * @extends sidePanel<TouchGrassBibleApp>
  */
-export class NotesPanel extends sidePanel<TouchGrassBibleApp> {
+export class NotesPanel extends sidePanel {
   NotePreviews: notePreview[] = [];
   constructor(app: TouchGrassBibleApp, parent: HTMLElement) {
     super(app, parent, "right");
@@ -128,22 +129,22 @@ export class NotesPanel extends sidePanel<TouchGrassBibleApp> {
 
     this.on("open", () => {
       this.update();
-      /* new noteEditor(this.app, this.content, this.Notes[0]).open(); */
+      /* new noteEditor((this.app as TouchGrassBibleApp), this.content, this.Notes[0]).open(); */
     });
     this.on("close", () => this.saveNotesToSettings());
   }
 
   private saveNotesToSettings() {
-    this.app.settings.ExtraNotes = this.app.Notes.getAllNotes().map(
-      (n) => n.json,
-    );
-    console.log("Saving notes to settings:", this.app.settings.ExtraNotes);
-    this.app.saveSettings();
+    (this.app as TouchGrassBibleApp).settings.ExtraNotes = (
+      this.app as TouchGrassBibleApp
+    ).Notes.getAllNotes().map(n => n.json);
+    console.log("Saving notes to settings:", (this.app as TouchGrassBibleApp).settings.ExtraNotes);
+    (this.app as TouchGrassBibleApp).saveSettings();
   }
 
   update() {
-    if (this.app?.settings?.ExtraNotes) this.saveNotesToSettings();
-    this.NotePreviews.forEach((np) => np.destroy());
+    if ((this.app as TouchGrassBibleApp)?.settings?.ExtraNotes) this.saveNotesToSettings();
+    this.NotePreviews.forEach(np => np.destroy());
     this.NotePreviews = [];
     this.content.empty();
     new TextInput(this.content)
@@ -151,29 +152,29 @@ export class NotesPanel extends sidePanel<TouchGrassBibleApp> {
       .addClass("search-notes-input")
       .setType("search")
       .on("click", () =>
-        this.app.commandPalette.update({ topCategory: myNotesCategory }).open(),
+        (this.app as TouchGrassBibleApp).commandPalette.update({ topCategory: myNotesCategory }).open(),
       );
-    this.app.Notes.getAllNotes()
+    (this.app as TouchGrassBibleApp).Notes.getAllNotes()
       .sort((a, b) => b.dateModified.getTime() - a.dateModified.getTime())
-      .forEach((note) =>
+      .forEach(note =>
         this.NotePreviews.push(
           new notePreview(this.content, note).on("click", () =>
-            new noteEditor(this.app, this.content, note)
+            new noteEditor(this.app as TouchGrassBibleApp, this.content, note)
               .open()
               .on("close", () => this.update()),
           ),
         ),
       );
     // Create the bottom corner plus button
-    this.content.createEl("div", { cls: "corner-button" }, (el) =>
+    this.content.createEl("div", { cls: "corner-button" }, el =>
       new Button(el)
         .setIcon(Plus)
         .setTooltip("Add Note")
         .on("click", () => {
           console.log("Add Note clicked");
           const newNote = new Note("New Note", "", new Date(), new Date());
-          this.app.Notes.addNote(newNote);
-          new noteEditor(this.app, this.content, newNote)
+          (this.app as TouchGrassBibleApp).Notes.addNote(newNote);
+          new noteEditor(this.app as TouchGrassBibleApp, this.content, newNote)
             .open()
             .on("close", () => this.update());
         }),
@@ -216,9 +217,9 @@ class notePreview extends Component<"div"> {
     // Title
     const titleEl = this.element.createEl("div", { cls: "note-title" });
     titleEl.textContent = note.name;
-    note.tags.forEach((tag) => {
+    note.tags.forEach(tag => {
       new tagBadge(titleEl, tag, (removedTag: string) => {
-        note.tags = note.tags.filter((t) => t !== removedTag);
+        note.tags = note.tags.filter(t => t !== removedTag);
         this.update(note);
       });
     });
@@ -226,7 +227,7 @@ class notePreview extends Component<"div"> {
       .setIcon(Plus)
       .addClass("add-tag-btn")
       .setTooltip("Add Tag")
-      .on("click", (e) => {
+      .on("click", e => {
         e.stopPropagation();
         new TextInput(titleEl)
           .setPlaceholder("New Tag")
@@ -241,10 +242,7 @@ class notePreview extends Component<"div"> {
           });
       });
     // Content (truncated)
-    const truncatedText =
-      note.content.length > 100
-        ? note.content.substring(0, 100) + "..."
-        : note.content;
+    const truncatedText = note.content.length > 100 ? note.content.substring(0, 100) + "..." : note.content;
     const contentEl = this.element.createEl("div", { cls: "note-content" });
     contentEl.textContent = truncatedText;
   };
@@ -290,7 +288,7 @@ class tagBadge extends Component<"div"> {
     new IconButton(this.element)
       .setIcon(X)
       .addClass("tag-remove-btn")
-      .on("click", (e) => {
+      .on("click", e => {
         e.stopPropagation();
         this.onRemove(this.tag);
         this.destroy();
@@ -320,10 +318,7 @@ class tagBadge extends Component<"div"> {
  * @param parent - The parent HTMLElement to which the editor overlay will be appended.
  * @param note - The note to be edited.
  */
-class noteEditor extends Openable<
-  TouchGrassBibleApp,
-  { open: void; close: void }
-> {
+class noteEditor extends Openable<{ open: void; close: void }> {
   content!: HTMLElement;
   constructor(
     app: TouchGrassBibleApp,
@@ -335,8 +330,8 @@ class noteEditor extends Openable<
   onopen(): void {
     this.content = this.parent.createEl("div", { cls: "editor-overlay" });
 
-    this.content.createEl("div", { cls: "editor-content" }, (contentEd) => {
-      contentEd.createEl("header", { cls: "editor-header" }, (headerEl) => {
+    this.content.createEl("div", { cls: "editor-content" }, contentEd => {
+      contentEd.createEl("header", { cls: "editor-header" }, headerEl => {
         new Button(headerEl)
           .setIcon(ChevronLeft)
           .addClass("editor-btn")
@@ -346,7 +341,7 @@ class noteEditor extends Openable<
           .setValue(this.note.name + " # " + this.note.tags.join(", "))
           .on("input", (value: string) => {
             const [namePart, tags] = value.split("#");
-            this.note.tags = tags ? tags.split(",").map((t) => t.trim()) : [];
+            this.note.tags = tags ? tags.split(",").map(t => t.trim()) : [];
             this.note.name = namePart.trim();
           });
       });
@@ -362,45 +357,38 @@ class noteEditor extends Openable<
   }
 }
 
-export class myNotesCategory extends CommandCategory<Note, TouchGrassBibleApp> {
+export class myNotesCategory extends CommandCategory<Note> {
   name: string = "My Notes";
   description: string = "Search and manage your notes";
 
-  onTrigger(state: CommandPaletteState): void {
-    state;
-  }
+  onTrigger(_state: CommandPaletteState): void {}
 
   getCommands(query: string): Note[] {
     // Get notes from settings, filter by query
-    const notes: Note[] = this.app.Notes.getAllNotes();
+    const notes: Note[] = (this.app as TouchGrassBibleApp).Notes.getAllNotes();
     if (!query) return notes;
     return this.getcompatible(
       query,
       notes,
-      (n) => n.name,
-      (n) => n.tags.join(" "),
-      (n) => n.content,
+      n => n.name,
+      n => n.tags.join(" "),
+      n => n.content,
     );
   }
 
-  renderCommand(
-    command: Note,
-    el: CommandItem<Note>,
-  ): Partial<CommandPaletteState> {
+  renderCommand(command: Note, el: CommandItem<Note>): Partial<CommandPaletteState> {
     el.setName(command.name + " # " + command.tags.join(", "))
       .setDescription(
-        command.content.length > 100
-          ? command.content.substring(0, 100) + "..."
-          : command.content,
+        command.content.length > 100 ? command.content.substring(0, 100) + "..." : command.content,
       )
-      .addIconButton((btn) => {
+      .addIconButton(btn => {
         btn
           .setIcon(Trash)
           .setTooltip("Delete Note")
-          .on("click", (e) => {
+          .on("click", e => {
             e.stopPropagation();
-            this.app.Notes.removeNote(command);
-            this.app.rightpanel.update();
+            (this.app as TouchGrassBibleApp).Notes.removeNote(command);
+            (this.app as TouchGrassBibleApp).rightpanel.update();
             this.commandPalette.display();
           });
       });
@@ -410,8 +398,12 @@ export class myNotesCategory extends CommandCategory<Note, TouchGrassBibleApp> {
   executeCommand(command: Note): void {
     this.commandPalette.close();
 
-    new noteEditor(this.app, this.app.rightpanel.content, command)
+    new noteEditor(
+      this.app as TouchGrassBibleApp,
+      (this.app as TouchGrassBibleApp).rightpanel.content,
+      command,
+    )
       .open()
-      .on("close", () => this.app.rightpanel.update());
+      .on("close", () => (this.app as TouchGrassBibleApp).rightpanel.update());
   }
 }

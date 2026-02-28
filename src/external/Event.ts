@@ -32,12 +32,8 @@ export type HandlerInfo<E, K extends keyof E = keyof E> = {
  *
  * @public
  */
-export abstract class ETarget<
-  E extends Record<string, unknown> = Record<string, unknown>,
-> extends Chainable {
-  private handlers: {
-    [K in keyof E]?: Array<(e: E[K]) => void>;
-  } = {};
+export abstract class ETarget<E extends Record<string, unknown> = Record<string, unknown>> extends Chainable {
+  private handlers: { [K in keyof E]?: Array<(e: E[K]) => void> } = {};
   private anyhandlers: Array<(eventName: keyof E, e: E[keyof E]) => void> = [];
   lastHandler?: HandlerInfo<E, keyof E>;
   _ActiveEvent: (keyof E)[] = [];
@@ -52,10 +48,7 @@ export abstract class ETarget<
   on<K extends keyof E>(eventName: K, handler: (e: E[K]) => void): this {
     if (!this.handlers[eventName]) this.handlers[eventName] = [];
     this.handlers[eventName]!.push(handler);
-    this.lastHandler = { eventName, handler } as unknown as HandlerInfo<
-      E,
-      keyof E
-    >;
+    this.lastHandler = { eventName, handler } as unknown as HandlerInfo<E, keyof E>;
     return this;
   }
 
@@ -73,9 +66,7 @@ export abstract class ETarget<
    */
   off<K extends keyof E>(eventName: K, handler: (e: E[K]) => void): this {
     if (!this.handlers[eventName]) return this;
-    this.handlers[eventName] = this.handlers[eventName]!.filter(
-      (h) => h !== handler,
-    );
+    this.handlers[eventName] = this.handlers[eventName]!.filter(h => h !== handler);
     return this;
   }
 
@@ -103,8 +94,8 @@ export abstract class ETarget<
    */
   emit<K extends keyof E>(eventName: K, e: E[K] = {} as E[K]): this {
     this._ActiveEvent.push(eventName);
-    this.handlers[eventName]?.forEach((handler) => handler(e));
-    this.anyhandlers.forEach((handler) => handler(eventName, e));
+    this.handlers[eventName]?.forEach(handler => handler(e));
+    this.anyhandlers.forEach(handler => handler(eventName, e));
     this._ActiveEvent.pop();
     return this;
   }
@@ -119,9 +110,7 @@ export abstract class ETarget<
   cancelOn<K extends keyof E>(unsubscribeOn: K, event: ETarget) {
     const theHandler = event.lastHandler;
     if (theHandler) {
-      this.on(unsubscribeOn, () =>
-        event.off(theHandler.eventName, theHandler.handler),
-      );
+      this.on(unsubscribeOn, () => event.off(theHandler.eventName, theHandler.handler));
     }
     return this;
   }
@@ -202,9 +191,9 @@ export class touchDragger extends ETarget<{
 
     // Apply translation to the element
     if (Math.abs(deltaY) < Math.abs(deltaX)) {
-      this.emit("draggingX", { deltaX } as any);
+      this.emit("draggingX", { deltaX });
     } else {
-      this.emit("draggingY", { deltaY } as any);
+      this.emit("draggingY", { deltaY });
     }
   };
 
@@ -213,19 +202,16 @@ export class touchDragger extends ETarget<{
     const deltaX = this.currentX - this.startX;
     const deltaY = this.currentY - this.startY;
 
-    if (
-      Math.abs(deltaX) > this.threshold &&
-      Math.abs(deltaY) < Math.abs(deltaX)
-    ) {
-      this.emit("dragX", { deltaX } as any);
-      this.emit("dragYcancel", { deltaX: 0, deltaY: 0 } as any);
+    if (Math.abs(deltaX) > this.threshold && Math.abs(deltaY) < Math.abs(deltaX)) {
+      this.emit("dragX", { deltaX });
+      this.emit("dragYcancel", { deltaX: 0, deltaY: 0 });
     } else if (Math.abs(deltaY) > this.threshold) {
-      this.emit("dragY", { deltaY } as any);
-      this.emit("dragXcancel", { deltaX: 0, deltaY: 0 } as any);
+      this.emit("dragY", { deltaY });
+      this.emit("dragXcancel", { deltaX: 0, deltaY: 0 });
     } else {
-      this.emit("dragCancel", { deltaX: 0, deltaY: 0 } as any);
-      this.emit("dragXcancel", { deltaX: 0, deltaY: 0 } as any);
-      this.emit("dragYcancel", { deltaX: 0, deltaY: 0 } as any);
+      this.emit("dragCancel", { deltaX: 0, deltaY: 0 });
+      this.emit("dragXcancel", { deltaX: 0, deltaY: 0 });
+      this.emit("dragYcancel", { deltaX: 0, deltaY: 0 });
     }
   };
 
@@ -241,12 +227,9 @@ export class touchDragger extends ETarget<{
   }
 }
 
-export abstract class Openable<
-  AppType extends App,
-  E extends Record<string, any>,
-> extends ETarget<E> {
+export abstract class Openable<E extends Record<string, unknown>> extends ETarget<E> {
   private _isOpen = false;
-  constructor(private appInstance: AppType) {
+  constructor(private appInstance: App) {
     super();
     this.on("EscapeKeyDown", () => this.close());
   }
@@ -258,7 +241,7 @@ export abstract class Openable<
   open(): this {
     if (!this._isOpen) {
       this._isOpen = true;
-      this.appInstance.pushTarget(this);
+      this.appInstance.pushTarget(this as ETarget);
       this.onopen();
       this.emit("open");
     }

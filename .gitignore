@@ -4,3 +4,4 @@ processing/chapters.json
 android/
 ios/
 GEMINI.md
+scripts/bible_with_embeddings.json

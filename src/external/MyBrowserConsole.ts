@@ -31,7 +31,7 @@ export class BrowserConsole {
    *
    * @param {...any[]} args - The items to log to the console.
    */
-  log(...args: any[]): void {
+  log(...args: unknown[]): void {
     if (this.enabled) console.log(this.consoleName, ...args);
   }
 
@@ -41,7 +41,7 @@ export class BrowserConsole {
    *
    * @param {...any[]} args - The messages or objects to log.
    */
-  info(...args: any[]): void {
+  info(...args: unknown[]): void {
     if (this.enabled) console.info(this.consoleName, ...args);
   }
 
@@ -51,7 +51,7 @@ export class BrowserConsole {
    *
    * @param args - The items to log as a warning message.
    */
-  warn(...args: any[]): void {
+  warn(...args: unknown[]): void {
     if (this.enabled) console.warn(this.consoleName, ...args);
   }
 
@@ -61,11 +61,11 @@ export class BrowserConsole {
    *
    * @param args - The error messages or objects to log.
    */
-  error(...args: any[]): void {
+  error(...args: unknown[]): void {
     if (this.enabled) console.error(this.consoleName, ...args);
   }
 
-  header(...args: any[]): void {
+  header(...args: unknown[]): void {
     if (this.enabled) console.log("%c" + this.consoleName, ...args);
     //console.log("%cObsidian Developer Console", "color:#7f6df2; font-size:40px; font-weight:bold;");
   }

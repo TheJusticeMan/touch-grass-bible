@@ -41,16 +41,14 @@ const context = await esbuild.context({
   format: "iife",
   sourcemap: prod ? false : true,
   platform: "browser",
-  minify: true,
   logLevel: "info",
   minify: prod,
+  treeShaking: true,
   plugins: [
     {
       name: "metadata-writer",
       setup(build) {
-        build.onStart(() => {
-          return writeMetadata();
-        });
+        build.onStart(() => writeMetadata());
       },
     },
   ],
