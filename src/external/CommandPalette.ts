@@ -111,8 +111,8 @@ export class UnifiedCommandPalette extends Openable<{
 
   constructor(private app: App) {
     super(app);
-    this.addPalette(() => new CategoryNavigator(this), "navigator");
-    this.addPalette(() => new PromptCategory(this), "prompt");
+    this.addHiddenPalette(() => new CategoryNavigator(this), "navigator");
+    this.addHiddenPalette(() => new PromptCategory(this), "prompt");
     this.on("keydown", this.handleKey);
     this.on("historypop", this.handleBack);
     this.on("dragX", e => {

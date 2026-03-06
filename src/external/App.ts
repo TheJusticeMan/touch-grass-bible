@@ -123,11 +123,14 @@ abstract class App extends ETarget<{
 
     this.title = this._title;
 
-    // Bind load to DOMContentLoaded
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", this.load);
+    if (document.readyState !== "loading") {
+      // The DOM is already ready
+      this.console.log("DOM already loaded, initializing app...");
+      this.load();
     } else {
-      this.load(); // immediate call if already loaded
+      // The DOM is still loading, so wait for the event
+      this.console.log("Waiting for DOM to load...");
+      document.addEventListener("DOMContentLoaded", this.load.bind(this));
     }
     document.addEventListener("keydown", e => {
       const key =

@@ -1,6 +1,9 @@
 import { Item, sidePanel, TextArea } from "./external/App";
-import TouchGrassBibleApp, { BibleSearchCategory, BookmarkCategory, myNotesCategory } from "./main";
+import TouchGrassBibleApp from "./main";
 import "./NotesPanel.css";
+import { BookmarkCategoryID } from "./plugins/Bookmarks";
+import { myNotesCategoryID } from "./plugins/Notes";
+import { BibleSearchCategoryID } from "./plugins/Search";
 import { VerseRef } from "./VerseRef";
 
 export class notesPanelZZZ extends sidePanel {
@@ -53,13 +56,15 @@ export class navigationPanel extends sidePanel {
     this.content.empty();
     new Item(this.content)
       .setName("Search")
-      .on("click", () => this.close().app.commandPalette.update({ topCategory: BibleSearchCategory }).open());
+      .on("click", () =>
+        this.close().app.commandPalette.update({ topCategory: BibleSearchCategoryID }).open(),
+      );
     new Item(this.content)
       .setName("Notes")
-      .on("click", () => this.close().app.commandPalette.update({ topCategory: myNotesCategory }).open());
+      .on("click", () => this.close().app.commandPalette.update({ topCategory: myNotesCategoryID }).open());
     new Item(this.content)
       .setName("Bookmarks")
-      .on("click", () => this.close().app.commandPalette.update({ topCategory: BookmarkCategory }).open());
+      .on("click", () => this.close().app.commandPalette.update({ topCategory: BookmarkCategoryID }).open());
     new Item(this.content).setName("Menu").on("click", () => this.close().app.commandPalette.menu());
   }
 }

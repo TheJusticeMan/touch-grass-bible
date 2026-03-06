@@ -1,23 +1,19 @@
 export const processstart = new Date().getTime();
-import { BibleTopics, BibleTopicsType } from "./BibleTopics";
+import { BibleTopics } from "./BibleTopics";
 import { App, UnifiedCommandPalette } from "./external/App";
 import info from "./info.json";
 import { Note, NotesPanel, NoteVault } from "./NotesPanel";
+import BookmarkPlugin from "./plugins/Bookmarks";
+import NotesPlugin from "./plugins/Notes";
+import BibleSearchPlugin from "./plugins/Search";
+import SettingsPlugin from "./plugins/Settings";
+import TopicalBiblePlugin from "./plugins/TopicalBible";
+import TranslationsPlugin from "./plugins/Translations";
+import TSK from "./plugins/TSK";
 import { navigationPanel } from "./sidepanels";
 import "./style.css";
 import { DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
-import {
-  BibleSearchCategory,
-  BookmarkCategory,
-  CrossRefCategory,
-  GoToVerseCategory,
-  myNotesCategory,
-  SettingsCategory,
-  TGPaletteState,
-  topicListCategory,
-  translationCategory,
-  VerseListCategory,
-} from "./TGPaletteCategories";
+import { TGPaletteState } from "./TGPaletteCategories";
 import { bibleData, VerseRef } from "./VerseRef";
 import { VerseScreen } from "./VerseScreen";
 
@@ -63,41 +59,22 @@ export default class TouchGrassBibleApp extends App {
 
   async onload() {
     this.MainScreen = new VerseScreen(this.contentEl, this);
-
     //this.leftpanel = new notesPanel(this, this.contentEl);
     this.leftpanel = new navigationPanel(this, this.contentEl);
     this.rightpanel = new NotesPanel(this, this.contentEl);
     this.on("ArrowRightKeyDown", () => this.leftpanel.open());
     this.commandPalette = new UnifiedCommandPalette(this as App);
-    this.commandPalette.state = new TGPaletteState(this.commandPalette, "") as TGPaletteState;
-    this.commandPalette
-      .addPalettes(
-        VerseListCategory,
-        CrossRefCategory,
-        BookmarkCategory,
-        GoToVerseCategory,
-        topicListCategory,
-        BibleSearchCategory,
-        translationCategory,
-        myNotesCategory,
-        //AI,
-        SettingsCategory,
-      )
-      .on("update", e => {
-        VerseRef.defaultTranslation = (e as TGPaletteState).defaultTranslation;
-        this.MainScreen.verse = (e as TGPaletteState).verse;
-      });
+    this.commandPalette.state = new TGPaletteState(this.commandPalette, "");
+    this.commandPalette.on("update", e => {
+      VerseRef.defaultTranslation = (e as TGPaletteState).defaultTranslation;
+      this.MainScreen.verse = (e as TGPaletteState).verse;
+    });
 
     await this.loadsettings(DEFAULT_SETTINGS);
     this.Notes.loadNotes(this.settings.ExtraNotes.map(nj => Note.fromJSON(nj)));
 
     // Load all JSON files in parallel for faster startup
-    const [crossRefs, topics, translations] = await Promise.all([
-      this.loadJSON<{ [x: string]: never[] }>("crossrefs.json"),
-      this.loadJSON<BibleTopicsType>("topics.json"),
-      this.loadJSON<{ [translation: string]: bibleData }>("translations.json"),
-    ]);
-
+    const translations = await this.loadJSON<{ [translation: string]: bibleData }>("translations.json");
     this.commandPalette.columns = this.contentEl.offsetWidth > 800;
     window.addEventListener("resize", () => {
       const isWide = this.contentEl.offsetWidth > 800;
@@ -108,8 +85,6 @@ export default class TouchGrassBibleApp extends App {
     });
 
     VerseRef.bibleTranslations = translations;
-    VerseRef.crossRefs = crossRefs;
-    VerseRef.topics = new BibleTopics(topics);
     VerseRef.Bookmarks = new BibleTopics(this.settings.Bookmarks);
     (this.commandPalette.state as TGPaletteState).verse = VerseRef.RandomVerse;
     this.console.enabled = this.settings.enableLogging;
@@ -121,6 +96,49 @@ export default class TouchGrassBibleApp extends App {
     this.console.log("Touch Grass Bible is ready!");
 
     this.MainScreen.onload();
+    new BookmarkPlugin(this, {
+      id: "bookmarks",
+      name: "Bookmarks",
+      description: "View and manage your bookmarked verses.",
+      version: "1.0.0",
+    }).load();
+    new TSK(this, {
+      id: "tsk",
+      name: "TSK+",
+      description: "Enhanced cross references from Treasury of Scripture Knowledge.",
+      version: "1.0.0",
+    }).load();
+    new BibleSearchPlugin(this, {
+      id: "bible-search",
+      name: "Bible Search",
+      description: "Search for verses in the Bible.",
+      version: "1.0.0",
+    }).load();
+    new TopicalBiblePlugin(this, {
+      id: "topical-bible",
+      name: "Topical Bible",
+      description: "Browse topics and their associated verses from OpenBible.info.",
+      version: "1.0.0",
+    }).load();
+    new NotesPlugin(this, {
+      id: "notes",
+      name: "Notes",
+      description: "Create and manage personal notes on verses.",
+      version: "1.0.0",
+    }).load();
+    new TranslationsPlugin(this, {
+      id: "translations",
+      name: "Translations",
+      description: "View and switch between different Bible translations.",
+      version: "1.0.0",
+    }).load();
+    new SettingsPlugin(this, {
+      id: "settings",
+      name: "Settings",
+      description: "Configure Touch Grass Bible settings",
+      version: "1.0.0",
+    }).load();
+
     /* this.rightpanel.open(); */
   }
 

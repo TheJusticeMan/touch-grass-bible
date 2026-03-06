@@ -1,9 +1,5 @@
 import { BibleTopics } from "./BibleTopics";
-import {
-  books3letter,
-  BookShortNames,
-  booksOfTheBible,
-} from "./booksOfTheBible";
+import { books3letter, BookShortNames, booksOfTheBible } from "./booksOfTheBible";
 import { Highlighter } from "./external/App";
 export type bibleData = { [book: string]: string[][] };
 
@@ -68,28 +64,16 @@ export class VerseRef {
   static books3letter: string[] = books3letter;
   static bibleTranslations: { [translation: string]: bibleData } = {};
   static myNotes: Map<OSIS, string> = new Map<OSIS, string>();
-  static crossRefs: { [OSIS: string]: [OSIS, number][] };
-  static topics: BibleTopics;
   static Bookmarks: BibleTopics;
   static defaultTranslation: translation = "KJV";
   static get bible() {
     return this.bibleTranslations[this.defaultTranslation];
   }
   static get RandomVerse(): VerseRef {
-    const book =
-      VerseRef.booksOfTheBible[
-        (Math.random() * (VerseRef.booksOfTheBible.length - 1)) | 0
-      ];
+    const book = VerseRef.booksOfTheBible[(Math.random() * (VerseRef.booksOfTheBible.length - 1)) | 0];
     if (!VerseRef.bibleTranslations.KJV) return new VerseRef(book, 1, 1);
-    const chapter =
-      Math.floor(
-        Math.random() * (VerseRef.bibleTranslations.KJV[book].length - 2),
-      ) + 1;
-    const verse =
-      Math.floor(
-        Math.random() *
-          (VerseRef.bibleTranslations.KJV[book][chapter].length - 2),
-      ) + 1;
+    const chapter = Math.floor(Math.random() * (VerseRef.bibleTranslations.KJV[book].length - 2)) + 1;
+    const verse = Math.floor(Math.random() * (VerseRef.bibleTranslations.KJV[book][chapter].length - 2)) + 1;
     return new VerseRef(book, chapter, verse);
   }
 
@@ -106,24 +90,10 @@ export class VerseRef {
     return this;
   }
   isSame(verse: VerseRef) {
-    return (
-      this.book === verse.book &&
-      this.chapter === verse.chapter &&
-      this.verse === verse.verse
-    );
+    return this.book === verse.book && this.chapter === verse.chapter && this.verse === verse.verse;
   }
   text(translation: translation): string {
-    return (
-      VerseRef.bibleTranslations[translation][this.book]?.[this.chapter]?.[
-        this.verse
-      ] || ""
-    );
-  }
-  crossRefs(): VerseRef[] {
-    const refs = VerseRef.crossRefs[this.toOSIS()] || [];
-    return refs
-      .sort(([, avotes], [, bvotes]) => bvotes - avotes)
-      .map(([ref]) => VerseRef.fromOSIS(ref));
+    return VerseRef.bibleTranslations[translation][this.book]?.[this.chapter]?.[this.verse] || "";
   }
   toOSIS(): string {
     const bookIndex = VerseRef.booksOfTheBible.indexOf(this.book);
@@ -142,7 +112,7 @@ export class VerseRef {
   }
   get notes(): VerseRef[] {
     const notes: VerseRef[] = [];
-    Array.from(VerseRef.myNotes.keys()).forEach((osis) => {
+    Array.from(VerseRef.myNotes.keys()).forEach(osis => {
       if (osis.startsWith(this.OSIS)) {
         const ref = VerseRef.fromOSIS(osis);
         notes.push(ref);
@@ -151,7 +121,7 @@ export class VerseRef {
     return notes;
   }
   static fromOSIS(osis: string): VerseRef {
-    const [[book, chapter, verse]] = osis.split("-").map((ft) => ft.split("."));
+    const [[book, chapter, verse]] = osis.split("-").map(ft => ft.split("."));
     return new VerseRef(
       VerseRef.booksOfTheBible[VerseRef.BookShortNames.indexOf(book)],
       parseInt(chapter),
@@ -161,16 +131,9 @@ export class VerseRef {
   Bookmarks(): string[] {
     return VerseRef.Bookmarks.getTopicsFromVerse(this);
   }
-  Topics(): string[] {
-    return VerseRef.topics.getTopicsFromVerse(this);
-  }
 
   get bookmarkList(): string[] {
     return VerseRef.Bookmarks.getTopicsFromVerse(this);
-  }
-
-  get topicList(): string[] {
-    return VerseRef.topics.getTopicsFromVerse(this);
   }
 
   toString(): string {
@@ -180,16 +143,10 @@ export class VerseRef {
     return `${this.book.toTitleCase()} ${this.chapter}`;
   }
   verseData(translation: translation): string {
-    return (
-      VerseRef.bibleTranslations[translation]?.[this.book]?.[this.chapter]?.[
-        this.verse
-      ] || ""
-    );
+    return VerseRef.bibleTranslations[translation]?.[this.book]?.[this.chapter]?.[this.verse] || "";
   }
   chapterData(translation: translation): string[] {
-    return (
-      VerseRef.bibleTranslations[translation]?.[this.book]?.[this.chapter] || []
-    );
+    return VerseRef.bibleTranslations[translation]?.[this.book]?.[this.chapter] || [];
   }
   bookData(translation: translation): string[][] {
     return VerseRef.bibleTranslations[translation]?.[this.book] || [];
@@ -204,10 +161,9 @@ export class VerseRef {
     return VerseRef.bible[this.book] || [];
   }
   set OSIS(osis: string) {
-    const [[book, chapter, verse]] = osis.split("-").map((ft) => ft.split("."));
+    const [[book, chapter, verse]] = osis.split("-").map(ft => ft.split("."));
     const newVerse = new VerseRef(
-      VerseRef.booksOfTheBible[VerseRef.BookShortNames.indexOf(book)] ||
-        "GENESIS",
+      VerseRef.booksOfTheBible[VerseRef.BookShortNames.indexOf(book)] || "GENESIS",
       parseInt(chapter ?? 1, 10),
       parseInt(verse ?? 1, 10),
     );
@@ -219,10 +175,7 @@ export class VerseRef {
     return this.toOSIS();
   }
   get letter3(): string {
-    return (
-      VerseRef.books3letter[VerseRef.booksOfTheBible.indexOf(this.book)] ||
-      this.book
-    );
+    return VerseRef.books3letter[VerseRef.booksOfTheBible.indexOf(this.book)] || this.book;
   }
   get YouVersionURL(): string {
     return `https://www.bible.com/bible/1/${this.letter3}.${this.chapter}.${this.verse}`;

@@ -1,21 +1,17 @@
 import apocalypseThrottle from "apocalypse-throttle";
-import { Bookmark, GitCompare, Plus, ScrollText, SquarePen, Waypoints } from "lucide";
+import { ScrollText } from "lucide";
 import TouchGrassBibleApp, {
   Button,
   Component,
-  CrossRefCategory,
   Highlighter,
   IconButton,
   pdsp,
   ScreenView,
-  TextArea,
-  TextInput,
   TGPaletteState,
-  topicListCategory,
   VerseHighlight,
-  VerseListCategory,
   VerseRef,
 } from "./main";
+import { IconActionItem } from "./Plugin";
 import { BookScroll, ChapterScroll } from "./Scroll";
 import "./VerseScreen.css";
 
@@ -74,7 +70,7 @@ export class ChapterComponent extends Component<"div"> {
             "contextmenu",
             pdsp(() =>
               this.app.openCommandPalette({
-                topCategory: CrossRefCategory,
+                topCategory: "tsk-cross-ref",
                 verse: newVerse,
               }),
             ),
@@ -154,6 +150,7 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
   isScrolling = false;
   chapterScroll!: ChapterScroll;
   bookScroll!: BookScroll;
+  actions: IconActionItem[] = [];
 
   onload(): void {
     this.on("titleclick", e => {
@@ -333,6 +330,17 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
     else this.updateTitle();
     return this;
   }
+  removeAction(id: string) {
+    const index = this.actions.findIndex(action => action.id === id);
+    if (index !== -1) {
+      this.actions.splice(index, 1);
+    }
+    return this;
+  }
+  addAction(arg0: IconActionItem) {
+    this.actions.push(arg0);
+    return this;
+  }
 }
 
 /**
@@ -353,7 +361,7 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
 export class VerseInfoComponent extends Component<"div"> {
   constructor(
     parent: HTMLElement,
-    private verse: VerseRef,
+    public verse: VerseRef,
     private app: TouchGrassBibleApp,
   ) {
     super(parent, "div");
@@ -368,23 +376,17 @@ export class VerseInfoComponent extends Component<"div"> {
   render() {
     this.element.empty(); // Clear previous contents to re-render
 
-    const { topicList } = this.verse;
-
-    // Handle note input: Show textarea if note exists, otherwise show a button to add one.
-    new IconButton(this.element).setIcon(SquarePen).on("click", e => {
-      e.stopPropagation();
-      this.initiateRenderReset();
-      const noteInput = new TextArea(this.element)
-        .setValue(this.verse.note || "")
-        .addClass("noteArea")
-        .setPlaceholder(" - Add your note here...")
-        .on("click", e => e.stopPropagation())
-        .on("input", (value: string) => {
-          this.verse.note = value;
-          this.app.saveSettingsAfterDelay();
+    for (const action of this.app.MainScreen.actions) {
+      new IconButton(this.element)
+        .setIcon(action.icon)
+        .setTooltip(action.name)
+        .on("click", e => {
+          e.stopPropagation();
+          this.initiateRenderReset();
+          action.onTrigger(this);
         });
-      noteInput.focus(); // Auto-focus for better UX
-    });
+    }
+
     new IconButton(this.element).setIcon(ScrollText).on("click", () => {
       this.initiateRenderReset();
       const links = [
@@ -399,95 +401,6 @@ export class VerseInfoComponent extends Component<"div"> {
         });
       });
     });
-
-    // Handle bookmarks: Show buttons for each bookmark date.
-    new IconButton(this.element).setIcon(Bookmark).on("click", () => {
-      this.initiateRenderReset();
-      this.syncBookmarkStatus();
-    });
-
-    // Handle topics: Show buttons for each topic if any exist.
-    if (topicList.length > 0) {
-      new IconButton(this.element).setIcon(GitCompare).on("click", () => {
-        // On click, expand to show topic buttons (replacing the chevron)
-        this.initiateRenderReset();
-        topicList.forEach(topic => {
-          new Button(this.element).setButtonText(`${topic.toTitleCase()}`).on("click", () => {
-            this.app.openCommandPalette({
-              topCategory: topicListCategory,
-              topic: topic,
-            });
-          });
-        });
-        // Optionally, add a way to collapse back, but for simplicity, keep it expanded.
-      });
-    }
-    new IconButton(this.element).setIcon(Waypoints).on("click", () => {
-      this.app.openCommandPalette({
-        topCategory: CrossRefCategory,
-        verse: this.verse,
-      });
-    });
-  }
-
-  private syncBookmarkStatus() {
-    const { bookmarkList: usedTags } = this.verse;
-    this.element.empty();
-    const unusedTags = VerseRef.Bookmarks.keys.filter(tag => !usedTags.includes(tag));
-
-    usedTags.forEach(topic => {
-      new Button(this.element)
-        .setButtonText(`${VerseListCategory.convertTopicDate(topic)}`)
-        .addClass("bookmarkAdded")
-        .on("click", () => {
-          VerseRef.Bookmarks.remove(topic, this.verse);
-          this.syncBookmarkStatus();
-        })
-        .on("menu", e => {
-          e.stopPropagation();
-          this.app.openCommandPalette({
-            topCategory: VerseListCategory,
-            tag: topic,
-          });
-        });
-    });
-    // add new tag button
-    new IconButton(this.element).setIcon(Plus).on("click", () => {
-      this.initiateRenderReset();
-      let tag = "";
-
-      const addBookmark = () => {
-        if (tag.length === 0) return;
-        VerseRef.Bookmarks.add(tag, this.verse);
-        this.syncBookmarkStatus();
-      };
-
-      new TextInput(this.element)
-        .setPlaceholder("Enter bookmark name...")
-        .addClass("noteArea")
-        .on("click", e => e.stopPropagation())
-        .on("input", (value: string) => (tag = value.trim()))
-        .on("keydown", e => (e as KeyboardEvent).key === "Enter" && addBookmark());
-
-      new Button(this.element).setButtonText("Add").on("click", () => addBookmark());
-    });
-    if (unusedTags.length > 0) this.element.createEl("hr");
-    unusedTags.forEach(topic => {
-      new Button(this.element)
-        .setButtonText(`${VerseListCategory.convertTopicDate(topic)}`)
-        .addClass("bookmarkNotAdded")
-        .on("click", () => {
-          VerseRef.Bookmarks.add(topic, this.verse);
-          this.syncBookmarkStatus();
-        })
-        .on("menu", e => {
-          e.stopPropagation();
-          this.app.openCommandPalette({
-            topCategory: VerseListCategory,
-            tag: topic,
-          });
-        });
-    });
   }
 
   private initiateRenderReset() {
@@ -497,6 +410,7 @@ export class VerseInfoComponent extends Component<"div"> {
       // do not proceed if the click is inside the element
       if (this.element.contains(e.target as Node))
         return document.addEventListener("click", reset, { once: true });
+      else this.initiateRenderReset(); // Clear and wait for next click to reset
       this.render(); // Re-render to restore original state
     };
 
