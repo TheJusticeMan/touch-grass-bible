@@ -2,17 +2,16 @@ import apocalypseThrottle from "apocalypse-throttle";
 import { ScrollText } from "lucide";
 import TouchGrassBibleApp, {
   Button,
-  Component,
+  UIComponent,
   Highlighter,
   IconButton,
   pdsp,
-  ScreenView,
   TGPaletteState,
   VerseHighlight,
   VerseRef,
 } from "./main";
-import { IconActionItem } from "./Plugin";
 import { BookScroll, ChapterScroll } from "./Scroll";
+import { Panel, View } from "./external/Workspace";
 import "./VerseScreen.css";
 
 /**
@@ -24,7 +23,7 @@ import "./VerseScreen.css";
  *
  * @template "div" - The HTML element type for the root of this component.
  *
- * @extends Component<"div">
+ * @extends UIComponent<"div">
  *
  * @property verses - An array of HTMLDivElement references for each verse in the chapter.
  * @property verse - The reference to the current chapter (and optionally verse) being displayed.
@@ -39,7 +38,7 @@ import "./VerseScreen.css";
  * @method scrollTo - Smoothly scrolls to the specified verse and marks it as active.
  * @method scrollToInstant - Instantly scrolls to the specified verse and marks it as active.
  */
-export class ChapterComponent extends Component<"div"> {
+export class ChapterComponent extends UIComponent<"div"> {
   verse: VerseRef;
   verses: HTMLDivElement[] = [];
   verseInfos: VerseInfoComponent[] = []; // New: Array of components instead of raw elements
@@ -65,7 +64,7 @@ export class ChapterComponent extends Component<"div"> {
         el.createEl("div", { text: h(`${v} ${text}`), cls: "verse" }, (el: HTMLElement) => {
           if (text.includes("#")) el.addClass("versePBreak");
 
-          el.addEventListener("click", () => (this.app.MainScreen.verse = newVerse));
+          el.addEventListener("click", () => this.app.setActiveVerse(newVerse));
           el.addEventListener(
             "contextmenu",
             pdsp(() =>
@@ -141,7 +140,8 @@ export class ChapterComponent extends Component<"div"> {
  * @method loadPreviousChapter - Loads and prepends the previous chapter to the view.
  * @method loadNextChapter - Loads and appends the next chapter to the view.
  */
-export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
+export class VerseScreen extends View {
+  content: HTMLElement;
   _verse: VerseRef = new VerseRef();
   chapterContainer!: HTMLElement;
   renderedChapters: ChapterComponent[] = [];
@@ -150,18 +150,28 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
   isScrolling = false;
   chapterScroll!: ChapterScroll;
   bookScroll!: BookScroll;
-  actions: IconActionItem[] = [];
+
+  constructor(
+    panel: Panel,
+    protected app: TouchGrassBibleApp,
+  ) {
+    super(panel);
+    this.containerEl.classList.add("screen-view");
+    this.content = this.containerEl.createEl("div", { cls: "content" });
+  }
 
   onload(): void {
-    this.on("titleclick", e => {
+    console.log("VerseScreen loaded");
+
+    /* this.on("titleclick", e => {
       e.stopPropagation();
       this.app.openCommandPalette({ topic: "", specificity: 0 });
-    });
+    }); */
 
-    this.on(
+    /* this.on(
       "menuclick",
       pdsp(() => this.app.commandPalette.menu()),
-    );
+    ); */
 
     this.app.commandPalette.on("close", () => {
       const { verse } = this.app.commandPalette.state as TGPaletteState;
@@ -330,16 +340,9 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
     else this.updateTitle();
     return this;
   }
-  removeAction(id: string) {
-    const index = this.actions.findIndex(action => action.id === id);
-    if (index !== -1) {
-      this.actions.splice(index, 1);
-    }
-    return this;
-  }
-  addAction(arg0: IconActionItem) {
-    this.actions.push(arg0);
-    return this;
+
+  waitFullUpdate(cb: () => void): void {
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => cb()));
   }
 }
 
@@ -351,14 +354,14 @@ export class VerseScreen extends ScreenView<TouchGrassBibleApp> {
  * promoting reusability and modularity. It handles dynamic rendering of notes (as a textarea),
  * bookmarks, and topics based on the provided VerseRef.
  *
- * @extends Component<"div">
+ * @extends UIComponent<"div">
  *
  * @property verse - The VerseRef associated with this info container.
  * @property app - The main TouchGrassBibleApp instance for navigation and state management.
  *
  * @method render - Updates and renders the info container's contents (notes, buttons) based on the current verse state.
  */
-export class VerseInfoComponent extends Component<"div"> {
+export class VerseInfoComponent extends UIComponent<"div"> {
   constructor(
     parent: HTMLElement,
     public verse: VerseRef,
@@ -376,7 +379,7 @@ export class VerseInfoComponent extends Component<"div"> {
   render() {
     this.element.empty(); // Clear previous contents to re-render
 
-    for (const action of this.app.MainScreen.actions) {
+    for (const action of this.app.getVerseActions()) {
       new IconButton(this.element)
         .setIcon(action.icon)
         .setTooltip(action.name)

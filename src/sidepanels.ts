@@ -1,54 +1,24 @@
-import { Item, sidePanel, TextArea } from "./external/App";
+import { Item } from "./external/App";
+import { Panel, View } from "./external/Workspace";
 import TouchGrassBibleApp from "./main";
 import "./NotesPanel.css";
 import { BookmarkCategoryID } from "./plugins/Bookmarks";
 import { myNotesCategoryID } from "./plugins/Notes";
 import { BibleSearchCategoryID } from "./plugins/Search";
-import { VerseRef } from "./VerseRef";
-
-export class notesPanelZZZ extends sidePanel {
-  currentFocus: TextArea | null = null;
-  constructor(app: TouchGrassBibleApp, parent: HTMLElement) {
-    super(app, parent, "left");
-
-    this.on("open", () => {
-      this.currentFocus?.focus().scrollIntoViewSS();
-    });
-  }
-
-  updateContent(verse: VerseRef) {
-    this.content.empty();
-    verse.cTXT
-      .slice(1)
-      .map((_v, i) => new VerseRef(verse.book, verse.chapter, i + 1))
-      .forEach(v => {
-        this.content.createEl("div", { cls: ["note"] }, el => {
-          el.createEl("span", {
-            text: `${v.toString().toTitleCase()}`,
-            cls: "verseNumber",
-          });
-          new TextArea(el)
-            .setValue(v.note)
-            .setPlaceholder(` - Add your note here...\n\n${v.vTXT.replace(/[\][#]/g, "").trim()}`)
-            .on("input", (value: string) => {
-              v.note = value;
-              (this.app as TouchGrassBibleApp).saveSettingsAfterDelay();
-            })
-            .next(t => v.isSame(verse) && (this.currentFocus = t));
-        });
-      });
-  }
-}
 
 /**
  * Navigation panel for navigating through books and chapters.
  * The side will be a menu for opening the command palette.
  */
-export class navigationPanel extends sidePanel {
-  constructor(app: TouchGrassBibleApp, parent: HTMLElement) {
-    super(app, parent, "left");
-
-    this.on("open", () => {});
+export class navigationPanel extends View {
+  content: HTMLDivElement;
+  constructor(
+    panel: Panel,
+    public app: TouchGrassBibleApp,
+  ) {
+    super(panel);
+    this.containerEl.classList.add("workspace-sidepanel", "left");
+    this.content = this.containerEl.createEl("div", { cls: "sidepanel-content" });
     this.updateContent();
   }
 
@@ -56,15 +26,13 @@ export class navigationPanel extends sidePanel {
     this.content.empty();
     new Item(this.content)
       .setName("Search")
-      .on("click", () =>
-        this.close().app.commandPalette.update({ topCategory: BibleSearchCategoryID }).open(),
-      );
+      .on("click", () => this.app.commandPalette.update({ topCategory: BibleSearchCategoryID }).open());
     new Item(this.content)
       .setName("Notes")
-      .on("click", () => this.close().app.commandPalette.update({ topCategory: myNotesCategoryID }).open());
+      .on("click", () => this.app.commandPalette.update({ topCategory: myNotesCategoryID }).open());
     new Item(this.content)
       .setName("Bookmarks")
-      .on("click", () => this.close().app.commandPalette.update({ topCategory: BookmarkCategoryID }).open());
-    new Item(this.content).setName("Menu").on("click", () => this.close().app.commandPalette.menu());
+      .on("click", () => this.app.commandPalette.update({ topCategory: BookmarkCategoryID }).open());
+    new Item(this.content).setName("Menu").on("click", () => this.app.commandPalette.menu());
   }
 }

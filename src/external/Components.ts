@@ -27,7 +27,7 @@ import { ETarget } from "./Event";
  * @method scrollIntoViewSS - Smoothly scrolls the element into view at the start of the viewport.
  * @method remove - Removes the element from the DOM.
  */
-export class Component<
+export class UIComponent<
   T extends keyof HTMLElementTagNameMap,
   EventS extends Record<string, unknown> = {
     input: string;
@@ -90,7 +90,7 @@ export class Component<
  *   .setTooltip("Click to submit");
  * ```
  */
-export class Button extends Component<"button"> {
+export class Button extends UIComponent<"button"> {
   constructor(parent: Node) {
     super(parent, "button");
     this.element.addEventListener("click", e => {
@@ -114,7 +114,7 @@ export class Button extends Component<"button"> {
   }
 }
 
-export class IconButton extends Component<"div"> {
+export class IconButton extends UIComponent<"div"> {
   constructor(parent: Node) {
     super(parent, "div");
     this.element.classList.add("icon-button");
@@ -145,7 +145,7 @@ export class IconButton extends Component<"div"> {
  *   // Implement setValue and getValue
  * }
  */
-abstract class AbstractInput<T extends keyof HTMLElementTagNameMap, V> extends Component<
+abstract class AbstractInput<T extends keyof HTMLElementTagNameMap, V> extends UIComponent<
   T,
   {
     input: V;
@@ -468,7 +468,7 @@ export class Item extends ETarget<{
   protected titleEl!: HTMLDivElement;
   protected descriptionEl!: HTMLDivElement;
   protected componentWrapper!: HTMLDivElement;
-  components: Component<keyof HTMLElementTagNameMap>[] = []; // Array to hold additional components like buttons
+  components: UIComponent<keyof HTMLElementTagNameMap>[] = []; // Array to hold additional components like buttons
   private highlighter: Highlighter; // Highlighter for the category
   get hili() {
     return this.highlighter.highlight.bind(this.highlighter);
@@ -527,7 +527,7 @@ export class Item extends ETarget<{
     return this;
   }
 
-  addComponent<T extends Component<keyof HTMLElementTagNameMap>>(
+  addComponent<T extends UIComponent<keyof HTMLElementTagNameMap>>(
     ComponentCtor: new (parent: Node) => T,
     cb?: (el: T) => void,
   ) {

@@ -1,5 +1,6 @@
 import { IconNode } from "lucide";
 import TouchGrassBibleApp, { BrowserConsole, CommandCategory, VerseInfoComponent } from "./main";
+import { Panel, View } from "./external/Workspace";
 
 abstract class Component {
   private loaded = false;
@@ -63,10 +64,14 @@ export default class Plugin extends Component {
     this.app.commandPalette.addPalette(load, id);
     this.registerUnload(() => this.app.commandPalette.removePalette(load, id));
   }
-  addSidebar() {}
+
+  registerView(id: string, view: (panel: Panel) => View) {
+    this.app.workspace.registerView(id, view);
+    this.registerUnload(() => this.app.workspace.unregisterView(id));
+  }
 
   addVerseAction({ id, name, description, icon, onTrigger }: IconActionItem) {
-    this.app.MainScreen.addAction({ id, name, description, icon, onTrigger });
-    this.registerUnload(() => this.app.MainScreen.removeAction(id));
+    this.app.addVerseAction({ id, name, description, icon, onTrigger });
+    this.registerUnload(() => this.app.removeVerseAction(id));
   }
 }

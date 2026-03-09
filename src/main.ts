@@ -16,6 +16,8 @@ import { DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
 import { TGPaletteState } from "./TGPaletteCategories";
 import { bibleData, VerseRef } from "./VerseRef";
 import { VerseScreen } from "./VerseScreen";
+import { Panel, View, WorkspaceLayout } from "./external/Workspace";
+import type { IconActionItem } from "./Plugin";
 
 export * from "./external/App";
 export * from "./TGAppSettings";
@@ -33,7 +35,6 @@ export * from "./VerseScreen";
  *
  * @property {TGAppSettings} settings - Application settings.
  * @property {TGCommandPalette} commandPalette - The command palette instance for user commands.
- * @property {VerseScreen} MainScreen - The main screen displaying Bible verses.
  *
  * @constructor
  * @param {Document} doc - The document object for the app context.
@@ -46,11 +47,11 @@ export * from "./VerseScreen";
  */
 export default class TouchGrassBibleApp extends App {
   settings!: TGAppSettings;
-  MainScreen!: VerseScreen;
+  private workspaceHostEl!: HTMLDivElement;
+  private verseActions: Map<string, IconActionItem> = new Map();
   firstLoad = true;
-  leftpanel!: navigationPanel;
-  rightpanel!: NotesPanel;
   saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  workspaceSaveTimeoutId: ReturnType<typeof setTimeout> | null = null;
   Notes: NoteVault = new NoteVault();
 
   constructor(doc: Document) {
@@ -58,19 +59,27 @@ export default class TouchGrassBibleApp extends App {
   }
 
   async onload() {
-    this.MainScreen = new VerseScreen(this.contentEl, this);
-    //this.leftpanel = new notesPanel(this, this.contentEl);
-    this.leftpanel = new navigationPanel(this, this.contentEl);
-    this.rightpanel = new NotesPanel(this, this.contentEl);
-    this.on("ArrowRightKeyDown", () => this.leftpanel.open());
+    this.initializeWorkspaceHost();
+    this.on("ArrowRightKeyDown", () => {
+      this.workspace.activateView("navigation-panel");
+    });
     this.commandPalette = new UnifiedCommandPalette(this as App);
     this.commandPalette.state = new TGPaletteState(this.commandPalette, "");
     this.commandPalette.on("update", e => {
       VerseRef.defaultTranslation = (e as TGPaletteState).defaultTranslation;
-      this.MainScreen.verse = (e as TGPaletteState).verse;
+      const activeVerseScreen = this.getActiveVerseScreen();
+      if (activeVerseScreen) {
+        activeVerseScreen.verse = (e as TGPaletteState).verse;
+      }
     });
 
     await this.loadsettings(DEFAULT_SETTINGS);
+    await this.loadWorkspaceLayout();
+    this.registerWorkspaceViews();
+    this.ensureMainScreenTab();
+    this.workspace.on("layout-change", () => {
+      this.saveWorkspaceAfterDelay();
+    });
     this.Notes.loadNotes(this.settings.ExtraNotes.map(nj => Note.fromJSON(nj)));
 
     // Load all JSON files in parallel for faster startup
@@ -95,7 +104,6 @@ export default class TouchGrassBibleApp extends App {
     this.console.log(new Date().getTime() - processstart, "ms startup time");
     this.console.log("Touch Grass Bible is ready!");
 
-    this.MainScreen.onload();
     new BookmarkPlugin(this, {
       id: "bookmarks",
       name: "Bookmarks",
@@ -138,8 +146,45 @@ export default class TouchGrassBibleApp extends App {
       description: "Configure Touch Grass Bible settings",
       version: "1.0.0",
     }).load();
+  }
 
-    /* this.rightpanel.open(); */
+  addVerseAction(action: IconActionItem): this {
+    this.verseActions.set(action.id, action);
+    return this;
+  }
+
+  removeVerseAction(actionId: string): this {
+    this.verseActions.delete(actionId);
+    return this;
+  }
+
+  getVerseActions(): IconActionItem[] {
+    return Array.from(this.verseActions.values());
+  }
+
+  getActiveVerseScreen(): VerseScreen | null {
+    const { activeView } = this.workspace;
+    return activeView instanceof VerseScreen ? activeView : null;
+  }
+
+  setActiveVerse(verse: VerseRef): boolean {
+    const active = this.getActiveVerseScreen();
+    if (active) {
+      active.verse = verse;
+      return true;
+    }
+
+    if (!this.workspace.activateView("verse-screen")) {
+      return false;
+    }
+
+    const activated = this.getActiveVerseScreen();
+    if (!activated) {
+      return false;
+    }
+
+    activated.verse = verse;
+    return true;
   }
 
   openCommandPalette(TGPaletteState: Partial<TGPaletteState> = {}): void {
@@ -150,6 +195,7 @@ export default class TouchGrassBibleApp extends App {
   }
 
   onunload(): boolean {
+    this.saveWorkspaceLayout();
     return true;
   }
 
@@ -177,6 +223,135 @@ export default class TouchGrassBibleApp extends App {
       this.console.log("Settings saved after 5 seconds");
       this.saveTimeoutId = null; // Reset after execution
     }, delay);
+  }
+
+  async loadWorkspaceLayout() {
+    const rawLayout = await this.loadConfig("workspace");
+    let parsedLayout: unknown;
+    try {
+      parsedLayout = JSON.parse(rawLayout);
+    } catch (error) {
+      this.console.warn("Invalid workspace config JSON. Falling back to default layout.", error);
+      this.initializeWorkspace(this.buildDefaultWorkspaceLayout(), this.workspaceHostEl);
+      return;
+    }
+
+    const restored = this.initializeWorkspace(
+      parsedLayout as ReturnType<typeof this.workspace.serializeLayout>,
+      this.workspaceHostEl,
+    );
+    if (!restored) {
+      this.console.warn("Workspace layout rejected. Falling back to default layout.");
+      this.initializeWorkspace(this.buildDefaultWorkspaceLayout(), this.workspaceHostEl);
+    }
+  }
+
+  saveWorkspaceLayout() {
+    const serializedLayout = this.workspace.serializeLayout();
+    void this.saveConfig("workspace", JSON.stringify(serializedLayout));
+  }
+
+  saveWorkspaceAfterDelay(delay: number = 500) {
+    if (this.workspaceSaveTimeoutId !== null) {
+      clearTimeout(this.workspaceSaveTimeoutId);
+      this.workspaceSaveTimeoutId = null;
+    }
+    this.workspaceSaveTimeoutId = setTimeout(() => {
+      this.saveWorkspaceLayout();
+      this.workspaceSaveTimeoutId = null;
+    }, delay);
+  }
+
+  private initializeWorkspaceHost() {
+    if (this.workspaceHostEl) return;
+    this.workspaceHostEl = this.contentEl.createEl("div", { cls: "workspace-root-host" });
+  }
+
+  private mountWorkspaceRoot() {
+    if (!this.workspaceHostEl) {
+      this.initializeWorkspaceHost();
+    }
+    this.workspaceHostEl.empty();
+    this.workspaceHostEl.appendChild(this.workspace.rootPanel.containerEl);
+  }
+
+  private registerWorkspaceViews() {
+    this.workspace.registerView("verse-screen", panel => {
+      const verseScreen = new VerseScreen(panel, this);
+      verseScreen.onload();
+      return verseScreen;
+    });
+
+    this.workspace.registerView("reading-tools", panel => {
+      const view = new View(panel);
+      view.containerEl.classList.add("workspace-static-view");
+      view.containerEl.createEl("h3", { text: "Reading Tools" });
+      view.containerEl.createEl("p", {
+        text: "Use Ctrl+Enter to open the command palette, then search books, verses, notes, and references.",
+      });
+      return view;
+    });
+
+    this.workspace.registerView("navigation-panel", panel => {
+      return new navigationPanel(panel, this);
+    });
+
+    this.workspace.registerView("notes-panel", panel => {
+      return new NotesPanel(panel, this);
+    });
+  }
+
+  private ensureMainScreenTab() {
+    if (this.hasRegisteredViewInLayout("verse-screen")) {
+      return;
+    }
+    this.workspace.restoreLayout(this.buildDefaultWorkspaceLayout());
+    this.mountWorkspaceRoot();
+  }
+
+  private hasRegisteredViewInLayout(viewId: string, panel: Panel = this.workspace.rootPanel): boolean {
+    if (panel.getMode() === "views") {
+      return panel.getViews().some((view: { id: string }) => view.id === viewId);
+    }
+
+    return panel.childPanels.some(child => this.hasRegisteredViewInLayout(viewId, child.panel));
+  }
+
+  private buildDefaultWorkspaceLayout(): WorkspaceLayout {
+    return {
+      version: 1,
+      rootPanel: {
+        id: "root",
+        mode: "panels",
+        splitDirection: "horizontal",
+        children: [
+          {
+            size: 3,
+            panel: {
+              id: "main-tabs",
+              mode: "views",
+              splitDirection: "horizontal",
+              views: [
+                { id: "verse-screen", title: "Scripture" },
+                { id: "reading-tools", title: "Tools" },
+              ],
+            },
+          },
+          {
+            size: 2,
+            panel: {
+              id: "secondary-tabs",
+              mode: "views",
+              splitDirection: "horizontal",
+              views: [
+                { id: "navigation-panel", title: "Navigate" },
+                { id: "notes-panel", title: "Notes" },
+              ],
+            },
+          },
+        ],
+      },
+    };
   }
 }
 

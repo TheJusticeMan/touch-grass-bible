@@ -1,4 +1,4 @@
-import Bibledata from "./bible_with_embeddings.json";
+/* import Bibledata from "./bible_with_embeddings.json";
 
 export const flattened = Object.entries(
   Bibledata as Record<string, { text: string; embedding: number[] }[][][]>,
@@ -16,3 +16,4 @@ export const flattened = Object.entries(
     )
     .flat(2),
 );
+ */

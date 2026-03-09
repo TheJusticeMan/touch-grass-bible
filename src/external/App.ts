@@ -2,7 +2,7 @@ import { UnifiedCommandPalette } from "../main";
 import "./App.css";
 import { ETarget, touchDragger } from "./Event";
 import { BrowserConsole } from "./MyBrowserConsole";
-import { ScreenView } from "./screen";
+import { Workspace, WorkspaceLayout } from "./Workspace";
 export * from "./Comands";
 export * from "./CommandPalette";
 export * from "./Components";
@@ -11,7 +11,6 @@ export * from "./Event";
 export * from "./highlighter";
 export * from "./MyBrowserConsole";
 export * from "./MyHTML";
-export * from "./screen";
 export * from "./settings";
 export * from "./State";
 
@@ -37,7 +36,7 @@ class AppState {
  * Provides core functionality for event handling, state management,
  * command palette integration, history navigation, and data persistence.
  *
- * Subclasses must implement the `onload`, `onunload`, `commandPalette`, and `MainScreen` members.
+ * Subclasses must implement the `onload` and `onunload` members.
  *
  * @template App - The concrete application type.
  *
@@ -47,8 +46,7 @@ class AppState {
  * @property {HTMLElement} contentEl - The main content element for the application UI.
  * @property {AppState} state - The current application state.
  * @property {ETarget[]} target - Stack of event targets for keyboard and command events.
- * @property {UnifiedCommandPalette<App>} commandPalette - The application's command palette (abstract).
- * @property {ScreenView<App>} MainScreen - The main screen view of the application (abstract).
+ * @property {UnifiedCommandPalette<App>} commandPalette - The application's command palette.
  *
  * @constructor
  * @param {Document} doc - The document object for DOM manipulation.
@@ -88,10 +86,10 @@ abstract class App extends ETarget<{
 }> {
   console: BrowserConsole;
   contentEl: HTMLElement;
+  workspace: Workspace = new Workspace();
 
   commandPalette: UnifiedCommandPalette = new UnifiedCommandPalette(this);
 
-  abstract MainScreen: ScreenView<App>;
   private target: ETarget[] = [];
   /**
    * Returns the current event target for keyboard and command events.
@@ -197,6 +195,21 @@ abstract class App extends ETarget<{
   async loadData(): Promise<{ [setting: string]: unknown }> {
     const dataStr = localStorage.getItem("app-data");
     return Promise.resolve(dataStr ? JSON.parse(dataStr) : {});
+  }
+
+  async saveConfig(name: string, content: string) {
+    localStorage.setItem(`setting-${name}`, content);
+  }
+
+  async loadConfig(name: string): Promise<string> {
+    return Promise.resolve(localStorage.getItem(`setting-${name}`) || "{}");
+  }
+
+  initializeWorkspace(layout: WorkspaceLayout, mountTarget: HTMLElement): boolean {
+    const restored = this.workspace.restoreLayout(layout);
+    mountTarget.innerHTML = "";
+    mountTarget.appendChild(this.workspace.rootPanel.containerEl);
+    return restored;
   }
 
   /**

@@ -1,18 +1,15 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import { ChevronLeft, Plus, Trash, X } from "lucide";
+import { ChevronLeft, Plus, X } from "lucide";
 import TouchGrassBibleApp, {
   Button,
-  CommandCategory,
-  CommandItem,
-  CommandPaletteState,
-  Component,
+  UIComponent,
   ETarget,
   IconButton,
   Openable,
-  sidePanel,
   TextArea,
   TextInput,
 } from "./main";
+import { Panel, View } from "./external/Workspace";
+import { myNotesCategoryID } from "./plugins/Notes";
 
 export class Note extends ETarget<{ change: Note }> {
   private _name: string;
@@ -117,21 +114,28 @@ export class NoteVault {
 }
 
 /**
- * Side panel for managing and viewing notes.
- * @extends sidePanel<TouchGrassBibleApp>
+ * Notes view for managing and viewing notes.
  */
-export class NotesPanel extends sidePanel {
+export class NotesPanel extends View {
   NotePreviews: notePreview[] = [];
-  constructor(app: TouchGrassBibleApp, parent: HTMLElement) {
-    super(app, parent, "right");
+  content: HTMLDivElement;
+  constructor(
+    panel: Panel,
+    public app: TouchGrassBibleApp,
+  ) {
+    super(panel);
+    this.containerEl.classList.add("workspace-sidepanel", "right");
+    this.content = this.containerEl.createEl("div", { cls: "sidepanel-content" });
     // class for styling
     this.content.classList.add("notes-panel");
+  }
 
-    this.on("open", () => {
-      this.update();
-      /* new noteEditor((this.app as TouchGrassBibleApp), this.content, this.Notes[0]).open(); */
-    });
-    this.on("close", () => this.saveNotesToSettings());
+  onActivate(): void {
+    this.update();
+  }
+
+  onDeactivate(): void {
+    this.saveNotesToSettings();
   }
 
   private saveNotesToSettings() {
@@ -152,7 +156,7 @@ export class NotesPanel extends sidePanel {
       .addClass("search-notes-input")
       .setType("search")
       .on("click", () =>
-        (this.app as TouchGrassBibleApp).commandPalette.update({ topCategory: myNotesCategory }).open(),
+        (this.app as TouchGrassBibleApp).commandPalette.update({ topCategory: myNotesCategoryID }).open(),
       );
     (this.app as TouchGrassBibleApp).Notes.getAllNotes()
       .sort((a, b) => b.dateModified.getTime() - a.dateModified.getTime())
@@ -197,9 +201,9 @@ export class NotesPanel extends sidePanel {
  * @method constructor - Initializes the note preview with truncated text and title.
  * @param {HTMLElement} parent - The parent element to attach the preview to.
  * @param {Note} note - The note to preview.
- * @extends Component<"div">
+ * @extends UIComponent<"div">
  */
-class notePreview extends Component<"div"> {
+class notePreview extends UIComponent<"div"> {
   constructor(
     parent: HTMLElement,
     public note: Note,
@@ -271,7 +275,7 @@ class notePreview extends Component<"div"> {
  * @param tag - The tag string to display in the badge.
  * @param onRemove - Callback function invoked when the remove button is clicked.
  */
-class tagBadge extends Component<"div"> {
+class tagBadge extends UIComponent<"div"> {
   constructor(
     parent: HTMLElement,
     public tag: string,
@@ -354,56 +358,5 @@ class noteEditor extends Openable<{ open: void; close: void }> {
   }
   onclose(): void {
     this.content.remove();
-  }
-}
-
-export class myNotesCategory extends CommandCategory<Note> {
-  name: string = "My Notes";
-  description: string = "Search and manage your notes";
-
-  onTrigger(_state: CommandPaletteState): void {}
-
-  getCommands(query: string): Note[] {
-    // Get notes from settings, filter by query
-    const notes: Note[] = (this.app as TouchGrassBibleApp).Notes.getAllNotes();
-    if (!query) return notes;
-    return this.getcompatible(
-      query,
-      notes,
-      n => n.name,
-      n => n.tags.join(" "),
-      n => n.content,
-    );
-  }
-
-  renderCommand(command: Note, el: CommandItem<Note>): Partial<CommandPaletteState> {
-    el.setName(command.name + " # " + command.tags.join(", "))
-      .setDescription(
-        command.content.length > 100 ? command.content.substring(0, 100) + "..." : command.content,
-      )
-      .addIconButton(btn => {
-        btn
-          .setIcon(Trash)
-          .setTooltip("Delete Note")
-          .on("click", e => {
-            e.stopPropagation();
-            (this.app as TouchGrassBibleApp).Notes.removeNote(command);
-            (this.app as TouchGrassBibleApp).rightpanel.update();
-            this.commandPalette.display();
-          });
-      });
-    return {};
-  }
-
-  executeCommand(command: Note): void {
-    this.commandPalette.close();
-
-    new noteEditor(
-      this.app as TouchGrassBibleApp,
-      (this.app as TouchGrassBibleApp).rightpanel.content,
-      command,
-    )
-      .open()
-      .on("close", () => (this.app as TouchGrassBibleApp).rightpanel.update());
   }
 }
