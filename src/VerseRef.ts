@@ -125,13 +125,16 @@ export class VerseRef {
     const [bookCode, chapter, verse] = parts;
     const bookIndex = VerseRef.BookShortNames.indexOf(bookCode);
     if (bookIndex === -1) {
+      // console.warn is intentional here: fromOSIS is a static method with no app instance
       console.warn(`Unknown OSIS book code: ${bookCode}`);
       return new VerseRef("GENESIS", 1, 1);
     }
+    const chapterNum = parseInt(chapter ?? "1", 10);
+    const verseNum = parseInt(verse ?? "1", 10);
     return new VerseRef(
       VerseRef.booksOfTheBible[bookIndex],
-      parseInt(chapter ?? "1", 10),
-      parseInt(verse ?? "1", 10),
+      isNaN(chapterNum) ? 1 : chapterNum,
+      isNaN(verseNum) ? 1 : verseNum,
     );
   }
   Bookmarks(): string[] {
