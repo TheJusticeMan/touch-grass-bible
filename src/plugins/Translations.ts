@@ -8,7 +8,7 @@ export default class TranslationsPlugin extends Plugin {
   }
 }
 
-export class translationCategory extends CommandCategory<string> {
+class translationCategory extends CommandCategory<string> {
   readonly name = "Translations";
   readonly description = "List of available Bible translations";
   translations!: string[];

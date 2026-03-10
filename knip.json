@@ -1,27 +1,17 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": ["src/main.ts", "src/index.html"],
+  "entry": ["src/main.ts"],
   "project": ["src/**/*.ts"],
-  "ignore": [
-    "src/electron/**",
-    "src/web/**",
-    "src/__mocks__/**",
-    "processing/**",
-    "src/plugins/l.js"
-  ],
+  "ignore": ["processing/**"],
   "ignoreDependencies": [
     "path",
     "https",
     "cli-progress",
-    "glob",
-    "apocalypse-throttle",
-    "ollama",
     "@capacitor/android",
     "@capacitor/ios",
     "@capacitor/filesystem",
     "@capacitor/status-bar",
     "@capacitor/core",
-    "@capacitor/cli",
-    "unzipper"
+    "@vitest/coverage-v8"
   ]
 }

@@ -21,7 +21,7 @@ export default class SettingsPlugin extends Plugin {
   }
 }
 
-export class SettingsCategory extends CommandCategory<string> {
+class SettingsCategory extends CommandCategory<string> {
   readonly name = "Settings";
   readonly description = "Configure Touch Grass Bible settings";
   app: TouchGrassBibleApp;

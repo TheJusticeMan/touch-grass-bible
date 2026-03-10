@@ -29,7 +29,7 @@ export default class NotesPlugin extends Plugin {
     });
   }
 }
-export class myNotesCategory extends CommandCategory<VerseRef> {
+class myNotesCategory extends CommandCategory<VerseRef> {
   readonly name = "Notes";
   readonly description = "List of your personal notes on verses";
   notes: VerseRef[] = [];

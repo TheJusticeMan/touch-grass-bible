@@ -14,7 +14,7 @@ import { VerseRef } from "../VerseRef";
 import { TSKCrossRefCategoryID } from "./TSK";
 import { PaletteState } from "../external/PaletteStateController";
 
-export const TopicListCategoryID = "topics";
+const TopicListCategoryID = "topics";
 
 export default class TopicalBiblePlugin extends Plugin {
   topics: BibleTopics = new BibleTopics({}); // Initialize with empty topics
@@ -49,7 +49,7 @@ export default class TopicalBiblePlugin extends Plugin {
   }
 }
 
-export class topicListCategory extends CommandCategory<VerseRef | string> {
+class topicListCategory extends CommandCategory<VerseRef | string> {
   list: string[] | VerseRef[] = [];
   name = "Topics (www.openbible.info)";
   description = "List of topics from OpenBible.info";

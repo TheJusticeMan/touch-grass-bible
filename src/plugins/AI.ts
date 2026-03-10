@@ -45,7 +45,7 @@ export default class AIPlugin extends Plugin {
   }
 }
 
-export class AICommandPalette extends CommandCategory<string> {
+class AICommandPalette extends CommandCategory<string> {
   readonly name = "AI Bible Assistant";
   readonly description = "Ask the AI assistant questions about Bible verses and theology.";
   private responses: { question: string; answer: string }[] = [];

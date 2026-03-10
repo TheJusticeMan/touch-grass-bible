@@ -46,7 +46,7 @@ export default class TSK extends Plugin {
   }
 }
 
-export class CrossRefCategory extends CommandCategory<VerseRef> {
+class CrossRefCategory extends CommandCategory<VerseRef> {
   readonly name = "Cross references (TSK+)";
   readonly description = "Cross references for the selected verse";
   verses: VerseRef[] = [];
