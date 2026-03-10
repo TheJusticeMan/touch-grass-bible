@@ -1,17 +1,16 @@
 import apocalypseThrottle from "apocalypse-throttle";
 import { ScrollText } from "lucide";
+import { Panel, View } from "./external/Workspace";
 import TouchGrassBibleApp, {
   Button,
-  UIComponent,
   Highlighter,
   IconButton,
   pdsp,
-  TGPaletteState,
+  UIComponent,
   VerseHighlight,
   VerseRef,
 } from "./main";
 import { BookScroll, ChapterScroll } from "./Scroll";
-import { Panel, View } from "./external/Workspace";
 import "./VerseScreen.css";
 
 /**
@@ -64,14 +63,14 @@ export class ChapterComponent extends UIComponent<"div"> {
         el.createEl("div", { text: h(`${v} ${text}`), cls: "verse" }, (el: HTMLElement) => {
           if (text.includes("#")) el.addClass("versePBreak");
 
-          el.addEventListener("click", () => this.app.setActiveVerse(newVerse));
+          el.addEventListener("click", () => this.app.verseState.set(newVerse));
           el.addEventListener(
             "contextmenu",
-            pdsp(() =>
-              this.app.openCommandPalette({
-                topCategory: "tsk-cross-ref",
-                verse: newVerse,
-              }),
+            pdsp(
+              () => (
+                app.verseState.set(newVerse),
+                this.app.openCommandPalette({ topCategory: "tsk-cross-ref" })
+              ),
             ),
           );
         });
@@ -158,6 +157,7 @@ export class VerseScreen extends View {
     super(panel);
     this.containerEl.classList.add("screen-view");
     this.content = this.containerEl.createEl("div", { cls: "content" });
+    app.verseState.onChange(verse => (this.verse = verse));
   }
 
   onload(): void {
@@ -174,8 +174,6 @@ export class VerseScreen extends View {
     ); */
 
     this.app.commandPalette.on("close", () => {
-      const { verse } = this.app.commandPalette.state as TGPaletteState;
-      this.verse = verse;
       VerseRef.Bookmarks.addToHistory(this.verse);
       this.app.saveSettings();
     });
@@ -185,7 +183,7 @@ export class VerseScreen extends View {
       passive: true,
     });
 
-    this.verse = (this.app.commandPalette.state as TGPaletteState).verse || new VerseRef("GENESIS", 1, 1);
+    this.verse = this.app.verseState.get(); // Initialize verse from state
     this.bookScroll = new BookScroll(this.content, v => {
       this.chapterScroll.show(v);
       return (this.verse = v);
@@ -196,14 +194,14 @@ export class VerseScreen extends View {
     });
   }
 
-  get verse(): VerseRef {
+  private get verse(): VerseRef {
     return this._verse;
   }
 
-  set verse(value: VerseRef) {
+  private set verse(value: VerseRef) {
     if (value.isSame(this._verse)) return;
     this._verse = value;
-    (this.app.commandPalette.state as TGPaletteState).verse = value;
+    /* this.app.verseState.set(value); infinate loop */
     this.updateTitle();
     if (!this.chapterScroll?.isGrabbed && !this.bookScroll?.isGrabbed)
       VerseRef.Bookmarks.addToHistory(this.verse);

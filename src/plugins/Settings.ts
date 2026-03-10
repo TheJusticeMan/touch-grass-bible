@@ -4,12 +4,12 @@ import TouchGrassBibleApp, {
   CMD,
   CommandCategory,
   CommandItem,
+  CommandPaletteState,
   UnifiedCommandPalette,
   toggleCMD,
 } from "../main";
 import Plugin from "../Plugin";
 import { DEFAULT_SETTINGS } from "../TGAppSettings";
-import { TGPaletteState } from "../TGPaletteCategories";
 import { VerseRef } from "../VerseRef";
 
 export const SettingsCategoryID = "settings";
@@ -33,7 +33,7 @@ export class SettingsCategory extends CommandCategory<string> {
     this.app = plugin.app;
   }
 
-  onTrigger(_state: TGPaletteState): void {
+  onTrigger(_state: CommandPaletteState): void {
     new toggleCMD(this.defaultCMD)
       .setValue(this.app.settings.enableLogging)
       .setName("Debug console")
@@ -91,7 +91,7 @@ export class SettingsCategory extends CommandCategory<string> {
     return [];
   }
 
-  renderCommand(_command: string, _Item: CommandItem<string>): Partial<TGPaletteState> {
+  renderCommand(_command: string, _Item: CommandItem<string>): Partial<CommandPaletteState> {
     return { topCategory: SettingsCategoryID };
   }
 

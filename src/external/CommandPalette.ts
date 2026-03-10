@@ -82,7 +82,7 @@ export class UnifiedCommandPalette extends Openable<{
   dragXcancel: { deltaX: number; deltaY: number };
   dragYcancel: { deltaX: number; deltaY: number };
 }> {
-  private _state!: CommandPaletteState; // State of the command palette
+  private _state: CommandPaletteState = new CommandPaletteState(this, ""); // Initialize with default state
   public get state(): CommandPaletteState {
     return this._state;
   }
@@ -360,7 +360,7 @@ export class UnifiedCommandPalette extends Openable<{
   };
 
   private ActivateContextFromCommand(command: CommandItem<unknown>) {
-    if (command.contextMenuAllowed) this.display(command.toState as typeof this._state);
+    if (command.contextMenuAllowed) this.display(command.toState(this.state));
   }
 
   handleBack = () => {
@@ -435,7 +435,7 @@ export class UnifiedCommandPalette extends Openable<{
             .on("click", () => Navigator.tryexecute(command, itemEl.toState))
             .on("mousemove", () => this.selectIndex(cmdindex))
             .on("context", () => this.ActivateContextFromCommand(this.commandItems[cmdindex]));
-          itemEl.toState = state.update(Navigator.tryrender(command, itemEl));
+          itemEl.toState = Navigator.tryrender(command, itemEl);
           this.commandItems.push(itemEl);
         });
       }
@@ -472,7 +472,7 @@ export class UnifiedCommandPalette extends Openable<{
             .on("click", () => cat.tryexecute(command, itemEl.toState))
             .on("mousemove", () => this.selectIndex(cmdindex))
             .on("context", () => this.ActivateContextFromCommand(this.commandItems[cmdindex]));
-          itemEl.toState = state.update(cat.tryrender(command, itemEl));
+          itemEl.toState = cat.tryrender(command, itemEl);
           this.commandItems.push(itemEl);
         }
 
@@ -484,7 +484,7 @@ export class UnifiedCommandPalette extends Openable<{
               .on("click", () => cat.extraCMD?.tryexecute(command, itemEl.toState))
               .on("mousemove", () => this.selectIndex(cmdindex))
               .on("context", () => this.ActivateContextFromCommand(this.commandItems[cmdindex]));
-            itemEl.toState = state.update(cat.extraCMD?.tryrender(command, itemEl) || {});
+            itemEl.toState = cat.extraCMD?.tryrender(command, itemEl) || (state => state.update({}));
             this.commandItems.push(itemEl);
             void (
               i === 0 &&
@@ -647,8 +647,12 @@ export abstract class CommandCategory<T> {
   }
   abstract onTrigger(state: CommandPaletteState): void;
   abstract getCommands(query: string): T[];
-  abstract renderCommand(command: T, el: CommandItem<T>): Partial<CommandPaletteState>;
+  abstract renderCommand(
+    command: T,
+    el: CommandItem<T>,
+  ): Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState);
   abstract executeCommand(command: T): void;
+  onForward?: (state: CommandPaletteState) => CommandPaletteState; // Optional function to modify state when navigating forward
 
   onInit?(): void; // Called when the category is initialized
 
@@ -674,17 +678,18 @@ export abstract class CommandCategory<T> {
     }
   }
 
-  tryrender(command: T, el: CommandItem<T>): Partial<CommandPaletteState> {
+  tryrender(command: T, el: CommandItem<T>): (state: CommandPaletteState) => CommandPaletteState {
     try {
-      return this.renderCommand(command, el);
+      const result = this.renderCommand(command, el);
+      return typeof result === "function" ? result : state => state.update(result);
     } catch (e) {
       this.console.error(`Error in ${this.constructor.name}.renderCommand`, e);
     }
-    return {};
+    return state => state.update({});
   }
 
-  tryexecute(command: T, toState: CommandPaletteState): this {
-    this.commandPalette.state = toState;
+  tryexecute(command: T, toState: (state: CommandPaletteState) => CommandPaletteState): this {
+    this.commandPalette.state = toState(this.commandPalette.state);
     try {
       this.executeCommand(command);
     } catch (e) {
@@ -769,7 +774,7 @@ export abstract class CommandCategory<T> {
  */
 export class CommandItem<T> extends Item {
   private allowsContextMenu: boolean = false;
-  toState: CommandPaletteState;
+  toState: (state: CommandPaletteState) => CommandPaletteState;
 
   constructor(
     parent: HTMLElement,
@@ -778,7 +783,7 @@ export class CommandItem<T> extends Item {
   ) {
     super(parent);
     this.highlight(PaletteCat.highlighter);
-    this.toState = this.PaletteCat.commandPalette.state.update({});
+    this.toState = () => this.PaletteCat.commandPalette.state.update({});
   }
 
   addctx() {

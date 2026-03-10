@@ -1,8 +1,10 @@
 export const processstart = new Date().getTime();
 import { BibleTopics } from "./BibleTopics";
-import { App, UnifiedCommandPalette } from "./external/App";
+import { App } from "./external/App";
+import { View, WorkspaceLayout } from "./external/Workspace";
 import info from "./info.json";
 import { Note, NotesPanel, NoteVault } from "./NotesPanel";
+import type { IconActionItem } from "./Plugin";
 import BookmarkPlugin from "./plugins/Bookmarks";
 import NotesPlugin from "./plugins/Notes";
 import BibleSearchPlugin from "./plugins/Search";
@@ -13,15 +15,13 @@ import TSK from "./plugins/TSK";
 import { navigationPanel } from "./sidepanels";
 import "./style.css";
 import { DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
-import { TGPaletteState } from "./TGPaletteCategories";
-import { bibleData, VerseRef } from "./VerseRef";
+import { CommandPaletteState } from "./external/App";
+
+import { bibleData, translation, VerseRef } from "./VerseRef";
 import { VerseScreen } from "./VerseScreen";
-import { View, WorkspaceLayout } from "./external/Workspace";
-import type { IconActionItem } from "./Plugin";
 
 export * from "./external/App";
 export * from "./TGAppSettings";
-export * from "./TGPaletteCategories";
 export * from "./VerseRef";
 export * from "./VerseScreen";
 
@@ -51,6 +51,8 @@ export default class TouchGrassBibleApp extends App {
   firstLoad = true;
   saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
   Notes: NoteVault = new NoteVault();
+  verseState = this.commandPalette.useState(new VerseRef("GENESIS", 1, 1));
+  defaultTranslation = this.commandPalette.useState("KJV" as translation);
 
   constructor(doc: Document) {
     super(doc, "Touch Grass Bible");
@@ -61,15 +63,8 @@ export default class TouchGrassBibleApp extends App {
     this.on("ArrowRightKeyDown", () => {
       this.workspace.activateView("navigation-panel");
     });
-    this.commandPalette = new UnifiedCommandPalette(this as App);
-    this.commandPalette.state = new TGPaletteState(this.commandPalette, "");
-    this.commandPalette.on("update", e => {
-      VerseRef.defaultTranslation = (e as TGPaletteState).defaultTranslation;
-      const activeVerseScreen = this.getActiveVerseScreen();
-      if (activeVerseScreen) {
-        activeVerseScreen.verse = (e as TGPaletteState).verse;
-      }
-    });
+
+    this.defaultTranslation.onChange(newTranslation => (VerseRef.defaultTranslation = newTranslation));
 
     await this.loadsettings(DEFAULT_SETTINGS);
     await this.loadWorkspaceLayout();
@@ -91,7 +86,7 @@ export default class TouchGrassBibleApp extends App {
 
     VerseRef.bibleTranslations = translations;
     VerseRef.Bookmarks = new BibleTopics(this.settings.Bookmarks);
-    (this.commandPalette.state as TGPaletteState).verse = VerseRef.RandomVerse;
+    this.verseState.set(VerseRef.RandomVerse);
     this.console.enabled = this.settings.enableLogging;
     this.console.log(info.name, info.version, "loaded");
     //this.on("EnterKeyDown", e => !this.commandPalette.isOpen && this.openCommandPalette());
@@ -158,33 +153,8 @@ export default class TouchGrassBibleApp extends App {
     return Array.from(this.verseActions.values());
   }
 
-  getActiveVerseScreen(): VerseScreen | null {
-    const { activeView } = this.workspace;
-    return activeView instanceof VerseScreen ? activeView : null;
-  }
-
-  setActiveVerse(verse: VerseRef): boolean {
-    const active = this.getActiveVerseScreen();
-    if (active) {
-      active.verse = verse;
-      return true;
-    }
-
-    if (!this.workspace.activateView("verse-screen")) {
-      return false;
-    }
-
-    const activated = this.getActiveVerseScreen();
-    if (!activated) {
-      return false;
-    }
-
-    activated.verse = verse;
-    return true;
-  }
-
-  openCommandPalette(TGPaletteState: Partial<TGPaletteState> = {}): void {
-    this.commandPalette.update(TGPaletteState).open();
+  openCommandPalette(CommandPaletteState: Partial<CommandPaletteState> = {}): void {
+    this.commandPalette.update(CommandPaletteState).open();
     if (this.settings.showHelp && this.firstLoad) {
       this.firstLoad = false;
     }

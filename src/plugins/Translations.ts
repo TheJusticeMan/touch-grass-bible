@@ -1,7 +1,6 @@
-import { CommandCategory, CommandPaletteState, CommandItem, UnifiedCommandPalette } from "../main";
+import { CommandCategory, CommandItem, CommandPaletteState, UnifiedCommandPalette } from "../main";
 import Plugin from "../Plugin";
-import { TGPaletteState } from "../TGPaletteCategories";
-import { VerseRef, translationMetadata, translation } from "../VerseRef";
+import { VerseRef, translation, translationMetadata } from "../VerseRef";
 
 export default class TranslationsPlugin extends Plugin {
   async onload(): Promise<void> {
@@ -29,9 +28,15 @@ export class translationCategory extends CommandCategory<string> {
     return this.getcompatible(query, this.translations, str => translationMetadata[str]?.name || str);
   }
 
-  renderCommand(command: string, Item: CommandItem<string>): Partial<TGPaletteState> {
+  renderCommand(
+    command: string,
+    Item: CommandItem<string>,
+  ): (state: CommandPaletteState) => CommandPaletteState {
     Item.setTitle(translationMetadata[command]?.name || command).addctx();
-    return { topCategory: "", defaultTranslation: command as translation };
+    return state => {
+      this.plugin.app.defaultTranslation.set(command as translation);
+      return state.update({ topCategory: "" });
+    };
   }
 
   executeCommand(command: string): void {

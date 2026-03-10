@@ -1,7 +1,13 @@
 import { Waypoints } from "lucide";
-import { CommandCategory, CommandItem, UnifiedCommandPalette, VerseInfoComponent, VerseRef } from "../main";
+import {
+  CommandCategory,
+  CommandItem,
+  CommandPaletteState,
+  UnifiedCommandPalette,
+  VerseInfoComponent,
+  VerseRef,
+} from "../main";
 import Plugin from "../Plugin";
-import { TGPaletteState } from "../TGPaletteCategories";
 
 export const TSKCrossRefCategoryID = "tsk-cross-ref";
 
@@ -18,10 +24,10 @@ export default class TSK extends Plugin {
       name: "View cross references (TSK+)",
       icon: Waypoints,
       onTrigger: (verseInfo: VerseInfoComponent) => {
+        this.app.verseState.set(verseInfo.verse);
         this.app.openCommandPalette({
           topCategory: TSKCrossRefCategoryID,
-          verse: verseInfo.verse,
-        } as TGPaletteState);
+        } as CommandPaletteState);
       },
     });
   }
@@ -48,14 +54,14 @@ export class CrossRefCategory extends CommandCategory<VerseRef> {
     super(commandPalette);
   }
 
-  onTrigger(state: TGPaletteState): void {
-    const { verse } = state;
+  onTrigger(): void {
+    const verse = this.plugin.app.verseState.get();
     if (verse)
       void ((this.verses = this.plugin.crossRefsForVerse(verse)),
       (this.title = `Cross references for ${verse.toString()}`));
     else this.verses = [];
     /* new CMD(this.defaultCMD).setName("Clear cross reference filter").on("_click", () => {
-      this.commandPalette.update({ verse: state.verse } as TGPaletteState).display();
+      this.commandPalette.update({ verse: state.verse } as CommandPaletteState).display();
     }); */
   }
   getCommands(query: string): VerseRef[] {
@@ -67,10 +73,16 @@ export class CrossRefCategory extends CommandCategory<VerseRef> {
     ); //.reverse();
   }
 
-  renderCommand(verse: VerseRef, Item: CommandItem<VerseRef>): Partial<TGPaletteState> {
+  renderCommand(
+    verse: VerseRef,
+    Item: CommandItem<VerseRef>,
+  ): (state: CommandPaletteState) => CommandPaletteState {
     Item.setTitle(verse.toString()).setDescription(verse.vTXT).addctx();
 
-    return { topCategory: TSKCrossRefCategoryID, verse, specificity: 0 };
+    return state => {
+      this.plugin.app.verseState.set(verse);
+      return state.update({ topCategory: TSKCrossRefCategoryID });
+    };
   }
 
   executeCommand(): void {

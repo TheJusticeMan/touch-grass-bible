@@ -1,7 +1,6 @@
 import { SquarePen } from "lucide";
-import { CommandCategory, CommandItem, TextArea, UnifiedCommandPalette } from "../main";
+import { CommandCategory, CommandItem, CommandPaletteState, TextArea, UnifiedCommandPalette } from "../main";
 import Plugin from "../Plugin";
-import { TGPaletteState } from "../TGPaletteCategories";
 import { VerseRef } from "../VerseRef";
 import { TSKCrossRefCategoryID } from "./TSK";
 
@@ -42,7 +41,7 @@ export class myNotesCategory extends CommandCategory<VerseRef> {
     super(commandPalette);
   }
 
-  onTrigger(_state: TGPaletteState): void {
+  onTrigger(_state: CommandPaletteState): void {
     this.notes = Array.from(VerseRef.myNotes.keys())
       .map(osis => VerseRef.fromOSIS(osis))
       .sort((a, b) => a.toString().localeCompare(b.toString()));
@@ -53,11 +52,14 @@ export class myNotesCategory extends CommandCategory<VerseRef> {
     return this.getcompatible(query, this.notes, verse => verse.note);
   }
 
-  renderCommand(verse: VerseRef, Item: CommandItem<VerseRef>): Partial<TGPaletteState> {
+  renderCommand(verse: VerseRef, Item: CommandItem<VerseRef>) {
     Item.setTitle(verse.toString())
       .setDescription(verse.note || "No note")
       .addctx();
-    return { topCategory: TSKCrossRefCategoryID, verse };
+    return (state: CommandPaletteState) => {
+      this.plugin.app.verseState.set(verse);
+      return state.update({ topCategory: TSKCrossRefCategoryID });
+    };
   }
 
   executeCommand(_command: VerseRef): void {

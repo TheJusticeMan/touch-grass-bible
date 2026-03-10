@@ -4,9 +4,9 @@ import TouchGrassBibleApp, {
   CMD,
   CommandCategory,
   CommandItem,
+  CommandPaletteState,
   IconButton,
   TextInput,
-  TGPaletteState,
   UnifiedCommandPalette,
   VerseInfoComponent,
   VerseRef,
@@ -18,7 +18,7 @@ export const VerseListCategoryID = "verse-list";
 export const BookmarkCategoryID = "bookmarks";
 
 export default class BookmarkPlugin extends Plugin {
-  tag = "Start Up Verses";
+  tag = this.app.commandPalette.useState("Start Up Verses"); // State to track the currently selected bookmark tag
 
   Bookmarks = VerseRef.Bookmarks;
 
@@ -57,9 +57,9 @@ export default class BookmarkPlugin extends Plugin {
         })
         .on("menu", e => {
           e.stopPropagation();
+          this.tag.set(topic);
           this.app.openCommandPalette({
             topCategory: BookmarkCategoryID,
-            tag: topic,
           });
         });
     });
@@ -93,9 +93,9 @@ export default class BookmarkPlugin extends Plugin {
         })
         .on("menu", e => {
           e.stopPropagation();
+          this.tag.set(topic);
           this.app.openCommandPalette({
             topCategory: BookmarkCategoryID,
-            tag: topic,
           });
         });
     });
@@ -123,19 +123,19 @@ export class VerseListCategory extends CommandCategory<VerseRef> {
         this.commandPalette.update({ topCategory: VerseListCategoryID }).display();
       });
     new CMD(this.defaultCMD).setName("Merge verses from the same chapter").on("_click", () => {
-      const versesToKeep = this.plugin.Bookmarks.get(this.plugin.tag)
+      const versesToKeep = this.plugin.Bookmarks.get(this.plugin.tag.get())
         .reverse()
         .reduce((acc: VerseRef[], v) => {
           if (!acc.some(av => av.isSameChapter(v))) acc.push(v);
           return acc;
         }, [])
         .reverse();
-      this.plugin.Bookmarks.set(this.plugin.tag, ...versesToKeep);
+      this.plugin.Bookmarks.set(this.plugin.tag.get(), ...versesToKeep);
       this.commandPalette.display();
       this.plugin.app.saveSettings();
     });
-    this.title = `Bookmark tag: ${VerseListCategory.convertTopicDate(this.plugin.tag)}`;
-    this.verses = this.plugin.Bookmarks.get(this.plugin.tag).reverse();
+    this.title = `Bookmark tag: ${VerseListCategory.convertTopicDate(this.plugin.tag.get())}`;
+    this.verses = this.plugin.Bookmarks.get(this.plugin.tag.get()).reverse();
   }
 
   getCommands(query: string): VerseRef[] {
@@ -147,7 +147,7 @@ export class VerseListCategory extends CommandCategory<VerseRef> {
     ); //.reverse();
   }
 
-  renderCommand(verse: VerseRef, Item: CommandItem<VerseRef>): Partial<TGPaletteState> {
+  renderCommand(verse: VerseRef, Item: CommandItem<VerseRef>) {
     Item.setTitle(verse.toString()).setDescription(verse.vTXT).addctx();
     if (this.isediting) {
       Item.addIconButton(btn =>
@@ -155,14 +155,18 @@ export class VerseListCategory extends CommandCategory<VerseRef> {
           .setIcon(X)
           .setTooltip("Delete verse from tag")
           .on("click", () => {
-            this.plugin.Bookmarks.remove(this.plugin.tag, verse);
+            this.plugin.Bookmarks.remove(this.plugin.tag.get(), verse);
             this.commandPalette.display();
             this.plugin.app.saveSettings();
           }),
       );
     }
 
-    return { topCategory: TSKCrossRefCategoryID, verse, specificity: 0 };
+    return (state: CommandPaletteState) => {
+      this.plugin.app.verseState.set(verse);
+
+      return state.update({ topCategory: TSKCrossRefCategoryID });
+    };
   }
 
   static convertTopicDate(str: string): string {
@@ -213,23 +217,25 @@ export class BookmarkCategory extends CommandCategory<string> {
     this.app = plugin.app;
   }
 
-  onTrigger(_state: TGPaletteState): void {
-    const { verse, tag } = this.commandPalette.state as TGPaletteState;
+  onTrigger(_state: CommandPaletteState): void {
+    const tag = this.plugin.tag.get();
+    const verse = this.app.verseState.get();
     new CMD(this.defaultCMD)
       .setName(`Delete ${verse.toString()} from "${tag}"`)
       .setDescription("Delete a verse from a bookmark tag")
       .on("_click", () => {
-        const { verse, tag } = this.commandPalette.state as TGPaletteState;
+        const tag = this.plugin.tag.get();
+        const verse = this.app.verseState.get();
         this.plugin.Bookmarks.remove(tag, verse);
         this.commandPalette.display();
         this.app.saveSettings();
       });
 
     new CMD(this.defaultCMD)
-      .setName(`Delete tag: ${(this.commandPalette.state as TGPaletteState).tag}`)
+      .setName(`Delete tag: ${this.plugin.tag.get()}`)
       .setDescription("Delete a bookmark tag")
       .on("_click", () => {
-        const { tag } = this.commandPalette.state as TGPaletteState;
+        const tag = this.plugin.tag.get();
         this.plugin.Bookmarks.delete(tag);
         this.commandPalette.display();
         this.app.saveSettings();
@@ -276,7 +282,10 @@ export class BookmarkCategory extends CommandCategory<string> {
     return isdate(b) - isdate(a) || isdate(a) ? b.localeCompare(a) : a.localeCompare(b);
   }
 
-  renderCommand(command: string, Item: CommandItem<string>): Partial<TGPaletteState> {
+  renderCommand(
+    command: string,
+    Item: CommandItem<string>,
+  ): (state: CommandPaletteState) => CommandPaletteState {
     Item.setTitle(VerseListCategory.convertTopicDate(command))
       .addctx()
       .setDescription(
@@ -285,7 +294,10 @@ export class BookmarkCategory extends CommandCategory<string> {
           .join(", "),
       );
 
-    return { topCategory: BookmarkCategoryID, tag: command.toTitleCase() };
+    return state => {
+      this.plugin.tag.set(command);
+      return state.update({ topCategory: BookmarkCategoryID });
+    };
   }
 
   executeCommand(_command: VerseRef | string): void {
