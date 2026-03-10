@@ -56,7 +56,12 @@ function deepMerge<T extends object>(defaults: T, saved: Partial<T>): T {
       typeof saved[k] === "object" &&
       !Array.isArray(saved[k])
     ) {
-      result[k] = deepMerge(defaults[k] as object, saved[k] as object) as T[keyof T];
+      const defaultVal = defaults[k];
+      if (defaultVal !== null && defaultVal !== undefined && typeof defaultVal === "object" && !Array.isArray(defaultVal)) {
+        result[k] = deepMerge(defaultVal as object, saved[k] as object) as T[keyof T];
+      } else {
+        result[k] = saved[k] as T[keyof T];
+      }
     } else if (saved[k] !== undefined) {
       result[k] = saved[k] as T[keyof T];
     }
