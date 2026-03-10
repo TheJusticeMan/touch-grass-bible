@@ -1,11 +1,22 @@
 import { BrowserConsole } from "./main";
 
+type ChatMessage = { role: string; content: string };
+type ToolCall = { index?: number; function: { name: string; arguments: string } };
+type ChatDelta = { content?: string; tool_calls?: ToolCall[] };
+type ChatRequestOptions = {
+  model: string;
+  messages: ChatMessage[];
+  max_tokens: number;
+  stream: boolean;
+};
+type ChatResponse = { role: string; content?: string; tool_calls?: ToolCall[] };
+
 export class AIchat {
   static ChatbotCommunicationGuidelines: string = `You are Pure Chat LLM, a personality created by the great Justice Vellacott. You are running on a large language model. Carefully heed the user's instructions. Respond using Markdown.
 
 Be attentive, thoughtful, and precise. Provide clear, well-structured answers that honor the complexity of each query. Avoid generic responses; instead, offer insights that encourage creativity, reflection, and learning. Employ subtle, dry humor or depth when appropriate. Respect the user's individuality and values, adapting your tone and approach as needed to foster a conversational, meaningful, and genuinely supportive exchange.`;
 
-  messages: { role: string; content: string }[] = [];
+  messages: ChatMessage[] = [];
   console: BrowserConsole;
   endpoint: { endpoint: string; apiKey: string } = {
     endpoint: "https://api.openai.com/v1/chat/completions",
@@ -20,7 +31,7 @@ Be attentive, thoughtful, and precise. Provide clear, well-structured answers th
     this.console = new BrowserConsole(true, "AIchat:");
   }
 
-  request(message: string, streamcallback?: (textFragment: any) => boolean) {
+  request(message: string, streamcallback?: (textFragment: ChatDelta) => boolean) {
     this.addUserMessage(message);
     if (!this.endpoint.apiKey) {
       this.console.error("API key is not set.");
@@ -34,7 +45,7 @@ Be attentive, thoughtful, and precise. Provide clear, well-structured answers th
         stream: true,
       },
       streamcallback,
-    ).then(response => this.addAssistantMessage(response.content));
+    ).then(response => this.addAssistantMessage(response.content ?? ""));
     //.catch(error => this.console.error("Error during chat request:", error));
   }
 
@@ -48,7 +59,7 @@ Be attentive, thoughtful, and precise. Provide clear, well-structured answers th
     return this;
   }
 
-  getMessages(): { role: string; content: string }[] {
+  getMessages(): ChatMessage[] {
     return this.messages;
   }
 
@@ -73,8 +84,8 @@ Be attentive, thoughtful, and precise. Provide clear, well-structured answers th
    */
   static async handleStreamingResponse(
     response: Response,
-    streamcallback: (textFragment: any) => boolean,
-  ): Promise<{ role: string; content?: string; tool_calls?: any[] }> {
+    streamcallback: (delta: ChatDelta) => boolean,
+  ): Promise<ChatResponse> {
     if (!response.body) {
       throw new Error("Response body is null. Streaming is not supported in this environment.");
     }
@@ -83,7 +94,7 @@ Be attentive, thoughtful, and precise. Provide clear, well-structured answers th
     let done = false;
     let buffer = "";
     let fullText = "";
-    const fullcalls: any[] = [];
+    const fullcalls: ToolCall[] = [];
 
     while (!done) {
       const { value, done: streamDone } = await reader.read();
@@ -103,7 +114,7 @@ Be attentive, thoughtful, and precise. Provide clear, well-structured answers th
           }
           try {
             const data = JSON.parse(dataStr);
-            const delta = data.choices?.[0]?.delta;
+            const delta = data.choices?.[0]?.delta as ChatDelta | undefined;
             if (delta?.content) {
               fullText += delta.content;
               const continueProcessing = streamcallback(delta);
@@ -112,8 +123,9 @@ Be attentive, thoughtful, and precise. Provide clear, well-structured answers th
                 break;
               }
             } else if (delta?.tool_calls) {
-              (delta.tool_calls as any[]).forEach((call: any) => {
+              delta.tool_calls.forEach((call: ToolCall) => {
                 const index = call.index;
+                if (index === undefined) return;
                 if (!fullcalls[index]) fullcalls[index] = call;
                 if (call.function.arguments) {
                   if (!fullcalls[index].function.arguments) {
@@ -154,7 +166,10 @@ Be attentive, thoughtful, and precise. Provide clear, well-structured answers th
    * it returns the first message choice from the API response.
    * @throws An error if the network request fails or the response is not successful.
    */
-  async sendChatRequest(options: any, streamcallback?: (textFragment: any) => boolean): Promise<any> {
+  async sendChatRequest(
+    options: ChatRequestOptions,
+    streamcallback?: (delta: ChatDelta) => boolean,
+  ): Promise<ChatResponse> {
     this.console.log("Sending chat request with options:", options);
     const response = await fetch(this.endpoint.endpoint, {
       method: "POST",

@@ -325,7 +325,7 @@ class tagBadge extends UIComponent<"div"> {
 class noteEditor extends Openable<{ open: void; close: void }> {
   content!: HTMLElement;
   constructor(
-    app: TouchGrassBibleApp,
+    private app: TouchGrassBibleApp,
     public parent: HTMLElement,
     public note: Note,
   ) {
@@ -347,13 +347,17 @@ class noteEditor extends Openable<{ open: void; close: void }> {
             const [namePart, tags] = value.split("#");
             this.note.tags = tags ? tags.split(",").map(t => t.trim()) : [];
             this.note.name = namePart.trim();
+            this.app.saveSettingsAfterDelay(3000);
           });
       });
 
       new TextArea(contentEd)
         .addClass("note-editor-textarea")
         .setValue(this.note.content)
-        .on("input", (value: string) => (this.note.content = value));
+        .on("input", (value: string) => {
+          this.note.content = value;
+          this.app.saveSettingsAfterDelay(3000);
+        });
     });
   }
   onclose(): void {
