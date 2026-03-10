@@ -4,6 +4,7 @@ import { App, BrowserConsole, CMD } from "./App";
 import "./CommandPalette.css";
 import { Button, inputMode, Item, TextInput } from "./Components";
 import { ETarget, Openable } from "./Event";
+import { PaletteState, PaletteStateController } from "./PaletteStateController";
 import { StateClass } from "./State";
 import { escapeRegExp } from "./escapeRegExp";
 import { Highlighter } from "./highlighter";
@@ -99,7 +100,7 @@ export class UnifiedCommandPalette extends Openable<{
 
   private commandItems: CommandItem<unknown>[] = [];
   private selectedIndex = -1;
-  private contexts: CommandPaletteState[] = []; // Stack of contexts for back navigation
+  private stateController: PaletteStateController<CommandPaletteState>;
   private headerEl!: HTMLDivElement;
   private maxResults: number = 100; // Maximum results to show
   //private CategoryNavigator: CategoryNavigator<>;
@@ -111,6 +112,10 @@ export class UnifiedCommandPalette extends Openable<{
 
   constructor(private app: App) {
     super(app);
+    this.stateController = new PaletteStateController<CommandPaletteState>(
+      () => this.state,
+      state => (this.state = state),
+    );
     this.addHiddenPalette(() => new CategoryNavigator(this), "navigator");
     this.addHiddenPalette(() => new PromptCategory(this), "prompt");
     this.on("keydown", this.handleKey);
@@ -129,6 +134,15 @@ export class UnifiedCommandPalette extends Openable<{
 
   menu() {
     this.update({ topCategory: "category-navigator" }).open();
+  }
+
+  private saveStateHistory(): this {
+    this.app.historyPush();
+    return this;
+  }
+
+  useState<T>(initialValue: T): PaletteState<T> {
+    return this.stateController.useState(initialValue);
   }
 
   prompt(text: string): Promise<string | null> {
@@ -192,7 +206,7 @@ export class UnifiedCommandPalette extends Openable<{
   // Open and initialize palette UI
   onopen() {
     if (this.app.ctarget !== this) this.app.pushTarget(this as ETarget);
-    this.contexts = [];
+    this.stateController.clearContexts();
     this.display();
   }
 
@@ -202,17 +216,17 @@ export class UnifiedCommandPalette extends Openable<{
   }
 
   update(context: Partial<CommandPaletteState> = {}) {
-    this.state = this.state.update(context);
+    this.state = this.stateController.update(context);
     this.emit("update", this.state);
     return this;
   }
 
-  display(context: Partial<CommandPaletteState> = {}) {
+  display(context: Partial<CommandPaletteState> = {}, shouldSaveHistory = true) {
     if (this.app.ctarget !== this) this.app.pushTarget(this as ETarget);
     this.emit("display", this.state);
     this.update(context);
-    this.app.historyPush();
-    this.contexts.push(this.state);
+    if (shouldSaveHistory) this.saveStateHistory();
+    this.stateController.pushCurrentContext();
     this.inputMode = "search";
     this.checkclose();
 
@@ -338,8 +352,9 @@ export class UnifiedCommandPalette extends Openable<{
         break;
       case "ArrowLeft":
       case "Shift+Tab":
-        this.contexts.pop();
-        this.display(this.contexts.pop()); // Open previous context
+        const previous = this.stateController.popPreviousContext();
+        if (!previous) return;
+        this.display(previous, false); // Open previous context
         break;
     }
   };
@@ -349,9 +364,9 @@ export class UnifiedCommandPalette extends Openable<{
   }
 
   handleBack = () => {
-    if (this.contexts.length > 1) {
-      this.contexts.pop(); // Remove current context
-      this.display(this.contexts.pop()); // Display previous context
+    const previous = this.stateController.popPreviousContext();
+    if (previous) {
+      this.display(previous, false); // Display previous context
     } else {
       this.close(); // Close if no previous context
     }
@@ -380,7 +395,7 @@ export class UnifiedCommandPalette extends Openable<{
       this.containerEl = null;
     }
     this.state = this.state.update({ query: "", maxResults: 100, topCategory: "" });
-    this.contexts = [];
+    this.stateController.clearContexts();
   }
 
   // Filter and show commands based on query

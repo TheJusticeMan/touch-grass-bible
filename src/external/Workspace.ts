@@ -147,6 +147,11 @@ type DetachedPanelView = {
 
 type ViewFactory = (panel: Panel) => View;
 
+type RestoreLayoutFromStringOptions = {
+  onInvalidJSON?: (error: unknown) => void;
+  onRejectedLayout?: () => void;
+};
+
 type WorkspaceEvents = {
   "layout-change": void;
 };
@@ -278,6 +283,44 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     this.suppressLayoutEvents = false;
     this.markLayoutChanged();
     return true;
+  }
+
+  restoreLayoutFromString(
+    rawLayout: string,
+    fallbackLayout: WorkspaceLayout,
+    options: RestoreLayoutFromStringOptions = {},
+  ): boolean {
+    let parsedLayout: unknown;
+    try {
+      parsedLayout = JSON.parse(rawLayout);
+    } catch (error) {
+      options.onInvalidJSON?.(error);
+      this.restoreLayout(fallbackLayout);
+      return false;
+    }
+
+    const restored = this.restoreLayout(parsedLayout as WorkspaceLayout);
+    if (!restored) {
+      options.onRejectedLayout?.();
+      this.restoreLayout(fallbackLayout);
+    }
+    return restored;
+  }
+
+  hasViewInLayout(viewId: string, panel: Panel = this.rootPanel): boolean {
+    if (panel.getMode() === "views") {
+      return panel.getViews().some((view: { id: string }) => view.id === viewId);
+    }
+
+    return panel.childPanels.some(child => this.hasViewInLayout(viewId, child.panel));
+  }
+
+  ensureViewInLayout(viewId: string, fallbackLayout: WorkspaceLayout): boolean {
+    if (this.hasViewInLayout(viewId)) {
+      return true;
+    }
+    this.restoreLayout(fallbackLayout);
+    return false;
   }
 
   private deserializePanel(serialized: SerializedPanel): Panel {

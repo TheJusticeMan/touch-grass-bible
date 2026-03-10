@@ -16,7 +16,7 @@ import { DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
 import { TGPaletteState } from "./TGPaletteCategories";
 import { bibleData, VerseRef } from "./VerseRef";
 import { VerseScreen } from "./VerseScreen";
-import { Panel, View, WorkspaceLayout } from "./external/Workspace";
+import { View, WorkspaceLayout } from "./external/Workspace";
 import type { IconActionItem } from "./Plugin";
 
 export * from "./external/App";
@@ -47,11 +47,9 @@ export * from "./VerseScreen";
  */
 export default class TouchGrassBibleApp extends App {
   settings!: TGAppSettings;
-  private workspaceHostEl!: HTMLDivElement;
   private verseActions: Map<string, IconActionItem> = new Map();
   firstLoad = true;
   saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
-  workspaceSaveTimeoutId: ReturnType<typeof setTimeout> | null = null;
   Notes: NoteVault = new NoteVault();
 
   constructor(doc: Document) {
@@ -77,9 +75,7 @@ export default class TouchGrassBibleApp extends App {
     await this.loadWorkspaceLayout();
     this.registerWorkspaceViews();
     this.ensureMainScreenTab();
-    this.workspace.on("layout-change", () => {
-      this.saveWorkspaceAfterDelay();
-    });
+    this.enableWorkspaceAutoSave();
     this.Notes.loadNotes(this.settings.ExtraNotes.map(nj => Note.fromJSON(nj)));
 
     // Load all JSON files in parallel for faster startup
@@ -225,56 +221,6 @@ export default class TouchGrassBibleApp extends App {
     }, delay);
   }
 
-  async loadWorkspaceLayout() {
-    const rawLayout = await this.loadConfig("workspace");
-    let parsedLayout: unknown;
-    try {
-      parsedLayout = JSON.parse(rawLayout);
-    } catch (error) {
-      this.console.warn("Invalid workspace config JSON. Falling back to default layout.", error);
-      this.initializeWorkspace(this.buildDefaultWorkspaceLayout(), this.workspaceHostEl);
-      return;
-    }
-
-    const restored = this.initializeWorkspace(
-      parsedLayout as ReturnType<typeof this.workspace.serializeLayout>,
-      this.workspaceHostEl,
-    );
-    if (!restored) {
-      this.console.warn("Workspace layout rejected. Falling back to default layout.");
-      this.initializeWorkspace(this.buildDefaultWorkspaceLayout(), this.workspaceHostEl);
-    }
-  }
-
-  saveWorkspaceLayout() {
-    const serializedLayout = this.workspace.serializeLayout();
-    void this.saveConfig("workspace", JSON.stringify(serializedLayout));
-  }
-
-  saveWorkspaceAfterDelay(delay: number = 500) {
-    if (this.workspaceSaveTimeoutId !== null) {
-      clearTimeout(this.workspaceSaveTimeoutId);
-      this.workspaceSaveTimeoutId = null;
-    }
-    this.workspaceSaveTimeoutId = setTimeout(() => {
-      this.saveWorkspaceLayout();
-      this.workspaceSaveTimeoutId = null;
-    }, delay);
-  }
-
-  private initializeWorkspaceHost() {
-    if (this.workspaceHostEl) return;
-    this.workspaceHostEl = this.contentEl.createEl("div", { cls: "workspace-root-host" });
-  }
-
-  private mountWorkspaceRoot() {
-    if (!this.workspaceHostEl) {
-      this.initializeWorkspaceHost();
-    }
-    this.workspaceHostEl.empty();
-    this.workspaceHostEl.appendChild(this.workspace.rootPanel.containerEl);
-  }
-
   private registerWorkspaceViews() {
     this.workspace.registerView("verse-screen", panel => {
       const verseScreen = new VerseScreen(panel, this);
@@ -302,22 +248,14 @@ export default class TouchGrassBibleApp extends App {
   }
 
   private ensureMainScreenTab() {
-    if (this.hasRegisteredViewInLayout("verse-screen")) {
+    if (this.workspace.hasViewInLayout("verse-screen")) {
       return;
     }
-    this.workspace.restoreLayout(this.buildDefaultWorkspaceLayout());
+    this.workspace.ensureViewInLayout("verse-screen", this.getDefaultWorkspaceLayout());
     this.mountWorkspaceRoot();
   }
 
-  private hasRegisteredViewInLayout(viewId: string, panel: Panel = this.workspace.rootPanel): boolean {
-    if (panel.getMode() === "views") {
-      return panel.getViews().some((view: { id: string }) => view.id === viewId);
-    }
-
-    return panel.childPanels.some(child => this.hasRegisteredViewInLayout(viewId, child.panel));
-  }
-
-  private buildDefaultWorkspaceLayout(): WorkspaceLayout {
+  protected getDefaultWorkspaceLayout(): WorkspaceLayout {
     return {
       version: 1,
       rootPanel: {

@@ -87,6 +87,8 @@ abstract class App extends ETarget<{
   console: BrowserConsole;
   contentEl: HTMLElement;
   workspace: Workspace = new Workspace();
+  private workspaceHostEl: HTMLDivElement | null = null;
+  private workspaceSaveTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   commandPalette: UnifiedCommandPalette = new UnifiedCommandPalette(this);
 
@@ -203,6 +205,61 @@ abstract class App extends ETarget<{
 
   async loadConfig(name: string): Promise<string> {
     return Promise.resolve(localStorage.getItem(`setting-${name}`) || "{}");
+  }
+
+  protected initializeWorkspaceHost(): HTMLDivElement {
+    if (this.workspaceHostEl) {
+      return this.workspaceHostEl;
+    }
+    this.workspaceHostEl = this.contentEl.createEl("div", { cls: "workspace-root-host" });
+    return this.workspaceHostEl;
+  }
+
+  protected mountWorkspaceRoot() {
+    const host = this.initializeWorkspaceHost();
+    host.empty();
+    host.appendChild(this.workspace.rootPanel.containerEl);
+  }
+
+  protected abstract getDefaultWorkspaceLayout(): WorkspaceLayout;
+
+  protected onWorkspaceLayoutInvalid(error: unknown) {
+    this.console.warn("Invalid workspace config JSON. Falling back to default layout.", error);
+  }
+
+  protected onWorkspaceLayoutRejected() {
+    this.console.warn("Workspace layout rejected. Falling back to default layout.");
+  }
+
+  async loadWorkspaceLayout() {
+    const rawLayout = await this.loadConfig("workspace");
+    this.workspace.restoreLayoutFromString(rawLayout, this.getDefaultWorkspaceLayout(), {
+      onInvalidJSON: error => this.onWorkspaceLayoutInvalid(error),
+      onRejectedLayout: () => this.onWorkspaceLayoutRejected(),
+    });
+    this.mountWorkspaceRoot();
+  }
+
+  saveWorkspaceLayout() {
+    const serializedLayout = this.workspace.serializeLayout();
+    void this.saveConfig("workspace", JSON.stringify(serializedLayout));
+  }
+
+  saveWorkspaceAfterDelay(delay: number = 500) {
+    if (this.workspaceSaveTimeoutId !== null) {
+      clearTimeout(this.workspaceSaveTimeoutId);
+      this.workspaceSaveTimeoutId = null;
+    }
+    this.workspaceSaveTimeoutId = setTimeout(() => {
+      this.saveWorkspaceLayout();
+      this.workspaceSaveTimeoutId = null;
+    }, delay);
+  }
+
+  protected enableWorkspaceAutoSave(delay: number = 500) {
+    this.workspace.on("layout-change", () => {
+      this.saveWorkspaceAfterDelay(delay);
+    });
   }
 
   initializeWorkspace(layout: WorkspaceLayout, mountTarget: HTMLElement): boolean {
