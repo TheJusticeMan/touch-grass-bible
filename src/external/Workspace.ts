@@ -720,7 +720,7 @@ export class Panel {
 
   setSplitDirection(splitDirection: SplitDirection): this {
     this.splitDirection = splitDirection;
-    this.applySplitDirection();
+    this.refreshLayoutDom();
     this.workspace.onPanelMutated();
     return this;
   }
@@ -734,8 +734,7 @@ export class Panel {
     }
     panel.parent = this;
     this.childPanels.push({ panel, size: Math.max(0.1, size) });
-    this.contentEl.appendChild(panel.containerEl);
-    this.layoutChildPanelSizes();
+    this.refreshLayoutDom();
     this.workspace.onPanelMutated();
     return this;
   }
@@ -763,9 +762,8 @@ export class Panel {
     if (index < 0) return this;
     const [child] = this.childPanels.splice(index, 1);
     child.panel.parent = null;
-    child.panel.containerEl.remove();
     child.panel.destroy();
-    this.layoutChildPanelSizes();
+    this.refreshLayoutDom();
     this.workspace.onPanelMutated();
     return this;
   }
