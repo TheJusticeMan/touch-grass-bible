@@ -36,7 +36,7 @@ export default class TopicalBiblePlugin extends Plugin {
           new Button(verseInfo.element).setButtonText(`${topic.toTitleCase()}`).on("click", () => {
             this.topic.set(topic);
             this.app.openCommandPalette({
-              topCategory: "topic-list",
+              topCategory: TopicListCategoryID,
             });
           });
         });

@@ -161,7 +161,7 @@ export class VerseScreen extends View {
   }
 
   onload(): void {
-    console.log("VerseScreen loaded");
+    this.app.console.log("VerseScreen loaded");
 
     /* this.on("titleclick", e => {
       e.stopPropagation();
