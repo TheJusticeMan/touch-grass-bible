@@ -45,6 +45,25 @@ export * from "./VerseScreen";
  * @method loadsettings - Loads and merges user settings with defaults.
  * @method saveSettings - Persists the current settings.
  */
+
+function deepMerge<T extends object>(defaults: T, saved: Partial<T>): T {
+  const result = { ...defaults } as T;
+  for (const key in saved) {
+    const k = key as keyof T;
+    if (
+      saved[k] !== null &&
+      saved[k] !== undefined &&
+      typeof saved[k] === "object" &&
+      !Array.isArray(saved[k])
+    ) {
+      result[k] = deepMerge(defaults[k] as object, saved[k] as object) as T[keyof T];
+    } else if (saved[k] !== undefined) {
+      result[k] = saved[k] as T[keyof T];
+    }
+  }
+  return result;
+}
+
 export default class TouchGrassBibleApp extends App {
   settings!: TGAppSettings;
   private verseActions: Map<string, IconActionItem> = new Map();
@@ -166,7 +185,7 @@ export default class TouchGrassBibleApp extends App {
   }
 
   async loadsettings(DEFAULT_SETTINGS: TGAppSettings) {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.settings = deepMerge(DEFAULT_SETTINGS, (await this.loadData()) as Partial<TGAppSettings>);
     VerseRef.myNotes = new Map(this.settings.myNotes);
   }
 
