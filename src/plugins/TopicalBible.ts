@@ -21,7 +21,11 @@ export default class TopicalBiblePlugin extends Plugin {
   topic = this.app.commandPalette.useState(""); // State to track the currently selected topic
 
   async onload(): Promise<void> {
-    this.topics = new BibleTopics(await this.app.loadJSON<BibleTopicsType>("topics.json"));
+    try {
+      this.topics = new BibleTopics(await this.app.loadJSON<BibleTopicsType>("topics.json"));
+    } catch (e) {
+      this.console.error("Failed to load topics.json. Topical Bible will be unavailable.", e);
+    }
 
     this.registerPalette(() => new topicListCategory(this.app.commandPalette, this), TopicListCategoryID);
 

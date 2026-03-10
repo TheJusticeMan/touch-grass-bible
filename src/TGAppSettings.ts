@@ -6,6 +6,7 @@ export interface TGAppSettings {
   myNotes: [string, string][];
   enableLogging: boolean;
   showHelp: boolean;
+  aiApiKey: string;
   style: {
     Foreground: string;
     Background: string;
@@ -27,6 +28,7 @@ export const DEFAULT_SETTINGS: TGAppSettings = {
   myNotes: [],
   enableLogging: true,
   showHelp: true,
+  aiApiKey: "",
   style: {
     Foreground: "hsl(0, 100%, 100%)",
     Background: "hsl(0, 100%, 0%)",

@@ -1,35 +1,113 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import { CMD, CommandCategory, CommandItem, CommandPaletteState } from "../main";
+import { BrainCircuit } from "lucide";
+import { AIchat } from "../AIchat";
+import { Button, CMD, CommandCategory, CommandItem, CommandPaletteState, UnifiedCommandPalette, VerseInfoComponent } from "../main";
 import Plugin from "../Plugin";
+import { SettingsCategoryID } from "./Settings";
 
-export default class AI extends Plugin {
+export const AICategoryID = "ai";
+
+export default class AIPlugin extends Plugin {
+  chat: AIchat = new AIchat();
+
   async onload() {
-    this.registerPalette(() => new AIcommandPallete(this.app.commandPalette), "ai");
+    this.registerPalette(() => new AICommandPalette(this.app.commandPalette, this), AICategoryID);
+
+    this.addVerseAction({
+      id: "ai-ask",
+      name: "Ask AI about this verse",
+      icon: BrainCircuit,
+      onTrigger: (verseInfo: VerseInfoComponent) => {
+        if (!this.app.settings.aiApiKey) {
+          new Button(verseInfo.element)
+            .setButtonText("Set API key in Settings")
+            .on("click", () => this.app.openCommandPalette({ topCategory: SettingsCategoryID }));
+          return;
+        }
+        const verse = verseInfo.verse;
+        const verseText = verse.vTXT;
+        const prompt = `Explain the following Bible verse in context: "${verse.toString()} — ${verseText}"`;
+        this.chat.endpoint.apiKey = this.app.settings.aiApiKey;
+        const responseEl = verseInfo.element.createEl("div", { cls: "ai-response" });
+        responseEl.textContent = "Asking AI…";
+        this.chat
+          .request(prompt, delta => {
+            if (delta.content) {
+              if (responseEl.textContent === "Asking AI…") responseEl.textContent = "";
+              responseEl.textContent += delta.content;
+            }
+            return true;
+          })
+          .catch(err => {
+            responseEl.textContent = `Error: ${err instanceof Error ? err.message : String(err)}`;
+          });
+      },
+    });
   }
 }
 
-export class AIcommandPallete extends CommandCategory<string> {
-  name: string = "AI";
-  description: string = "Interact with AI-powered features such as chat and suggestions.";
+export class AICommandPalette extends CommandCategory<string> {
+  readonly name = "AI Bible Assistant";
+  readonly description = "Ask the AI assistant questions about Bible verses and theology.";
+  private responses: { question: string; answer: string }[] = [];
 
-  onInit(): void {
-    new CMD(this.defaultCMD)
-      .setName("Chat with AI")
-      .setDescription("Start a conversation with the AI assistant.");
-    new CMD(this.defaultCMD)
-      .setName("AI Suggestions")
-      .setDescription("Get suggestions from the AI assistant.");
+  constructor(
+    public commandPalette: UnifiedCommandPalette,
+    public plugin: AIPlugin,
+  ) {
+    super(commandPalette);
   }
 
-  onTrigger(_state: CommandPaletteState): void {}
-
-  getCommands(_query: string): string[] {
-    return [];
+  onTrigger(): void {
+    if (!this.plugin.app.settings.aiApiKey) {
+      new CMD(this.defaultCMD)
+        .setName("No API key set")
+        .setDescription("Go to Settings → Set AI API key to enable the AI assistant.");
+    }
   }
 
-  renderCommand(_command: string, _el: CommandItem<string>): Partial<CommandPaletteState> {
-    return {};
+  getCommands(query: string): string[] {
+    if (!query.trim()) return [];
+    return [query];
   }
 
-  executeCommand(_command: string): void {}
+  renderCommand(command: string, Item: CommandItem<string>): (state: CommandPaletteState) => CommandPaletteState {
+    Item.setTitle(`Ask: ${command}`).setDescription("Send this question to the AI assistant");
+    return state => state;
+  }
+
+  executeCommand(command: string): void {
+    const apiKey = this.plugin.app.settings.aiApiKey;
+    if (!apiKey) {
+      this.plugin.app.openCommandPalette({ topCategory: SettingsCategoryID });
+      return;
+    }
+    this.plugin.chat.endpoint.apiKey = apiKey;
+    const verse = this.plugin.app.verseState.get();
+    const contextPrompt = verse
+      ? `[Current verse: ${verse.toString()} — "${verse.vTXT}"]\n\n${command}`
+      : command;
+
+    const resultCmd = new CMD(this.defaultCMD).setName("AI: thinking…").setDescription("");
+    let accumulated = "";
+    this.plugin.chat
+      .request(contextPrompt, delta => {
+        if (delta.content) {
+          accumulated += delta.content;
+          resultCmd.setDescription(accumulated);
+          this.commandPalette.display();
+        }
+        return true;
+      })
+      .then(() => {
+        this.responses.push({ question: command, answer: accumulated });
+        resultCmd.setName("AI response:");
+        this.commandPalette.display();
+      })
+      .catch(err => {
+        resultCmd
+          .setName("AI error")
+          .setDescription(err instanceof Error ? err.message : String(err));
+        this.commandPalette.display();
+      });
+  }
 }

@@ -5,6 +5,7 @@ import { View, WorkspaceLayout } from "./external/Workspace";
 import info from "./info.json";
 import { Note, NotesPanel, NoteVault } from "./NotesPanel";
 import type { IconActionItem } from "./Plugin";
+import AIPlugin from "./plugins/AI";
 import BookmarkPlugin from "./plugins/Bookmarks";
 import NotesPlugin from "./plugins/Notes";
 import BibleSearchPlugin from "./plugins/Search";
@@ -116,7 +117,6 @@ export default class TouchGrassBibleApp extends App {
     this.verseState.set(VerseRef.RandomVerse);
     this.console.enabled = this.settings.enableLogging;
     this.console.log(info.name, info.version, "loaded");
-    //this.on("EnterKeyDown", e => !this.commandPalette.isOpen && this.openCommandPalette());
     this.on("Ctrl+EnterKeyDown", () => !this.commandPalette.isOpen && this.openCommandPalette());
 
     this.console.log(new Date().getTime() - processstart, "ms startup time");
@@ -162,6 +162,12 @@ export default class TouchGrassBibleApp extends App {
       id: "settings",
       name: "Settings",
       description: "Configure Touch Grass Bible settings",
+      version: "1.0.0",
+    }).load();
+    new AIPlugin(this, {
+      id: "ai",
+      name: "AI Assistant",
+      description: "AI-powered Bible study assistant.",
       version: "1.0.0",
     }).load();
   }
