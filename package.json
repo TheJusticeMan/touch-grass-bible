@@ -23,7 +23,9 @@
   "type": "module",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "dev": "node esbuild.config.mjs & npm run serve",
     "serve": "live-server ./dist --port=3000 --browser=firefox",
     "build": "npm run getdatafiles && node esbuild.config.mjs production",
@@ -60,6 +62,7 @@
     "@types/js-levenshtein": "^1.1.3",
     "@types/node": "^25.3.5",
     "@types/unzipper": "^0.10.11",
+    "@vitest/coverage-v8": "^4.0.18",
     "esbuild": "^0.27.3",
     "eslint": "^10.0.2",
     "globals": "^17.4.0",
@@ -71,6 +74,7 @@
     "tslib": "2.8.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1",
-    "unzipper": "^0.12.3"
+    "unzipper": "^0.12.3",
+    "vitest": "^4.0.18"
   }
 }

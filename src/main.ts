@@ -98,7 +98,12 @@ export default class TouchGrassBibleApp extends App {
     this.Notes.loadNotes(this.settings.ExtraNotes.map(nj => Note.fromJSON(nj)));
 
     // Load all JSON files in parallel for faster startup
-    const translations = await this.loadJSON<{ [translation: string]: bibleData }>("translations.json");
+    let translations: { [translation: string]: bibleData } = {};
+    try {
+      translations = await this.loadJSON<{ [translation: string]: bibleData }>("translations.json");
+    } catch (e) {
+      this.console.error("Failed to load translations.json. App may not function correctly.", e);
+    }
     this.commandPalette.columns = this.contentEl.offsetWidth > 800;
     window.addEventListener("resize", () => {
       const isWide = this.contentEl.offsetWidth > 800;
