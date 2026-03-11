@@ -56,6 +56,7 @@ export class UIComponent<
 
   setTooltip(tooltip: string) {
     this.element.title = tooltip;
+    this.element.setAttribute("aria-label", tooltip);
     return this;
   }
 

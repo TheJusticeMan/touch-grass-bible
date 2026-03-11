@@ -142,7 +142,7 @@ export class NotesPanel extends View {
     (this.app as TouchGrassBibleApp).settings.ExtraNotes = (
       this.app as TouchGrassBibleApp
     ).Notes.getAllNotes().map(n => n.json);
-    console.log("Saving notes to settings:", (this.app as TouchGrassBibleApp).settings.ExtraNotes);
+    this.app.console.log("Saving notes to settings:", (this.app as TouchGrassBibleApp).settings.ExtraNotes);
     (this.app as TouchGrassBibleApp).saveSettings();
   }
 
@@ -175,7 +175,7 @@ export class NotesPanel extends View {
         .setIcon(Plus)
         .setTooltip("Add Note")
         .on("click", () => {
-          console.log("Add Note clicked");
+          this.app.console.log("Add Note clicked");
           const newNote = new Note("New Note", "", new Date(), new Date());
           (this.app as TouchGrassBibleApp).Notes.addNote(newNote);
           new noteEditor(this.app as TouchGrassBibleApp, this.content, newNote)
@@ -213,7 +213,7 @@ class notePreview extends UIComponent<"div"> {
     this.element.classList.add("note-preview");
     this.element.addEventListener("click", () => this.emit("click"));
     this.update(note);
-    /* note.on("change", this.update); */
+    note.on("change", this.update);
   }
   update = (note: Note) => {
     this.note = note;
@@ -251,7 +251,7 @@ class notePreview extends UIComponent<"div"> {
     contentEl.textContent = truncatedText;
   };
   destroy() {
-    /* this.note.off("change", this.update); */
+    this.note.off("change", this.update);
     super.destroy();
   }
 }
@@ -325,7 +325,7 @@ class tagBadge extends UIComponent<"div"> {
 class noteEditor extends Openable<{ open: void; close: void }> {
   content!: HTMLElement;
   constructor(
-    app: TouchGrassBibleApp,
+    private app: TouchGrassBibleApp,
     public parent: HTMLElement,
     public note: Note,
   ) {
@@ -347,13 +347,17 @@ class noteEditor extends Openable<{ open: void; close: void }> {
             const [namePart, tags] = value.split("#");
             this.note.tags = tags ? tags.split(",").map(t => t.trim()) : [];
             this.note.name = namePart.trim();
+            this.app.saveSettingsAfterDelay(3000);
           });
       });
 
       new TextArea(contentEd)
         .addClass("note-editor-textarea")
         .setValue(this.note.content)
-        .on("input", (value: string) => (this.note.content = value));
+        .on("input", (value: string) => {
+          this.note.content = value;
+          this.app.saveSettingsAfterDelay(3000);
+        });
     });
   }
   onclose(): void {

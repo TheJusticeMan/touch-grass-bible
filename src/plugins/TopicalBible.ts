@@ -14,14 +14,18 @@ import { VerseRef } from "../VerseRef";
 import { TSKCrossRefCategoryID } from "./TSK";
 import { PaletteState } from "../external/PaletteStateController";
 
-export const TopicListCategoryID = "topics";
+const TopicListCategoryID = "topics";
 
 export default class TopicalBiblePlugin extends Plugin {
   topics: BibleTopics = new BibleTopics({}); // Initialize with empty topics
   topic = this.app.commandPalette.useState(""); // State to track the currently selected topic
 
   async onload(): Promise<void> {
-    this.topics = new BibleTopics(await this.app.loadJSON<BibleTopicsType>("topics.json"));
+    try {
+      this.topics = new BibleTopics(await this.app.loadJSON<BibleTopicsType>("topics.json"));
+    } catch (e) {
+      this.console.error("Failed to load topics.json. Topical Bible will be unavailable.", e);
+    }
 
     this.registerPalette(() => new topicListCategory(this.app.commandPalette, this), TopicListCategoryID);
 
@@ -36,7 +40,7 @@ export default class TopicalBiblePlugin extends Plugin {
           new Button(verseInfo.element).setButtonText(`${topic.toTitleCase()}`).on("click", () => {
             this.topic.set(topic);
             this.app.openCommandPalette({
-              topCategory: "topic-list",
+              topCategory: TopicListCategoryID,
             });
           });
         });
@@ -45,7 +49,7 @@ export default class TopicalBiblePlugin extends Plugin {
   }
 }
 
-export class topicListCategory extends CommandCategory<VerseRef | string> {
+class topicListCategory extends CommandCategory<VerseRef | string> {
   list: string[] | VerseRef[] = [];
   name = "Topics (www.openbible.info)";
   description = "List of topics from OpenBible.info";

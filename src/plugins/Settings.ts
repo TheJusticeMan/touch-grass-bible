@@ -11,6 +11,7 @@ import TouchGrassBibleApp, {
 import Plugin from "../Plugin";
 import { DEFAULT_SETTINGS } from "../TGAppSettings";
 import { VerseRef } from "../VerseRef";
+import { AICategoryID } from "./AI";
 
 export const SettingsCategoryID = "settings";
 
@@ -20,7 +21,7 @@ export default class SettingsPlugin extends Plugin {
   }
 }
 
-export class SettingsCategory extends CommandCategory<string> {
+class SettingsCategory extends CommandCategory<string> {
   readonly name = "Settings";
   readonly description = "Configure Touch Grass Bible settings";
   app: TouchGrassBibleApp;
@@ -41,6 +42,22 @@ export class SettingsCategory extends CommandCategory<string> {
         this.app.console.enabled = enabled;
         this.app.settings.enableLogging = enabled;
         this.app.saveSettings();
+      });
+    new CMD(this.defaultCMD)
+      .setName("Set AI API key")
+      .setDescription(
+        "Store your OpenAI-compatible API key (saved locally in localStorage — keep it private)." +
+          (this.app.settings.aiApiKey ? " Key is currently set." : " No key set."),
+      )
+      .on("_click", () => {
+        this.app.commandPalette
+          .prompt("Enter your OpenAI-compatible API key:")
+          .then(key => {
+            if (key === null) return;
+            this.app.settings.aiApiKey = key.trim();
+            this.app.saveSettings();
+            this.app.commandPalette.display({ topCategory: AICategoryID });
+          });
       });
     new CMD(this.defaultCMD)
       .setName("Download settings")
@@ -78,6 +95,16 @@ export class SettingsCategory extends CommandCategory<string> {
             this.app.commandPalette.display({ topCategory: "" });
           });
       });
+    new CMD(this.defaultCMD)
+      .setName("Keyboard shortcuts")
+      .setDescription(
+        "Ctrl+Enter → Open command palette\n" +
+          "Escape → Close palette\n" +
+          "Arrow Up/Down → Navigate palette items\n" +
+          "Enter → Select item\n" +
+          "Backspace → Go back in navigation\n" +
+          "Arrow Right → Open navigation panel",
+      );
     new CMD(this.defaultCMD)
       .setName(info.name)
       .setDescription(

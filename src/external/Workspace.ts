@@ -94,8 +94,8 @@ class WorkspacePanelContent extends UIComponent<"div"> {
   }
 }
 
-export type SplitDirection = "horizontal" | "vertical";
-export type PanelMode = "views" | "panels";
+type SplitDirection = "horizontal" | "vertical";
+type PanelMode = "views" | "panels";
 
 export type WorkspaceLayout = {
   version: 1;
@@ -111,12 +111,12 @@ export type SerializedPanel = {
   children?: SerializedPanelChild[];
 };
 
-export type SerializedPanelView = {
+type SerializedPanelView = {
   id: string;
   title: string;
 };
 
-export type SerializedPanelChild = {
+type SerializedPanelChild = {
   size: number;
   panel: SerializedPanel;
 };

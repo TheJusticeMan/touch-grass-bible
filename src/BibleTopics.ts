@@ -1,6 +1,6 @@
 import { VerseRef } from "./VerseRef";
 
-export type OSISString = string; // e.g., "JOHN.3.16"
+type OSISString = string; // e.g., "JOHN.3.16"
 
 type BibleTopicReference = [OSISString, number];
 export type BibleTopicsType = { [topic: string]: BibleTopicReference[] };
