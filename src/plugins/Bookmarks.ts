@@ -12,10 +12,7 @@ import TouchGrassBibleApp, {
   VerseRef,
 } from "../main";
 import Plugin from "../Plugin";
-import { TSKCrossRefCategoryID } from "./TSK";
-
-const VerseListCategoryID = "verse-list";
-export const BookmarkCategoryID = "bookmarks";
+import { BookmarkCategoryID, TSKCrossRefCategoryID, VerseListCategoryID } from "./categoryIDs";
 
 export default class BookmarkPlugin extends Plugin {
   tag = this.app.commandPalette.useState("Start Up Verses"); // State to track the currently selected bookmark tag

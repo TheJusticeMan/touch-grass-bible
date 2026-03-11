@@ -3,6 +3,7 @@ import "./App.css";
 import { ETarget, touchDragger } from "./Event";
 import { BrowserConsole } from "./MyBrowserConsole";
 import { Workspace, WorkspaceLayout } from "./Workspace";
+import { GlobalSwipeHandler } from "./WorkspaceMobileSwipe";
 export * from "./Comands";
 export * from "./CommandPalette";
 export * from "./Components";
@@ -212,6 +213,7 @@ abstract class App extends ETarget<{
       return this.workspaceHostEl;
     }
     this.workspaceHostEl = this.contentEl.createEl("div", { cls: "workspace-root-host" });
+    new GlobalSwipeHandler(this.workspaceHostEl);
     return this.workspaceHostEl;
   }
 

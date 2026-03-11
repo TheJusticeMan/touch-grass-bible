@@ -307,6 +307,12 @@ export abstract class scrollBubble extends ETarget<{
   maxScroll: number = 0; // Maximum scroll value
   isGrabbed: boolean = false;
   saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private managedParentPosition = false;
+
+  private updateBubblePosition = () => {
+    if (!this.element) return;
+    this.element.style.top = this.offsetTop;
+  };
 
   constructor(public parent: HTMLElement) {
     super();
@@ -317,12 +323,16 @@ export abstract class scrollBubble extends ETarget<{
   _show() {
     this.startHideTimer(); // Start the hide timer
     if (this.element) return this; // If already shown, do nothing
-    this.element = document.body.createEl(
+    if (window.getComputedStyle(this.parent).position === "static") {
+      this.parent.style.position = "relative";
+      this.managedParentPosition = true;
+    }
+
+    this.element = this.parent.createEl(
       "div",
       { cls: "scrollBubble" },
       el => (el.style.top = this.offsetTop),
     );
-    //this.parent.after(this.element);
     this.setUpListeners();
     return this;
   }
@@ -351,10 +361,9 @@ export abstract class scrollBubble extends ETarget<{
   };
 
   getscrollvalue(e: MouseEvent | TouchEvent): number {
-    return (
-      ((e instanceof MouseEvent ? e.clientY : e.touches[0].clientY) - this.parent.offsetTop) /
-      this.parent.offsetHeight
-    );
+    const rect = this.parent.getBoundingClientRect();
+    const y = e instanceof MouseEvent ? e.clientY : e.touches[0].clientY;
+    return (Math.max(rect.top, Math.min(rect.bottom, y)) - rect.top) / Math.max(1, rect.height);
   }
 
   setUpListeners() {
@@ -364,6 +373,8 @@ export abstract class scrollBubble extends ETarget<{
     document.removeEventListener("touchmove", this.move);
     document.removeEventListener("mouseup", this.release);
     document.removeEventListener("touchend", this.release);
+    this.parent.removeEventListener("scroll", this.updateBubblePosition);
+    window.removeEventListener("resize", this.updateBubblePosition);
 
     this.element?.addEventListener("mousedown", this.grab);
     this.element?.addEventListener("touchstart", this.grab);
@@ -371,6 +382,21 @@ export abstract class scrollBubble extends ETarget<{
     document.addEventListener("touchmove", this.move);
     document.addEventListener("mouseup", this.release);
     document.addEventListener("touchend", this.release);
+    this.parent.addEventListener("scroll", this.updateBubblePosition, {
+      passive: true,
+    });
+    window.addEventListener("resize", this.updateBubblePosition);
+  }
+
+  removeListeners() {
+    this.element?.removeEventListener("mousedown", this.grab);
+    this.element?.removeEventListener("touchstart", this.grab);
+    document.removeEventListener("mousemove", this.move);
+    document.removeEventListener("touchmove", this.move);
+    document.removeEventListener("mouseup", this.release);
+    document.removeEventListener("touchend", this.release);
+    this.parent.removeEventListener("scroll", this.updateBubblePosition);
+    window.removeEventListener("resize", this.updateBubblePosition);
   }
 
   startHideTimer(delay: number = 3000) {
@@ -388,14 +414,19 @@ export abstract class scrollBubble extends ETarget<{
   }
 
   _hide() {
+    this.removeListeners();
     this.emit("hide");
     this.element?.remove();
     this.element = null; // Clear the element reference
-    //this.clear();
+    if (this.managedParentPosition) {
+      this.parent.style.removeProperty("position");
+      this.managedParentPosition = false;
+    }
     return this;
   }
 
   destroy() {
+    this.removeListeners();
     this.element?.remove();
     this.clear(); // Remove all event listeners
     if (this.saveTimeoutId) {
@@ -405,6 +436,10 @@ export abstract class scrollBubble extends ETarget<{
     this._scrollvalue = 0; // Reset scroll value
     this.isGrabbed = false; // Reset grab state
     this.maxScroll = 0; // Reset max scroll
+    if (this.managedParentPosition) {
+      this.parent.style.removeProperty("position");
+      this.managedParentPosition = false;
+    }
     return this;
   }
 
@@ -427,9 +462,8 @@ export abstract class scrollBubble extends ETarget<{
   }
 
   get offsetTop(): string {
-    return `${
-      this._scrollvalue * this.parent.offsetHeight + (window.innerHeight - this.parent.offsetHeight)
-    }px`;
+    console.log("offsetHeight:", this.element?.offsetHeight);
+    return `${this._scrollvalue * (this.parent.clientHeight - (this.element?.offsetHeight || 0)) + this.parent.scrollTop}px`;
   }
 }
 

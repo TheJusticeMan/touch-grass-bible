@@ -8,8 +8,7 @@ import {
   VerseRef,
 } from "../main";
 import Plugin from "../Plugin";
-
-export const TSKCrossRefCategoryID = "tsk-cross-ref";
+import { TSKCrossRefCategoryID } from "./categoryIDs";
 
 type OSIS = string; // OSIS reference format, e.g., "Gen.1.1"
 

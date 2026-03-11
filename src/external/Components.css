@@ -1,7 +1,7 @@
 .scrollBubble {
-  position: fixed;
+  position: absolute;
   right: 0;
-  transform: translateY(-50%);
+  /* transform: translateY(-50%); */
   width: 2em;
   height: 4em;
   background-color: #fff4;
@@ -40,7 +40,9 @@
   border: 0;
   background: none;
   width: 100%;
-  transition: background 0.15s, color 0.13s;
+  transition:
+    background 0.15s,
+    color 0.13s;
   user-select: none;
 }
 

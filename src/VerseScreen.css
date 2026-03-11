@@ -35,3 +35,16 @@
   border-radius: 0.5em 1em;
   background-color: #0008; */
 }
+
+.content {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font);
+  font-size: var(--font-size);
+  /* overflow: scroll; */
+  scrollbar-width: none; /* Firefox */
+}
+
+.content::-webkit-scrollbar {
+  display: none; /* Hide scrollbar for WebKit browsers */
+}

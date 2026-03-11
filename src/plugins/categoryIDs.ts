@@ -1,0 +1,10 @@
+export const AICategoryID = "ai";
+export const BibleSearchCategoryID = "bible-search";
+export const BookmarkCategoryID = "bookmarks";
+export const GoToVerseCategoryID = "go-to-verse";
+export const myNotesCategoryID = "my-notes";
+export const SettingsCategoryID = "settings";
+export const TopicListCategoryID = "topics";
+export const TranslationsCategoryID = "translations";
+export const TSKCrossRefCategoryID = "tsk-cross-ref";
+export const VerseListCategoryID = "verse-list";

@@ -1,10 +1,16 @@
 import { BrainCircuit } from "lucide";
 import { AIchat } from "../AIchat";
-import { Button, CMD, CommandCategory, CommandItem, CommandPaletteState, UnifiedCommandPalette, VerseInfoComponent } from "../main";
+import {
+  Button,
+  CMD,
+  CommandCategory,
+  CommandItem,
+  CommandPaletteState,
+  UnifiedCommandPalette,
+  VerseInfoComponent,
+} from "../main";
 import Plugin from "../Plugin";
-import { SettingsCategoryID } from "./Settings";
-
-export const AICategoryID = "ai";
+import { AICategoryID, SettingsCategoryID } from "./categoryIDs";
 
 export default class AIPlugin extends Plugin {
   chat: AIchat = new AIchat();
@@ -70,7 +76,10 @@ class AICommandPalette extends CommandCategory<string> {
     return [query];
   }
 
-  renderCommand(command: string, Item: CommandItem<string>): (state: CommandPaletteState) => CommandPaletteState {
+  renderCommand(
+    command: string,
+    Item: CommandItem<string>,
+  ): (state: CommandPaletteState) => CommandPaletteState {
     Item.setTitle(`Ask: ${command}`).setDescription("Send this question to the AI assistant");
     return state => state;
   }
@@ -104,9 +113,7 @@ class AICommandPalette extends CommandCategory<string> {
         this.commandPalette.display();
       })
       .catch(err => {
-        resultCmd
-          .setName("AI error")
-          .setDescription(err instanceof Error ? err.message : String(err));
+        resultCmd.setName("AI error").setDescription(err instanceof Error ? err.message : String(err));
         this.commandPalette.display();
       });
   }

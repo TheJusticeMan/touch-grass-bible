@@ -1,8 +1,6 @@
 import apocalypseThrottle from "apocalypse-throttle";
-import { ScrollText } from "lucide";
 import { Panel, View } from "./external/Workspace";
 import TouchGrassBibleApp, {
-  Button,
   Highlighter,
   IconButton,
   pdsp,
@@ -155,8 +153,8 @@ export class VerseScreen extends View {
     protected app: TouchGrassBibleApp,
   ) {
     super(panel);
-    this.containerEl.classList.add("screen-view");
-    this.content = this.containerEl.createEl("div", { cls: "content" });
+    this.containerEl.classList.add("screen-view", "content");
+    this.content = this.containerEl; //.createEl("div", { cls: "content" });
     app.verseState.onChange(verse => (this.verse = verse));
   }
 
@@ -209,7 +207,10 @@ export class VerseScreen extends View {
   }
 
   renderInitialChapters() {
-    this.chapterContainer.empty();
+    //this.chapterContainer.empty();  this was deleting the scroll bubbles, so instead we just remove the chapter components
+
+    this.renderedChapters.forEach(c => c.remove());
+
     this.renderedChapters = [];
 
     const centerRef = this._verse;
@@ -376,21 +377,6 @@ export class VerseInfoComponent extends UIComponent<"div"> {
           action.onTrigger(this);
         });
     }
-
-    new IconButton(this.element).setIcon(ScrollText).on("click", () => {
-      this.initiateRenderReset();
-      const links = [
-        { name: "YouVersion", url: this.verse.YouVersionURL },
-        { name: "Blue Letter Bible", url: this.verse.blbURL },
-        { name: "Bible Gateway", url: this.verse.gatewayURL },
-      ];
-      links.forEach(link => {
-        new Button(this.element).setButtonText(`Open in ${link.name}`).on("click", e => {
-          e.stopPropagation();
-          window.open(link.url, "_blank");
-        });
-      });
-    });
   }
 
   private initiateRenderReset() {

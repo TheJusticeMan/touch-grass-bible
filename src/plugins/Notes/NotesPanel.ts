@@ -7,9 +7,10 @@ import TouchGrassBibleApp, {
   Openable,
   TextArea,
   TextInput,
-} from "./main";
-import { Panel, View } from "./external/Workspace";
-import { myNotesCategoryID } from "./plugins/Notes";
+} from "../../main";
+import { Panel, View } from "../../external/Workspace";
+import { myNotesCategoryID } from "../categoryIDs";
+import "./NotesPanel.css";
 
 export class Note extends ETarget<{ change: Note }> {
   private _name: string;

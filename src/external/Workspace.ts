@@ -1,6 +1,7 @@
 // Workspace.ts
 
 import "./Workspace.css";
+import { createElement, IconNode, Plus, X } from "lucide";
 import { UIComponent } from "./Components";
 import { ETarget } from "./Event";
 
@@ -10,6 +11,11 @@ function createDetachedComponent<T extends keyof HTMLElementTagNameMap>(tagName:
 
 class WorkspaceTabButton extends UIComponent<"button"> {
   private onClick: () => void;
+  private onClose?: () => void;
+  private iconEl: HTMLSpanElement;
+  private labelEl: HTMLSpanElement;
+  private closeEl: HTMLSpanElement;
+  private closeIconEl: HTMLSpanElement;
 
   constructor(
     tabId: string,
@@ -17,18 +23,76 @@ class WorkspaceTabButton extends UIComponent<"button"> {
     onClick: () => void,
     unresolved: boolean = false,
     onPointerDown?: (event: PointerEvent) => void,
+    onClose?: () => void,
+    icon: IconNode | null = null,
   ) {
     super(document.createDocumentFragment(), "button");
     this.onClick = onClick;
+    this.onClose = onClose;
     this.element.type = "button";
     this.addClass("panel-tab");
-    this.element.textContent = title;
     this.element.dataset.viewId = tabId;
+    this.iconEl = document.createElement("span");
+    this.iconEl.className = "panel-tab-icon";
+    this.labelEl = document.createElement("span");
+    this.labelEl.className = "panel-tab-label";
+    this.closeEl = document.createElement("span");
+    this.closeEl.className = "panel-tab-close";
+    this.closeEl.setAttribute("role", "button");
+    this.closeEl.setAttribute("aria-label", `Close ${title}`);
+    this.closeIconEl = document.createElement("span");
+    this.closeIconEl.className = "panel-tab-close-icon";
+    this.closeIconEl.appendChild(createElement(X, { "stroke-width": 1.75 }));
+    this.closeEl.appendChild(this.closeIconEl);
+    this.element.append(this.iconEl, this.labelEl, this.closeEl);
+    this.setTitle(title);
+    this.setTabIcon(icon);
+    this.setCloseable(!!onClose);
     this.setUnresolved(unresolved);
-    this.element.addEventListener("click", () => this.onClick());
+    this.element.addEventListener("click", event => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest(".panel-tab-close")) {
+        return;
+      }
+      this.onClick();
+    });
+    this.closeEl.addEventListener("pointerdown", event => {
+      event.stopPropagation();
+    });
+    this.closeEl.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.onClose?.();
+    });
     if (onPointerDown) {
-      this.element.addEventListener("pointerdown", onPointerDown);
+      this.element.addEventListener("pointerdown", event => {
+        const target = event.target as HTMLElement | null;
+        if (target?.closest(".panel-tab-close")) {
+          return;
+        }
+        onPointerDown(event);
+      });
     }
+  }
+
+  setTitle(title: string): this {
+    this.labelEl.textContent = title;
+    this.closeEl.setAttribute("aria-label", `Close ${title}`);
+    return this;
+  }
+
+  setTabIcon(icon: IconNode | null): this {
+    this.iconEl.replaceChildren();
+    if (icon) {
+      this.iconEl.appendChild(createElement(icon, { "stroke-width": 1.75 }));
+    }
+    this.iconEl.classList.toggle("is-hidden", !icon);
+    return this;
+  }
+
+  setCloseable(closeable: boolean): this {
+    this.closeEl.classList.toggle("is-hidden", !closeable);
+    return this;
   }
 
   setActive(active: boolean): this {
@@ -106,9 +170,11 @@ export type SerializedPanel = {
   id: string;
   splitDirection: SplitDirection;
   mode: PanelMode;
+
   activeViewId?: string;
   views?: SerializedPanelView[];
   children?: SerializedPanelChild[];
+  persistent?: boolean;
 };
 
 type SerializedPanelView = {
@@ -140,6 +206,7 @@ type DragDropState = {
 type DetachedPanelView = {
   id: string;
   title: string;
+  icon: IconNode | null;
   view: View | null;
   placeholderEl?: HTMLDivElement;
   placeholderComponent?: WorkspacePlaceholder;
@@ -175,11 +242,11 @@ type ViewEvents = {
  *
  * Ideas from Obsidian's workspace management, but adapted for a more general use case.
  */
-
 export class Workspace extends ETarget<WorkspaceEvents> {
   private RegisteredViews: Map<string, ViewFactory> = new Map();
   rootPanel: Panel;
   private _activeView: View | null = null;
+  private _activePanel: Panel | null = null;
   private panelCounter = 0;
   private suppressLayoutEvents = false;
   private dragState: DragDropState | null = null;
@@ -197,8 +264,18 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     this.rootPanel = this.createPanel("panels", "horizontal", "root");
   }
 
+  createEmptyView(ViewClass: (panel: Panel) => View) {
+    this.unregisterView("empty");
+    this.registerView("empty", ViewClass);
+    return this;
+  }
+
   get activeView(): View | null {
     return this._activeView;
+  }
+
+  get activePanel(): Panel | null {
+    return this._activePanel;
   }
 
   createPanel(mode: PanelMode = "views", splitDirection: SplitDirection = "horizontal", id?: string): Panel {
@@ -226,13 +303,24 @@ export class Workspace extends ETarget<WorkspaceEvents> {
 
   setActiveView(view: View | null) {
     this._activeView = view;
+    if (view) {
+      this.setActivePanel(view.panel);
+    }
     this.markLayoutChanged();
+  }
+
+  setActivePanel(panel: Panel | null) {
+    if (this._activePanel === panel) return;
+    this._activePanel?.setFocused(false);
+    this._activePanel = panel;
+    this._activePanel?.setFocused(true);
   }
 
   registerView(id: string, view: ViewFactory) {
     this.RegisteredViews.set(id, view);
     this.rootPanel.hydrateViewsById(id, view);
     this._activeView = this.rootPanel.findActiveView();
+    this.setActivePanel(this._activeView?.panel ?? this._activePanel);
     this.markLayoutChanged();
   }
 
@@ -240,6 +328,7 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     this.RegisteredViews.delete(id);
     this.rootPanel.unloadViewsById(id);
     this._activeView = this.rootPanel.findActiveView();
+    this.setActivePanel(this._activeView?.panel ?? this._activePanel);
     this.markLayoutChanged();
   }
 
@@ -271,10 +360,12 @@ export class Workspace extends ETarget<WorkspaceEvents> {
       this.rootPanel.destroy();
       this.rootPanel = this.deserializePanel(layout.rootPanel);
       this._activeView = this.rootPanel.findActiveView();
+      this.setActivePanel(this._activeView?.panel ?? null);
     } catch (error) {
       console.warn("Failed to restore workspace layout", error);
       this.rootPanel = this.createPanel("panels", "horizontal", "root");
       this._activeView = null;
+      this.setActivePanel(null);
       this.suppressLayoutEvents = false;
       this.markLayoutChanged();
       return false;
@@ -325,6 +416,7 @@ export class Workspace extends ETarget<WorkspaceEvents> {
 
   private deserializePanel(serialized: SerializedPanel): Panel {
     const panel = this.createPanel(serialized.mode, serialized.splitDirection, serialized.id);
+    panel.setPersistent(!!serialized.persistent);
     if (serialized.mode === "views") {
       panel.setMode("views");
       serialized.views?.forEach(savedView => {
@@ -355,6 +447,9 @@ export class Workspace extends ETarget<WorkspaceEvents> {
 
   private isValidSerializedPanel(panel: SerializedPanel): boolean {
     if (!panel.id || (panel.mode !== "views" && panel.mode !== "panels")) {
+      return false;
+    }
+    if (panel.persistent !== undefined && typeof panel.persistent !== "boolean") {
       return false;
     }
     if (panel.splitDirection !== "horizontal" && panel.splitDirection !== "vertical") {
@@ -432,11 +527,16 @@ export class Workspace extends ETarget<WorkspaceEvents> {
       current = this.normalizeOne(current);
     }
     this._activeView = this.rootPanel.findActiveView();
+    this.setActivePanel(this._activeView?.panel ?? this._activePanel);
   }
 
   private normalizeOne(panel: Panel): Panel | null {
     if (panel.getMode() === "views") {
       if (panel.views.length > 0) {
+        return panel.parent;
+      }
+      if (panel.isPersistent()) {
+        panel.ensureFallbackView();
         return panel.parent;
       }
       if (!panel.parent) {
@@ -558,7 +658,7 @@ export class Workspace extends ETarget<WorkspaceEvents> {
       const panel = panelEl ? this.findPanelById(panelEl.dataset.panelId ?? "") : null;
       if (panel && panel.getMode() === "views") {
         const tabButton = hit.closest(".panel-tab") as HTMLButtonElement | null;
-        const insertIndex = panel.getInsertIndexForPointer(clientX, tabButton);
+        const insertIndex = panel.getInsertIndexForPointer( tabButton);
         this.setDropTarget(panel, "center", insertIndex, tabButton);
         return;
       }
@@ -660,15 +760,14 @@ export class Panel {
   views: PanelView[] = [];
   activeViewId: string | null = null;
   parent: Panel | null = null;
+  private persistent = false;
+  private addTabButton!: HTMLButtonElement;
   private resizeState: {
     pointerId: number;
     handleEl: HTMLDivElement;
     firstPanelId: string;
     secondPanelId: string;
-    startPrimary: number;
-    totalPrimary: number;
-    startFirstSize: number;
-    startSecondSize: number;
+    lastPrimary: number;
   } | null = null;
 
   private readonly onResizePointerMove = (event: PointerEvent) => {
@@ -692,6 +791,19 @@ export class Panel {
     this.tabBarEl = this.tabBarComponent.element;
     this.contentEl = this.contentComponent.element;
     this.containerEl.append(this.tabBarEl, this.contentEl);
+    this.containerEl.addEventListener(
+      "pointerdown",
+      e => (e.stopPropagation(), this.workspace.setActivePanel(this)),
+    );
+    this.addTabButton = document.createElement("button");
+    this.addTabButton.type = "button";
+    this.addTabButton.className = "panel-tab panel-tab-add";
+    this.addTabButton.setAttribute("aria-label", "New tab");
+    this.addTabButton.appendChild(createElement(Plus, { "stroke-width": 1.75 }));
+    this.addTabButton.addEventListener("click", () => {
+      this.workspace.openView("empty", this);
+    });
+    this.tabBarEl.appendChild(this.addTabButton);
     this.applyModeClasses();
     this.applySplitDirection();
   }
@@ -716,6 +828,15 @@ export class Panel {
     this.applyModeClasses();
     this.workspace.onPanelMutated();
     return this;
+  }
+
+  setPersistent(persistent: boolean): this {
+    this.persistent = persistent;
+    return this;
+  }
+
+  isPersistent(): boolean {
+    return this.persistent;
   }
 
   setSplitDirection(splitDirection: SplitDirection): this {
@@ -802,7 +923,7 @@ export class Panel {
     }
     view.attach();
     view.initializeTitle(title);
-    this.insertDetachedView({ id, title, view }, this.views.length, activate);
+    this.insertDetachedView({ id, title, icon: view.icon, view }, this.views.length, activate);
     this.workspace.onPanelMutated();
     return this;
   }
@@ -833,6 +954,7 @@ export class Panel {
       this.activeViewId = null;
       this.setActiveViewById(next?.tabId ?? null);
     }
+    this.ensureFallbackView();
     this.workspace.normalizeLayout(this);
     this.workspace.onPanelMutated();
     return this;
@@ -840,6 +962,7 @@ export class Panel {
 
   setActiveViewById(tabId: string | null): this {
     this.activeViewId = tabId;
+    this.workspace.setActivePanel(this);
     let nextActive: View | null = null;
     this.views.forEach(panelView => {
       const isActive = panelView.tabId === tabId;
@@ -858,15 +981,18 @@ export class Panel {
     return this;
   }
 
-  getInsertIndexForPointer(clientX: number, hoveredTabButton: HTMLButtonElement | null): number {
+  setFocused(focused: boolean): this {
+    this.containerEl.classList.toggle("is-active-panel", focused);
+    return this;
+  }
+
+  getInsertIndexForPointer(hoveredTabButton: HTMLButtonElement | null): number {
     if (!hoveredTabButton) {
       return this.views.length;
     }
     const hoveredIndex = this.views.findIndex(panelView => panelView.tabButton === hoveredTabButton);
     if (hoveredIndex < 0) return this.views.length;
-    const bounds = hoveredTabButton.getBoundingClientRect();
-    const before = clientX < bounds.left + bounds.width / 2;
-    return before ? hoveredIndex : hoveredIndex + 1;
+    return  hoveredIndex ;
   }
 
   getViewIndexByTabId(tabId: string): number {
@@ -917,6 +1043,7 @@ export class Panel {
         id: this.id,
         splitDirection: this.splitDirection,
         mode: "views",
+        persistent: this.persistent || undefined,
         activeViewId: this.activeViewId ?? undefined,
         views: this.views.map(panelView => ({
           id: panelView.id,
@@ -928,6 +1055,7 @@ export class Panel {
       id: this.id,
       splitDirection: this.splitDirection,
       mode: "panels",
+      persistent: this.persistent || undefined,
       children: this.childPanels.map(({ panel, size }) => ({
         size,
         panel: panel.serialize(),
@@ -963,6 +1091,7 @@ export class Panel {
   private applyModeClasses() {
     this.containerComponent.setMode(this.mode);
     this.tabBarComponent.setHidden(this.mode !== "views");
+    this.addTabButton.classList.toggle("is-hidden", this.mode !== "views");
   }
 
   private applySplitDirection() {
@@ -1007,9 +1136,12 @@ export class Panel {
       this.setActiveViewById(next?.tabId ?? null);
     }
 
+    this.ensureFallbackView();
+
     return {
       id: panelView.id,
       title: panelView.title,
+      icon: panelView.icon,
       view: panelView.view,
       placeholderEl: panelView.placeholderEl,
       placeholderComponent: panelView.placeholderComponent,
@@ -1026,12 +1158,15 @@ export class Panel {
 
     const insertIndex = Math.max(0, Math.min(targetIndex, this.views.length));
     const tabId = this.createUniqueTabId(detachedView.id);
+    const icon = detachedView.icon ?? detachedView.view?.icon ?? null;
     const tabComponent = new WorkspaceTabButton(
       tabId,
       detachedView.title,
       () => this.setActiveViewById(tabId),
       !detachedView.view,
       event => this.workspace.handleTabPointerDown(this, tabId, event),
+      () => this.removeViewByTabId(tabId),
+      icon,
     );
     const tabButton = tabComponent.element;
 
@@ -1039,6 +1174,7 @@ export class Panel {
       id: detachedView.id,
       tabId,
       title: detachedView.title,
+      icon,
       view: detachedView.view,
       tabButton,
       tabComponent,
@@ -1051,6 +1187,7 @@ export class Panel {
 
     if (detachedView.view) {
       detachedView.view.panel = this;
+      detachedView.view.initializeIcon(icon);
     }
 
     if (activate || !this.activeViewId) {
@@ -1073,6 +1210,7 @@ export class Panel {
       const detached = {
         id: panelView.id,
         title: panelView.title,
+        icon: panelView.icon,
         view: panelView.view,
         placeholderEl: panelView.placeholderEl,
         placeholderComponent: panelView.placeholderComponent,
@@ -1131,6 +1269,7 @@ export class Panel {
         {
           id: panelView.id,
           title: panelView.title,
+          icon: panelView.icon,
           view: panelView.view,
           placeholderEl: panelView.placeholderEl,
           placeholderComponent: panelView.placeholderComponent,
@@ -1163,6 +1302,7 @@ export class Panel {
         this.contentEl.appendChild(contentEl);
       }
     });
+    this.tabBarEl.appendChild(this.addTabButton);
   }
 
   private createResizeHandle(index: number): HTMLDivElement {
@@ -1175,20 +1315,13 @@ export class Panel {
       const first = this.childPanels[index];
       const second = this.childPanels[index + 1];
       if (!first || !second) return;
-      const bounds = this.contentEl.getBoundingClientRect();
-      const totalPrimary = this.splitDirection === "horizontal" ? bounds.width : bounds.height;
-      if (totalPrimary <= 0) return;
-
-      const startPrimary = this.splitDirection === "horizontal" ? event.clientX : event.clientY;
+      const lastPrimary = this.splitDirection === "horizontal" ? event.clientX : event.clientY;
       this.resizeState = {
         pointerId: event.pointerId,
         handleEl,
         firstPanelId: first.panel.id,
         secondPanelId: second.panel.id,
-        startPrimary,
-        totalPrimary,
-        startFirstSize: first.size,
-        startSecondSize: second.size,
+        lastPrimary,
       };
       handleEl.setPointerCapture(event.pointerId);
       document.addEventListener("pointermove", this.onResizePointerMove);
@@ -1207,18 +1340,26 @@ export class Panel {
     if (!first || !second) return;
 
     const currentPrimary = this.splitDirection === "horizontal" ? event.clientX : event.clientY;
-    const deltaPrimary = currentPrimary - resizeState.startPrimary;
-    const totalSize = resizeState.startFirstSize + resizeState.startSecondSize;
-    const deltaRatio = (deltaPrimary / resizeState.totalPrimary) * totalSize;
+    const deltaPrimary = currentPrimary - resizeState.lastPrimary;
+    if (deltaPrimary === 0) return;
+
+    const firstBounds = first.panel.containerEl.getBoundingClientRect();
+    const secondBounds = second.panel.containerEl.getBoundingClientRect();
+    const pairPrimary =
+      this.splitDirection === "horizontal"
+        ? firstBounds.width + secondBounds.width
+        : firstBounds.height + secondBounds.height;
+    if (pairPrimary <= 0) return;
+
+    const totalSize = first.size + second.size;
+    const deltaRatio = (deltaPrimary / pairPrimary) * totalSize;
     const minSize = 0.1;
-    const nextFirst = Math.max(
-      minSize,
-      Math.min(resizeState.startFirstSize + deltaRatio, totalSize - minSize),
-    );
+    const nextFirst = Math.max(minSize, Math.min(first.size + deltaRatio, totalSize - minSize));
     const nextSecond = Math.max(minSize, totalSize - nextFirst);
 
     first.size = nextFirst;
     second.size = nextSecond;
+    resizeState.lastPrimary = currentPrimary;
     this.layoutChildPanelSizes();
     this.workspace.onPanelMutated();
   }
@@ -1247,6 +1388,7 @@ export class Panel {
       {
         id,
         title,
+        icon: null,
         view: null,
         placeholderEl,
         placeholderComponent,
@@ -1271,6 +1413,8 @@ export class Panel {
           panelView.placeholderComponent = undefined;
           panelView.tabComponent.setUnresolved(false);
           panelView.view = view;
+          panelView.icon = view.icon;
+          panelView.tabComponent.setTabIcon(panelView.icon);
           view.attach();
           if (panelView.tabId === this.activeViewId) {
             view.activate();
@@ -1311,8 +1455,26 @@ export class Panel {
     if (!panelView || panelView.title === title) return this;
 
     panelView.title = title;
-    panelView.tabButton.textContent = title;
+    panelView.tabComponent.setTitle(title);
     this.workspace.onPanelMutated();
+    return this;
+  }
+
+  updateViewIcon(view: View, icon: IconNode | null): this {
+    const panelView = this.views.find(v => v.view === view);
+    if (!panelView || panelView.icon === icon) return this;
+
+    panelView.icon = icon;
+    panelView.tabComponent.setTabIcon(icon);
+    this.workspace.onPanelMutated();
+    return this;
+  }
+
+  ensureFallbackView(): this {
+    if (!this.persistent) return this;
+    if (this.mode !== "views") return this;
+    if (this.views.length > 0) return this;
+    this.workspace.openView("empty", this, { activate: true, title: "empty" });
     return this;
   }
 }
@@ -1321,6 +1483,7 @@ type PanelView = {
   id: string;
   tabId: string;
   title: string;
+  icon: IconNode | null;
   view: View | null;
   tabButton: HTMLButtonElement;
   tabComponent: WorkspaceTabButton;
@@ -1335,6 +1498,7 @@ type PanelView = {
 export class View extends ETarget<ViewEvents> {
   private attached = false;
   private _title = "";
+  private _icon: IconNode | null = null;
   containerEl: HTMLDivElement;
 
   constructor(public panel: Panel) {
@@ -1386,6 +1550,20 @@ export class View extends ETarget<ViewEvents> {
     return this._title;
   }
 
+  get Isfocused(): boolean {
+    return this.panel.workspace.activePanel === this.panel && this.panel.workspace.activeView === this;
+  }
+
+  get icon(): IconNode | null {
+    return this._icon;
+  }
+
+  set icon(value: IconNode | null) {
+    if (value === this._icon) return;
+    this._icon = value;
+    this.panel.updateViewIcon(this, value);
+  }
+
   set title(value: string) {
     if (value === this._title) return;
     this._title = value;
@@ -1394,6 +1572,10 @@ export class View extends ETarget<ViewEvents> {
 
   initializeTitle(title: string): void {
     this._title = title;
+  }
+
+  initializeIcon(icon: IconNode | null): void {
+    this._icon = icon;
   }
 
   // Methods for rendering, updating content, etc.

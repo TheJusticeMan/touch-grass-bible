@@ -31,11 +31,7 @@ export class ChapterScroll extends scrollBubble {
     this.on("scroll", () => {
       if (!this.maxScroll) return;
       if (!this.chapter) return;
-      const newChapter = new VerseRef(
-        this.chapter.book,
-        Math.round(this.scroll) + 1,
-        1,
-      );
+      const newChapter = new VerseRef(this.chapter.book, Math.round(this.scroll) + 1, 1);
       if (this.chapter.chapter === newChapter.chapter) return;
       this.chapter = newChapter;
       cb(this.chapter);
@@ -72,6 +68,7 @@ export class BookScroll extends scrollBubble {
   }
 
   onScroll(cb: (book: VerseRef) => void) {
+    this.clear("scroll");
     this.on("scroll", () => {
       if (!this.maxScroll) return;
       if (!this.book) return;

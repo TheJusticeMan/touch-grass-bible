@@ -11,9 +11,7 @@ import TouchGrassBibleApp, {
 import Plugin from "../Plugin";
 import { DEFAULT_SETTINGS } from "../TGAppSettings";
 import { VerseRef } from "../VerseRef";
-import { AICategoryID } from "./AI";
-
-export const SettingsCategoryID = "settings";
+import { AICategoryID, SettingsCategoryID } from "./categoryIDs";
 
 export default class SettingsPlugin extends Plugin {
   async onload(): Promise<void> {
@@ -50,14 +48,12 @@ class SettingsCategory extends CommandCategory<string> {
           (this.app.settings.aiApiKey ? " Key is currently set." : " No key set."),
       )
       .on("_click", () => {
-        this.app.commandPalette
-          .prompt("Enter your OpenAI-compatible API key:")
-          .then(key => {
-            if (key === null) return;
-            this.app.settings.aiApiKey = key.trim();
-            this.app.saveSettings();
-            this.app.commandPalette.display({ topCategory: AICategoryID });
-          });
+        this.app.commandPalette.prompt("Enter your OpenAI-compatible API key:").then(key => {
+          if (key === null) return;
+          this.app.settings.aiApiKey = key.trim();
+          this.app.saveSettings();
+          this.app.commandPalette.display({ topCategory: AICategoryID });
+        });
       });
     new CMD(this.defaultCMD)
       .setName("Download settings")

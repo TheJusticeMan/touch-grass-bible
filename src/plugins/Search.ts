@@ -2,10 +2,7 @@ import { PaletteState } from "../external/PaletteStateController";
 import { CommandCategory, CommandItem, CommandPaletteState, UnifiedCommandPalette } from "../main";
 import Plugin from "../Plugin";
 import { VerseRef, bibleData } from "../VerseRef";
-import { TSKCrossRefCategoryID } from "./TSK";
-
-export const BibleSearchCategoryID = "bible-search";
-const GoToVerseCategoryID = "go-to-verse";
+import { BibleSearchCategoryID, GoToVerseCategoryID, TSKCrossRefCategoryID } from "./categoryIDs";
 
 export default class BibleSearchPlugin extends Plugin {
   specificity = this.app.commandPalette.useState(Specificity.Book); // Start with book-level search

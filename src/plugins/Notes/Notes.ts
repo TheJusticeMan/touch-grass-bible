@@ -1,14 +1,22 @@
 import { SquarePen } from "lucide";
-import { CommandCategory, CommandItem, CommandPaletteState, TextArea, UnifiedCommandPalette } from "../main";
-import Plugin from "../Plugin";
-import { VerseRef } from "../VerseRef";
-import { TSKCrossRefCategoryID } from "./TSK";
-
-export const myNotesCategoryID = "my-notes";
+import {
+  CommandCategory,
+  CommandItem,
+  CommandPaletteState,
+  TextArea,
+  UnifiedCommandPalette,
+} from "../../main";
+import Plugin from "../../Plugin";
+import { VerseRef } from "../../VerseRef";
+import { myNotesCategoryID, TSKCrossRefCategoryID } from "../categoryIDs";
+import { NotesPanel } from "./NotesPanel";
 
 export default class NotesPlugin extends Plugin {
   async onload(): Promise<void> {
     this.registerPalette(() => new myNotesCategory(this.app.commandPalette, this), myNotesCategoryID);
+    this.registerView("notes-panel", panel => {
+      return new NotesPanel(panel, this.app);
+    });
     this.addVerseAction({
       id: "add-note",
       name: "Add/edit note for this verse",

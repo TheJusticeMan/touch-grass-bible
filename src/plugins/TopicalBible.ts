@@ -11,10 +11,8 @@ import {
 } from "../main";
 import Plugin from "../Plugin";
 import { VerseRef } from "../VerseRef";
-import { TSKCrossRefCategoryID } from "./TSK";
+import { TopicListCategoryID, TSKCrossRefCategoryID } from "./categoryIDs";
 import { PaletteState } from "../external/PaletteStateController";
-
-const TopicListCategoryID = "topics";
 
 export default class TopicalBiblePlugin extends Plugin {
   topics: BibleTopics = new BibleTopics({}); // Initialize with empty topics

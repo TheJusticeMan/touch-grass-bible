@@ -1,13 +1,13 @@
 export const processstart = new Date().getTime();
 import { BibleTopics } from "./BibleTopics";
-import { App } from "./external/App";
+import { App, CommandPaletteState } from "./external/App";
 import { View, WorkspaceLayout } from "./external/Workspace";
 import info from "./info.json";
-import { Note, NotesPanel, NoteVault } from "./NotesPanel";
-import type { IconActionItem } from "./Plugin";
+import { Note, NoteVault } from "./plugins/Notes/NotesPanel";
+import { internalPlugins, type IconActionItem } from "./Plugin";
 import AIPlugin from "./plugins/AI";
 import BookmarkPlugin from "./plugins/Bookmarks";
-import NotesPlugin from "./plugins/Notes";
+import NotesPlugin from "./plugins/Notes/Notes";
 import BibleSearchPlugin from "./plugins/Search";
 import SettingsPlugin from "./plugins/Settings";
 import TopicalBiblePlugin from "./plugins/TopicalBible";
@@ -16,10 +16,10 @@ import TSK from "./plugins/TSK";
 import { navigationPanel } from "./sidepanels";
 import "./style.css";
 import { DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
-import { CommandPaletteState } from "./external/App";
 
 import { bibleData, translation, VerseRef } from "./VerseRef";
 import { VerseScreen } from "./VerseScreen";
+import SharePlugin from "./plugins/Share";
 
 export * from "./external/App";
 export * from "./TGAppSettings";
@@ -69,7 +69,8 @@ function deepMerge<T extends object>(defaults: T, saved: Partial<T>): T {
 }
 
 export default class TouchGrassBibleApp extends App {
-  settings!: TGAppSettings;
+  settings: TGAppSettings = DEFAULT_SETTINGS;
+  plugins = new internalPlugins(this);
   private verseActions: Map<string, IconActionItem> = new Map();
   firstLoad = true;
   saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -121,57 +122,156 @@ export default class TouchGrassBibleApp extends App {
 
     this.console.log(new Date().getTime() - processstart, "ms startup time");
     this.console.log("Touch Grass Bible is ready!");
-
-    new BookmarkPlugin(this, {
-      id: "bookmarks",
-      name: "Bookmarks",
-      description: "View and manage your bookmarked verses.",
-      version: "1.0.0",
-    }).load();
-    new TSK(this, {
-      id: "tsk",
-      name: "TSK+",
-      description: "Enhanced cross references from Treasury of Scripture Knowledge.",
-      version: "1.0.0",
-    }).load();
-    new BibleSearchPlugin(this, {
-      id: "bible-search",
-      name: "Bible Search",
-      description: "Search for verses in the Bible.",
-      version: "1.0.0",
-    }).load();
-    new TopicalBiblePlugin(this, {
-      id: "topical-bible",
-      name: "Topical Bible",
-      description: "Browse topics and their associated verses from OpenBible.info.",
-      version: "1.0.0",
-    }).load();
-    new NotesPlugin(this, {
-      id: "notes",
-      name: "Notes",
-      description: "Create and manage personal notes on verses.",
-      version: "1.0.0",
-    }).load();
-    new TranslationsPlugin(this, {
-      id: "translations",
-      name: "Translations",
-      description: "View and switch between different Bible translations.",
-      version: "1.0.0",
-    }).load();
-    new SettingsPlugin(this, {
-      id: "settings",
-      name: "Settings",
-      description: "Configure Touch Grass Bible settings",
-      version: "1.0.0",
-    }).load();
-    new AIPlugin(this, {
-      id: "ai",
-      name: "AI Assistant",
-      description: "AI-powered Bible study assistant.",
-      version: "1.0.0",
-    }).load();
+    /*     this.plugins.addPluginInstances(
+      new BookmarkPlugin(this, {
+        id: "bookmarks",
+        name: "Bookmarks",
+        description: "View and manage your bookmarked verses.",
+        version: "1.0.0",
+      }),
+      new TSK(this, {
+        id: "tsk",
+        name: "TSK+",
+        description: "Enhanced cross references from Treasury of Scripture Knowledge.",
+        version: "1.0.0",
+      }),
+      new BibleSearchPlugin(this, {
+        id: "bible-search",
+        name: "Bible Search",
+        description: "Search for verses in the Bible.",
+        version: "1.0.0",
+      }),
+      new TopicalBiblePlugin(this, {
+        id: "topical-bible",
+        name: "Topical Bible",
+        description: "Browse topics and their associated verses from OpenBible.info.",
+        version: "1.0.0",
+      }),
+      new NotesPlugin(this, {
+        id: "notes",
+        name: "Notes",
+        description: "Create and manage personal notes on verses.",
+        version: "1.0.0",
+      }),
+      new TranslationsPlugin(this, {
+        id: "translations",
+        name: "Translations",
+        description: "View and switch between different Bible translations.",
+        version: "1.0.0",
+      }),
+      new SettingsPlugin(this, {
+        id: "settings",
+        name: "Settings",
+        description: "Configure Touch Grass Bible settings",
+        version: "1.0.0",
+      }),
+      new AIPlugin(this, {
+        id: "ai",
+        name: "AI Assistant",
+        description: "AI-powered Bible study assistant.",
+        version: "1.0.0",
+      }),
+    );
+ */
+    this.plugins.addPlugins(
+      {
+        pluginClass: BookmarkPlugin,
+        manifest: {
+          id: "bookmarks",
+          name: "Bookmarks",
+          description: "View and manage your bookmarked verses.",
+          version: "1.0.0",
+        },
+      },
+      {
+        pluginClass: TSK,
+        manifest: {
+          id: "tsk",
+          name: "TSK+",
+          description: "Enhanced cross references from Treasury of Scripture Knowledge.",
+          version: "1.0.0",
+        },
+      },
+      {
+        pluginClass: BibleSearchPlugin,
+        manifest: {
+          id: "bible-search",
+          name: "Bible Search",
+          description: "Search for verses in the Bible.",
+          version: "1.0.0",
+        },
+      },
+      {
+        pluginClass: TopicalBiblePlugin,
+        manifest: {
+          id: "topical-bible",
+          name: "Topical Bible",
+          description: "Browse topics and their associated verses from OpenBible.info.",
+          version: "1.0.0",
+        },
+      },
+      {
+        pluginClass: NotesPlugin,
+        manifest: {
+          id: "notes",
+          name: "Notes",
+          description: "Create and manage personal notes on verses.",
+          version: "1.0.0",
+        },
+      },
+      {
+        pluginClass: TranslationsPlugin,
+        manifest: {
+          id: "translations",
+          name: "Translations",
+          description: "View and switch between different Bible translations.",
+          version: "1.0.0",
+        },
+      },
+      {
+        pluginClass: SettingsPlugin,
+        manifest: {
+          id: "settings",
+          name: "Settings",
+          description: "Configure Touch Grass Bible settings",
+          version: "1.0.0",
+        },
+      },
+      {
+        pluginClass: AIPlugin,
+        manifest: {
+          id: "ai",
+          name: "AI Assistant",
+          description: "AI-powered Bible study assistant.",
+          version: "1.0.0",
+        },
+      },
+      {
+        pluginClass: SharePlugin,
+        manifest: {
+          id: "share",
+          name: "Share",
+          description: "Share verses via external links.",
+          version: "1.0.0",
+        },
+      },
+    );
+    this.plugins.load();
   }
 
+  /**
+   * Adds a verse action to the collection.
+   * @param action - The icon action item to add.
+   * @returns The current instance for method chaining.
+   *
+   * type IconActionItem = {
+   *   id: string;
+   *   name: string;
+   *   description?: string;
+   *   icon: IconNode;
+   *   onTrigger: (verseInfo: VerseInfoComponent) => void;
+   * };
+   */
   addVerseAction(action: IconActionItem): this {
     this.verseActions.set(action.id, action);
     return this;
@@ -244,10 +344,6 @@ export default class TouchGrassBibleApp extends App {
     this.workspace.registerView("navigation-panel", panel => {
       return new navigationPanel(panel, this);
     });
-
-    this.workspace.registerView("notes-panel", panel => {
-      return new NotesPanel(panel, this);
-    });
   }
 
   private ensureMainScreenTab() {
@@ -267,11 +363,22 @@ export default class TouchGrassBibleApp extends App {
         splitDirection: "horizontal",
         children: [
           {
+            size: 1,
+            panel: {
+              id: "left-tabs",
+              mode: "views",
+              splitDirection: "horizontal",
+              persistent: true,
+              views: [{ id: "navigation-panel", title: "Navigate" }],
+            },
+          },
+          {
             size: 3,
             panel: {
               id: "main-tabs",
               mode: "views",
               splitDirection: "horizontal",
+              persistent: true,
               views: [
                 { id: "verse-screen", title: "Scripture" },
                 { id: "reading-tools", title: "Tools" },
@@ -281,13 +388,11 @@ export default class TouchGrassBibleApp extends App {
           {
             size: 2,
             panel: {
-              id: "secondary-tabs",
+              id: "right-tabs",
               mode: "views",
               splitDirection: "horizontal",
-              views: [
-                { id: "navigation-panel", title: "Navigate" },
-                { id: "notes-panel", title: "Notes" },
-              ],
+              persistent: true,
+              views: [{ id: "notes-panel", title: "Notes" }],
             },
           },
         ],

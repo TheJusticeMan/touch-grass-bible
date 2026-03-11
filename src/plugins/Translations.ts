@@ -1,10 +1,14 @@
 import { CommandCategory, CommandItem, CommandPaletteState, UnifiedCommandPalette } from "../main";
 import Plugin from "../Plugin";
 import { VerseRef, translation, translationMetadata } from "../VerseRef";
+import { TranslationsCategoryID } from "./categoryIDs";
 
 export default class TranslationsPlugin extends Plugin {
   async onload(): Promise<void> {
-    this.registerPalette(() => new translationCategory(this.app.commandPalette, this), "translations");
+    this.registerPalette(
+      () => new translationCategory(this.app.commandPalette, this),
+      TranslationsCategoryID,
+    );
   }
 }
 

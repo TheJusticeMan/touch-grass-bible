@@ -1,10 +1,7 @@
 import { Item } from "./external/App";
 import { Panel, View } from "./external/Workspace";
 import TouchGrassBibleApp from "./main";
-import "./NotesPanel.css";
-import { BookmarkCategoryID } from "./plugins/Bookmarks";
-import { myNotesCategoryID } from "./plugins/Notes";
-import { BibleSearchCategoryID } from "./plugins/Search";
+import { BookmarkCategoryID, BibleSearchCategoryID, myNotesCategoryID } from "./plugins/categoryIDs";
 
 /**
  * Navigation panel for navigating through books and chapters.
