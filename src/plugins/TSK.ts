@@ -16,7 +16,11 @@ type OSIS = string; // OSIS reference format, e.g., "Gen.1.1"
 export default class TSK extends Plugin {
   crossRefs: { [OSIS: string]: [OSIS, number][] } = {};
   async onload(): Promise<void> {
-    this.crossRefs = await this.app.loadJSON<{ [OSIS: string]: [OSIS, number][] }>("crossrefs.json");
+    try {
+      this.crossRefs = await this.app.loadJSON<{ [OSIS: string]: [OSIS, number][] }>("crossrefs.json");
+    } catch (e) {
+      this.console.error("Failed to load crossrefs.json. Cross references will be unavailable.", e);
+    }
     this.registerPalette(() => new CrossRefCategory(this.app.commandPalette, this), TSKCrossRefCategoryID);
 
     this.addVerseAction({
@@ -42,7 +46,7 @@ export default class TSK extends Plugin {
   }
 }
 
-export class CrossRefCategory extends CommandCategory<VerseRef> {
+class CrossRefCategory extends CommandCategory<VerseRef> {
   readonly name = "Cross references (TSK+)";
   readonly description = "Cross references for the selected verse";
   verses: VerseRef[] = [];
@@ -60,9 +64,6 @@ export class CrossRefCategory extends CommandCategory<VerseRef> {
       void ((this.verses = this.plugin.crossRefsForVerse(verse)),
       (this.title = `Cross references for ${verse.toString()}`));
     else this.verses = [];
-    /* new CMD(this.defaultCMD).setName("Clear cross reference filter").on("_click", () => {
-      this.commandPalette.update({ verse: state.verse } as CommandPaletteState).display();
-    }); */
   }
   getCommands(query: string): VerseRef[] {
     return this.getcompatible(
@@ -70,7 +71,7 @@ export class CrossRefCategory extends CommandCategory<VerseRef> {
       this.verses,
       verse => verse.toString(),
       verse => verse.vTXT,
-    ); //.reverse();
+    );
   }
 
   renderCommand(

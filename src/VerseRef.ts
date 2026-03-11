@@ -121,11 +121,20 @@ export class VerseRef {
     return notes;
   }
   static fromOSIS(osis: string): VerseRef {
-    const [[book, chapter, verse]] = osis.split("-").map(ft => ft.split("."));
+    const parts = osis.split("-")[0].split(".");
+    const [bookCode, chapter, verse] = parts;
+    const bookIndex = VerseRef.BookShortNames.indexOf(bookCode);
+    if (bookIndex === -1) {
+      // console.warn is intentional here: fromOSIS is a static method with no app instance
+      console.warn(`Unknown OSIS book code: ${bookCode}`);
+      return new VerseRef("GENESIS", 1, 1);
+    }
+    const chapterNum = parseInt(chapter ?? "1", 10);
+    const verseNum = parseInt(verse ?? "1", 10);
     return new VerseRef(
-      VerseRef.booksOfTheBible[VerseRef.BookShortNames.indexOf(book)],
-      parseInt(chapter),
-      parseInt(verse),
+      VerseRef.booksOfTheBible[bookIndex],
+      isNaN(chapterNum) ? 1 : chapterNum,
+      isNaN(verseNum) ? 1 : verseNum,
     );
   }
   Bookmarks(): string[] {

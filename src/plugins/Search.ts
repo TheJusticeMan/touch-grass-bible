@@ -5,7 +5,7 @@ import { VerseRef, bibleData } from "../VerseRef";
 import { TSKCrossRefCategoryID } from "./TSK";
 
 export const BibleSearchCategoryID = "bible-search";
-export const GoToVerseCategoryID = "go-to-verse";
+const GoToVerseCategoryID = "go-to-verse";
 
 export default class BibleSearchPlugin extends Plugin {
   specificity = this.app.commandPalette.useState(Specificity.Book); // Start with book-level search
@@ -28,7 +28,7 @@ enum Specificity {
   FullVerse = 3,
 }
 
-export class BibleSearchCategory extends CommandCategory<VerseRef> {
+class BibleSearchCategory extends CommandCategory<VerseRef> {
   readonly name = "Search bible";
   readonly description = "Search for verses in the Bible";
   verses: VerseRef[] = [];
@@ -87,7 +87,7 @@ export class BibleSearchCategory extends CommandCategory<VerseRef> {
   }
 }
 
-export class GoToVerseCategory extends CommandCategory<VerseRef> {
+class GoToVerseCategory extends CommandCategory<VerseRef> {
   readonly name = "Go to verse";
   readonly description = "Navigate to a specific verse in the Bible";
   list: VerseRef[] = [];

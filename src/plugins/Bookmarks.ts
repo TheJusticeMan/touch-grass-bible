@@ -14,7 +14,7 @@ import TouchGrassBibleApp, {
 import Plugin from "../Plugin";
 import { TSKCrossRefCategoryID } from "./TSK";
 
-export const VerseListCategoryID = "verse-list";
+const VerseListCategoryID = "verse-list";
 export const BookmarkCategoryID = "bookmarks";
 
 export default class BookmarkPlugin extends Plugin {
@@ -102,7 +102,7 @@ export default class BookmarkPlugin extends Plugin {
   }
 }
 
-export class VerseListCategory extends CommandCategory<VerseRef> {
+class VerseListCategory extends CommandCategory<VerseRef> {
   readonly description = "List of opened verses";
   verses: VerseRef[] = [];
   name = "Open";
@@ -203,7 +203,7 @@ export class VerseListCategory extends CommandCategory<VerseRef> {
   }
 }
 
-export class BookmarkCategory extends CommandCategory<string> {
+class BookmarkCategory extends CommandCategory<string> {
   tags: string[] = [];
   name = "Bookmarks";
   description = "List of bookmark tags";

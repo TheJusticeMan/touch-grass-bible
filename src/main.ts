@@ -5,6 +5,7 @@ import { View, WorkspaceLayout } from "./external/Workspace";
 import info from "./info.json";
 import { Note, NotesPanel, NoteVault } from "./NotesPanel";
 import type { IconActionItem } from "./Plugin";
+import AIPlugin from "./plugins/AI";
 import BookmarkPlugin from "./plugins/Bookmarks";
 import NotesPlugin from "./plugins/Notes";
 import BibleSearchPlugin from "./plugins/Search";
@@ -45,6 +46,28 @@ export * from "./VerseScreen";
  * @method loadsettings - Loads and merges user settings with defaults.
  * @method saveSettings - Persists the current settings.
  */
+
+function isPlainObject(value: unknown): value is object {
+  return value !== null && value !== undefined && typeof value === "object" && !Array.isArray(value);
+}
+
+function deepMerge<T extends object>(defaults: T, saved: Partial<T>): T {
+  const result = { ...defaults } as T;
+  for (const key in saved) {
+    const k = key as keyof T;
+    if (isPlainObject(saved[k])) {
+      if (isPlainObject(defaults[k])) {
+        result[k] = deepMerge(defaults[k] as object, saved[k] as object) as T[keyof T];
+      } else {
+        result[k] = saved[k] as T[keyof T];
+      }
+    } else if (saved[k] !== undefined) {
+      result[k] = saved[k] as T[keyof T];
+    }
+  }
+  return result;
+}
+
 export default class TouchGrassBibleApp extends App {
   settings!: TGAppSettings;
   private verseActions: Map<string, IconActionItem> = new Map();
@@ -74,7 +97,12 @@ export default class TouchGrassBibleApp extends App {
     this.Notes.loadNotes(this.settings.ExtraNotes.map(nj => Note.fromJSON(nj)));
 
     // Load all JSON files in parallel for faster startup
-    const translations = await this.loadJSON<{ [translation: string]: bibleData }>("translations.json");
+    let translations: { [translation: string]: bibleData } = {};
+    try {
+      translations = await this.loadJSON<{ [translation: string]: bibleData }>("translations.json");
+    } catch (e) {
+      this.console.error("Failed to load translations.json. App may not function correctly.", e);
+    }
     this.commandPalette.columns = this.contentEl.offsetWidth > 800;
     window.addEventListener("resize", () => {
       const isWide = this.contentEl.offsetWidth > 800;
@@ -89,7 +117,6 @@ export default class TouchGrassBibleApp extends App {
     this.verseState.set(VerseRef.RandomVerse);
     this.console.enabled = this.settings.enableLogging;
     this.console.log(info.name, info.version, "loaded");
-    //this.on("EnterKeyDown", e => !this.commandPalette.isOpen && this.openCommandPalette());
     this.on("Ctrl+EnterKeyDown", () => !this.commandPalette.isOpen && this.openCommandPalette());
 
     this.console.log(new Date().getTime() - processstart, "ms startup time");
@@ -137,6 +164,12 @@ export default class TouchGrassBibleApp extends App {
       description: "Configure Touch Grass Bible settings",
       version: "1.0.0",
     }).load();
+    new AIPlugin(this, {
+      id: "ai",
+      name: "AI Assistant",
+      description: "AI-powered Bible study assistant.",
+      version: "1.0.0",
+    }).load();
   }
 
   addVerseAction(action: IconActionItem): this {
@@ -166,7 +199,7 @@ export default class TouchGrassBibleApp extends App {
   }
 
   async loadsettings(DEFAULT_SETTINGS: TGAppSettings) {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.settings = deepMerge(DEFAULT_SETTINGS, (await this.loadData()) as Partial<TGAppSettings>);
     VerseRef.myNotes = new Map(this.settings.myNotes);
   }
 

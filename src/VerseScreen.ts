@@ -161,17 +161,7 @@ export class VerseScreen extends View {
   }
 
   onload(): void {
-    console.log("VerseScreen loaded");
-
-    /* this.on("titleclick", e => {
-      e.stopPropagation();
-      this.app.openCommandPalette({ topic: "", specificity: 0 });
-    }); */
-
-    /* this.on(
-      "menuclick",
-      pdsp(() => this.app.commandPalette.menu()),
-    ); */
+    this.app.console.log("VerseScreen loaded");
 
     this.app.commandPalette.on("close", () => {
       VerseRef.Bookmarks.addToHistory(this.verse);
@@ -201,7 +191,6 @@ export class VerseScreen extends View {
   private set verse(value: VerseRef) {
     if (value.isSame(this._verse)) return;
     this._verse = value;
-    /* this.app.verseState.set(value); infinate loop */
     this.updateTitle();
     if (!this.chapterScroll?.isGrabbed && !this.bookScroll?.isGrabbed)
       VerseRef.Bookmarks.addToHistory(this.verse);
