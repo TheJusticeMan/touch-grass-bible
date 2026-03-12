@@ -1,5 +1,6 @@
 import esbuild from "esbuild";
 import { readFileSync, writeFileSync } from "fs";
+import { resolve } from "path";
 import process from "process";
 
 const banner = `/*
@@ -8,6 +9,11 @@ if you want to view the source, please visit the github repository of this app
 */
 `;
 const prod = process.argv[2] === "production";
+const buildTarget = process.env.APP_TARGET || "web";
+
+if (!["web", "electron", "capacitor"].includes(buildTarget)) {
+  throw new Error(`Unsupported APP_TARGET: ${buildTarget}`);
+}
 
 function writeMetadata() {
   const targetVersion = process.env.npm_package_version;
@@ -52,6 +58,24 @@ const context = await esbuild.context({
         build.onStart(() => writeMetadata());
       },
     },
+    {
+      name: "platform-virtual-module",
+      setup(build) {
+        build.onResolve({ filter: /^@platform$/ }, () => ({
+          path: `@platform/${buildTarget}`,
+          namespace: "tg-platform",
+        }));
+
+        build.onLoad({ filter: /.*/, namespace: "tg-platform" }, () => ({
+          contents: [
+            `export { createPlatformBridge } from "./${buildTarget}.ts";`,
+            'export type { PlatformBridge, PlatformFileAdapter, PlatformStorageAdapter, PlatformTarget } from "./types.ts";',
+          ].join("\n"),
+          loader: "ts",
+          resolveDir: resolve("src/platform"),
+        }));
+      },
+    },
   ],
 });
 
@@ -63,6 +87,8 @@ if (prod) {
     writeFileSync("meta.json", JSON.stringify(result.metafile, null, 2));
     console.log("Analysis metafile generated: meta.json");
   }
+
+  console.log(`Built target: ${buildTarget}`);
 
   process.exit(0);
 } else {

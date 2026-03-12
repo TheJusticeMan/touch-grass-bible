@@ -119,9 +119,7 @@ export class NotesPanel extends View {
   ) {
     super(panel);
     this.containerEl.classList.add("workspace-sidepanel", "right");
-    this.content = this.containerEl.createEl("div", {
-      cls: "sidepanel-content",
-    });
+    this.content = this.containerEl;
     // class for styling
     this.content.classList.add("notes-panel");
   }

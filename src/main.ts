@@ -18,6 +18,7 @@ import { DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
 import SharePlugin from "./plugins/Share";
 import { bibleData, translation, VerseRef } from "./VerseRef";
 import { VerseScreen } from "./VerseScreen";
+import type { PlatformBridge } from "@platform";
 
 export * from "./external/App";
 export * from "./TGAppSettings";
@@ -75,8 +76,8 @@ export default class TouchGrassBibleApp extends App {
   verseState = this.commandPalette.useState(new VerseRef("GENESIS", 1, 1));
   defaultTranslation = this.commandPalette.useState("KJV" as translation);
 
-  constructor(doc: Document) {
-    super(doc, "Touch Grass Bible");
+  constructor(doc: Document, platformBridge?: PlatformBridge) {
+    super(doc, "Touch Grass Bible", platformBridge);
   }
 
   async onload() {

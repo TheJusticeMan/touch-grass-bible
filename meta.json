@@ -1,5 +1,32 @@
 {
   "inputs": {
+    "src/platform/browserFileIO.ts": {
+      "bytes": 1286,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/platform/electron.ts": {
+      "bytes": 2235,
+      "imports": [
+        {
+          "path": "src/platform/browserFileIO.ts",
+          "kind": "import-statement",
+          "original": "./browserFileIO"
+        }
+      ],
+      "format": "esm"
+    },
+    "tg-platform:@platform/electron": {
+      "bytes": 164,
+      "imports": [
+        {
+          "path": "src/platform/electron.ts",
+          "kind": "import-statement",
+          "original": "./electron.ts"
+        }
+      ],
+      "format": "esm"
+    },
     "src/external/App.css": {
       "bytes": 888,
       "imports": []
@@ -25854,12 +25881,17 @@
       "format": "esm"
     },
     "src/external/App.ts": {
-      "bytes": 10581,
+      "bytes": 10640,
       "imports": [
         {
           "path": "src/main.ts",
           "kind": "import-statement",
           "original": "../main"
+        },
+        {
+          "path": "tg-platform:@platform/electron",
+          "kind": "import-statement",
+          "original": "@platform"
         },
         {
           "path": "src/external/App.css",
@@ -25934,7 +25966,7 @@
       "imports": []
     },
     "src/Plugin.ts": {
-      "bytes": 4593,
+      "bytes": 4601,
       "imports": [
         {
           "path": "lucide",
@@ -26034,7 +26066,7 @@
       "format": "esm"
     },
     "src/plugins/Bookmarks.ts": {
-      "bytes": 11108,
+      "bytes": 11198,
       "imports": [
         {
           "path": "node_modules/lucide/dist/esm/lucide.js",
@@ -26069,7 +26101,7 @@
       "imports": []
     },
     "src/plugins/Notes/NotesPanel.ts": {
-      "bytes": 10438,
+      "bytes": 10381,
       "imports": [
         {
           "path": "node_modules/lucide/dist/esm/lucide.js",
@@ -26105,7 +26137,7 @@
       "format": "esm"
     },
     "src/plugins/Notes/Notes.ts": {
-      "bytes": 3607,
+      "bytes": 3617,
       "imports": [
         {
           "path": "node_modules/lucide/dist/esm/lucide.js",
@@ -26307,7 +26339,7 @@
       "format": "esm"
     },
     "src/sidepanels.ts": {
-      "bytes": 1334,
+      "bytes": 1277,
       "imports": [
         {
           "path": "src/external/App.ts",
@@ -26414,7 +26446,7 @@
       "format": "esm"
     },
     "src/main.ts": {
-      "bytes": 10709,
+      "bytes": 10807,
       "imports": [
         {
           "path": "src/external/App.ts",
@@ -26540,6 +26572,15 @@
         "node_modules/js-levenshtein/index.js": {
           "bytesInOutput": 825
         },
+        "src/platform/browserFileIO.ts": {
+          "bytesInOutput": 612
+        },
+        "src/platform/electron.ts": {
+          "bytesInOutput": 753
+        },
+        "tg-platform:@platform/electron": {
+          "bytesInOutput": 0
+        },
         "src/external/App.css": {
           "bytesInOutput": 0
         },
@@ -26622,7 +26663,7 @@
           "bytesInOutput": 846
         },
         "src/external/App.ts": {
-          "bytesInOutput": 3178
+          "bytesInOutput": 3357
         },
         "src/external/CommandPalette.ts": {
           "bytesInOutput": 13251
@@ -26646,7 +26687,7 @@
           "bytesInOutput": 230
         },
         "src/Plugin.ts": {
-          "bytesInOutput": 2119
+          "bytesInOutput": 2125
         },
         "src/AIchat.ts": {
           "bytesInOutput": 2983
@@ -26667,16 +26708,16 @@
           "bytesInOutput": 1332
         },
         "src/plugins/Bookmarks.ts": {
-          "bytesInOutput": 5926
+          "bytesInOutput": 6007
         },
         "src/plugins/Notes/NotesPanel.css": {
           "bytesInOutput": 0
         },
         "src/plugins/Notes/NotesPanel.ts": {
-          "bytesInOutput": 4652
+          "bytesInOutput": 4610
         },
         "src/plugins/Notes/Notes.ts": {
-          "bytesInOutput": 1810
+          "bytesInOutput": 1820
         },
         "src/plugins/Search.ts": {
           "bytesInOutput": 2889
@@ -26697,7 +26738,7 @@
           "bytesInOutput": 1211
         },
         "src/sidepanels.ts": {
-          "bytesInOutput": 674
+          "bytesInOutput": 632
         },
         "src/style.css": {
           "bytesInOutput": 0
@@ -26718,10 +26759,10 @@
           "bytesInOutput": 5189
         },
         "src/main.ts": {
-          "bytesInOutput": 4683
+          "bytesInOutput": 4687
         }
       },
-      "bytes": 118728
+      "bytes": 120289
     },
     "dist/main.css": {
       "imports": [],

@@ -1,4 +1,5 @@
 import { UnifiedCommandPalette } from "../main";
+import { createPlatformBridge, type PlatformBridge } from "@platform";
 import "./App.css";
 import { ETarget, touchDragger } from "./Event";
 import { BrowserConsole } from "./MyBrowserConsole";
@@ -86,6 +87,7 @@ abstract class App extends ETarget<{
   console: BrowserConsole;
   contentEl: HTMLElement;
   workspace: Workspace;
+  readonly platformBridge: PlatformBridge;
 
   commandPalette: UnifiedCommandPalette = new UnifiedCommandPalette(this);
 
@@ -110,8 +112,10 @@ abstract class App extends ETarget<{
   constructor(
     private doc: Document,
     private _title: string,
+    platformBridge: PlatformBridge = createPlatformBridge(),
   ) {
     super();
+    this.platformBridge = platformBridge;
     this.target.push(this as ETarget); // Default to the app itself for keyboard events
     this.console = new BrowserConsole(true, `${this._title || "App"}:`);
     this.console.header("color:#f0f; font-size:40px; font-weight:bold;");
@@ -189,38 +193,54 @@ abstract class App extends ETarget<{
   abstract onunload(): boolean;
 
   /**
-   * Saves the provided data object to localStorage under the key "app-data".
+   * Saves the provided data object to the current platform storage under the key "app-data".
    *
    * @param data - An object containing key-value pairs representing application settings to be saved.
    * @returns A promise that resolves when the data has been saved.
    */
   async saveData(data: { [setting: string]: unknown }) {
-    localStorage.setItem("app-data", JSON.stringify(data));
+    await this.platformBridge.storage.setItem("app-data", JSON.stringify(data));
   }
 
   /**
    * Load data from local storage
    */
   async loadData(): Promise<{ [setting: string]: unknown }> {
-    const dataStr = localStorage.getItem("app-data");
-    return Promise.resolve(dataStr ? JSON.parse(dataStr) : {});
+    const dataStr = await this.platformBridge.storage.getItem("app-data");
+    return dataStr ? JSON.parse(dataStr) : {};
   }
 
   async saveConfig(name: string, content: string) {
-    localStorage.setItem(`setting-${name}`, content);
+    await this.platformBridge.storage.setItem(`setting-${name}`, content);
   }
 
   async loadConfig(name: string): Promise<string> {
-    return Promise.resolve(localStorage.getItem(`setting-${name}`) || "{}");
+    return (await this.platformBridge.storage.getItem(`setting-${name}`)) || "{}";
   }
 
   async loadConfigObject<T>(name: string): Promise<T> {
-    const configStr = localStorage.getItem(`setting-${name}`);
-    return Promise.resolve(configStr ? JSON.parse(configStr) : ({} as T));
+    const configStr = await this.platformBridge.storage.getItem(`setting-${name}`);
+    return configStr ? JSON.parse(configStr) : ({} as T);
   }
 
   async saveConfigObject<T>(name: string, content: T) {
-    localStorage.setItem(`setting-${name}`, JSON.stringify(content));
+    await this.platformBridge.storage.setItem(`setting-${name}`, JSON.stringify(content));
+  }
+
+  async readTextFile(path: string): Promise<string> {
+    return this.platformBridge.files.readTextFile(path);
+  }
+
+  async writeTextFile(path: string, content: string): Promise<void> {
+    await this.platformBridge.files.writeTextFile(path, content);
+  }
+
+  async readJsonFile<T>(path: string): Promise<T> {
+    return this.platformBridge.files.readJsonFile<T>(path);
+  }
+
+  async writeJsonFile(path: string, data: unknown): Promise<void> {
+    await this.platformBridge.files.writeJsonFile(path, data);
   }
 
   abstract getDefaultWorkspaceLayout(): WorkspaceLayout;
@@ -256,8 +276,7 @@ abstract class App extends ETarget<{
    * @returns A promise that resolves to the parsed JSON data
    */
   async loadJSON<T>(url: string): Promise<T> {
-    const response = await fetch(url);
-    return response.json() as Promise<T>;
+    return this.platformBridge.files.loadAssetJson<T>(url);
   }
 
   /**
@@ -273,36 +292,16 @@ abstract class App extends ETarget<{
     onError?: (error: unknown) => void,
     onWarn?: (message: string) => void,
   ): Promise<void> {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = accept;
-
-    input.onchange = async (event: Event) => {
-      const target = event.target as HTMLInputElement;
-      if (target.files && target.files.length > 0) {
-        const file = target.files[0];
-        const reader = new FileReader();
-
-        reader.onload = (e: ProgressEvent<FileReader>) => {
-          try {
-            const content = JSON.parse(e.target?.result as string);
-            onFileContent(content);
-          } catch (error) {
-            if (onError) onError(error);
-          }
-        };
-
-        reader.onerror = () => {
-          if (onError) onError(reader.error);
-        };
-
-        reader.readAsText(file);
-      } else {
+    try {
+      const fileContent = await this.platformBridge.files.pickFileText(accept);
+      if (fileContent === null) {
         if (onWarn) onWarn("No file selected for upload.");
+        return;
       }
-    };
-
-    input.click();
+      onFileContent(JSON.parse(fileContent));
+    } catch (error) {
+      if (onError) onError(error);
+    }
   }
 
   /**
@@ -311,12 +310,8 @@ abstract class App extends ETarget<{
    * @param data - The data to include in the file
    */
   downloadFile(filename: string, data: unknown): void {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
-    const downloadAnchorNode = document.createElement("a");
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", filename);
-    document.body.appendChild(downloadAnchorNode); // Required for Firefox
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
+    void this.platformBridge.files
+      .saveFile(filename, JSON.stringify(data, null, 2), "application/json;charset=utf-8")
+      .catch(error => this.console.error(`Failed to save ${filename}.`, error));
   }
 }

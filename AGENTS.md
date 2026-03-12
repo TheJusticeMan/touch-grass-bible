@@ -6,11 +6,17 @@ This file contains instructions for agentic coding assistants working on the Tou
 
 ### Build Commands
 
-- **Development server**: `npm run dev` - Runs the development build using esbuild.
-- **Production build**: `npm run build` - Builds for production, includes data files.
+- **Development server**: `npm run dev` - Starts the web development build and local server.
+- **Production build**: `npm run build` - Alias for `npm run build:web`.
 - **Web build**: `npm run build:web` - Builds for web deployment.
-- **Electron build**: `npm run build:electron` - Builds for Electron desktop app.
+- **Electron build**: `npm run build:electron` - Builds Electron distributable files into `dist`.
+- **Electron run**: `npm run run:electron` - Builds and launches Electron from `dist`.
+- **Electron package**: `npm run package:electron` - Builds and packages Electron app.
+- **Electron make**: `npm run make:electron` - Builds installer artifacts with Electron Forge.
 - **Capacitor build**: `npm run build:capacitor` - Builds for mobile (Capacitor).
+- **Capacitor sync**: `npm run sync:capacitor` - Syncs Capacitor platforms.
+- **Android run**: `npm run run:android` - Builds Capacitor app and runs on Android.
+- **iOS run**: `npm run run:ios` - Builds Capacitor app and runs on iOS.
 - **Clean build**: `npm run clean` - Removes dist directory.
 - **Get data files**: `npm run getdatafiles` - Fetches and processes Bible data files.
 

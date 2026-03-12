@@ -4,6 +4,11 @@ const config: CapacitorConfig = {
   appId: "io.github.touch_grass_bible",
   appName: "Touch Grass Bible",
   webDir: "dist",
+  plugins: {
+    StatusBar: {
+      overlaysWebView: false,
+    },
+  },
 };
 
 export default config;
