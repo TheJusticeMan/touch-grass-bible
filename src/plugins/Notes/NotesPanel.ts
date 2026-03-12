@@ -1,15 +1,8 @@
 import { ChevronLeft, Plus, X } from "lucide";
-import TouchGrassBibleApp, {
-  Button,
-  UIComponent,
-  ETarget,
-  IconButton,
-  Openable,
-  TextArea,
-  TextInput,
-} from "../../main";
 import { Panel, View } from "../../external/Workspace";
+import { Button, ETarget, IconButton, Openable, TextArea, TextInput, UIComponent } from "../../main";
 import { myNotesCategoryID } from "../categoryIDs";
+import NotesPlugin from "./Notes";
 import "./NotesPanel.css";
 
 export class Note extends ETarget<{ change: Note }> {
@@ -122,11 +115,13 @@ export class NotesPanel extends View {
   content: HTMLDivElement;
   constructor(
     panel: Panel,
-    public app: TouchGrassBibleApp,
+    public plugin: NotesPlugin,
   ) {
     super(panel);
     this.containerEl.classList.add("workspace-sidepanel", "right");
-    this.content = this.containerEl.createEl("div", { cls: "sidepanel-content" });
+    this.content = this.containerEl.createEl("div", {
+      cls: "sidepanel-content",
+    });
     // class for styling
     this.content.classList.add("notes-panel");
   }
@@ -140,15 +135,13 @@ export class NotesPanel extends View {
   }
 
   private saveNotesToSettings() {
-    (this.app as TouchGrassBibleApp).settings.ExtraNotes = (
-      this.app as TouchGrassBibleApp
-    ).Notes.getAllNotes().map(n => n.json);
-    this.app.console.log("Saving notes to settings:", (this.app as TouchGrassBibleApp).settings.ExtraNotes);
-    (this.app as TouchGrassBibleApp).saveSettings();
+    this.plugin.settings.ExtraNotes = this.plugin.Vault.getAllNotes().map(n => n.json);
+    this.plugin.app.console.log("Saving notes to settings:", this.plugin.settings.ExtraNotes);
+    this.plugin.saveSettings();
   }
 
   update() {
-    if ((this.app as TouchGrassBibleApp)?.settings?.ExtraNotes) this.saveNotesToSettings();
+    if (this.plugin.settings.ExtraNotes) this.saveNotesToSettings();
     this.NotePreviews.forEach(np => np.destroy());
     this.NotePreviews = [];
     this.content.empty();
@@ -156,17 +149,13 @@ export class NotesPanel extends View {
       .setPlaceholder("Search Notes...")
       .addClass("search-notes-input")
       .setType("search")
-      .on("click", () =>
-        (this.app as TouchGrassBibleApp).commandPalette.update({ topCategory: myNotesCategoryID }).open(),
-      );
-    (this.app as TouchGrassBibleApp).Notes.getAllNotes()
+      .on("click", () => this.plugin.app.commandPalette.update({ topCategory: myNotesCategoryID }).open());
+    this.plugin.Vault.getAllNotes()
       .sort((a, b) => b.dateModified.getTime() - a.dateModified.getTime())
       .forEach(note =>
         this.NotePreviews.push(
           new notePreview(this.content, note).on("click", () =>
-            new noteEditor(this.app as TouchGrassBibleApp, this.content, note)
-              .open()
-              .on("close", () => this.update()),
+            new noteEditor(this.plugin, this.content, note).open().on("close", () => this.update()),
           ),
         ),
       );
@@ -176,12 +165,10 @@ export class NotesPanel extends View {
         .setIcon(Plus)
         .setTooltip("Add Note")
         .on("click", () => {
-          this.app.console.log("Add Note clicked");
+          this.plugin.app.console.log("Add Note clicked");
           const newNote = new Note("New Note", "", new Date(), new Date());
-          (this.app as TouchGrassBibleApp).Notes.addNote(newNote);
-          new noteEditor(this.app as TouchGrassBibleApp, this.content, newNote)
-            .open()
-            .on("close", () => this.update());
+          this.plugin.Vault.addNote(newNote);
+          new noteEditor(this.plugin, this.content, newNote).open().on("close", () => this.update());
         }),
     );
   }
@@ -326,11 +313,11 @@ class tagBadge extends UIComponent<"div"> {
 class noteEditor extends Openable<{ open: void; close: void }> {
   content!: HTMLElement;
   constructor(
-    private app: TouchGrassBibleApp,
+    private plugin: NotesPlugin,
     public parent: HTMLElement,
     public note: Note,
   ) {
-    super(app);
+    super(plugin.app);
   }
   onopen(): void {
     this.content = this.parent.createEl("div", { cls: "editor-overlay" });
@@ -348,7 +335,7 @@ class noteEditor extends Openable<{ open: void; close: void }> {
             const [namePart, tags] = value.split("#");
             this.note.tags = tags ? tags.split(",").map(t => t.trim()) : [];
             this.note.name = namePart.trim();
-            this.app.saveSettingsAfterDelay(3000);
+            this.plugin.saveSettings();
           });
       });
 
@@ -357,7 +344,7 @@ class noteEditor extends Openable<{ open: void; close: void }> {
         .setValue(this.note.content)
         .on("input", (value: string) => {
           this.note.content = value;
-          this.app.saveSettingsAfterDelay(3000);
+          this.plugin.saveSettings();
         });
     });
   }

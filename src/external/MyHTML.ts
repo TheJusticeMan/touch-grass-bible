@@ -91,9 +91,7 @@ declare global {
      * myElement.empty();
      * ```
      */
-    empty<K extends keyof HTMLElementTagNameMap>(
-      this: HTMLElementTagNameMap[K],
-    ): HTMLElementTagNameMap[K];
+    empty<K extends keyof HTMLElementTagNameMap>(this: HTMLElementTagNameMap[K]): HTMLElementTagNameMap[K];
   }
   interface HTMLElement {
     setIcon<K extends keyof HTMLElementTagNameMap>(
@@ -195,8 +193,7 @@ Node.prototype.createEl = function <K extends keyof HTMLElementTagNameMap>(
 
       // Set placeholder
       if (options.placeholder !== undefined) {
-        (el as HTMLInputElement | HTMLTextAreaElement).placeholder =
-          options.placeholder;
+        (el as HTMLInputElement | HTMLTextAreaElement).placeholder = options.placeholder;
       }
 
       // Set href
@@ -223,13 +220,14 @@ Node.prototype.empty = function <K extends keyof HTMLElementTagNameMap>(
   return this;
 };
 
-HTMLElement.prototype.setIcon = function <
-  K extends keyof HTMLElementTagNameMap,
->(this: HTMLElementTagNameMap[K], icon: IconNode): HTMLElementTagNameMap[K] {
+HTMLElement.prototype.setIcon = function <K extends keyof HTMLElementTagNameMap>(
+  this: HTMLElementTagNameMap[K],
+  icon: IconNode,
+): HTMLElementTagNameMap[K] {
   this.appendChild(createElement(icon, { "stroke-width": 1 }));
   return this;
 };
 
 String.prototype.toTitleCase = function (this: string): string {
-  return this.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+  return this.toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
 };

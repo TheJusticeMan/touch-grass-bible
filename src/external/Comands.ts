@@ -45,14 +45,8 @@ export class CMD<Events extends CMDEvents = CMDEvents> extends ETarget<Events> {
     if (this.item) {
       this.item.setTitle(this.name).setDescription(this.description);
       this.item.removeComponents();
-      this._onUpdate(this.item);
     }
     return this;
-  }
-
-  // Methods to be overridden by subclasses
-  protected _onUpdate(item: CommandItem<CMD>): void {
-    item.clear();
   }
 }
 

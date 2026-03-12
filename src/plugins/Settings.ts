@@ -1,4 +1,3 @@
-import { BibleTopics } from "../BibleTopics";
 import info from "../info.json";
 import TouchGrassBibleApp, {
   CMD,
@@ -10,8 +9,7 @@ import TouchGrassBibleApp, {
 } from "../main";
 import Plugin from "../Plugin";
 import { DEFAULT_SETTINGS } from "../TGAppSettings";
-import { VerseRef } from "../VerseRef";
-import { AICategoryID, SettingsCategoryID } from "./categoryIDs";
+import { SettingsCategoryID } from "./categoryIDs";
 
 export default class SettingsPlugin extends Plugin {
   async onload(): Promise<void> {
@@ -42,20 +40,6 @@ class SettingsCategory extends CommandCategory<string> {
         this.app.saveSettings();
       });
     new CMD(this.defaultCMD)
-      .setName("Set AI API key")
-      .setDescription(
-        "Store your OpenAI-compatible API key (saved locally in localStorage — keep it private)." +
-          (this.app.settings.aiApiKey ? " Key is currently set." : " No key set."),
-      )
-      .on("_click", () => {
-        this.app.commandPalette.prompt("Enter your OpenAI-compatible API key:").then(key => {
-          if (key === null) return;
-          this.app.settings.aiApiKey = key.trim();
-          this.app.saveSettings();
-          this.app.commandPalette.display({ topCategory: AICategoryID });
-        });
-      });
-    new CMD(this.defaultCMD)
       .setName("Download settings")
       .setDescription("Download your current settings as a JSON file")
       .on("_click", () => {
@@ -70,7 +54,7 @@ class SettingsCategory extends CommandCategory<string> {
           ".json",
           newSettings => {
             this.app.settings = Object.assign({}, DEFAULT_SETTINGS, newSettings);
-            VerseRef.Bookmarks.addData(this.app.settings.Bookmarks);
+
             this.app.saveSettings();
           },
           error => this.app.console.error("Failed to parse settings file:", error),
@@ -86,8 +70,9 @@ class SettingsCategory extends CommandCategory<string> {
           .then(confirmed => {
             if (!confirmed) return;
             this.app.settings = { ...DEFAULT_SETTINGS };
-            VerseRef.Bookmarks = new BibleTopics(this.app.settings.Bookmarks);
+
             this.app.saveSettings();
+
             this.app.commandPalette.display({ topCategory: "" });
           });
       });

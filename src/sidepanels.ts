@@ -15,7 +15,9 @@ export class navigationPanel extends View {
   ) {
     super(panel);
     this.containerEl.classList.add("workspace-sidepanel", "left");
-    this.content = this.containerEl.createEl("div", { cls: "sidepanel-content" });
+    this.content = this.containerEl.createEl("div", {
+      cls: "sidepanel-content",
+    });
     this.updateContent();
   }
 

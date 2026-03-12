@@ -3,7 +3,6 @@ import "./App.css";
 import { ETarget, touchDragger } from "./Event";
 import { BrowserConsole } from "./MyBrowserConsole";
 import { Workspace, WorkspaceLayout } from "./Workspace";
-import { GlobalSwipeHandler } from "./WorkspaceMobileSwipe";
 export * from "./Comands";
 export * from "./CommandPalette";
 export * from "./Components";
@@ -13,7 +12,6 @@ export * from "./highlighter";
 export * from "./MyBrowserConsole";
 export * from "./MyHTML";
 export * from "./settings";
-export * from "./State";
 
 export { App, AppState };
 
@@ -87,9 +85,7 @@ abstract class App extends ETarget<{
 }> {
   console: BrowserConsole;
   contentEl: HTMLElement;
-  workspace: Workspace = new Workspace();
-  private workspaceHostEl: HTMLDivElement | null = null;
-  private workspaceSaveTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  workspace: Workspace;
 
   commandPalette: UnifiedCommandPalette = new UnifiedCommandPalette(this);
 
@@ -120,6 +116,7 @@ abstract class App extends ETarget<{
     this.console = new BrowserConsole(true, `${this._title || "App"}:`);
     this.console.header("color:#f0f; font-size:40px; font-weight:bold;");
     this.contentEl = this.doc.body.createEl("div", { cls: "AppShellElement" });
+    this.workspace = new Workspace(this);
     new touchDragger(this.contentEl).onany((name, e) => this.ctarget.emit(name, e));
 
     this.title = this._title;
@@ -168,8 +165,17 @@ abstract class App extends ETarget<{
     }
   }
 
-  private load = () => this.onload();
-  private unload = (): boolean => this.onunload();
+  private load = async () => {
+    await this.workspace.initialize();
+    await this.onload();
+  };
+  private unload = (): boolean => {
+    const shouldUnload = this.onunload();
+    if (shouldUnload) {
+      this.workspace.shutdown();
+    }
+    return shouldUnload;
+  };
 
   /**
    * Pushes a new history entry
@@ -178,7 +184,7 @@ abstract class App extends ETarget<{
     history.pushState({ time: new Date() }, "", "");
   }
 
-  abstract onload(): void;
+  abstract onload(): void | Promise<void>;
 
   abstract onunload(): boolean;
 
@@ -208,67 +214,23 @@ abstract class App extends ETarget<{
     return Promise.resolve(localStorage.getItem(`setting-${name}`) || "{}");
   }
 
-  protected initializeWorkspaceHost(): HTMLDivElement {
-    if (this.workspaceHostEl) {
-      return this.workspaceHostEl;
-    }
-    this.workspaceHostEl = this.contentEl.createEl("div", { cls: "workspace-root-host" });
-    new GlobalSwipeHandler(this.workspaceHostEl);
-    return this.workspaceHostEl;
+  async loadConfigObject<T>(name: string): Promise<T> {
+    const configStr = localStorage.getItem(`setting-${name}`);
+    return Promise.resolve(configStr ? JSON.parse(configStr) : ({} as T));
   }
 
-  protected mountWorkspaceRoot() {
-    const host = this.initializeWorkspaceHost();
-    host.empty();
-    host.appendChild(this.workspace.rootPanel.containerEl);
+  async saveConfigObject<T>(name: string, content: T) {
+    localStorage.setItem(`setting-${name}`, JSON.stringify(content));
   }
 
-  protected abstract getDefaultWorkspaceLayout(): WorkspaceLayout;
+  abstract getDefaultWorkspaceLayout(): WorkspaceLayout;
 
-  protected onWorkspaceLayoutInvalid(error: unknown) {
+  onWorkspaceLayoutInvalid(error: unknown) {
     this.console.warn("Invalid workspace config JSON. Falling back to default layout.", error);
   }
 
-  protected onWorkspaceLayoutRejected() {
+  onWorkspaceLayoutRejected() {
     this.console.warn("Workspace layout rejected. Falling back to default layout.");
-  }
-
-  async loadWorkspaceLayout() {
-    const rawLayout = await this.loadConfig("workspace");
-    this.workspace.restoreLayoutFromString(rawLayout, this.getDefaultWorkspaceLayout(), {
-      onInvalidJSON: error => this.onWorkspaceLayoutInvalid(error),
-      onRejectedLayout: () => this.onWorkspaceLayoutRejected(),
-    });
-    this.mountWorkspaceRoot();
-  }
-
-  saveWorkspaceLayout() {
-    const serializedLayout = this.workspace.serializeLayout();
-    void this.saveConfig("workspace", JSON.stringify(serializedLayout));
-  }
-
-  saveWorkspaceAfterDelay(delay: number = 500) {
-    if (this.workspaceSaveTimeoutId !== null) {
-      clearTimeout(this.workspaceSaveTimeoutId);
-      this.workspaceSaveTimeoutId = null;
-    }
-    this.workspaceSaveTimeoutId = setTimeout(() => {
-      this.saveWorkspaceLayout();
-      this.workspaceSaveTimeoutId = null;
-    }, delay);
-  }
-
-  protected enableWorkspaceAutoSave(delay: number = 500) {
-    this.workspace.on("layout-change", () => {
-      this.saveWorkspaceAfterDelay(delay);
-    });
-  }
-
-  initializeWorkspace(layout: WorkspaceLayout, mountTarget: HTMLElement): boolean {
-    const restored = this.workspace.restoreLayout(layout);
-    mountTarget.innerHTML = "";
-    mountTarget.appendChild(this.workspace.rootPanel.containerEl);
-    return restored;
   }
 
   /**

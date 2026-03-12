@@ -39,6 +39,12 @@ export class PaletteState<T> {
     return this.get();
   }
 
+  /**
+   * Registers a listener to be notified of state changes.
+   * @template T - The type of state being listened to.
+   * @param listener - The callback function to invoke when state changes.
+   * @returns A function that, when called, unregisters the listener.
+   */
   onChange(listener: StateListener<T>): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);

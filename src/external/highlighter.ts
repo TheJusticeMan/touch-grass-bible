@@ -79,9 +79,7 @@ export class Highlighter {
     for (const match of allMatches) {
       if (match.start > currentIndex) {
         // Append unstyled text before the match
-        fragment.appendChild(
-          document.createTextNode(text.substring(currentIndex, match.start)),
-        );
+        fragment.appendChild(document.createTextNode(text.substring(currentIndex, match.start)));
       }
       if (match.start === match.end) continue; // Skip zero-length matches
       if (match.start < currentIndex) continue; // Skip matches that overlap with previous ones
@@ -93,10 +91,7 @@ export class Highlighter {
       }
 
       // Use replace string if provided; else, default to the matched text
-      const content = match.matchText.replace(
-        match.type.regEXP,
-        match.type.replace || "$1",
-      );
+      const content = match.matchText.replace(match.type.regEXP, match.type.replace || "$1");
       if (match.type.children) {
         element.append(new Highlighter(match.type.children).highlight(content));
       } else {
@@ -108,9 +103,7 @@ export class Highlighter {
 
     // Append remaining unstyled text
     if (currentIndex < text.length) {
-      fragment.appendChild(
-        document.createTextNode(text.substring(currentIndex)),
-      );
+      fragment.appendChild(document.createTextNode(text.substring(currentIndex)));
     }
 
     return fragment;

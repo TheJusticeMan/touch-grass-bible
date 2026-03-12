@@ -16,7 +16,9 @@ export default class TSK extends Plugin {
   crossRefs: { [OSIS: string]: [OSIS, number][] } = {};
   async onload(): Promise<void> {
     try {
-      this.crossRefs = await this.app.loadJSON<{ [OSIS: string]: [OSIS, number][] }>("crossrefs.json");
+      this.crossRefs = await this.app.loadJSON<{
+        [OSIS: string]: [OSIS, number][];
+      }>("crossrefs.json");
     } catch (e) {
       this.console.error("Failed to load crossrefs.json. Cross references will be unavailable.", e);
     }

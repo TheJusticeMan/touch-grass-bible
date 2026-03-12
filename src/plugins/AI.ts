@@ -12,10 +12,20 @@ import {
 import Plugin from "../Plugin";
 import { AICategoryID, SettingsCategoryID } from "./categoryIDs";
 
+interface AIPluginSettings {
+  aiApiKey: string;
+}
+
+const defaultAISettings: AIPluginSettings = {
+  aiApiKey: "",
+};
+
 export default class AIPlugin extends Plugin {
   chat: AIchat = new AIchat();
+  settings: AIPluginSettings = { ...defaultAISettings };
 
   async onload() {
+    this.settings = await this.loadSettings(defaultAISettings);
     this.registerPalette(() => new AICommandPalette(this.app.commandPalette, this), AICategoryID);
 
     this.addVerseAction({
@@ -23,7 +33,7 @@ export default class AIPlugin extends Plugin {
       name: "Ask AI about this verse",
       icon: BrainCircuit,
       onTrigger: (verseInfo: VerseInfoComponent) => {
-        if (!this.app.settings.aiApiKey) {
+        if (!this.settings.aiApiKey) {
           new Button(verseInfo.element)
             .setButtonText("Set API key in Settings")
             .on("click", () => this.app.openCommandPalette({ topCategory: SettingsCategoryID }));
@@ -32,8 +42,10 @@ export default class AIPlugin extends Plugin {
         const verse = verseInfo.verse;
         const verseText = verse.vTXT;
         const prompt = `Explain the following Bible verse in context: "${verse.toString()} — ${verseText}"`;
-        this.chat.endpoint.apiKey = this.app.settings.aiApiKey;
-        const responseEl = verseInfo.element.createEl("div", { cls: "ai-response" });
+        this.chat.endpoint.apiKey = this.settings.aiApiKey;
+        const responseEl = verseInfo.element.createEl("div", {
+          cls: "ai-response",
+        });
         responseEl.textContent = "Asking AI…";
         this.chat
           .request(prompt, delta => {
@@ -48,6 +60,10 @@ export default class AIPlugin extends Plugin {
           });
       },
     });
+  }
+
+  async saveSettings() {
+    await super.saveSettings(this.settings);
   }
 }
 
@@ -64,11 +80,25 @@ class AICommandPalette extends CommandCategory<string> {
   }
 
   onTrigger(): void {
-    if (!this.plugin.app.settings.aiApiKey) {
+    if (!this.plugin.settings.aiApiKey) {
       new CMD(this.defaultCMD)
         .setName("No API key set")
         .setDescription("Go to Settings → Set AI API key to enable the AI assistant.");
     }
+    new CMD(this.defaultCMD)
+      .setName("Set AI API key")
+      .setDescription(
+        "Store your OpenAI-compatible API key (saved locally in localStorage — keep it private)." +
+          (this.plugin.settings.aiApiKey ? " Key is currently set." : " No key set."),
+      )
+      .on("_click", () => {
+        this.commandPalette.prompt("Enter your OpenAI-compatible API key:").then(key => {
+          if (key === null) return;
+          this.plugin.settings.aiApiKey = key.trim();
+          this.plugin.saveSettings();
+          this.commandPalette.display({ topCategory: AICategoryID });
+        });
+      });
   }
 
   getCommands(query: string): string[] {
@@ -85,7 +115,7 @@ class AICommandPalette extends CommandCategory<string> {
   }
 
   executeCommand(command: string): void {
-    const apiKey = this.plugin.app.settings.aiApiKey;
+    const apiKey = this.plugin.settings.aiApiKey;
     if (!apiKey) {
       this.plugin.app.openCommandPalette({ topCategory: SettingsCategoryID });
       return;

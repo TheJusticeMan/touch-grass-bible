@@ -1,7 +1,10 @@
 import { BrowserConsole } from "./main";
 
 type ChatMessage = { role: string; content: string };
-type ToolCall = { index?: number; function: { name: string; arguments: string } };
+type ToolCall = {
+  index?: number;
+  function: { name: string; arguments: string };
+};
 type ChatDelta = { content?: string; tool_calls?: ToolCall[] };
 type ChatRequestOptions = {
   model: string;

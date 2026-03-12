@@ -86,6 +86,14 @@ export default class Plugin extends Component {
     this.app.addVerseAction({ id, name, description, icon, onTrigger });
     this.registerUnload(() => this.app.removeVerseAction(id));
   }
+
+  async loadSettings<T>(defaultSettings: T): Promise<T> {
+    return { ...defaultSettings, ...(await this.app.loadConfigObject<T>(this.manifest.id)) };
+  }
+
+  async saveSettings<T>(settings: T) {
+    await this.app.saveConfigObject<T>(this.manifest.id, settings);
+  }
 }
 
 export class internalPlugins extends Component {

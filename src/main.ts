@@ -1,9 +1,7 @@
 export const processstart = new Date().getTime();
-import { BibleTopics } from "./BibleTopics";
 import { App, CommandPaletteState } from "./external/App";
 import { View, WorkspaceLayout } from "./external/Workspace";
 import info from "./info.json";
-import { Note, NoteVault } from "./plugins/Notes/NotesPanel";
 import { internalPlugins, type IconActionItem } from "./Plugin";
 import AIPlugin from "./plugins/AI";
 import BookmarkPlugin from "./plugins/Bookmarks";
@@ -17,9 +15,9 @@ import { navigationPanel } from "./sidepanels";
 import "./style.css";
 import { DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
 
+import SharePlugin from "./plugins/Share";
 import { bibleData, translation, VerseRef } from "./VerseRef";
 import { VerseScreen } from "./VerseScreen";
-import SharePlugin from "./plugins/Share";
 
 export * from "./external/App";
 export * from "./TGAppSettings";
@@ -74,7 +72,6 @@ export default class TouchGrassBibleApp extends App {
   private verseActions: Map<string, IconActionItem> = new Map();
   firstLoad = true;
   saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
-  Notes: NoteVault = new NoteVault();
   verseState = this.commandPalette.useState(new VerseRef("GENESIS", 1, 1));
   defaultTranslation = this.commandPalette.useState("KJV" as translation);
 
@@ -83,7 +80,6 @@ export default class TouchGrassBibleApp extends App {
   }
 
   async onload() {
-    this.initializeWorkspaceHost();
     this.on("ArrowRightKeyDown", () => {
       this.workspace.activateView("navigation-panel");
     });
@@ -91,11 +87,8 @@ export default class TouchGrassBibleApp extends App {
     this.defaultTranslation.onChange(newTranslation => (VerseRef.defaultTranslation = newTranslation));
 
     await this.loadsettings(DEFAULT_SETTINGS);
-    await this.loadWorkspaceLayout();
     this.registerWorkspaceViews();
     this.ensureMainScreenTab();
-    this.enableWorkspaceAutoSave();
-    this.Notes.loadNotes(this.settings.ExtraNotes.map(nj => Note.fromJSON(nj)));
 
     // Load all JSON files in parallel for faster startup
     let translations: { [translation: string]: bibleData } = {};
@@ -114,7 +107,7 @@ export default class TouchGrassBibleApp extends App {
     });
 
     VerseRef.bibleTranslations = translations;
-    VerseRef.Bookmarks = new BibleTopics(this.settings.Bookmarks);
+
     this.verseState.set(VerseRef.RandomVerse);
     this.console.enabled = this.settings.enableLogging;
     this.console.log(info.name, info.version, "loaded");
@@ -122,57 +115,6 @@ export default class TouchGrassBibleApp extends App {
 
     this.console.log(new Date().getTime() - processstart, "ms startup time");
     this.console.log("Touch Grass Bible is ready!");
-    /*     this.plugins.addPluginInstances(
-      new BookmarkPlugin(this, {
-        id: "bookmarks",
-        name: "Bookmarks",
-        description: "View and manage your bookmarked verses.",
-        version: "1.0.0",
-      }),
-      new TSK(this, {
-        id: "tsk",
-        name: "TSK+",
-        description: "Enhanced cross references from Treasury of Scripture Knowledge.",
-        version: "1.0.0",
-      }),
-      new BibleSearchPlugin(this, {
-        id: "bible-search",
-        name: "Bible Search",
-        description: "Search for verses in the Bible.",
-        version: "1.0.0",
-      }),
-      new TopicalBiblePlugin(this, {
-        id: "topical-bible",
-        name: "Topical Bible",
-        description: "Browse topics and their associated verses from OpenBible.info.",
-        version: "1.0.0",
-      }),
-      new NotesPlugin(this, {
-        id: "notes",
-        name: "Notes",
-        description: "Create and manage personal notes on verses.",
-        version: "1.0.0",
-      }),
-      new TranslationsPlugin(this, {
-        id: "translations",
-        name: "Translations",
-        description: "View and switch between different Bible translations.",
-        version: "1.0.0",
-      }),
-      new SettingsPlugin(this, {
-        id: "settings",
-        name: "Settings",
-        description: "Configure Touch Grass Bible settings",
-        version: "1.0.0",
-      }),
-      new AIPlugin(this, {
-        id: "ai",
-        name: "AI Assistant",
-        description: "AI-powered Bible study assistant.",
-        version: "1.0.0",
-      }),
-    );
- */
     this.plugins.addPlugins(
       {
         pluginClass: BookmarkPlugin,
@@ -294,18 +236,14 @@ export default class TouchGrassBibleApp extends App {
   }
 
   onunload(): boolean {
-    this.saveWorkspaceLayout();
     return true;
   }
 
   async loadsettings(DEFAULT_SETTINGS: TGAppSettings) {
     this.settings = deepMerge(DEFAULT_SETTINGS, (await this.loadData()) as Partial<TGAppSettings>);
-    VerseRef.myNotes = new Map(this.settings.myNotes);
   }
 
   saveSettings() {
-    this.settings.Bookmarks = VerseRef.Bookmarks.toJSON();
-    this.settings.myNotes = Array.from(VerseRef.myNotes.entries());
     this.saveData(this.settings as Partial<TGAppSettings>);
   }
 
@@ -351,10 +289,10 @@ export default class TouchGrassBibleApp extends App {
       return;
     }
     this.workspace.ensureViewInLayout("verse-screen", this.getDefaultWorkspaceLayout());
-    this.mountWorkspaceRoot();
+    this.workspace.mountRoot();
   }
 
-  protected getDefaultWorkspaceLayout(): WorkspaceLayout {
+  getDefaultWorkspaceLayout(): WorkspaceLayout {
     return {
       version: 1,
       rootPanel: {

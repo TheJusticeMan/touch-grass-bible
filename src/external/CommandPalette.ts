@@ -5,7 +5,7 @@ import "./CommandPalette.css";
 import { Button, inputMode, Item, TextInput } from "./Components";
 import { ETarget, Openable } from "./Event";
 import { PaletteState, PaletteStateController } from "./PaletteStateController";
-import { StateClass } from "./State";
+
 import { escapeRegExp } from "./escapeRegExp";
 import { Highlighter } from "./highlighter";
 
@@ -394,7 +394,11 @@ export class UnifiedCommandPalette extends Openable<{
       this.containerEl.remove();
       this.containerEl = null;
     }
-    this.state = this.state.update({ query: "", maxResults: 100, topCategory: "" });
+    this.state = this.state.update({
+      query: "",
+      maxResults: 100,
+      topCategory: "",
+    });
     this.stateController.clearContexts();
   }
 
@@ -556,15 +560,16 @@ export class UnifiedCommandPalette extends Openable<{
  *
  * @typeParam  - The type of the application instance.
  */
-export class CommandPaletteState extends StateClass {
+export class CommandPaletteState {
   maxResults: number = 100; // Maximum results to show
   expanded: boolean = true; // Whether the palette items are expanded
   constructor(
     public palette: UnifiedCommandPalette,
     public query: string = "",
     public topCategory: string = "",
-  ) {
-    super();
+  ) {}
+  update(partial: Partial<this> = {}): this {
+    return Object.assign(Object.create(this), this, partial);
   }
 }
 
@@ -868,11 +873,12 @@ class PromptCategory extends CommandCategory<string> {
   onTrigger(_state: CommandPaletteState): void {}
 
   getCommands(): string[] {
-    return [this._prompt, "Ok", "Cancel"];
+    return ["Ok", "Cancel"];
   }
 
   renderCommand(command: string, Item: CommandItem<string>): Partial<CommandPaletteState> {
     Item.setTitle(command);
+    if (command === "Ok") Item.setDescription(this._prompt);
     return { topCategory: this.currentTopCategory };
   }
 

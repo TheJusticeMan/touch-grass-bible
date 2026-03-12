@@ -31,13 +31,9 @@
   position: relative;
 }
 
-.panel.is-active-panel {
-  /* border-color: #fffc; */
-  box-shadow:
-    inset 0 0 0 1px #fff4,
-    0 0 0 1px #fff2;
+/* .panel.is-active-panel {
 }
-
+ */
 .panel-mode-panels {
   gap: 0;
 }
@@ -347,6 +343,7 @@
     transform: translateX(var(--rightpanel-open));
     z-index: 999;
     transition: transform 0.15s ease;
+    backdrop-filter: blur(6px);
   }
   .workspace-root-host > .panel > .panel-content > .panel:last-of-type {
     position: fixed;
@@ -355,5 +352,9 @@
     transform: translateX(var(--leftpanel-open));
     z-index: 999;
     transition: transform 0.15s ease;
+    backdrop-filter: blur(6px);
+  }
+  .workspace-root-host > .panel > .panel-content > .panel-resize-handle {
+    display: none;
   }
 }

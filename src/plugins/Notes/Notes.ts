@@ -7,15 +7,49 @@ import {
   UnifiedCommandPalette,
 } from "../../main";
 import Plugin from "../../Plugin";
-import { VerseRef } from "../../VerseRef";
+import { OSISNotes, VerseRef } from "../../VerseRef";
 import { myNotesCategoryID, TSKCrossRefCategoryID } from "../categoryIDs";
-import { NotesPanel } from "./NotesPanel";
+import { Note, NotesPanel, NoteVault } from "./NotesPanel";
+
+interface NotesPluginSettings {
+  myNotes: [string, string][];
+  ExtraNotes: {
+    name: string;
+    content: string;
+    dateCreated: string;
+    dateModified: string;
+  }[];
+}
+
+const defaultNotesSettings: NotesPluginSettings = {
+  myNotes: [],
+  ExtraNotes: [],
+};
 
 export default class NotesPlugin extends Plugin {
+  myNotes = new OSISNotes(new Map<string, string>());
+  Vault: NoteVault = new NoteVault();
+  settings: NotesPluginSettings = defaultNotesSettings;
+
   async onload(): Promise<void> {
+    this.settings = await this.loadSettings(defaultNotesSettings);
+
+    if (this.app.settings.myNotes) {
+      this.settings.myNotes = [...this.app.settings.myNotes];
+      delete this.app.settings.myNotes;
+      this.app.saveSettings();
+    }
+    this.myNotes = new OSISNotes(new Map(this.settings.myNotes));
+    if (this.app.settings.ExtraNotes) {
+      this.settings.ExtraNotes = [...this.app.settings.ExtraNotes];
+      delete this.app.settings.ExtraNotes;
+      this.app.saveSettings();
+    }
+    this.Vault.loadNotes(this.settings.ExtraNotes.map(nj => Note.fromJSON(nj)));
+
     this.registerPalette(() => new myNotesCategory(this.app.commandPalette, this), myNotesCategoryID);
     this.registerView("notes-panel", panel => {
-      return new NotesPanel(panel, this.app);
+      return new NotesPanel(panel, this);
     });
     this.addVerseAction({
       id: "add-note",
@@ -24,17 +58,22 @@ export default class NotesPlugin extends Plugin {
       icon: SquarePen,
       onTrigger: verseInfo => {
         const noteInput = new TextArea(verseInfo.element)
-          .setValue(verseInfo.verse.note || "")
+          .setValue(this.myNotes.get(verseInfo.verse) || "")
           .addClass("noteArea")
           .setPlaceholder(" - Add your note here...")
           .on("click", e => e.stopPropagation())
           .on("input", (value: string) => {
-            verseInfo.verse.note = value;
+            this.myNotes.set(verseInfo.verse, value);
             this.app.saveSettingsAfterDelay();
           });
         noteInput.focus(); // Auto-focus for better UX
       },
     });
+  }
+
+  async saveSettings() {
+    this.settings.myNotes = Array.from(this.myNotes.myNotes.entries());
+    await super.saveSettings(this.settings);
   }
 }
 class myNotesCategory extends CommandCategory<VerseRef> {
@@ -50,19 +89,19 @@ class myNotesCategory extends CommandCategory<VerseRef> {
   }
 
   onTrigger(_state: CommandPaletteState): void {
-    this.notes = Array.from(VerseRef.myNotes.keys())
-      .map(osis => VerseRef.fromOSIS(osis))
+    this.notes = Array.from(this.plugin.myNotes.keys())
+
       .sort((a, b) => a.toString().localeCompare(b.toString()));
     this.title = "Notes";
   }
 
   getCommands(query: string): VerseRef[] {
-    return this.getcompatible(query, this.notes, verse => verse.note);
+    return this.getcompatible(query, this.notes, verse => this.plugin.myNotes.get(verse) || "");
   }
 
   renderCommand(verse: VerseRef, Item: CommandItem<VerseRef>) {
     Item.setTitle(verse.toString())
-      .setDescription(verse.note || "No note")
+      .setDescription(this.plugin.myNotes.get(verse) || "No note")
       .addctx();
     return (state: CommandPaletteState) => {
       this.plugin.app.verseState.set(verse);

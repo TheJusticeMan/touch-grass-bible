@@ -2,16 +2,15 @@
 
 import "./Workspace.css";
 import { createElement, IconNode, Plus, X } from "lucide";
-import { UIComponent } from "./Components";
+import { Button, UIComponent } from "./Components";
 import { ETarget } from "./Event";
+import { GlobalSwipeHandler } from "./WorkspaceMobileSwipe";
 
 function createDetachedComponent<T extends keyof HTMLElementTagNameMap>(tagName: T): UIComponent<T> {
   return new UIComponent(document.createDocumentFragment(), tagName);
 }
 
 class WorkspaceTabButton extends UIComponent<"button"> {
-  private onClick: () => void;
-  private onClose?: () => void;
   private iconEl: HTMLSpanElement;
   private labelEl: HTMLSpanElement;
   private closeEl: HTMLSpanElement;
@@ -20,15 +19,13 @@ class WorkspaceTabButton extends UIComponent<"button"> {
   constructor(
     tabId: string,
     title: string,
-    onClick: () => void,
+    private onClick: () => void,
     unresolved: boolean = false,
     onPointerDown?: (event: PointerEvent) => void,
-    onClose?: () => void,
+    private onClose?: () => void,
     icon: IconNode | null = null,
   ) {
     super(document.createDocumentFragment(), "button");
-    this.onClick = onClick;
-    this.onClose = onClose;
     this.element.type = "button";
     this.addClass("panel-tab");
     this.element.dataset.viewId = tabId;
@@ -219,6 +216,15 @@ type RestoreLayoutFromStringOptions = {
   onRejectedLayout?: () => void;
 };
 
+export type WorkspaceHost = {
+  contentEl: HTMLElement;
+  loadConfig(name: string): Promise<string>;
+  saveConfig(name: string, content: string): Promise<void>;
+  getDefaultWorkspaceLayout(): WorkspaceLayout;
+  onWorkspaceLayoutInvalid(error: unknown): void;
+  onWorkspaceLayoutRejected(): void;
+};
+
 type WorkspaceEvents = {
   "layout-change": void;
 };
@@ -250,6 +256,13 @@ export class Workspace extends ETarget<WorkspaceEvents> {
   private panelCounter = 0;
   private suppressLayoutEvents = false;
   private dragState: DragDropState | null = null;
+  private app: WorkspaceHost | null = null;
+  private initialized = false;
+  private initializingPromise: Promise<boolean> | null = null;
+  private hostEl: HTMLDivElement | null = null;
+  private autoSaveBound = false;
+  private saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private globalSwipeHandler: GlobalSwipeHandler | null = null;
 
   private readonly onDocumentPointerMove = (event: PointerEvent) => {
     this.handleTabPointerMove(event);
@@ -259,9 +272,106 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     this.handleTabPointerUp(event);
   };
 
-  constructor() {
+  constructor(app?: WorkspaceHost) {
     super();
+    this.app = app ?? null;
     this.rootPanel = this.createPanel("panels", "horizontal", "root");
+    this.registerView("empty", panel => new EmptyView(panel));
+  }
+
+  private getConfigName(): string {
+    return "workspace";
+  }
+
+  private getAutoSaveDelay(): number {
+    return 500;
+  }
+
+  private ensureHost(): HTMLDivElement {
+    if (this.hostEl) {
+      return this.hostEl;
+    }
+    if (!this.app) {
+      throw new Error("Workspace initialize options are missing");
+    }
+    this.hostEl = this.app.contentEl.createEl("div", {
+      cls: "workspace-root-host",
+    });
+    this.globalSwipeHandler = new GlobalSwipeHandler(this.hostEl);
+    return this.hostEl;
+  }
+
+  mountRoot() {
+    const host = this.ensureHost();
+    host.empty();
+    host.appendChild(this.rootPanel.containerEl);
+  }
+
+  async initialize(): Promise<boolean> {
+    if (this.initialized) {
+      return true;
+    }
+    if (this.initializingPromise) {
+      return this.initializingPromise;
+    }
+    if (!this.app) {
+      throw new Error("Workspace initialize options are missing");
+    }
+
+    this.initializingPromise = (async () => {
+      const rawLayout = await this.app!.loadConfig(this.getConfigName());
+      const restored = this.restoreLayoutFromString(rawLayout, this.app!.getDefaultWorkspaceLayout(), {
+        onInvalidJSON: error => this.app?.onWorkspaceLayoutInvalid(error),
+        onRejectedLayout: () => this.app?.onWorkspaceLayoutRejected(),
+      });
+      this.mountRoot();
+      this.enableAutoSave();
+      this.initialized = true;
+      return restored;
+    })().finally(() => {
+      this.initializingPromise = null;
+    });
+
+    return this.initializingPromise;
+  }
+
+  async saveLayout(): Promise<void> {
+    if (!this.app) {
+      return;
+    }
+    const serializedLayout = this.serializeLayout();
+    await this.app.saveConfig(this.getConfigName(), JSON.stringify(serializedLayout));
+  }
+
+  saveAfterDelay(delay: number = this.getAutoSaveDelay()) {
+    if (this.saveTimeoutId !== null) {
+      clearTimeout(this.saveTimeoutId);
+      this.saveTimeoutId = null;
+    }
+    this.saveTimeoutId = setTimeout(() => {
+      void this.saveLayout();
+      this.saveTimeoutId = null;
+    }, delay);
+  }
+
+  enableAutoSave(delay: number = this.getAutoSaveDelay()) {
+    if (this.autoSaveBound) {
+      return;
+    }
+    this.autoSaveBound = true;
+    this.on("layout-change", () => {
+      this.saveAfterDelay(delay);
+    });
+  }
+
+  shutdown() {
+    if (this.saveTimeoutId !== null) {
+      clearTimeout(this.saveTimeoutId);
+      this.saveTimeoutId = null;
+    }
+    void this.saveLayout();
+    this.globalSwipeHandler?.destroy();
+    this.globalSwipeHandler = null;
   }
 
   createEmptyView(ViewClass: (panel: Panel) => View) {
@@ -330,6 +440,20 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     this._activeView = this.rootPanel.findActiveView();
     this.setActivePanel(this._activeView?.panel ?? this._activePanel);
     this.markLayoutChanged();
+  }
+
+  listRegisteredViews(): string[] {
+    return Array.from(this.RegisteredViews.keys());
+  }
+
+  newView(id: string, panel: Panel): View | null {
+    const viewFactory = this.RegisteredViews.get(id);
+    if (!viewFactory) {
+      return null;
+    }
+    const view = viewFactory(panel);
+    panel.addView(id, view, id, false);
+    return view;
   }
 
   openView(id: string, panel: Panel, options: { title?: string; activate?: boolean } = {}): View | null {
@@ -658,7 +782,7 @@ export class Workspace extends ETarget<WorkspaceEvents> {
       const panel = panelEl ? this.findPanelById(panelEl.dataset.panelId ?? "") : null;
       if (panel && panel.getMode() === "views") {
         const tabButton = hit.closest(".panel-tab") as HTMLButtonElement | null;
-        const insertIndex = panel.getInsertIndexForPointer( tabButton);
+        const insertIndex = panel.getInsertIndexForPointer(tabButton);
         this.setDropTarget(panel, "center", insertIndex, tabButton);
         return;
       }
@@ -992,7 +1116,7 @@ export class Panel {
     }
     const hoveredIndex = this.views.findIndex(panelView => panelView.tabButton === hoveredTabButton);
     if (hoveredIndex < 0) return this.views.length;
-    return  hoveredIndex ;
+    return hoveredIndex;
   }
 
   getViewIndexByTabId(tabId: string): number {
@@ -1579,4 +1703,22 @@ export class View extends ETarget<ViewEvents> {
   }
 
   // Methods for rendering, updating content, etc.
+}
+
+class EmptyView extends View {
+  onActivate(): void {
+    this.containerEl.empty();
+    const content = this.containerEl.createEl("div", { cls: "empty-view" });
+    content.style.display = "flex";
+    content.style.flexDirection = "column";
+    content.style.gap = "1em";
+    content.style.padding = "1em";
+    this.panel.workspace.listRegisteredViews().forEach(viewId => {
+      if (viewId !== "empty") {
+        new Button(content).setButtonText(`Open ${viewId}`).on("click", () => {
+          this.panel.workspace.openView(viewId, this.panel, { activate: true });
+        });
+      }
+    });
+  }
 }

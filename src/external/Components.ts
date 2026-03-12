@@ -462,7 +462,6 @@ export abstract class scrollBubble extends ETarget<{
   }
 
   get offsetTop(): string {
-    console.log("offsetHeight:", this.element?.offsetHeight);
     return `${this._scrollvalue * (this.parent.clientHeight - (this.element?.offsetHeight || 0)) + this.parent.scrollTop}px`;
   }
 }

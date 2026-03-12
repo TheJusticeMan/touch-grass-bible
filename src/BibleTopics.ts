@@ -60,7 +60,7 @@ export class BibleTopics {
   get(topic: string): VerseRef[] {
     const refs = this.topics.get(topic);
     if (!refs) return [];
-    return Array.from(refs.keys()).map((osis) => VerseRef.fromOSIS(osis));
+    return Array.from(refs.keys()).map(osis => VerseRef.fromOSIS(osis));
   }
 
   has(topic: string): boolean {
@@ -129,10 +129,7 @@ export class BibleTopics {
   toJSON(): BibleTopicsType {
     const obj: BibleTopicsType = {};
     for (const [topic, refs] of this.topics.entries()) {
-      obj[topic] = Array.from(refs.entries()).map(([osis, rating]) => [
-        osis,
-        rating,
-      ]);
+      obj[topic] = Array.from(refs.entries()).map(([osis, rating]) => [osis, rating]);
     }
     return obj;
   }

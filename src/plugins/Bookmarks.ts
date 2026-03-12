@@ -13,13 +13,45 @@ import TouchGrassBibleApp, {
 } from "../main";
 import Plugin from "../Plugin";
 import { BookmarkCategoryID, TSKCrossRefCategoryID, VerseListCategoryID } from "./categoryIDs";
+import { BibleTopics, BibleTopicsType } from "../BibleTopics";
+
+interface BookmarkSettings {
+  Bookmarks: BibleTopicsType;
+}
+
+const defaultBookmarks: BookmarkSettings = {
+  Bookmarks: {
+    "Start Up Verses": [
+      [new VerseRef("GENESIS", 1, 1).toOSIS(), 0],
+      [new VerseRef("JOHN", 3, 16).toOSIS(), 0],
+      [new VerseRef("PSALMS", 23, 2).toOSIS(), 0],
+      [new VerseRef("1 CORINTHIANS", 13, 4).toOSIS(), 0],
+      [new VerseRef("PHILIPPIANS", 4, 13).toOSIS(), 0],
+      [new VerseRef("ROMANS", 8, 28).toOSIS(), 0],
+    ],
+  },
+};
 
 export default class BookmarkPlugin extends Plugin {
   tag = this.app.commandPalette.useState("Start Up Verses"); // State to track the currently selected bookmark tag
-
-  Bookmarks = VerseRef.Bookmarks;
+  settings: BookmarkSettings = defaultBookmarks;
+  Bookmarks = new BibleTopics({});
 
   async onload(): Promise<void> {
+    this.settings = await this.loadSettings(defaultBookmarks);
+    if (this.app.settings.Bookmarks) {
+      this.settings.Bookmarks = { ...this.app.settings.Bookmarks };
+      delete this.app.settings.Bookmarks;
+      this.app.saveSettings();
+    }
+
+    this.console.log("Loaded bookmarks from settings:", this.settings.Bookmarks);
+    this.Bookmarks = new BibleTopics(this.settings.Bookmarks);
+
+    this.app.verseState.onChange(verse => {
+      return (this.Bookmarks.addToHistory(verse), this.saveSettings());
+    });
+
     if (window.location.hash) {
       const id = window.location.hash.substring(1);
       const el = document.getElementById(id);
@@ -40,16 +72,16 @@ export default class BookmarkPlugin extends Plugin {
   }
 
   syncBookmarkStatus(verseInfo: VerseInfoComponent) {
-    const { bookmarkList: usedTags } = verseInfo.verse;
+    const usedTags = this.Bookmarks.getTopicsFromVerse(verseInfo.verse);
     verseInfo.element.empty();
-    const unusedTags = VerseRef.Bookmarks.keys.filter(tag => !usedTags.includes(tag));
+    const unusedTags = this.Bookmarks.keys.filter(tag => !usedTags.includes(tag));
 
     usedTags.forEach(topic => {
       new Button(verseInfo.element)
         .setButtonText(`${VerseListCategory.convertTopicDate(topic)}`)
         .addClass("bookmarkAdded")
         .on("click", () => {
-          VerseRef.Bookmarks.remove(topic, verseInfo.verse);
+          this.Bookmarks.remove(topic, verseInfo.verse);
           this.syncBookmarkStatus(verseInfo);
         })
         .on("menu", e => {
@@ -66,7 +98,7 @@ export default class BookmarkPlugin extends Plugin {
 
       const addBookmark = () => {
         if (tag.length === 0) return;
-        VerseRef.Bookmarks.add(tag, verseInfo.verse);
+        this.Bookmarks.add(tag, verseInfo.verse);
         this.syncBookmarkStatus(verseInfo);
       };
 
@@ -85,7 +117,7 @@ export default class BookmarkPlugin extends Plugin {
         .setButtonText(`${VerseListCategory.convertTopicDate(topic)}`)
         .addClass("bookmarkNotAdded")
         .on("click", () => {
-          VerseRef.Bookmarks.add(topic, verseInfo.verse);
+          this.Bookmarks.add(topic, verseInfo.verse);
           this.syncBookmarkStatus(verseInfo);
         })
         .on("menu", e => {
@@ -96,6 +128,11 @@ export default class BookmarkPlugin extends Plugin {
           });
         });
     });
+  }
+
+  async saveSettings(): Promise<void> {
+    this.settings.Bookmarks = this.Bookmarks.toJSON();
+    await super.saveSettings(this.settings);
   }
 }
 
@@ -129,7 +166,7 @@ class VerseListCategory extends CommandCategory<VerseRef> {
         .reverse();
       this.plugin.Bookmarks.set(this.plugin.tag.get(), ...versesToKeep);
       this.commandPalette.display();
-      this.plugin.app.saveSettings();
+      this.plugin.saveSettings();
     });
     this.title = `Bookmark tag: ${VerseListCategory.convertTopicDate(this.plugin.tag.get())}`;
     this.verses = this.plugin.Bookmarks.get(this.plugin.tag.get()).reverse();
@@ -154,7 +191,7 @@ class VerseListCategory extends CommandCategory<VerseRef> {
           .on("click", () => {
             this.plugin.Bookmarks.remove(this.plugin.tag.get(), verse);
             this.commandPalette.display();
-            this.plugin.app.saveSettings();
+            this.plugin.saveSettings();
           }),
       );
     }
@@ -225,7 +262,7 @@ class BookmarkCategory extends CommandCategory<string> {
         const verse = this.app.verseState.get();
         this.plugin.Bookmarks.remove(tag, verse);
         this.commandPalette.display();
-        this.app.saveSettings();
+        this.plugin.saveSettings();
       });
 
     new CMD(this.defaultCMD)
@@ -235,7 +272,7 @@ class BookmarkCategory extends CommandCategory<string> {
         const tag = this.plugin.tag.get();
         this.plugin.Bookmarks.delete(tag);
         this.commandPalette.display();
-        this.app.saveSettings();
+        this.plugin.saveSettings();
       });
     new CMD(this.defaultCMD)
       .setName(`Save ${verse.toString()} to new tag`)
@@ -249,7 +286,7 @@ class BookmarkCategory extends CommandCategory<string> {
           const tag = st.toTitleCase();
           this.plugin.Bookmarks.add(tag, verse);
           this.commandPalette.display();
-          (this.app as TouchGrassBibleApp).saveSettings();
+          this.plugin.saveSettings();
         });
       });
 

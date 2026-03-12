@@ -1,4 +1,3 @@
-import { BibleTopics } from "./BibleTopics";
 import { books3letter, BookShortNames, booksOfTheBible } from "./booksOfTheBible";
 import { Highlighter } from "./external/App";
 export type bibleData = { [book: string]: string[][] };
@@ -63,8 +62,7 @@ export class VerseRef {
   static BookShortNames: OSIS[] = BookShortNames;
   static books3letter: string[] = books3letter;
   static bibleTranslations: { [translation: string]: bibleData } = {};
-  static myNotes: Map<OSIS, string> = new Map<OSIS, string>();
-  static Bookmarks: BibleTopics;
+
   static defaultTranslation: translation = "KJV";
   static get bible() {
     return this.bibleTranslations[this.defaultTranslation];
@@ -100,26 +98,6 @@ export class VerseRef {
     const bookCode = VerseRef.BookShortNames[bookIndex] || this.book;
     return `${bookCode}.${this.chapter}.${this.verse}`;
   }
-  get note(): string {
-    return VerseRef.myNotes.get(this.OSIS) || "";
-  }
-  set note(value: string) {
-    if (value.trim() === "") {
-      VerseRef.myNotes.delete(this.OSIS);
-    } else {
-      VerseRef.myNotes.set(this.OSIS, value);
-    }
-  }
-  get notes(): VerseRef[] {
-    const notes: VerseRef[] = [];
-    Array.from(VerseRef.myNotes.keys()).forEach(osis => {
-      if (osis.startsWith(this.OSIS)) {
-        const ref = VerseRef.fromOSIS(osis);
-        notes.push(ref);
-      }
-    });
-    return notes;
-  }
   static fromOSIS(osis: string): VerseRef {
     const parts = osis.split("-")[0].split(".");
     const [bookCode, chapter, verse] = parts;
@@ -136,13 +114,6 @@ export class VerseRef {
       isNaN(chapterNum) ? 1 : chapterNum,
       isNaN(verseNum) ? 1 : verseNum,
     );
-  }
-  Bookmarks(): string[] {
-    return VerseRef.Bookmarks.getTopicsFromVerse(this);
-  }
-
-  get bookmarkList(): string[] {
-    return VerseRef.Bookmarks.getTopicsFromVerse(this);
   }
 
   toString(): string {
@@ -268,5 +239,37 @@ export class VerseRef {
 
     const lastVerseIndex = VerseRef.bible[prevBook][prevChapter].length - 1;
     return new VerseRef(prevBook, prevChapter, lastVerseIndex);
+  }
+}
+
+export class OSISNotes {
+  constructor(public myNotes: Map<OSIS, string>) {}
+
+  get(verse: VerseRef): string {
+    return this.myNotes.get(verse.OSIS) || "";
+  }
+
+  set(verse: VerseRef, note: string): void {
+    if (note.trim() === "") {
+      this.myNotes.delete(verse.OSIS);
+    } else {
+      this.myNotes.set(verse.OSIS, note);
+    }
+  }
+
+  keys(): IterableIterator<VerseRef> {
+    const iterator = this.myNotes.keys();
+    return {
+      [Symbol.iterator]() {
+        return this;
+      },
+      next(): IteratorResult<VerseRef> {
+        const result = iterator.next();
+        if (result.done) {
+          return { done: true, value: undefined };
+        }
+        return { done: false, value: VerseRef.fromOSIS(result.value) };
+      },
+    };
   }
 }
