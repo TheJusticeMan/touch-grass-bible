@@ -1,0 +1,156 @@
+name: Build and Release iOS
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Capacitor bundle
+        run: |
+          mkdir -p ./dist
+          npm run build:bundle:capacitor
+          cp src/web/* dist
+
+      - name: Add iOS platform
+        run: npx cap add ios
+
+      - name: Sync Capacitor (iOS)
+        run: npx cap sync ios
+        env:
+          CAPACITOR_PLATFORM_NAME: ios
+
+      - name: Install CocoaPods dependencies
+        working-directory: ios/App
+        run: pod install
+
+      - name: Check if signing certificates are available
+        id: signing
+        env:
+          IOS_CERTIFICATE: ${{ secrets.IOS_P12_CERTIFICATE }}
+          IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          if [ -n "$IOS_CERTIFICATE" ] && [ -n "$IOS_PROVISIONING_PROFILE" ] && [ -n "$IOS_TEAM_ID" ]; then
+            echo "available=true" >> $GITHUB_OUTPUT
+          else
+            echo "available=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Import iOS signing certificate and provisioning profile
+        if: steps.signing.outputs.available == 'true'
+        env:
+          IOS_P12_CERTIFICATE: ${{ secrets.IOS_P12_CERTIFICATE }}
+          IOS_P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
+          IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+          IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          security create-keychain -p "$IOS_KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$IOS_KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          echo "$IOS_P12_CERTIFICATE" | base64 --decode > $RUNNER_TEMP/certificate.p12
+          security import $RUNNER_TEMP/certificate.p12 \
+            -P "$IOS_P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+          echo "$IOS_PROVISIONING_PROFILE" | base64 --decode > $PP_PATH
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
+
+      - name: Generate ExportOptions.plist
+        if: steps.signing.outputs.available == 'true'
+        env:
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          IOS_BUNDLE_ID: io.github.touch_grass_bible
+        run: |
+          cat > $RUNNER_TEMP/ExportOptions.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>ad-hoc</string>
+            <key>teamID</key>
+            <string>${IOS_TEAM_ID}</string>
+            <key>compileBitcode</key>
+            <false/>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>${IOS_BUNDLE_ID}</key>
+              <string>match AdHoc ${IOS_BUNDLE_ID}</string>
+            </dict>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Build and export signed IPA
+        if: steps.signing.outputs.available == 'true'
+        run: |
+          xcodebuild -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -archivePath $RUNNER_TEMP/App.xcarchive \
+            archive \
+            CODE_SIGN_STYLE=Manual
+
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/App.xcarchive \
+            -exportOptionsPlist $RUNNER_TEMP/ExportOptions.plist \
+            -exportPath $RUNNER_TEMP/ipa-output
+
+      - name: Build simulator archive (signing not configured)
+        if: steps.signing.outputs.available == 'false'
+        run: |
+          echo "::warning::iOS signing secrets not configured — building for simulator only. See docs/build/platform-requirements.md for certificate setup."
+          xcodebuild -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Clean up keychain and provisioning profile
+        if: steps.signing.outputs.available == 'true' && always()
+        run: |
+          security delete-keychain $RUNNER_TEMP/app-signing.keychain-db || true
+          rm -f ~/Library/MobileDevice/Provisioning\ Profiles/build_pp.mobileprovision || true
+
+      - name: Upload IPA to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') && steps.signing.outputs.available == 'true'
+        with:
+          files: ${{ runner.temp }}/ipa-output/*.ipa
+          fail_on_unmatched_files: false
+
+      - name: Upload IPA artifact (workflow dispatch)
+        uses: actions/upload-artifact@v4
+        if: "!startsWith(github.ref, 'refs/tags/') && steps.signing.outputs.available == 'true'"
+        with:
+          name: ios-ipa
+          path: ${{ runner.temp }}/ipa-output/*.ipa
+          if-no-files-found: warn

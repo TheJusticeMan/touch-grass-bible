@@ -1,8 +1,11 @@
 node_modules/
 dist/
 processing/chapters.json
+processing/*.zip
 android/
 ios/
 GEMINI.md
 scripts/bible_with_embeddings.json
 coverage/
+meta.json
+src/info.json

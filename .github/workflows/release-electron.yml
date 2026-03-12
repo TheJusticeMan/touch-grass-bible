@@ -1,0 +1,77 @@
+name: Build and Release Electron
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+          - os: macos-latest
+            platform: mac
+          - os: ubuntu-latest
+            platform: linux
+
+    runs-on: ${{ matrix.os }}
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install RPM build tools (Linux only)
+        if: matrix.platform == 'linux'
+        run: sudo apt-get install -y rpm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Electron app
+        run: npm run build:electron
+
+      - name: Install Electron dist dependencies
+        working-directory: dist
+        run: npm install
+
+      - name: Make Electron distributable
+        working-directory: dist
+        run: npm run make
+
+      - name: Upload artifacts to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist/out/make/**/*.exe
+            dist/out/make/**/*.nupkg
+            dist/out/make/**/*.zip
+            dist/out/make/**/*.deb
+            dist/out/make/**/*.rpm
+          fail_on_unmatched_files: false
+
+      - name: Upload build artifact (workflow dispatch)
+        uses: actions/upload-artifact@v4
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        with:
+          name: electron-${{ matrix.platform }}
+          path: dist/out/make/
+          if-no-files-found: warn

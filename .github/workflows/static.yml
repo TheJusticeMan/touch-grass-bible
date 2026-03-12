@@ -36,13 +36,13 @@ jobs:
       - name: Build site
         run: npm run build:web
 
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
       - name: Upload built site
         uses: actions/upload-pages-artifact@v3
         with:
           path: "./dist"
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
 
       - name: Deploy to GitHub Pages
         id: deployment

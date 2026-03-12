@@ -1,0 +1,120 @@
+name: Build and Release Android
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Capacitor bundle
+        run: |
+          mkdir -p ./dist
+          npm run build:bundle:capacitor
+          cp src/web/* dist
+
+      - name: Add Android platform
+        run: npx cap add android
+
+      - name: Sync Capacitor (Android)
+        run: npx cap sync android
+        env:
+          CAPACITOR_PLATFORM_NAME: android
+
+      - name: Set up Gradle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android/gradlew
+
+      - name: Check if signing secrets are available
+        id: signing
+        env:
+          ANDROID_SIGNING_KEY: ${{ secrets.ANDROID_SIGNING_KEY }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_STORE_PASSWORD: ${{ secrets.ANDROID_KEY_STORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$ANDROID_SIGNING_KEY" ] && [ -n "$ANDROID_KEY_ALIAS" ] && \
+             [ -n "$ANDROID_KEY_STORE_PASSWORD" ] && [ -n "$ANDROID_KEY_PASSWORD" ]; then
+            echo "available=true" >> $GITHUB_OUTPUT
+          else
+            echo "available=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build signed release APK
+        if: steps.signing.outputs.available == 'true'
+        env:
+          ANDROID_SIGNING_KEY: ${{ secrets.ANDROID_SIGNING_KEY }}
+          ANDROID_KEY_STORE_PASSWORD: ${{ secrets.ANDROID_KEY_STORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$ANDROID_SIGNING_KEY" | base64 -d > android/keystore.jks
+          cd android
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/android/keystore.jks" \
+            -Pandroid.injected.signing.store.password="$ANDROID_KEY_STORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
+
+      - name: Build debug APK (signing secrets not configured)
+        if: steps.signing.outputs.available == 'false'
+        run: |
+          echo "::warning::Signing secrets not configured. Building debug APK. See docs/build/platform-requirements.md for setup instructions."
+          cd android && ./gradlew assembleDebug
+
+      - name: Clean up signing keystore
+        if: steps.signing.outputs.available == 'true' && always()
+        run: rm -f android/keystore.jks
+
+      - name: Upload APK to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/apk/debug/*.apk
+          fail_on_unmatched_files: false
+
+      - name: Upload APK artifact (workflow dispatch)
+        uses: actions/upload-artifact@v4
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        with:
+          name: android-apk
+          path: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
