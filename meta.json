@@ -1,75 +1,13 @@
 {
   "inputs": {
-    "node_modules/@capacitor/core/dist/index.js": {
-      "bytes": 24096,
-      "imports": [],
-      "format": "esm"
-    },
-    "node_modules/@capacitor/synapse/dist/synapse.mjs": {
-      "bytes": 1169,
-      "imports": [],
-      "format": "esm"
-    },
-    "node_modules/@capacitor/filesystem/dist/esm/definitions.js": {
-      "bytes": 4081,
-      "imports": [],
-      "format": "esm"
-    },
-    "node_modules/@capacitor/filesystem/dist/esm/web.js": {
-      "bytes": 23426,
-      "imports": [
-        {
-          "path": "node_modules/@capacitor/core/dist/index.js",
-          "kind": "import-statement",
-          "original": "@capacitor/core"
-        },
-        {
-          "path": "node_modules/@capacitor/filesystem/dist/esm/definitions.js",
-          "kind": "import-statement",
-          "original": "./definitions"
-        }
-      ],
-      "format": "esm"
-    },
-    "node_modules/@capacitor/filesystem/dist/esm/index.js": {
-      "bytes": 327,
-      "imports": [
-        {
-          "path": "node_modules/@capacitor/core/dist/index.js",
-          "kind": "import-statement",
-          "original": "@capacitor/core"
-        },
-        {
-          "path": "node_modules/@capacitor/synapse/dist/synapse.mjs",
-          "kind": "import-statement",
-          "original": "@capacitor/synapse"
-        },
-        {
-          "path": "node_modules/@capacitor/filesystem/dist/esm/definitions.js",
-          "kind": "import-statement",
-          "original": "./definitions"
-        },
-        {
-          "path": "node_modules/@capacitor/filesystem/dist/esm/web.js",
-          "kind": "dynamic-import",
-          "original": "./web"
-        }
-      ],
-      "format": "esm"
-    },
     "src/platform/browserFileIO.ts": {
       "bytes": 1286,
       "imports": [],
       "format": "esm"
     },
-    "src/platform/capacitor.ts": {
-      "bytes": 3450,
+    "src/platform/web.ts": {
+      "bytes": 2251,
       "imports": [
-        {
-          "path": "node_modules/@capacitor/filesystem/dist/esm/index.js",
-          "kind": "import-statement",
-          "original": "@capacitor/filesystem"
-        },
         {
           "path": "src/platform/browserFileIO.ts",
           "kind": "import-statement",
@@ -78,13 +16,13 @@
       ],
       "format": "esm"
     },
-    "tg-platform:@platform/capacitor": {
-      "bytes": 165,
+    "tg-platform:@platform/web": {
+      "bytes": 159,
       "imports": [
         {
-          "path": "src/platform/capacitor.ts",
+          "path": "src/platform/web.ts",
           "kind": "import-statement",
-          "original": "./capacitor.ts"
+          "original": "./web.ts"
         }
       ],
       "format": "esm"
@@ -25951,7 +25889,7 @@
           "original": "../main"
         },
         {
-          "path": "tg-platform:@platform/capacitor",
+          "path": "tg-platform:@platform/web",
           "kind": "import-statement",
           "original": "@platform"
         },
@@ -26631,38 +26569,23 @@
       "entryPoint": "src/main.ts",
       "cssBundle": "dist/main.css",
       "inputs": {
-        "node_modules/@capacitor/core/dist/index.js": {
-          "bytesInOutput": 8124
-        },
-        "node_modules/@capacitor/filesystem/dist/esm/definitions.js": {
-          "bytesInOutput": 345
-        },
-        "node_modules/@capacitor/filesystem/dist/esm/web.js": {
-          "bytesInOutput": 8519
-        },
         "node_modules/js-levenshtein/index.js": {
-          "bytesInOutput": 822
-        },
-        "node_modules/@capacitor/filesystem/dist/esm/index.js": {
-          "bytesInOutput": 116
-        },
-        "node_modules/@capacitor/synapse/dist/synapse.mjs": {
-          "bytesInOutput": 630
+          "bytesInOutput": 825
         },
         "src/platform/browserFileIO.ts": {
-          "bytesInOutput": 343
+          "bytesInOutput": 612
         },
-        "src/platform/capacitor.ts": {
-          "bytesInOutput": 1323
+        "src/platform/web.ts": {
+          "bytesInOutput": 924
         },
-        "tg-platform:@platform/capacitor": {
+        "tg-platform:@platform/web": {
           "bytesInOutput": 0
         },
         "src/external/App.css": {
           "bytesInOutput": 0
         },
         "src/external/Event.ts": {
-          "bytesInOutput": 2390
+          "bytesInOutput": 2389
         },
         "src/external/MyBrowserConsole.ts": {
           "bytesInOutput": 390
@@ -26686,7 +26609,7 @@
           "bytesInOutput": 38
         },
         "node_modules/lucide/dist/esm/icons/chevron-left.js": {
-          "bytesInOutput": 39
+          "bytesInOutput": 38
         },
         "node_modules/lucide/dist/esm/icons/chevrons-down-up.js": {
           "bytesInOutput": 66
@@ -26704,13 +26627,13 @@
           "bytesInOutput": 119
         },
         "node_modules/lucide/dist/esm/icons/square-check-big.js": {
-          "bytesInOutput": 121
+          "bytesInOutput": 120
         },
         "node_modules/lucide/dist/esm/icons/square-pen.js": {
-          "bytesInOutput": 218
+          "bytesInOutput": 217
         },
         "node_modules/lucide/dist/esm/icons/square.js": {
-          "bytesInOutput": 62
+          "bytesInOutput": 61
         },
         "node_modules/lucide/dist/esm/icons/waypoints.js": {
           "bytesInOutput": 254
@@ -26728,7 +26651,7 @@
           "bytesInOutput": 0
         },
         "src/external/Components.ts": {
-          "bytesInOutput": 8824
+          "bytesInOutput": 8818
         },
         "src/external/WorkspaceMobileSwipe.ts": {
           "bytesInOutput": 3394
@@ -26737,13 +26660,13 @@
           "bytesInOutput": 28536
         },
         "src/external/Comands.ts": {
-          "bytesInOutput": 848
+          "bytesInOutput": 846
         },
         "src/external/App.ts": {
           "bytesInOutput": 3357
         },
         "src/external/CommandPalette.ts": {
-          "bytesInOutput": 13258
+          "bytesInOutput": 13251
         },
         "src/external/CommandPalette.css": {
           "bytesInOutput": 0
@@ -26770,10 +26693,10 @@
           "bytesInOutput": 2983
         },
         "src/plugins/categoryIDs.ts": {
-          "bytesInOutput": 145
+          "bytesInOutput": 142
         },
         "src/plugins/AI.ts": {
-          "bytesInOutput": 2598
+          "bytesInOutput": 2596
         },
         "src/booksOfTheBible.ts": {
           "bytesInOutput": 1555
@@ -26791,19 +26714,19 @@
           "bytesInOutput": 0
         },
         "src/plugins/Notes/NotesPanel.ts": {
-          "bytesInOutput": 4613
+          "bytesInOutput": 4610
         },
         "src/plugins/Notes/Notes.ts": {
-          "bytesInOutput": 1822
+          "bytesInOutput": 1820
         },
         "src/plugins/Search.ts": {
-          "bytesInOutput": 2894
+          "bytesInOutput": 2889
         },
         "src/TGAppSettings.ts": {
-          "bytesInOutput": 171
+          "bytesInOutput": 170
         },
         "src/plugins/Settings.ts": {
-          "bytesInOutput": 1919
+          "bytesInOutput": 1915
         },
         "src/plugins/TopicalBible.ts": {
           "bytesInOutput": 1699
@@ -26815,7 +26738,7 @@
           "bytesInOutput": 1211
         },
         "src/sidepanels.ts": {
-          "bytesInOutput": 633
+          "bytesInOutput": 632
         },
         "src/style.css": {
           "bytesInOutput": 0
@@ -26836,10 +26759,10 @@
           "bytesInOutput": 5189
         },
         "src/main.ts": {
-          "bytesInOutput": 4689
+          "bytesInOutput": 4687
         }
       },
-      "bytes": 138547
+      "bytes": 120460
     },
     "dist/main.css": {
       "imports": [],
