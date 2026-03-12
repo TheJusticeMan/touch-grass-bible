@@ -8,16 +8,7 @@ if (platformName && platformName !== "android") {
 }
 
 const rootDir = process.env.CAPACITOR_ROOT_DIR || process.cwd();
-const valuesV35StylesPath = join(
-  rootDir,
-  "android",
-  "app",
-  "src",
-  "main",
-  "res",
-  "values-v35",
-  "styles.xml",
-);
+const valuesV35StylesPath = join(rootDir, "android", "app", "src", "main", "res", "values-v35", "styles.xml");
 
 const valuesV35Styles = `<?xml version="1.0" encoding="utf-8"?>
 <resources>
