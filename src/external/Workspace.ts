@@ -1,9 +1,9 @@
 // Workspace.ts
 
-import "./Workspace.css";
-import { createElement, IconNode, Plus, X } from "lucide";
+import { Copy, createElement, IconNode, Minimize, Plus, X } from "lucide";
 import { Button, UIComponent } from "./Components";
 import { ETarget } from "./Event";
+import "./Workspace.css";
 import { GlobalSwipeHandler } from "./WorkspaceMobileSwipe";
 
 function createDetachedComponent<T extends keyof HTMLElementTagNameMap>(tagName: T): UIComponent<T> {
@@ -61,6 +61,13 @@ class WorkspaceTabButton extends UIComponent<"button"> {
       event.stopPropagation();
       this.onClose?.();
     });
+    // Close on middle-click
+    this.element.addEventListener("auxclick", event => {
+      if (event.button === 1) {
+        this.onClose?.();
+      }
+    });
+
     if (onPointerDown) {
       this.element.addEventListener("pointerdown", event => {
         const target = event.target as HTMLElement | null;
@@ -120,6 +127,7 @@ class WorkspacePanelContainer extends UIComponent<"div"> {
   constructor(panelId: string) {
     super(document.createDocumentFragment(), "div");
     this.addClass("panel");
+    this.addClass(panelId);
     this.element.dataset.panelId = panelId;
   }
 
@@ -253,6 +261,7 @@ export class Workspace extends ETarget<WorkspaceEvents> {
   rootPanel: Panel;
   private _activeView: View | null = null;
   private _activePanel: Panel | null = null;
+  private _lastActiveViewByType: Map<string, View> = new Map();
   private panelCounter = 0;
   private suppressLayoutEvents = false;
   private dragState: DragDropState | null = null;
@@ -263,6 +272,7 @@ export class Workspace extends ETarget<WorkspaceEvents> {
   private autoSaveBound = false;
   private saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private globalSwipeHandler: GlobalSwipeHandler | null = null;
+  private windowControlsOwner: Panel | null = null;
 
   private readonly onDocumentPointerMove = (event: PointerEvent) => {
     this.handleTabPointerMove(event);
@@ -388,9 +398,29 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     return this._activePanel;
   }
 
-  createPanel(mode: PanelMode = "views", splitDirection: SplitDirection = "horizontal", id?: string): Panel {
+  /**
+   * Get the last active view of a specific type.
+   * Returns null if no view of that type has been activated yet.
+   */
+  getActiveViewOfType(viewType: string): View | null {
+    const view = this._lastActiveViewByType.get(viewType);
+    // Verify the tracked view still exists and is valid
+    if (view && this.rootPanel.containsView(view)) {
+      return view;
+    }
+    // Clean up stale reference
+    this._lastActiveViewByType.delete(viewType);
+    return null;
+  }
+
+  createPanel(
+    mode: PanelMode = "views",
+    splitDirection: SplitDirection = "horizontal",
+    id?: string,
+    parent?: Panel | null,
+  ): Panel {
     const panelId = id ?? `panel-${++this.panelCounter}`;
-    return new Panel(this, panelId, mode, splitDirection);
+    return new Panel(this, panelId, mode, splitDirection, parent);
   }
 
   createDefaultLayout(): WorkspaceLayout {
@@ -405,6 +435,54 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     };
   }
 
+  private isElectronRenderer(): boolean {
+    return (
+      typeof window !== "undefined" &&
+      !!(window as { touchGrassElectronPlatform?: object }).touchGrassElectronPlatform
+    );
+  }
+
+  private resolveWindowControlsOwner(): Panel | null {
+    if (!this.isElectronRenderer()) {
+      return null;
+    }
+
+    const getPanel = (panel: Panel): Panel | null => {
+      if (panel.getMode() === "views") {
+        return panel;
+      } else if (panel.childPanels.length > 0) {
+        if (panel.getSplitDirection() === "horizontal") {
+          return getPanel(panel.childPanels[panel.childPanels.length - 1].panel);
+        } else {
+          return getPanel(panel.childPanels[0].panel);
+        }
+      } else {
+        return null;
+      }
+    };
+
+    const candidate = getPanel(this.rootPanel);
+
+    return candidate;
+  }
+
+  shouldShowWindowControls(panel: Panel): boolean {
+    return this.windowControlsOwner === panel;
+  }
+
+  refreshWindowControls(): void {
+    const previousOwner = this.windowControlsOwner;
+    const nextOwner = this.resolveWindowControlsOwner();
+    this.windowControlsOwner = nextOwner;
+
+    if (previousOwner && previousOwner !== nextOwner) {
+      previousOwner.syncWindowControls();
+    }
+    if (nextOwner) {
+      nextOwner.syncWindowControls();
+    }
+  }
+
   private markLayoutChanged() {
     if (!this.suppressLayoutEvents) {
       this.emit("layout-change", undefined);
@@ -415,6 +493,10 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     this._activeView = view;
     if (view) {
       this.setActivePanel(view.panel);
+      // Track this view as the last active view of its type
+      if (view.viewTypeId) {
+        this._lastActiveViewByType.set(view.viewTypeId, view);
+      }
     }
     this.markLayoutChanged();
   }
@@ -481,13 +563,16 @@ export class Workspace extends ETarget<WorkspaceEvents> {
 
     this.suppressLayoutEvents = true;
     try {
+      this.windowControlsOwner = null;
       this.rootPanel.destroy();
       this.rootPanel = this.deserializePanel(layout.rootPanel);
       this._activeView = this.rootPanel.findActiveView();
       this.setActivePanel(this._activeView?.panel ?? null);
+      this.refreshWindowControls();
     } catch (error) {
       console.warn("Failed to restore workspace layout", error);
       this.rootPanel = this.createPanel("panels", "horizontal", "root");
+      this.windowControlsOwner = null;
       this._activeView = null;
       this.setActivePanel(null);
       this.suppressLayoutEvents = false;
@@ -538,8 +623,8 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     return false;
   }
 
-  private deserializePanel(serialized: SerializedPanel): Panel {
-    const panel = this.createPanel(serialized.mode, serialized.splitDirection, serialized.id);
+  private deserializePanel(serialized: SerializedPanel, parent?: Panel | null): Panel {
+    const panel = this.createPanel(serialized.mode, serialized.splitDirection, serialized.id, parent);
     panel.setPersistent(!!serialized.persistent);
     if (serialized.mode === "views") {
       panel.setMode("views");
@@ -555,7 +640,7 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     } else {
       panel.setMode("panels");
       serialized.children?.forEach(({ size, panel: childPanel }) => {
-        const child = this.deserializePanel(childPanel);
+        const child = this.deserializePanel(childPanel, panel);
         panel.addPanel(child, size);
       });
     }
@@ -589,6 +674,7 @@ export class Workspace extends ETarget<WorkspaceEvents> {
   }
 
   onPanelMutated() {
+    this.refreshWindowControls();
     this.markLayoutChanged();
   }
 
@@ -624,10 +710,10 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     incoming: DetachedPanelView,
   ): Panel {
     const splitDirection: SplitDirection = edge === "left" || edge === "right" ? "horizontal" : "vertical";
-    const existingPanel = this.createPanel("views", splitDirection);
+    const existingPanel = this.createPanel("views", splitDirection, undefined, target);
     target.moveAllViewsTo(existingPanel);
 
-    const incomingPanel = this.createPanel("views", splitDirection);
+    const incomingPanel = this.createPanel("views", splitDirection, undefined, target);
     incomingPanel.insertDetachedView(incoming, 0, true);
 
     target.setModeSilent("panels");
@@ -886,6 +972,7 @@ export class Panel {
   parent: Panel | null = null;
   private persistent = false;
   private addTabButton!: HTMLButtonElement;
+  private windowControlsEl: HTMLDivElement | null = null;
   private resizeState: {
     pointerId: number;
     handleEl: HTMLDivElement;
@@ -907,7 +994,9 @@ export class Panel {
     readonly id: string,
     private mode: PanelMode = "views",
     private splitDirection: SplitDirection = "horizontal",
+    parent?: Panel | null,
   ) {
+    this.parent = parent ?? null;
     this.containerComponent = new WorkspacePanelContainer(id);
     this.tabBarComponent = new WorkspacePanelTabs();
     this.contentComponent = new WorkspacePanelContent();
@@ -1047,6 +1136,7 @@ export class Panel {
     }
     view.attach();
     view.initializeTitle(title);
+    view.setViewTypeId(id);
     this.insertDetachedView({ id, title, icon: view.icon, view }, this.views.length, activate);
     this.workspace.onPanelMutated();
     return this;
@@ -1088,6 +1178,7 @@ export class Panel {
     this.activeViewId = tabId;
     this.workspace.setActivePanel(this);
     let nextActive: View | null = null;
+    let activeTabButton: HTMLButtonElement | null = null;
     this.views.forEach(panelView => {
       const isActive = panelView.tabId === tabId;
       panelView.tabComponent.setActive(isActive);
@@ -1096,10 +1187,18 @@ export class Panel {
       if (isActive && panelView.view) {
         panelView.view.activate();
         nextActive = panelView.view;
+        activeTabButton = panelView.tabButton;
       } else {
         panelView.view?.deactivate();
       }
     });
+    if (activeTabButton) {
+      (activeTabButton as HTMLElement).scrollIntoView({
+        behavior: "smooth",
+        inline: "nearest",
+        block: "nearest",
+      });
+    }
     this.workspace.setActiveView(nextActive);
     this.workspace.onPanelMutated();
     return this;
@@ -1363,6 +1462,7 @@ export class Panel {
     if (this.mode === "panels") {
       this.contentEl.innerHTML = "";
       this.childPanels.forEach(({ panel }, index) => {
+        panel.parent = this;
         this.contentEl.appendChild(panel.containerEl);
         if (index < this.childPanels.length - 1) {
           this.contentEl.appendChild(this.createResizeHandle(index));
@@ -1427,6 +1527,51 @@ export class Panel {
       }
     });
     this.tabBarEl.appendChild(this.addTabButton);
+    if (this.windowControlsEl) {
+      this.tabBarEl.appendChild(this.windowControlsEl);
+    }
+  }
+
+  private ensureWindowControls(): void {
+    const shouldShow = this.mode === "views" && this.workspace.shouldShowWindowControls(this);
+    if (!this.windowControlsEl && shouldShow) {
+      const controls = document.createElement("div");
+      controls.className = "panel-window-controls is-hidden";
+
+      const makeControl = (
+        label: IconNode,
+        ariaLabel: string,
+        action: "windowMinimize" | "windowMaximize" | "windowClose",
+      ) =>
+        new Button(controls)
+          .setIcon(label)
+          .setTooltip(ariaLabel)
+          .on("click", () => {
+            const bridge = (
+              window as {
+                touchGrassElectronPlatform?: {
+                  [K in "windowMinimize" | "windowMaximize" | "windowClose"]?: () => Promise<void>;
+                };
+              }
+            ).touchGrassElectronPlatform;
+            void bridge?.[action]?.();
+          });
+
+      makeControl(Minimize, "Minimize window", "windowMinimize");
+      makeControl(Copy, "Toggle maximize window", "windowMaximize");
+      makeControl(X, "Close window", "windowClose");
+      this.windowControlsEl = controls;
+      this.tabBarEl.appendChild(this.windowControlsEl);
+    }
+
+    this.windowControlsEl?.classList.toggle("is-hidden", !shouldShow);
+
+    this.tabBarEl.classList.toggle("electron-window-draggable", shouldShow);
+  }
+
+  syncWindowControls(): void {
+    console.log("Syncing window controls for panel", this.id);
+    this.ensureWindowControls();
   }
 
   private createResizeHandle(index: number): HTMLDivElement {
@@ -1601,6 +1746,18 @@ export class Panel {
     this.workspace.openView("empty", this, { activate: true, title: "empty" });
     return this;
   }
+
+  /**
+   * Check if a view is contained within this panel or its children.
+   */
+  containsView(view: View): boolean {
+    // Check direct views in this panel
+    if (this.views.some(pv => pv.view === view)) {
+      return true;
+    }
+    // Check child panels recursively
+    return this.childPanels.some(cp => cp.panel.containsView(view));
+  }
 }
 
 type PanelView = {
@@ -1623,11 +1780,27 @@ export class View extends ETarget<ViewEvents> {
   private attached = false;
   private _title = "";
   private _icon: IconNode | null = null;
+  private _viewTypeId: string = "";
   containerEl: HTMLDivElement;
 
   constructor(public panel: Panel) {
     super();
     this.containerEl = createDetachedComponent("div").addClass("view").element;
+  }
+
+  /**
+   * Get the view type ID (e.g., "VerseScreen", "notes-panel").
+   * Set internally when the view is added to a panel.
+   */
+  get viewTypeId(): string {
+    return this._viewTypeId;
+  }
+
+  /**
+   * Set the view type ID (internal use only).
+   */
+  setViewTypeId(typeId: string): void {
+    this._viewTypeId = typeId;
   }
 
   onAttach(): void {

@@ -12,14 +12,16 @@ import { Highlighter } from "./highlighter";
 export class CategoryLoader<T> {
   private _palette: CommandCategory<T> | null = null;
   constructor(
-    private load: () => CommandCategory<T>,
+    private load: CategoryLoaderFunc<T>,
     readonly id: string,
   ) {}
 
-  public getPalette(): CommandCategory<T> {
-    return this._palette || (this._palette = this.load());
+  public getPalette(commandPalette: UnifiedCommandPalette): CommandCategory<T> {
+    return this._palette || (this._palette = this.load(commandPalette));
   }
 }
+
+export type CategoryLoaderFunc<T> = (commandPalette: UnifiedCommandPalette) => CommandCategory<T>;
 
 /**
  * Abstract base class for a unified command palette UI component.
@@ -154,7 +156,7 @@ export class UnifiedCommandPalette extends Openable<{
   }
 
   private getPromptCategory(): PromptCategory | undefined {
-    const promptCategory = this.getCategory("prompt")?.getPalette();
+    const promptCategory = this.getCategory("prompt")?.getPalette(this);
     if (promptCategory instanceof PromptCategory) return promptCategory;
   }
 
@@ -175,31 +177,31 @@ export class UnifiedCommandPalette extends Openable<{
   }
 
   // Add category (class constructor or instance)
-  addPalette(load: () => CommandCategory<unknown>, id: string): this {
+  addPalette(load: CategoryLoaderFunc<unknown>, id: string): this {
     this.categories.push(new CategoryLoader(load, id));
     return this;
   }
 
-  addPalettes(...categories: { load: () => CommandCategory<unknown>; id: string }[]): this {
+  addPalettes(...categories: { load: CategoryLoaderFunc<unknown>; id: string }[]): this {
     categories.forEach(category => this.addPalette(category.load, category.id));
     return this;
   }
 
-  removePalette(load: () => CommandCategory<unknown>, id: string): void {
+  removePalette(load: CategoryLoaderFunc<unknown>, id: string): void {
     this.categories = this.categories.filter(cat => cat.id !== id || cat.getPalette !== load);
   }
 
-  addHiddenPalette(load: () => CommandCategory<unknown>, id: string): this {
+  addHiddenPalette(load: CategoryLoaderFunc<unknown>, id: string): this {
     this.hiddenCategories.push(new CategoryLoader(load, id));
     return this;
   }
 
-  addHiddenPalettes(...categories: { load: () => CommandCategory<unknown>; id: string }[]): this {
+  addHiddenPalettes(...categories: { load: CategoryLoaderFunc<unknown>; id: string }[]): this {
     categories.forEach(category => this.addHiddenPalette(category.load, category.id));
     return this;
   }
 
-  removeHiddenPalette(load: () => CommandCategory<unknown>, id: string): void {
+  removeHiddenPalette(load: CategoryLoaderFunc<unknown>, id: string): void {
     this.hiddenCategories = this.hiddenCategories.filter(cat => cat.id !== id || cat.getPalette !== load);
   }
 
@@ -231,8 +233,8 @@ export class UnifiedCommandPalette extends Openable<{
     this.checkclose();
 
     // Trigger data fetching for categories
-    this.categories.forEach(cat => cat.getPalette().tryTrigger(this.state));
-    this.hiddenCategories.forEach(cat => cat.getPalette().tryTrigger(this.state));
+    this.categories.forEach(cat => cat.getPalette(this).tryTrigger(this.state));
+    this.hiddenCategories.forEach(cat => cat.getPalette(this).tryTrigger(this.state));
 
     this.containerEl = this.app.contentEl.createEl("div", {
       cls: "command-palette",
@@ -278,7 +280,9 @@ export class UnifiedCommandPalette extends Openable<{
 
     this.searchInput = new TextInput(this.paletteEl)
       .addClass("palette-search")
-      .setPlaceholder(`Search ${this.state.topCategory ? this.topCategory?.getPalette().title : "all"}...`)
+      .setPlaceholder(
+        `Search ${this.state.topCategory ? this.topCategory?.getPalette(this).title : "all"}...`,
+      )
 
       .setType("search", this.inputMode)
       .on("input", (e: string) => {
@@ -310,7 +314,7 @@ export class UnifiedCommandPalette extends Openable<{
         const currentselection = this.selectedIndex;
         this.update({ maxResults: 1000 }).render().selectIndex(currentselection, true); // Restore selection after rendering
         if (this.commandItems.length > this.state.maxResults)
-          new CommandItem(this.contentEl, null, this.topCategory!.getPalette())
+          new CommandItem(this.contentEl, null, this.topCategory!.getPalette(this))
             .setTitle("Are you kidding me?")
             .setDescription("Seriously, you want to load more results?") // Just a joke;
             .setHidden(false)
@@ -421,7 +425,7 @@ export class UnifiedCommandPalette extends Openable<{
 
     contentOverview.style.display = this.columns ? "block" : "";
     if (this.columns) {
-      const Navigator = this.getCategory("navigator")!.getPalette();
+      const Navigator = this.getCategory("navigator")!.getPalette(this);
 
       Navigator.setUp(state);
       const commands = Navigator.trygetCommands(state.query);
@@ -447,7 +451,7 @@ export class UnifiedCommandPalette extends Openable<{
     }
 
     this.categoriesToShow
-      .map(cat => ({ cat: cat.getPalette(), id: cat.id }))
+      .map(cat => ({ cat: cat.getPalette(this), id: cat.id }))
       .forEach(({ cat, id }) => {
         if (this.commandItems.length > state.maxResults) return;
         cat.setUp(state);
@@ -504,7 +508,7 @@ export class UnifiedCommandPalette extends Openable<{
   get categoriesToShow(): CategoryLoader<unknown>[] {
     const { topCategory } = this.state;
     const top = this.topCategory;
-    const siblings = top?.getPalette().siblings;
+    const siblings = top?.getPalette(this).siblings;
     // If SiblingCategories is set (even if empty)
     if (topCategory && siblings)
       return [top, ...siblings.map(catfn => this.getCategory(catfn.id))].filter(
@@ -820,13 +824,15 @@ class CategoryNavigator extends CommandCategory<CategoryLoader<unknown>> {
     this.names = this.commandPalette.palettes;
   }
   getCommands(query: string): CategoryLoader<unknown>[] {
-    return this.getcompatible(query, this.names, category => category.getPalette().name);
+    return this.getcompatible(query, this.names, category => category.getPalette(this.commandPalette).name);
   }
   renderCommand(
     command: CategoryLoader<unknown>,
     Item: CommandItem<CategoryLoader<unknown>>,
   ): Partial<CommandPaletteState> {
-    Item.setTitle(command.getPalette().name).setDescription(command.getPalette().description);
+    Item.setTitle(command.getPalette(this.commandPalette).name).setDescription(
+      command.getPalette(this.commandPalette).description,
+    );
     return { topCategory: command.id };
   }
   executeCommand(): void {

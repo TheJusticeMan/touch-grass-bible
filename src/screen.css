@@ -37,7 +37,7 @@ button {
   align-items: center;
   background-color: #fff1;
   border: 0;
-  border-radius: 0.5em 1em;
+  border-radius: var(--border-radius-medium);
   color: #fff;
   cursor: pointer;
   display: inline-flex;

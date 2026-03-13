@@ -6,6 +6,7 @@ import { internalPlugins, type IconActionItem } from "./Plugin";
 import AIPlugin from "./plugins/AI";
 import BookmarkPlugin from "./plugins/Bookmarks";
 import NotesPlugin from "./plugins/Notes/Notes";
+import JournalPlugin from "./plugins/Journal";
 import BibleSearchPlugin from "./plugins/Search";
 import SettingsPlugin from "./plugins/Settings";
 import TopicalBiblePlugin from "./plugins/TopicalBible";
@@ -114,6 +115,18 @@ export default class TouchGrassBibleApp extends App {
     this.console.log(info.name, info.version, "loaded");
     this.on("Ctrl+EnterKeyDown", () => !this.commandPalette.isOpen && this.openCommandPalette());
 
+    const commandButton = this.contentEl.createEl("button", {
+      cls: "command-palette-fab",
+      text: "CMD",
+      attr: {
+        type: "button",
+        "aria-label": "Open command palette",
+      },
+    });
+    commandButton.addEventListener("click", () => this.openCommandPalette());
+    this.commandPalette.on("open", () => commandButton.classList.add("is-hidden"));
+    this.commandPalette.on("close", () => commandButton.classList.remove("is-hidden"));
+
     this.console.log(new Date().getTime() - processstart, "ms startup time");
     this.console.log("Touch Grass Bible is ready!");
     this.plugins.addPlugins(
@@ -159,6 +172,15 @@ export default class TouchGrassBibleApp extends App {
           id: "notes",
           name: "Notes",
           description: "Create and manage personal notes on verses.",
+          version: "1.0.0",
+        },
+      },
+      {
+        pluginClass: JournalPlugin,
+        manifest: {
+          id: "journal",
+          name: "Journal",
+          description: "Write a continuous journal stream with reading history.",
           version: "1.0.0",
         },
       },
@@ -217,11 +239,13 @@ export default class TouchGrassBibleApp extends App {
    */
   addVerseAction(action: IconActionItem): this {
     this.verseActions.set(action.id, action);
+    this.emit("verse-actions-change", undefined);
     return this;
   }
 
   removeVerseAction(actionId: string): this {
     this.verseActions.delete(actionId);
+    this.emit("verse-actions-change", undefined);
     return this;
   }
 

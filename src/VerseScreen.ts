@@ -147,6 +147,7 @@ export class VerseScreen extends View {
   isScrolling = false;
   chapterScroll!: ChapterScroll;
   bookScroll!: BookScroll;
+  private highlightedVerse: VerseRef | null = null;
 
   constructor(
     panel: Panel,
@@ -180,6 +181,33 @@ export class VerseScreen extends View {
       this.bookScroll.show(v);
       return (this.verse = v);
     });
+
+    this.app.on("verse-actions-change", () => {
+      this.refreshActiveVerseInfo();
+    });
+
+    this.app.on("verse-info-highlight", verse => {
+      if (verse instanceof VerseRef) {
+        this.highlightVerseInfoButton(verse);
+      }
+    });
+  }
+
+  /**
+   * Called when this view is activated (becomes the visible view).
+   * Checks if this view is already the active verse screen to avoid redundant setup.
+   */
+  onActivate(): void {
+    // Guard: if this view is already the active view of its type, skip redundant initialization
+    const activeVerse = this.panel.workspace.getActiveViewOfType("verse-screen");
+    if (this === activeVerse && this.renderedChapters.length > 0) {
+      // Already active and initialized, just refresh the display
+      return;
+    }
+    // If verses not yet rendered, render them now
+    if (this.renderedChapters.length === 0) {
+      this.verse = this.app.verseState.get();
+    }
   }
 
   private get verse(): VerseRef {
@@ -250,7 +278,33 @@ export class VerseScreen extends View {
       } else {
         component.scrollTo(this._verse);
       }
+      this.highlightVerseInfoButton(this._verse);
     }
+  }
+
+  private refreshActiveVerseInfo(): void {
+    const component = this.renderedChapters.find(c => c.verse.isSameChapter(this._verse));
+    component?.verseInfos[this._verse.verse]?.render();
+    this.highlightVerseInfoButton(this._verse);
+  }
+
+  private highlightVerseInfoButton(verse: VerseRef): void {
+    this.clearHighlightedVerseInfo();
+    const component = this.renderedChapters.find(c => c.verse.isSameChapter(verse));
+    const info = component?.verseInfos[verse.verse];
+    if (!info) {
+      this.highlightedVerse = null;
+      return;
+    }
+    info.element.classList.add("is-highlighted");
+    this.highlightedVerse = verse;
+  }
+
+  private clearHighlightedVerseInfo(): void {
+    if (!this.highlightedVerse) return;
+    const component = this.renderedChapters.find(c => c.verse.isSameChapter(this.highlightedVerse!));
+    component?.verseInfos[this.highlightedVerse.verse]?.element.classList.remove("is-highlighted");
+    this.highlightedVerse = null;
   }
 
   handleScroll = apocalypseThrottle(() => {
@@ -373,6 +427,7 @@ export class VerseInfoComponent extends UIComponent<"div"> {
         .setTooltip(action.name)
         .on("click", e => {
           e.stopPropagation();
+          this.app.emit("verse-info-highlight", this.verse);
           this.initiateRenderReset();
           action.onTrigger(this);
         });

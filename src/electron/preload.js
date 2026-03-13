@@ -16,4 +16,13 @@ contextBridge.exposeInMainWorld("touchGrassElectronPlatform", {
   async readAssetText(relativePath) {
     return ipcRenderer.invoke("touch-grass:read-asset-text", relativePath);
   },
+  async windowMinimize() {
+    await ipcRenderer.invoke("touch-grass:window-minimize");
+  },
+  async windowMaximize() {
+    await ipcRenderer.invoke("touch-grass:window-maximize");
+  },
+  async windowClose() {
+    await ipcRenderer.invoke("touch-grass:window-close");
+  },
 });

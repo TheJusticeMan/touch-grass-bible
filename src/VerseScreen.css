@@ -32,8 +32,14 @@
   /* margin-top: 1em;
   padding: 1em;
   border: 1px solid #fff4;
-  border-radius: 0.5em 1em;
+  border-radius: var(--border-radius-medium);
   background-color: #0008; */
+}
+
+.verseActive .infoContainer.is-highlighted {
+  display: block;
+  border-left: 2px solid #fff8;
+  padding-left: 0.35rem;
 }
 
 .content {

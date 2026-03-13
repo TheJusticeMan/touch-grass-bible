@@ -7,6 +7,9 @@ type ElectronPlatformBridge = {
   readTextFile(path: string): Promise<string>;
   writeTextFile(path: string, content: string): Promise<void>;
   readAssetText(path: string): Promise<string>;
+  windowMinimize(): Promise<void>;
+  windowMaximize(): Promise<void>;
+  windowClose(): Promise<void>;
 };
 
 declare global {

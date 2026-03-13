@@ -1,6 +1,10 @@
 import { IconNode } from "lucide";
-import TouchGrassBibleApp, { BrowserConsole, CommandCategory, VerseInfoComponent } from "./main";
 import { Panel, View } from "./external/Workspace";
+import TouchGrassBibleApp, {
+  BrowserConsole,
+  CategoryLoaderFunc,
+  VerseInfoComponent
+} from "./main";
 
 abstract class Component {
   private loaded = false;
@@ -72,7 +76,7 @@ export default class Plugin extends Component {
     this.console = new BrowserConsole(true, `[${manifest.name}]`);
   }
 
-  registerPalette(load: () => CommandCategory<unknown>, id: string) {
+  registerPalette(load: CategoryLoaderFunc<unknown>, id: string) {
     this.app.commandPalette.addPalette(load, id);
     this.registerUnload(() => this.app.commandPalette.removePalette(load, id));
   }

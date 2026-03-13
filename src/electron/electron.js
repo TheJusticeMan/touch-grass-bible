@@ -74,6 +74,26 @@ function registerPlatformHandlers() {
     const filePath = path.join(getAssetRoot(), normalizeRelativePath(relativePath));
     return fs.readFile(filePath, "utf8");
   });
+
+  ipcMain.handle("touch-grass:window-minimize", async event => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    win?.minimize();
+  });
+
+  ipcMain.handle("touch-grass:window-maximize", async event => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return;
+    if (win.isMaximized()) {
+      win.unmaximize();
+    } else {
+      win.maximize();
+    }
+  });
+
+  ipcMain.handle("touch-grass:window-close", async event => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    win?.close();
+  });
 }
 
 const createWindow = () => {
