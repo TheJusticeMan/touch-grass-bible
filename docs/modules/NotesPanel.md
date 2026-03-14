@@ -23,13 +23,13 @@ A reactive note document. All property setters emit a `"change"` event.
 
 ### Properties
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `name` | `string` | Note title |
-| `content` | `string` | Note body text |
-| `dateCreated` | `Date` | Creation timestamp |
-| `dateModified` | `Date` | Last modification (auto-updated on any change) |
-| `tags` | `string[]` | Array of tag strings |
+| Property       | Type       | Description                                    |
+| -------------- | ---------- | ---------------------------------------------- |
+| `name`         | `string`   | Note title                                     |
+| `content`      | `string`   | Note body text                                 |
+| `dateCreated`  | `Date`     | Creation timestamp                             |
+| `dateModified` | `Date`     | Last modification (auto-updated on any change) |
+| `tags`         | `string[]` | Array of tag strings                           |
 
 All properties have getters and setters that emit `"change"` when set.
 
@@ -62,10 +62,10 @@ A simple in-memory array-based store for `Note` objects.
 class NoteVault {
   Notes: Note[] = [];
 
-  loadNotes(notes: Note[]): void    // Replace all notes (used on startup)
-  addNote(note: Note): void          // Append a note
-  removeNote(note: Note): void       // Remove a note by reference
-  getAllNotes(): Note[]               // Return all notes
+  loadNotes(notes: Note[]): void; // Replace all notes (used on startup)
+  addNote(note: Note): void; // Append a note
+  removeNote(note: Note): void; // Remove a note by reference
+  getAllNotes(): Note[]; // Return all notes
 }
 ```
 
@@ -97,6 +97,7 @@ The sidebar panel showing all notes with search, preview cards, and a "new note"
 ### `update()`
 
 Rebuilds the entire panel contents:
+
 1. Saves any pending notes to settings
 2. Destroys existing preview components
 3. Creates the search input
@@ -111,6 +112,7 @@ Rebuilds the entire panel contents:
 **Extends:** `UIComponent<"div">`
 
 A card-style preview of a note. Shows:
+
 - Note title
 - Tag badges (each with an X remove button)
 - A `+` button to add new tags (comma-separated input)
@@ -146,9 +148,11 @@ A full-screen overlay editor for a note. Opens on top of the parent element.
 ### Title Format
 
 The title input uses a combined `name # tags` format:
+
 ```
 My Note # faith, prayer, john
 ```
+
 When input changes, it splits on `#` to separate name and tags.
 
 ### Closing
@@ -171,6 +175,7 @@ User navigates away from Notes tab:
 ```
 
 On startup:
+
 ```
 app.loadsettings()
   → settings.ExtraNotes loaded from localStorage

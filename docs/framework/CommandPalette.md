@@ -22,13 +22,12 @@ An abstract base class for command sources. Each plugin registers one or more ca
 abstract class CommandCategory<T> {
   abstract readonly name: string;
   abstract readonly description: string;
-  title?: string;              // Optional override for the palette header
+  title?: string; // Optional override for the palette header
 
   abstract getCommands(query: string): T[];
   // Returns matching commands for the given query string.
 
-  abstract renderCommand(cmd: T, item: CommandItem<T>):
-    (state: CommandPaletteState) => CommandPaletteState;
+  abstract renderCommand(cmd: T, item: CommandItem<T>): (state: CommandPaletteState) => CommandPaletteState;
   // Renders a command item. Returns a state transition function called when selected.
 
   abstract executeCommand(cmd: T): void;
@@ -38,11 +37,7 @@ abstract class CommandCategory<T> {
   // Called when this category becomes the active category.
   // Use to initialize the command list or reset state.
 
-  getcompatible(
-    query: string,
-    list: T[],
-    ...keyExtractors: ((item: T) => string)[]
-  ): T[]
+  getcompatible(query: string, list: T[], ...keyExtractors: ((item: T) => string)[]): T[];
   // Helper: filters list by Levenshtein distance to query.
   // Uses fuzzy matching if exact match fails.
 }
@@ -54,10 +49,10 @@ Represents a single row in the palette. Built by `renderCommand()`.
 
 ```typescript
 class CommandItem<T> {
-  setTitle(title: string): this
-  setDescription(text: string): this
-  setHidden(hidden: boolean): this
-  addctx(): this
+  setTitle(title: string): this;
+  setDescription(text: string): this;
+  setHidden(hidden: boolean): this;
+  addctx(): this;
   // Adds a "context" arrow button (►) to indicate drill-down navigation
 }
 ```
@@ -68,9 +63,9 @@ Tracks the current state of the command palette:
 
 ```typescript
 type CommandPaletteState = {
-  topCategory: string;              // ID of the currently active category
-  inputMode: "search" | "numeric";  // Input type for the search field
-  maxResults: number;               // Maximum number of items to show
+  topCategory: string; // ID of the currently active category
+  inputMode: "search" | "numeric"; // Input type for the search field
+  maxResults: number; // Maximum number of items to show
   // ... additional internal fields
 };
 ```
@@ -153,6 +148,7 @@ Then executeCommand(item) is called.
 ```
 
 This allows commands to:
+
 - Change the active category: `state.update({ topCategory: "new-category" })`
 - Change input mode: `state.update({ inputMode: "numeric" })`
 - Update app state (`app.verseState.set(verse)`) as a side effect
@@ -163,13 +159,13 @@ This allows commands to:
 
 Inside the open palette:
 
-| Key | Action |
-|-----|--------|
-| `ArrowUp` / `ArrowDown` | Move selection |
-| `Enter` | Execute selected item |
-| `Escape` | Close palette |
-| `Backspace` (empty query) | Go to previous state |
-| Any printable character | Types into search input |
+| Key                       | Action                  |
+| ------------------------- | ----------------------- |
+| `ArrowUp` / `ArrowDown`   | Move selection          |
+| `Enter`                   | Execute selected item   |
+| `Escape`                  | Close palette           |
+| `Backspace` (empty query) | Go to previous state    |
+| Any printable character   | Types into search input |
 
 ---
 
@@ -197,14 +193,14 @@ Inside the open palette:
 
 ## Registered Category IDs
 
-| ID | Plugin | Category Class |
-|----|--------|---------------|
-| `"bookmarks"` | BookmarkPlugin | `BookmarkCategory` |
-| `"verse-list"` | BookmarkPlugin | `VerseListCategory` |
-| `"tsk-cross-ref"` | TSK | `CrossRefCategory` |
-| `"bible-search"` | BibleSearchPlugin | `BibleSearchCategory` |
-| `"go-to-verse"` | BibleSearchPlugin | `GoToVerseCategory` |
-| `"topics"` | TopicalBiblePlugin | `TopicListCategory` |
-| `"my-notes"` | NotesPlugin | `myNotesCategory` |
-| `"translations"` | TranslationsPlugin | `translationCategory` |
-| `"settings"` | SettingsPlugin | `SettingsCategory` |
+| ID                | Plugin             | Category Class        |
+| ----------------- | ------------------ | --------------------- |
+| `"bookmarks"`     | BookmarkPlugin     | `BookmarkCategory`    |
+| `"verse-list"`    | BookmarkPlugin     | `VerseListCategory`   |
+| `"tsk-cross-ref"` | TSK                | `CrossRefCategory`    |
+| `"bible-search"`  | BibleSearchPlugin  | `BibleSearchCategory` |
+| `"go-to-verse"`   | BibleSearchPlugin  | `GoToVerseCategory`   |
+| `"topics"`        | TopicalBiblePlugin | `TopicListCategory`   |
+| `"my-notes"`      | NotesPlugin        | `myNotesCategory`     |
+| `"translations"`  | TranslationsPlugin | `translationCategory` |
+| `"settings"`      | SettingsPlugin     | `SettingsCategory`    |

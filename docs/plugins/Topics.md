@@ -27,7 +27,7 @@ The `topics.json` file contains thousands of topics (e.g., "faith", "prayer", "l
 ### State
 
 ```typescript
-topics: BibleTopics = new BibleTopics({});   // Full topic database
+topics: BibleTopics = new BibleTopics({}); // Full topic database
 topic = this.app.commandPalette.useState(""); // Currently selected topic
 ```
 
@@ -37,6 +37,7 @@ topic = this.app.commandPalette.useState(""); // Currently selected topic
 **Icon:** `GitCompare` (Lucide)
 
 When triggered on a verse, displays all topics this verse belongs to as buttons. Clicking a topic button:
+
 1. Sets `plugin.topic` state to the topic name
 2. Opens the command palette with `topCategory: "topic-list"`
 

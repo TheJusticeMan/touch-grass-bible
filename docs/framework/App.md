@@ -9,6 +9,7 @@
 ## Purpose
 
 `App` is the abstract base class that all Touch Grass Bible app instances extend. It provides the core infrastructure:
+
 - DOM setup and lifecycle management
 - Keyboard event routing
 - Command palette hosting
@@ -54,13 +55,13 @@ constructor(doc: Document, _title: string)
 
 ## Key Properties
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `console` | `BrowserConsole` | Formatted console for app logging |
-| `contentEl` | `HTMLElement` | Root DOM element (`div.AppShellElement`) |
-| `workspace` | `Workspace` | Panel/view layout manager |
-| `commandPalette` | `UnifiedCommandPalette` | The command palette instance |
-| `ctarget` | `ETarget` (readonly) | Current keyboard event target (top of stack) |
+| Property         | Type                    | Description                                  |
+| ---------------- | ----------------------- | -------------------------------------------- |
+| `console`        | `BrowserConsole`        | Formatted console for app logging            |
+| `contentEl`      | `HTMLElement`           | Root DOM element (`div.AppShellElement`)     |
+| `workspace`      | `Workspace`             | Panel/view layout manager                    |
+| `commandPalette` | `UnifiedCommandPalette` | The command palette instance                 |
+| `ctarget`        | `ETarget` (readonly)    | Current keyboard event target (top of stack) |
 
 ---
 
@@ -81,6 +82,7 @@ get ctarget(): ETarget
 ```
 
 **Example:** Opening a modal:
+
 ```typescript
 // Modal opens:
 app.pushTarget(modal);
@@ -203,11 +205,11 @@ Represents a snapshot of the application state at a point in time. Used for hist
 
 `App` extends `ETarget` and emits/handles these events:
 
-| Event | Triggered By |
-|-------|-------------|
-| `keydown` | Any keyboard key press |
-| `${key}KeyDown` | Specific key presses (e.g., `"EscapeKeyDown"`) |
-| `historypop` | `window.popstate` (browser back button) |
-| `draggingX/Y` | Touch dragging horizontally/vertically |
-| `dragX/Y` | Completed touch drag |
-| `dragXcancel/Ycancel` | Cancelled touch drag |
+| Event                 | Triggered By                                   |
+| --------------------- | ---------------------------------------------- |
+| `keydown`             | Any keyboard key press                         |
+| `${key}KeyDown`       | Specific key presses (e.g., `"EscapeKeyDown"`) |
+| `historypop`          | `window.popstate` (browser back button)        |
+| `draggingX/Y`         | Touch dragging horizontally/vertically         |
+| `dragX/Y`             | Completed touch drag                           |
+| `dragXcancel/Ycancel` | Cancelled touch drag                           |

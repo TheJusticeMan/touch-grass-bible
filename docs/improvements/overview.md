@@ -6,11 +6,11 @@ This document provides a high-level summary of recommended improvements to the T
 
 ## Summary by Category
 
-| Category | Priority | Effort | Impact |
-|----------|----------|--------|--------|
-| [Testing](testing.md) | High | Medium | High |
-| [Architecture](architecture.md) | Medium | High | High |
-| [Features](features.md) | Medium | Medium | High |
+| Category                        | Priority | Effort | Impact |
+| ------------------------------- | -------- | ------ | ------ |
+| [Testing](testing.md)           | High     | Medium | High   |
+| [Architecture](architecture.md) | Medium   | High   | High   |
+| [Features](features.md)         | Medium   | Medium | High   |
 
 ---
 
@@ -19,6 +19,7 @@ This document provides a high-level summary of recommended improvements to the T
 ### 1. Add a Test Suite
 
 Currently `npm test` fails with "no test specified." A test suite would catch regressions in core functionality:
+
 - `VerseRef` parsing, navigation, and text access
 - `BibleTopics` CRUD operations
 - Settings serialization/deserialization
@@ -29,6 +30,7 @@ See [testing.md](testing.md) for a full testing strategy.
 ### 2. Fix the `VerseRef` Static Data Anti-Pattern
 
 `VerseRef` uses static properties as a global mutable data store. This makes it difficult to test in isolation, creates hidden dependencies, and prevents multiple app instances. Consider:
+
 - Injecting Bible data via a `BibleDataService` singleton
 - Making static state explicit via dependency injection
 - Separating the data model from the data store
@@ -38,6 +40,7 @@ See [architecture.md](architecture.md) for details.
 ### 3. Deep-Merge Settings
 
 The current settings load uses a shallow `Object.assign`:
+
 ```typescript
 this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 ```

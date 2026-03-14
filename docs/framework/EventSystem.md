@@ -16,7 +16,7 @@ All ETarget classes extend `Chainable`, which provides a single utility:
 
 ```typescript
 class Chainable {
-  next(callback: (a: this) => void): this
+  next(callback: (a: this) => void): this;
   // Calls callback(this) and returns this.
   // Enables inline side effects in fluent chains.
 }
@@ -30,27 +30,27 @@ class Chainable {
 
 ```typescript
 abstract class ETarget<E extends Record<string, unknown>> extends Chainable {
-  on<K extends keyof E>(eventName: K, handler: (e: E[K]) => void): this
+  on<K extends keyof E>(eventName: K, handler: (e: E[K]) => void): this;
   // Register a handler. Returns `this` for chaining.
 
-  onany(handler: (eventName: keyof E, e: E[keyof E]) => void): this
+  onany(handler: (eventName: keyof E, e: E[keyof E]) => void): this;
   // Register a handler for ALL events. Useful for event proxying.
 
-  off<K extends keyof E>(eventName: K, handler: (e: E[K]) => void): this
+  off<K extends keyof E>(eventName: K, handler: (e: E[K]) => void): this;
   // Unregister a specific handler.
 
-  clear(eventName?: keyof E): this
+  clear(eventName?: keyof E): this;
   // Remove all handlers for one event, or all handlers if no event specified.
 
-  emit<K extends keyof E>(eventName: K, e?: E[K]): this
+  emit<K extends keyof E>(eventName: K, e?: E[K]): this;
   // Fire all handlers for this event. Default event data is {}.
   // Returns `this` for chaining.
 
-  cancelOn<K extends keyof E>(unsubscribeOn: K, event: ETarget): this
+  cancelOn<K extends keyof E>(unsubscribeOn: K, event: ETarget): this;
   // When `unsubscribeOn` fires on this, the last registered handler on `event` is removed.
   // Useful for one-time cleanup patterns.
 
-  get ActiveEvent(): keyof E | null
+  get ActiveEvent(): keyof E | null;
   // Returns the name of the currently executing event (if inside a handler).
   // Useful for re-entrancy detection.
 }
@@ -66,8 +66,8 @@ class Button extends ETarget<{
 }> {}
 
 const btn = new Button();
-btn.on("click", e => console.log(e.clientX));   // Typed: MouseEvent
-btn.on("change", e => console.log(e.value));      // Typed: { value: string }
+btn.on("click", e => console.log(e.clientX)); // Typed: MouseEvent
+btn.on("change", e => console.log(e.value)); // Typed: { value: string }
 btn.emit("click", new MouseEvent("click"));
 ```
 
@@ -93,13 +93,13 @@ Attaches touch event listeners to a `HTMLElement` and emits semantic drag events
 
 ### Events Emitted
 
-| Event | Payload | When |
-|-------|---------|------|
-| `draggingX` | `{ deltaX: number }` | During horizontal swipe |
-| `draggingY` | `{ deltaY: number }` | During vertical swipe |
-| `dragX` | `{ deltaX: number }` | Horizontal swipe ≥ threshold (default 50px) |
-| `dragY` | `{ deltaY: number }` | Vertical swipe ≥ threshold |
-| `dragCancel` | `{ deltaX, deltaY }` | Swipe didn't reach threshold |
+| Event         | Payload              | When                                           |
+| ------------- | -------------------- | ---------------------------------------------- |
+| `draggingX`   | `{ deltaX: number }` | During horizontal swipe                        |
+| `draggingY`   | `{ deltaY: number }` | During vertical swipe                          |
+| `dragX`       | `{ deltaX: number }` | Horizontal swipe ≥ threshold (default 50px)    |
+| `dragY`       | `{ deltaY: number }` | Vertical swipe ≥ threshold                     |
+| `dragCancel`  | `{ deltaX, deltaY }` | Swipe didn't reach threshold                   |
 | `dragXcancel` | `{ deltaX, deltaY }` | Horizontal drag cancelled or vertical detected |
 | `dragYcancel` | `{ deltaX, deltaY }` | Vertical drag cancelled or horizontal detected |
 
@@ -111,8 +111,7 @@ Direction is determined by comparing `|deltaX|` vs `|deltaY|`. The larger magnit
 
 ```typescript
 // In App constructor:
-new touchDragger(this.contentEl)
-  .onany((name, e) => this.ctarget.emit(name, e));
+new touchDragger(this.contentEl).onany((name, e) => this.ctarget.emit(name, e));
 // Forwards all drag events to the current keyboard/event target.
 ```
 
@@ -139,29 +138,30 @@ A base class for modal overlays and dialog-like components. Manages open/close s
 
 ```typescript
 abstract class Openable<E extends Record<string, unknown>> extends ETarget<E> {
-  constructor(appInstance: App)
+  constructor(appInstance: App);
   // Registers Escape key handler to auto-close.
 
-  open(): this
+  open(): this;
   // Pushes this onto app.target stack → becomes keyboard event receiver.
   // Calls onopen().
   // Emits "open".
 
-  close(): this
+  close(): this;
   // Pops from app.target stack.
   // Calls onclose().
   // Emits "close".
 
-  get isOpen(): boolean
+  get isOpen(): boolean;
 
-  abstract onopen(): void   // Create and show the overlay DOM
-  abstract onclose(): void  // Remove the overlay DOM
+  abstract onopen(): void; // Create and show the overlay DOM
+  abstract onclose(): void; // Remove the overlay DOM
 }
 ```
 
 ### Target Stack Integration
 
 Opening an `Openable` automatically makes it the active keyboard event receiver. This means:
+
 - `Escape` key closes the modal (registered in constructor)
 - Other keyboard events go to the modal instead of the app
 
@@ -203,16 +203,19 @@ dialog.open();
 ## `pdsp` Utility
 
 ```typescript
-export function pdsp(cb: (e: Event) => void): (e: Event) => void
+export function pdsp(cb: (e: Event) => void): (e: Event) => void;
 ```
 
 Wraps a callback to prevent default browser behavior and stop event propagation:
 
 ```typescript
-element.addEventListener("contextmenu", pdsp(() => {
-  // Right-click opens command palette instead of context menu
-  app.openCommandPalette();
-}));
+element.addEventListener(
+  "contextmenu",
+  pdsp(() => {
+    // Right-click opens command palette instead of context menu
+    app.openCommandPalette();
+  }),
+);
 ```
 
 ---
@@ -234,6 +237,7 @@ User presses key
 ```
 
 **Example key strings:**
+
 - `"Escape"` → `"EscapeKeyDown"`
 - `"Enter"` → `"EnterKeyDown"`
 - `"Ctrl+Enter"` → `"Ctrl+EnterKeyDown"`

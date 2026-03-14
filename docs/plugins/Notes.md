@@ -23,6 +23,7 @@
 **Icon:** `SquarePen` (Lucide)
 
 When the notes icon is clicked on a verse:
+
 1. Creates an inline `TextArea` inside the verse info container
 2. Pre-populates with the existing note (`verseInfo.verse.note`)
 3. Auto-focuses for immediate typing
@@ -54,11 +55,13 @@ getCommands(query: string): VerseRef[] {
 ### Command Rendering
 
 Each result shows:
+
 - Title: verse reference (`"John 3:16"`)
 - Description: note text (or "No note")
 - Context arrow (►)
 
 Selecting a note:
+
 1. Sets `app.verseState` to the verse
 2. Switches to TSK cross-references
 
@@ -78,9 +81,9 @@ Used by `navigationPanel` and `NotesPanel` to open the notes command category di
 
 There are two note systems in Touch Grass Bible:
 
-| System | Storage | Accessed Via | UI |
-|--------|---------|-------------|-----|
-| Inline verse notes | `VerseRef.myNotes` (Map) | `verse.note` | Verse action button in VerseScreen |
-| Free-form notes | `NoteVault` + `settings.ExtraNotes` | `app.Notes` | NotesPanel sidebar |
+| System             | Storage                             | Accessed Via | UI                                 |
+| ------------------ | ----------------------------------- | ------------ | ---------------------------------- |
+| Inline verse notes | `VerseRef.myNotes` (Map)            | `verse.note` | Verse action button in VerseScreen |
+| Free-form notes    | `NoteVault` + `settings.ExtraNotes` | `app.Notes`  | NotesPanel sidebar                 |
 
 This plugin manages **inline verse notes** only. The NotesPanel manages free-form notes.

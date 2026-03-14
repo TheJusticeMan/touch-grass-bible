@@ -20,6 +20,7 @@ class VerseRef {
 ```
 
 This creates several problems:
+
 1. **Testability** — Tests that modify static data bleed into each other
 2. **Tight coupling** — Any code anywhere can read/modify global Bible data
 3. **No reactivity** — Changing `bibleTranslations` doesn't notify the UI
@@ -36,7 +37,9 @@ class BibleDataService {
   notes: Map<OSIS, string> = new Map();
   bookmarks: BibleTopics = new BibleTopics({});
 
-  get defaultTranslation(): translation { return this._defaultTranslation; }
+  get defaultTranslation(): translation {
+    return this._defaultTranslation;
+  }
   set defaultTranslation(t: translation) {
     this._defaultTranslation = t;
     this.emit("translationChanged", t);
@@ -56,6 +59,7 @@ const bibleService = new BibleDataService();
 ```
 
 This enables:
+
 - Injecting a mock service in tests
 - Subscribing to translation changes reactively
 - Clear separation between data and model
@@ -138,7 +142,7 @@ function deepMerge<T>(defaults: T, saved: Partial<T>): T {
 }
 
 // In loadsettings:
-this.settings = deepMerge(DEFAULT_SETTINGS, await this.loadData() as Partial<TGAppSettings>);
+this.settings = deepMerge(DEFAULT_SETTINGS, (await this.loadData()) as Partial<TGAppSettings>);
 ```
 
 ---
@@ -277,11 +281,13 @@ Separate the re-export barrel (`main.ts`) from the entry point logic. For exampl
 ### Problem
 
 In `TopicalBible.ts`:
+
 ```typescript
 export const TopicListCategoryID = "topics";
 ```
 
 But in the verse action:
+
 ```typescript
 this.app.openCommandPalette({ topCategory: "topic-list" });
 ```

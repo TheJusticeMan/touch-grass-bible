@@ -18,8 +18,8 @@
 ## Types
 
 ```typescript
-export type OSISString = string;              // e.g. "John.3.16"
-type BibleTopicReference = [OSISString, number];  // [OSIS, rating/score]
+export type OSISString = string; // e.g. "John.3.16"
+type BibleTopicReference = [OSISString, number]; // [OSIS, rating/score]
 export type BibleTopicsType = { [topic: string]: BibleTopicReference[] };
 ```
 
@@ -37,10 +37,10 @@ Converts the input JSON-like `BibleTopicsType` object into internal `Map` struct
 
 ```typescript
 const bookmarks = new BibleTopics({
-  "Favorites": [
+  Favorites: [
     ["John.3.16", 0],
     ["Ps.23.1", 0],
-  ]
+  ],
 });
 ```
 
@@ -126,7 +126,7 @@ const faithVerses = VerseRef.Bookmarks.get("Faith");
 
 // Find which tags a verse belongs to
 const verse = new VerseRef("JOHN", 3, 16);
-const tags = verse.bookmarkList;  // e.g. ["Favorites", "John 3"]
+const tags = verse.bookmarkList; // e.g. ["Favorites", "John 3"]
 
 // Serialize back to settings
 settings.Bookmarks = VerseRef.Bookmarks.toJSON();

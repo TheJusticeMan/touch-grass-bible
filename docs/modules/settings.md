@@ -14,22 +14,23 @@
 
 ```typescript
 export interface TGAppSettings {
-  myNotes: [string, string][];    // Array of [OSIS, noteText] pairs
-  enableLogging: boolean;          // Enable browser console logging
-  showHelp: boolean;               // Show help on first command palette open
+  myNotes: [string, string][]; // Array of [OSIS, noteText] pairs
+  enableLogging: boolean; // Enable browser console logging
+  showHelp: boolean; // Show help on first command palette open
   style: {
-    Foreground: string;            // CSS color string (hsl/hex/rgb)
-    Background: string;            // CSS color string
-    EnhanceSpacing: boolean;       // Add extra line spacing
-    Font: string;                  // Font class name
-    fontSize: number;              // Base font size in px
+    Foreground: string; // CSS color string (hsl/hex/rgb)
+    Background: string; // CSS color string
+    EnhanceSpacing: boolean; // Add extra line spacing
+    Font: string; // Font class name
+    fontSize: number; // Base font size in px
   };
-  Bookmarks: BibleTopicsType;      // Serialized bookmark topics
-  ExtraNotes: {                    // Free-form notes (not verse-specific)
+  Bookmarks: BibleTopicsType; // Serialized bookmark topics
+  ExtraNotes: {
+    // Free-form notes (not verse-specific)
     name: string;
     content: string;
-    dateCreated: string;           // ISO date string
-    dateModified: string;          // ISO date string
+    dateCreated: string; // ISO date string
+    dateModified: string; // ISO date string
   }[];
 }
 ```
@@ -44,8 +45,8 @@ export const DEFAULT_SETTINGS: TGAppSettings = {
   enableLogging: true,
   showHelp: true,
   style: {
-    Foreground: "hsl(0, 100%, 100%)",   // White text
-    Background: "hsl(0, 100%, 0%)",     // Black background
+    Foreground: "hsl(0, 100%, 100%)", // White text
+    Background: "hsl(0, 100%, 0%)", // Black background
     EnhanceSpacing: true,
     Font: "Fontserif",
     fontSize: 16,
@@ -75,6 +76,7 @@ this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 ```
 
 This means:
+
 - If a key is missing from saved data, the default value is used.
 - If a key exists in saved data, it overrides the default.
 - **Caveat:** Nested objects (like `style`) are replaced wholesale, not deep-merged. A saved `style` object missing a field will not fall back to the default for that field.
@@ -117,6 +119,7 @@ On load, this is converted back to a `Map<OSIS, string>` and stored in `VerseRef
 ## Export and Import
 
 The `SettingsPlugin` provides JSON export/import functionality through the command palette. Users can:
+
 - Download their complete settings as a JSON file
 - Upload a previously exported settings file to restore their data
 
@@ -125,6 +128,7 @@ The `SettingsPlugin` provides JSON export/import functionality through the comma
 ## Potential Improvements
 
 See [improvements/features.md](../improvements/features.md) for discussion of:
+
 - Deep merging of nested settings to handle new fields in future versions
 - Settings migration/versioning for backwards compatibility
 - Per-device sync (cross-device settings sharing)

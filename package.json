@@ -35,7 +35,7 @@
     "build:bundle:web": "npm run getdatafiles && APP_TARGET=web node esbuild.config.mjs production",
     "build:bundle:electron": "npm run getdatafiles && APP_TARGET=electron node esbuild.config.mjs production",
     "build:bundle:capacitor": "npm run getdatafiles && APP_TARGET=capacitor node esbuild.config.mjs production",
-    "format": "prettier --write \"src/**/*.ts\" && prettier --write \"*.md\"",
+    "format": "prettier --write \"src/**/*.ts\" && prettier --write \"**/*.md\"",
     "getdatafiles": "mkdir -p ./dist && node ./processing/online.mjs && cp src/translations.json dist",
     "build:web": "mkdir -p ./dist && npm run build:bundle:web && cp src/web/* dist",
     "lint": "eslint src/*.ts",

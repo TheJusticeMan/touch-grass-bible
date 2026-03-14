@@ -7,6 +7,7 @@
 ## Overview
 
 The `Workspace` manages a tree-based panel/view layout system. It supports:
+
 - **Panels** — Containers that either split into child panels or show views in tabs
 - **Views** — Individual content components (VerseScreen, NotesPanel, etc.)
 - **Serialization** — Full layout state can be saved to and restored from JSON
@@ -25,18 +26,18 @@ type PanelLayout = {
   id: string;
   mode: "views" | "panels";
   splitDirection: "horizontal" | "vertical";
-  views?: ViewLayout[];          // Used when mode="views"
-  children?: PanelChild[];       // Used when mode="panels"
+  views?: ViewLayout[]; // Used when mode="views"
+  children?: PanelChild[]; // Used when mode="panels"
 };
 
 type PanelChild = {
-  size: number;       // Relative size (flex weight)
+  size: number; // Relative size (flex weight)
   panel: PanelLayout;
 };
 
 type ViewLayout = {
-  id: string;         // Must match a registered view ID
-  title: string;      // Tab label
+  id: string; // Must match a registered view ID
+  title: string; // Tab label
 };
 ```
 
@@ -134,16 +135,17 @@ A `View` is the content rendered inside a panel tab.
 
 ```typescript
 class View extends ETarget {
-  containerEl: HTMLElement;     // The view's root DOM element
-  panel: Panel;                 // The parent panel
-  title: string;                // Shown in the tab bar
+  containerEl: HTMLElement; // The view's root DOM element
+  panel: Panel; // The parent panel
+  title: string; // Shown in the tab bar
 
-  onActivate(): void   // Called when this view's tab is selected
-  onDeactivate(): void // Called when another view's tab is selected
+  onActivate(): void; // Called when this view's tab is selected
+  onDeactivate(): void; // Called when another view's tab is selected
 }
 ```
 
 **Subclassing `View`:**
+
 ```typescript
 class MyView extends View {
   onActivate() {
@@ -176,6 +178,7 @@ Root Panel [horizontal split]
 The workspace layout is serialized and saved to `localStorage["setting-workspace"]` whenever the layout changes (with a 500ms debounce).
 
 On startup:
+
 1. `loadWorkspaceLayout()` reads from localStorage
 2. Tries to `restoreLayout(savedLayout)`
 3. Falls back to `getDefaultWorkspaceLayout()` if:

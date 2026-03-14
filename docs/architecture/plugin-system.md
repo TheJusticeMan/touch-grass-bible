@@ -39,10 +39,10 @@ Every plugin declares itself with a manifest object:
 
 ```typescript
 type PluginManifest = {
-  id: string;        // Unique identifier, used as palette ID and for lookup
-  name: string;      // Human-readable display name
+  id: string; // Unique identifier, used as palette ID and for lookup
+  name: string; // Human-readable display name
   description: string;
-  version: string;   // Semantic version string
+  version: string; // Semantic version string
 };
 ```
 
@@ -64,6 +64,7 @@ new PluginClass(app, manifest)
 ```
 
 When the app shuts down:
+
 ```
     .unload()
          │
@@ -87,10 +88,7 @@ Registers a command category in the unified command palette and automatically re
 
 ```typescript
 // Plugin registers a command category:
-this.registerPalette(
-  () => new BibleSearchCategory(this.app.commandPalette, this),
-  BibleSearchCategoryID
-);
+this.registerPalette(() => new BibleSearchCategory(this.app.commandPalette, this), BibleSearchCategoryID);
 
 // Equivalent manual registration + cleanup:
 this.app.commandPalette.addPalette(factory, id);
@@ -115,7 +113,9 @@ this.addVerseAction({
   id: "bookmark-action",
   name: "Bookmark",
   icon: BookmarkIcon,
-  onTrigger: (verseInfo) => { /* handle click on verse */ }
+  onTrigger: verseInfo => {
+    /* handle click on verse */
+  },
 });
 // Unload: this.app.removeVerseAction("bookmark-action")
 ```
@@ -129,7 +129,7 @@ type IconActionItem = {
   id: string;
   name: string;
   description?: string;
-  icon: IconNode;              // Lucide icon
+  icon: IconNode; // Lucide icon
   onTrigger: (verseInfo: VerseInfoComponent) => void;
 };
 ```
@@ -184,12 +184,13 @@ export default class MyPlugin extends Plugin {
 ```
 
 Then in `main.ts` `onload()`:
+
 ```typescript
 new MyPlugin(this, {
   id: "my-feature",
   name: "My Feature",
   description: "A custom plugin",
-  version: "1.0.0"
+  version: "1.0.0",
 }).load();
 ```
 
@@ -197,12 +198,12 @@ new MyPlugin(this, {
 
 ## Registered Plugins at a Glance
 
-| ID | Class | Palettes | Verse Actions |
-|----|-------|----------|---------------|
-| `bookmarks` | `BookmarkPlugin` | `bookmarks`, `verse-list` | Bookmark icon, Verse list icon |
-| `tsk` | `TSK` | `tsk-cross-ref` | Cross-reference icon |
-| `bible-search` | `BibleSearchPlugin` | `bible-search`, `go-to-verse` | — |
-| `topical-bible` | `TopicalBiblePlugin` | `topics` | Topics icon |
-| `notes` | `NotesPlugin` | `my-notes` | Notes icon |
-| `translations` | `TranslationsPlugin` | `translations` | — |
-| `settings` | `SettingsPlugin` | `settings` | — |
+| ID              | Class                | Palettes                      | Verse Actions                  |
+| --------------- | -------------------- | ----------------------------- | ------------------------------ |
+| `bookmarks`     | `BookmarkPlugin`     | `bookmarks`, `verse-list`     | Bookmark icon, Verse list icon |
+| `tsk`           | `TSK`                | `tsk-cross-ref`               | Cross-reference icon           |
+| `bible-search`  | `BibleSearchPlugin`  | `bible-search`, `go-to-verse` | —                              |
+| `topical-bible` | `TopicalBiblePlugin` | `topics`                      | Topics icon                    |
+| `notes`         | `NotesPlugin`        | `my-notes`                    | Notes icon                     |
+| `translations`  | `TranslationsPlugin` | `translations`                | —                              |
+| `settings`      | `SettingsPlugin`     | `settings`                    | —                              |

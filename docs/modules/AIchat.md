@@ -18,10 +18,10 @@ The class also supports Anthropic (Claude) API endpoints via header auto-detecti
 
 ```typescript
 export class AIchat {
-  static ChatbotCommunicationGuidelines: string   // System prompt
-  messages: { role: string; content: string }[]   // Conversation history
-  console: BrowserConsole
-  endpoint: { endpoint: string; apiKey: string }  // API configuration
+  static ChatbotCommunicationGuidelines: string; // System prompt
+  messages: { role: string; content: string }[]; // Conversation history
+  console: BrowserConsole;
+  endpoint: { endpoint: string; apiKey: string }; // API configuration
 }
 ```
 
@@ -34,7 +34,7 @@ export class AIchat {
 ```typescript
 endpoint = {
   endpoint: "https://api.openai.com/v1/chat/completions",
-  apiKey: "",  // Must be set before use
+  apiKey: "", // Must be set before use
 };
 ```
 
@@ -45,12 +45,14 @@ The `apiKey` must be set before calling `request()`. An empty key causes the req
 Headers are automatically selected based on the endpoint URL:
 
 **OpenAI (default):**
+
 ```http
 Authorization: Bearer {apiKey}
 Content-Type: application/json
 ```
 
 **Anthropic (if endpoint includes `api.anthropic.com`):**
+
 ```http
 x-api-key: {apiKey}
 anthropic-version: 2023-06-01
@@ -101,6 +103,7 @@ Returns the full conversation history array.
 ### `static handleStreamingResponse(response, streamcallback)`
 
 Handles the SSE (Server-Sent Events) streaming format:
+
 - Reads from the response body stream using `ReadableStream` / `TextDecoder`
 - Parses `data: {...}` lines
 - Stops on `data: [DONE]`
@@ -133,6 +136,7 @@ The AI plugin is not loaded in `main.ts` at this time.
 ## Potential Usage
 
 When fully integrated, it could power:
+
 - A "Chat about this verse" command palette category
 - A contextual assistant explaining passages
 - A study helper generating cross-references or commentary

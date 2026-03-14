@@ -17,15 +17,15 @@
 
 ### Key Properties
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `_verse` | `VerseRef` | Currently selected verse (private setter prevents recursion) |
-| `chapterContainer` | `HTMLElement` | The scrollable DOM container holding chapter components |
-| `renderedChapters` | `ChapterComponent[]` | Currently rendered chapter buffer |
-| `maxRenderedChapters` | `number` | Max chapters in buffer (default: 11, must be odd) |
-| `scrollTriggerThreshold` | `number` | How many viewports from edge to trigger new chapter load (default: 4) |
-| `chapterScroll` | `ChapterScroll` | Touch/drag handler for chapter navigation overlay |
-| `bookScroll` | `BookScroll` | Touch/drag handler for book navigation overlay |
+| Property                 | Type                 | Description                                                           |
+| ------------------------ | -------------------- | --------------------------------------------------------------------- |
+| `_verse`                 | `VerseRef`           | Currently selected verse (private setter prevents recursion)          |
+| `chapterContainer`       | `HTMLElement`        | The scrollable DOM container holding chapter components               |
+| `renderedChapters`       | `ChapterComponent[]` | Currently rendered chapter buffer                                     |
+| `maxRenderedChapters`    | `number`             | Max chapters in buffer (default: 11, must be odd)                     |
+| `scrollTriggerThreshold` | `number`             | How many viewports from edge to trigger new chapter load (default: 4) |
+| `chapterScroll`          | `ChapterScroll`      | Touch/drag handler for chapter navigation overlay                     |
+| `bookScroll`             | `BookScroll`         | Touch/drag handler for book navigation overlay                        |
 
 ### Constructor
 
@@ -39,6 +39,7 @@ constructor(panel: Panel, app: TouchGrassBibleApp)
 ### `onload()`
 
 Called after the view is mounted in the workspace. It:
+
 1. Subscribes to `commandPalette.close` to add a reading history entry and save settings
 2. Sets up the scroll event handler
 3. Initializes `BookScroll` and `ChapterScroll` with their navigation callbacks
@@ -60,6 +61,7 @@ Buffer visualization (maxRenderedChapters = 11):
 ### `handleScroll`
 
 Throttled scroll handler (100ms via `apocalypse-throttle`). On each scroll event:
+
 1. Checks if we're within `scrollTriggerThreshold` viewport heights of the top or bottom
 2. Loads previous or next chapter if needed
 3. Calls `showScrollIndicators()` to update the overlay position indicators
@@ -67,6 +69,7 @@ Throttled scroll handler (100ms via `apocalypse-throttle`). On each scroll event
 ### Verse Selection
 
 When a verse is selected (via `app.verseState.set(verse)`):
+
 1. The `onChange` listener fires, calling `this.verse = verse`
 2. If the verse is in a chapter already rendered, `highlightVerse()` smooth-scrolls to it
 3. If the verse is in a different chapter, `renderInitialChapters()` rebuilds the buffer
@@ -74,6 +77,7 @@ When a verse is selected (via `app.verseState.set(verse)`):
 ### `CurrentVisibleChapter` vs `midViewChapter`
 
 Two getters compute the "current" chapter for scroll indicator display:
+
 - `CurrentVisibleChapter` — the last chapter whose top edge is above the viewport top
 - `midViewChapter` — the chapter whose center is closest to the viewport midpoint
 
@@ -92,6 +96,7 @@ constructor(parent: HTMLElement, ref: VerseRef, app: TouchGrassBibleApp)
 ```
 
 For each verse in `ref.cTXT`:
+
 - Creates a `.verse` div with highlighted text (using `VerseHighlight`)
 - Binds a `click` handler to `app.verseState.set(newVerse)`
 - Binds a `contextmenu` handler to open the command palette with TSK cross-references
@@ -135,6 +140,7 @@ A per-verse action bar rendered below each verse when it is the active verse.
 ### Interaction Pattern
 
 When any action button inside the info component is clicked:
+
 1. `initiateRenderReset()` clears the container
 2. Adds a one-time `click` listener to the document
 3. When a click outside the info container is detected → re-renders the original buttons
@@ -145,17 +151,17 @@ This provides a "tap to expand, tap elsewhere to collapse" interaction.
 
 ## CSS Classes
 
-| Class | Element | Description |
-|-------|---------|-------------|
-| `.screen-view` | VerseScreen container | Full-height scrollable view |
-| `.content` | Scroll container | Overflow-y scrollable |
-| `.chapter` | ChapterComponent root | Chapter wrapper |
-| `.chapterTitle` | `<h2>` | Book and chapter heading |
-| `.verse` | Individual verse div | Clickable verse text |
-| `.verseActive` | Active verse | Highlighted / focused verse |
-| `.versePBreak` | Paragraph break verses | Extra spacing before verse |
-| `.verseNumber` | Leading digits | Styled verse number |
-| `.infoContainer` | VerseInfoComponent | Action buttons below verse |
+| Class            | Element                | Description                 |
+| ---------------- | ---------------------- | --------------------------- |
+| `.screen-view`   | VerseScreen container  | Full-height scrollable view |
+| `.content`       | Scroll container       | Overflow-y scrollable       |
+| `.chapter`       | ChapterComponent root  | Chapter wrapper             |
+| `.chapterTitle`  | `<h2>`                 | Book and chapter heading    |
+| `.verse`         | Individual verse div   | Clickable verse text        |
+| `.verseActive`   | Active verse           | Highlighted / focused verse |
+| `.versePBreak`   | Paragraph break verses | Extra spacing before verse  |
+| `.verseNumber`   | Leading digits         | Styled verse number         |
+| `.infoContainer` | VerseInfoComponent     | Action buttons below verse  |
 
 ---
 

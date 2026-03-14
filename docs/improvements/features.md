@@ -11,11 +11,13 @@ This document contains feature ideas and enhancement proposals for Touch Grass B
 **File:** `src/plugins/TopicalBible.ts`
 
 The verse action handler uses `"topic-list"` as the category ID:
+
 ```typescript
 this.app.openCommandPalette({ topCategory: "topic-list" });
 ```
 
 But the registered palette ID is `"topics"`. Change to:
+
 ```typescript
 this.app.openCommandPalette({ topCategory: TopicListCategoryID });
 ```
@@ -25,6 +27,7 @@ this.app.openCommandPalette({ topCategory: TopicListCategoryID });
 **File:** `src/NotesPanel.ts`
 
 The live update subscription is commented out:
+
 ```typescript
 /* note.on("change", this.update); */
 ```
@@ -75,15 +78,16 @@ A structured reading plan system:
 
 ```typescript
 type ReadingPlan = {
-  name: string;           // "Bible in a Year"
+  name: string; // "Bible in a Year"
   schedule: {
-    day: number;           // Day 1 of 365
-    passages: string[];    // ["Gen.1-2", "Matt.1"]
+    day: number; // Day 1 of 365
+    passages: string[]; // ["Gen.1-2", "Matt.1"]
   }[];
 };
 ```
 
 Features:
+
 - Select from built-in plans
 - Track completion per day
 - View what's planned for today
@@ -93,6 +97,7 @@ Features:
 ### Multiple Notes per Verse
 
 Currently only one note per verse (keyed by OSIS). Allow:
+
 - Multiple notes per verse (list of notes)
 - Tagged notes (link to `BibleTopics`)
 - Note categories (observation, application, prayer)
@@ -100,6 +105,7 @@ Currently only one note per verse (keyed by OSIS). Allow:
 ### Highlight Verses
 
 A visual highlighting system:
+
 - Select a verse and choose a color
 - Highlighted verses show background color in the reader
 - Multiple highlight colors for different themes
@@ -153,6 +159,7 @@ Show a "breadcrumb" of the current cross-reference chain so users can navigate b
 ### Audio Bible
 
 Integrate an audio Bible API:
+
 - Play verse/chapter audio alongside the text
 - Auto-advance to next chapter
 - Playback speed control
@@ -161,6 +168,7 @@ Integrate an audio Bible API:
 ### Greek/Hebrew Word Study
 
 Using Strong's Concordance data:
+
 - Tap on a word in KJV to see the original Greek/Hebrew word
 - View other verses where the same word appears
 - Word frequency statistics
@@ -172,6 +180,7 @@ Using Strong's Concordance data:
 ### Bottom Sheet Palette
 
 On mobile, the command palette appears as a full-screen overlay. A bottom-sheet design would be more thumb-friendly:
+
 - Slides up from the bottom like a native iOS/Android sheet
 - Supports swipe-down to dismiss
 - Shows more content without covering the verses
@@ -179,6 +188,7 @@ On mobile, the command palette appears as a full-screen overlay. A bottom-sheet 
 ### Swipe Navigation
 
 Use the existing `touchDragger` to enable:
+
 - Swipe left/right to navigate chapters
 - Swipe up to open the command palette
 
@@ -221,6 +231,7 @@ Consider adding HMR support via esbuild plugins for faster development iteration
 ### Browser DevTools Plugin
 
 A custom DevTools panel showing:
+
 - Current `verseState` value
 - Registered palettes and their command counts
 - Settings state

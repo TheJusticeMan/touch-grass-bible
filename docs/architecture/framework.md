@@ -6,23 +6,23 @@ The `src/external/` directory contains a reusable, application-agnostic framewor
 
 ## File Inventory
 
-| File | Lines | Role |
-|------|-------|------|
-| `App.ts` | 358 | Abstract application base class |
-| `Workspace.ts` | ~1,400 | Panel/view layout system |
-| `CommandPalette.ts` | ~922 | Unified command interface |
-| `Components.ts` | ~716 | UI component library |
-| `Event.ts` | ~270 | Event emitter and touch/drag handling |
-| `MyHTML.ts` | ~235 | DOM helper utilities |
-| `Files.ts` | ~323 | Platform-agnostic file I/O |
-| `State.ts` | ~42 | Reactive state container |
-| `PaletteStateController.ts` | ~126 | Command palette state navigation |
-| `Highlighter.ts` | ~128 | Regex-based text highlighting |
-| `MyBrowserConsole.ts` | ~72 | Formatted browser console wrapper |
-| `Comands.ts` | ~92 | `CMD` and `toggleCMD` command helpers |
-| `CapacitorFiles.ts` | ~64 | Capacitor filesystem API wrapper |
-| `settings.ts` | ~39 | Settings utilities |
-| `escapeRegExp.ts` | 4 | Regex escaping helper |
+| File                        | Lines  | Role                                  |
+| --------------------------- | ------ | ------------------------------------- |
+| `App.ts`                    | 358    | Abstract application base class       |
+| `Workspace.ts`              | ~1,400 | Panel/view layout system              |
+| `CommandPalette.ts`         | ~922   | Unified command interface             |
+| `Components.ts`             | ~716   | UI component library                  |
+| `Event.ts`                  | ~270   | Event emitter and touch/drag handling |
+| `MyHTML.ts`                 | ~235   | DOM helper utilities                  |
+| `Files.ts`                  | ~323   | Platform-agnostic file I/O            |
+| `State.ts`                  | ~42    | Reactive state container              |
+| `PaletteStateController.ts` | ~126   | Command palette state navigation      |
+| `Highlighter.ts`            | ~128   | Regex-based text highlighting         |
+| `MyBrowserConsole.ts`       | ~72    | Formatted browser console wrapper     |
+| `Comands.ts`                | ~92    | `CMD` and `toggleCMD` command helpers |
+| `CapacitorFiles.ts`         | ~64    | Capacitor filesystem API wrapper      |
+| `settings.ts`               | ~39    | Settings utilities                    |
+| `escapeRegExp.ts`           | 4      | Regex escaping helper                 |
 
 All of these are re-exported from `App.ts`, so consumers only need to import from `"./external/App"`.
 
@@ -41,6 +41,7 @@ constructor(doc: Document, title: string)
 ```
 
 The constructor:
+
 1. Creates the root `div.AppShellElement` in `doc.body`.
 2. Attaches a `touchDragger` for swipe/drag support.
 3. Sets up `keydown` event routing through the target stack.
@@ -49,21 +50,21 @@ The constructor:
 
 ### Properties
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `console` | `BrowserConsole` | Formatted logging |
-| `contentEl` | `HTMLElement` | Root DOM element (`div.AppShellElement`) |
-| `workspace` | `Workspace` | The panel/view layout manager |
-| `commandPalette` | `UnifiedCommandPalette` | The command palette instance |
+| Property         | Type                    | Description                              |
+| ---------------- | ----------------------- | ---------------------------------------- |
+| `console`        | `BrowserConsole`        | Formatted logging                        |
+| `contentEl`      | `HTMLElement`           | Root DOM element (`div.AppShellElement`) |
+| `workspace`      | `Workspace`             | The panel/view layout manager            |
+| `commandPalette` | `UnifiedCommandPalette` | The command palette instance             |
 
 ### Target Stack
 
 The `target` stack controls which `ETarget` receives keyboard events. When a modal opens, it pushes itself onto the stack. When closed, it pops itself. The getter `ctarget` returns the top of the stack.
 
 ```typescript
-app.pushTarget(modal);    // Modal now receives key events
+app.pushTarget(modal); // Modal now receives key events
 // ... modal is open ...
-app.popTarget();          // App resumes receiving key events
+app.popTarget(); // App resumes receiving key events
 ```
 
 ### Abstract Methods
@@ -106,6 +107,7 @@ downloadFile(filename, data)                          // Trigger browser downloa
 **File:** `src/external/Workspace.ts`
 
 The `Workspace` manages a tree of panels and views. It supports:
+
 - **Views** — Individual content panels (e.g., VerseScreen, NotesPanel)
 - **Panels** — Containers that hold views (tab bar) or split into child panels
 - **Split directions** — `"horizontal"` or `"vertical"`
@@ -123,8 +125,8 @@ type PanelLayout = {
   id: string;
   mode: "views" | "panels";
   splitDirection: "horizontal" | "vertical";
-  views?: ViewLayout[];           // When mode="views"
-  children?: PanelChild[];        // When mode="panels"
+  views?: ViewLayout[]; // When mode="views"
+  children?: PanelChild[]; // When mode="panels"
 };
 ```
 
@@ -162,7 +164,7 @@ abstract class CommandCategory<T> {
   abstract getCommands(query: string): T[];
   abstract renderCommand(cmd: T, item: CommandItem<T>): StateTransition;
   abstract executeCommand(cmd: T): void;
-  onTrigger(state: CommandPaletteState): void;   // Called when category becomes active
+  onTrigger(state: CommandPaletteState): void; // Called when category becomes active
 }
 ```
 
@@ -176,7 +178,7 @@ The palette supports hierarchical navigation: selecting an item can update `topC
 
 ```typescript
 // State transition returned by renderCommand:
-return (state) => state.update({ topCategory: "next-category-id" });
+return state => state.update({ topCategory: "next-category-id" });
 ```
 
 ### Input Modes
@@ -205,26 +207,26 @@ class UIComponent<Tag extends keyof HTMLElementTagNameMap> {
   containerEl: HTMLElementTagNameMap[Tag];
   parent?: UIComponent<any>;
   children: UIComponent<any>[];
-  addClass(cls: string): this
-  removeClass(cls: string): this
-  createEl<T>(tag, options): T
-  empty(): this
-  remove(): void
+  addClass(cls: string): this;
+  removeClass(cls: string): this;
+  createEl<T>(tag, options): T;
+  empty(): this;
+  remove(): void;
 }
 ```
 
 ### Included Components
 
-| Component | Description |
-|-----------|-------------|
-| `Button` | Clickable button with `.onClick(cb)` and `.setIcon(icon)` |
-| `IconButton` | Button with a Lucide icon |
-| `TextInput` | Single-line input with `onEnter`, `onInput` callbacks |
-| `TextArea` | Multi-line text area |
-| `Item` | Listable row item with title and description slots |
-| `sidePanel<App>` | Collapsible side panel attached to an App instance |
-| `ScreenView<App>` | Full-screen view attached to an App instance |
-| `Highlighter` | Applies regex-based formatting to text content |
+| Component         | Description                                               |
+| ----------------- | --------------------------------------------------------- |
+| `Button`          | Clickable button with `.onClick(cb)` and `.setIcon(icon)` |
+| `IconButton`      | Button with a Lucide icon                                 |
+| `TextInput`       | Single-line input with `onEnter`, `onInput` callbacks     |
+| `TextArea`        | Multi-line text area                                      |
+| `Item`            | Listable row item with title and description slots        |
+| `sidePanel<App>`  | Collapsible side panel attached to an App instance        |
+| `ScreenView<App>` | Full-screen view attached to an App instance              |
+| `Highlighter`     | Applies regex-based formatting to text content            |
 
 ---
 
@@ -236,10 +238,10 @@ class UIComponent<Tag extends keyof HTMLElementTagNameMap> {
 
 ```typescript
 class ETarget<Events extends { [key: string]: unknown }> {
-  on(event: string, handler: (data) => void): void
-  once(event: string, handler: (data) => void): void
-  emit(event: string, data): void
-  off(event: string, handler): void
+  on(event: string, handler: (data) => void): void;
+  once(event: string, handler: (data) => void): void;
+  emit(event: string, data): void;
+  off(event: string, handler): void;
 }
 ```
 
@@ -253,9 +255,9 @@ See [EventSystem.md](../framework/EventSystem.md) for full details.
 
 ```typescript
 class StateClass<T> {
-  get(): T
-  set(value: T): void
-  onChange(cb: (value: T) => void): void
+  get(): T;
+  set(value: T): void;
+  onChange(cb: (value: T) => void): void;
 }
 ```
 
@@ -272,15 +274,15 @@ Applies multiple regex patterns to a text string, wrapping matches in HTML eleme
 ```typescript
 type HighlightRule = {
   regEXP: RegExp;
-  elTag?: keyof HTMLElementTagNameMap;  // Wrap in this element
-  cls?: string;                          // Apply this CSS class
-  replace?: string;                      // Replace match content
+  elTag?: keyof HTMLElementTagNameMap; // Wrap in this element
+  cls?: string; // Apply this CSS class
+  replace?: string; // Replace match content
 };
 
 const VerseHighlight = new Highlighter([
-  { regEXP: /\[(.+?)\]/gi, elTag: "i" },          // Italics for translator notes
-  { regEXP: /(LORD|God)/gi, elTag: "b" },           // Bold divine names
-  { regEXP: /^(\d+)/gi, cls: "verseNumber" },       // Style verse numbers
+  { regEXP: /\[(.+?)\]/gi, elTag: "i" }, // Italics for translator notes
+  { regEXP: /(LORD|God)/gi, elTag: "b" }, // Bold divine names
+  { regEXP: /^(\d+)/gi, cls: "verseNumber" }, // Style verse numbers
   { regEXP: /#/gi, cls: "versePBreak", replace: "¶" }, // Paragraph marks
 ]);
 ```
@@ -292,6 +294,7 @@ const VerseHighlight = new Highlighter([
 **File:** `src/external/MyBrowserConsole.ts`
 
 Wraps `console` with:
+
 - An `enabled` flag (disabled in production)
 - A configurable prefix shown in all messages
 - A `header()` method for styled log headers

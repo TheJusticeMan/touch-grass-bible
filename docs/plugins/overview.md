@@ -6,15 +6,15 @@ Touch Grass Bible's features are implemented as plugins extending the `Plugin` b
 
 ## All Plugins at a Glance
 
-| Plugin | ID | File | Palettes | Verse Actions |
-|--------|-----|------|----------|---------------|
-| [BookmarkPlugin](Bookmarks.md) | `bookmarks` | `Bookmarks.ts` | `bookmarks`, `verse-list` | Bookmark icon, List icon |
-| [TSK](TSK.md) | `tsk` | `TSK.ts` | `tsk-cross-ref` | Cross-ref icon |
-| [BibleSearchPlugin](Search.md) | `bible-search` | `Search.ts` | `bible-search`, `go-to-verse` | — |
-| [TopicalBiblePlugin](Topics.md) | `topical-bible` | `TopicalBible.ts` | `topics` | Topics icon |
-| [NotesPlugin](Notes.md) | `notes` | `Notes.ts` | `my-notes` | Notes icon |
-| [TranslationsPlugin](Translations.md) | `translations` | `Translations.ts` | `translations` | — |
-| [SettingsPlugin](Settings.md) | `settings` | `Settings.ts` | `settings` | — |
+| Plugin                                | ID              | File              | Palettes                      | Verse Actions            |
+| ------------------------------------- | --------------- | ----------------- | ----------------------------- | ------------------------ |
+| [BookmarkPlugin](Bookmarks.md)        | `bookmarks`     | `Bookmarks.ts`    | `bookmarks`, `verse-list`     | Bookmark icon, List icon |
+| [TSK](TSK.md)                         | `tsk`           | `TSK.ts`          | `tsk-cross-ref`               | Cross-ref icon           |
+| [BibleSearchPlugin](Search.md)        | `bible-search`  | `Search.ts`       | `bible-search`, `go-to-verse` | —                        |
+| [TopicalBiblePlugin](Topics.md)       | `topical-bible` | `TopicalBible.ts` | `topics`                      | Topics icon              |
+| [NotesPlugin](Notes.md)               | `notes`         | `Notes.ts`        | `my-notes`                    | Notes icon               |
+| [TranslationsPlugin](Translations.md) | `translations`  | `Translations.ts` | `translations`                | —                        |
+| [SettingsPlugin](Settings.md)         | `settings`      | `Settings.ts`     | `settings`                    | —                        |
 
 ---
 
@@ -59,13 +59,13 @@ Command Palette Menu
 
 When a verse is selected (active), the `VerseInfoComponent` renders action buttons registered by plugins:
 
-| Action ID | Plugin | Icon | Effect |
-|-----------|--------|------|--------|
-| `bookmark` | BookmarkPlugin | Bookmark | Opens bookmark tag selector |
-| `tsk-cross-ref` | TSK | GitCompare | Opens cross-reference palette |
-| `topics` | TopicalBiblePlugin | Waypoints | Opens topic list for verse |
-| `notes` | NotesPlugin | SquarePen | Opens note editor for verse |
-| `verse-list` | BookmarkPlugin | ScrollText | Opens verse list |
+| Action ID       | Plugin             | Icon       | Effect                        |
+| --------------- | ------------------ | ---------- | ----------------------------- |
+| `bookmark`      | BookmarkPlugin     | Bookmark   | Opens bookmark tag selector   |
+| `tsk-cross-ref` | TSK                | GitCompare | Opens cross-reference palette |
+| `topics`        | TopicalBiblePlugin | Waypoints  | Opens topic list for verse    |
+| `notes`         | NotesPlugin        | SquarePen  | Opens note editor for verse   |
+| `verse-list`    | BookmarkPlugin     | ScrollText | Opens verse list              |
 
 Plus a built-in "Open in..." button (YouVersion, Blue Letter Bible, Bible Gateway).
 

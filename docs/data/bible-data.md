@@ -6,14 +6,14 @@ This document describes the structure of all Bible data files used by Touch Gras
 
 ## Overview
 
-| File | Location | Size | Source | Purpose |
-|------|----------|------|--------|---------|
-| `KJV.json` | `data/translations/` | ~4.1 MB | Public domain | King James Version text |
-| `YLT.json` | `data/translations/` | ~4.1 MB | Public domain | Young's Literal Translation |
-| `ASV.json` | `data/translations/` | ~4.1 MB | Public domain | American Standard Version |
-| `translations.json` | `src/` → `dist/` | ~12 MB | Compiled from above | All translations combined |
-| `crossrefs.json` | `dist/` | ~5 MB | OpenBible.info | Cross-references with vote scores |
-| `topics.json` | `dist/` | ~10 MB | OpenBible.info | Topic-to-verse mappings with quality scores |
+| File                | Location             | Size    | Source              | Purpose                                     |
+| ------------------- | -------------------- | ------- | ------------------- | ------------------------------------------- |
+| `KJV.json`          | `data/translations/` | ~4.1 MB | Public domain       | King James Version text                     |
+| `YLT.json`          | `data/translations/` | ~4.1 MB | Public domain       | Young's Literal Translation                 |
+| `ASV.json`          | `data/translations/` | ~4.1 MB | Public domain       | American Standard Version                   |
+| `translations.json` | `src/` → `dist/`     | ~12 MB  | Compiled from above | All translations combined                   |
+| `crossrefs.json`    | `dist/`              | ~5 MB   | OpenBible.info      | Cross-references with vote scores           |
+| `topics.json`       | `dist/`              | ~10 MB  | OpenBible.info      | Topic-to-verse mappings with quality scores |
 
 ---
 
@@ -59,8 +59,8 @@ const genesis1v1 = VerseRef.bibleTranslations["KJV"]["GENESIS"][1][1];
 
 // Or via VerseRef instance:
 const ref = new VerseRef("GENESIS", 1, 1);
-ref.text("KJV")  // Same result
-ref.vTXT         // Uses defaultTranslation
+ref.text("KJV"); // Same result
+ref.vTXT; // Uses defaultTranslation
 ```
 
 ### Combined `translations.json`
@@ -162,18 +162,18 @@ The Open Scriptural Information Standard (OSIS) is used throughout for Bible ver
 
 **Book Codes** (from `BookShortNames` array in `booksOfTheBible.ts`):
 
-| Book | OSIS Code |
-|------|-----------|
-| Genesis | `Gen` |
-| Exodus | `Exod` |
-| ... | ... |
-| Psalms | `Ps` |
-| ... | ... |
-| Matthew | `Matt` |
-| John | `John` |
-| Romans | `Rom` |
-| 1 Corinthians | `1Cor` |
-| Revelation | `Rev` |
+| Book          | OSIS Code |
+| ------------- | --------- |
+| Genesis       | `Gen`     |
+| Exodus        | `Exod`    |
+| ...           | ...       |
+| Psalms        | `Ps`      |
+| ...           | ...       |
+| Matthew       | `Matt`    |
+| John          | `John`    |
+| Romans        | `Rom`     |
+| 1 Corinthians | `1Cor`    |
+| Revelation    | `Rev`     |
 
 **Note:** The OSIS codes used internally may differ slightly from those in the OpenBible data files. The `VerseRef.fromOSIS()` method handles parsing, and `VerseRef.toOSIS()` produces the internal format.
 

@@ -33,13 +33,13 @@ The workflow automatically deploys to GitHub Pages at:
 
 ### Local Development Requirements
 
-| Tool | Version | Notes |
-|------|---------|-------|
-| Node.js | ≥ 20 | |
-| npm | ≥ 10 | |
-| rpm-build | any | Linux only — `sudo apt-get install rpm` or `sudo dnf install rpm-build` |
-| Xcode | ≥ 14 | macOS only — needed for macOS packaging |
-| Wine | ≥ 6 | Optional — needed only for Windows cross-compilation from Linux/macOS |
+| Tool      | Version | Notes                                                                   |
+| --------- | ------- | ----------------------------------------------------------------------- |
+| Node.js   | ≥ 20    |                                                                         |
+| npm       | ≥ 10    |                                                                         |
+| rpm-build | any     | Linux only — `sudo apt-get install rpm` or `sudo dnf install rpm-build` |
+| Xcode     | ≥ 14    | macOS only — needed for macOS packaging                                 |
+| Wine      | ≥ 6     | Optional — needed only for Windows cross-compilation from Linux/macOS   |
 
 ### Building Locally
 
@@ -50,12 +50,12 @@ npm run make:electron
 
 Artifacts are created in `dist/out/make/`:
 
-| Platform | Format | Location |
-|----------|--------|---------|
-| Windows | Squirrel `.exe` installer + `.nupkg` | `dist/out/make/squirrel.windows/` |
-| macOS | `.zip` archive | `dist/out/make/zip/darwin/` |
-| Linux | `.deb` package | `dist/out/make/deb/x64/` |
-| Linux | `.rpm` package | `dist/out/make/rpm/x64/` |
+| Platform | Format                               | Location                          |
+| -------- | ------------------------------------ | --------------------------------- |
+| Windows  | Squirrel `.exe` installer + `.nupkg` | `dist/out/make/squirrel.windows/` |
+| macOS    | `.zip` archive                       | `dist/out/make/zip/darwin/`       |
+| Linux    | `.deb` package                       | `dist/out/make/deb/x64/`          |
+| Linux    | `.rpm` package                       | `dist/out/make/rpm/x64/`          |
 
 ### GitHub Actions CI
 
@@ -66,12 +66,14 @@ Artifacts are created in `dist/out/make/`:
 
 **Optional: Windows Code Signing**  
 Windows installers are not code-signed by default. Unsigned installers may trigger SmartScreen warnings. To sign:
+
 1. Obtain an EV or OV code signing certificate.
 2. Add the certificate and password as GitHub Secrets: `WINDOWS_CERTIFICATE`, `WINDOWS_CERTIFICATE_PASSWORD`.
 3. Update `forge.config.js` to use the `certificateFile` and `certificatePassword` options in the Squirrel maker config.
 
 **Optional: macOS Code Signing & Notarisation**  
 macOS `.zip` builds are not signed or notarised by default; Gatekeeper may block them. To sign and notarise:
+
 1. Enrol in the Apple Developer Program (USD 99/year).
 2. Create a "Developer ID Application" certificate in Xcode / Apple Developer portal.
 3. Export as `.p12` and store as: `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_APP_SPECIFIC_PASSWORD`.
@@ -83,14 +85,15 @@ macOS `.zip` builds are not signed or notarised by default; Gatekeeper may block
 
 ### Local Development Requirements
 
-| Tool | Version | Notes |
-|------|---------|-------|
-| Node.js | ≥ 20 | |
-| JDK | 17 | `sudo apt install openjdk-17-jdk` or use [Temurin](https://adoptium.net/) |
-| Android SDK | API 34+ | Install via Android Studio or `sdkmanager` |
-| Android Studio | latest | Recommended for initial platform setup and emulation |
+| Tool           | Version | Notes                                                                     |
+| -------------- | ------- | ------------------------------------------------------------------------- |
+| Node.js        | ≥ 20    |                                                                           |
+| JDK            | 17      | `sudo apt install openjdk-17-jdk` or use [Temurin](https://adoptium.net/) |
+| Android SDK    | API 34+ | Install via Android Studio or `sdkmanager`                                |
+| Android Studio | latest  | Recommended for initial platform setup and emulation                      |
 
 Set the following environment variables:
+
 ```bash
 export ANDROID_HOME=$HOME/Android/Sdk
 export PATH=$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools
@@ -116,6 +119,7 @@ Output APK: `android/app/build/outputs/apk/debug/app-debug.apk`
 To produce a Play Store–ready signed APK:
 
 1. **Generate a keystore** (keep it secret — never commit it):
+
    ```bash
    keytool -genkeypair -v \
      -keystore touch-grass-bible.jks \
@@ -142,12 +146,12 @@ To produce a Play Store–ready signed APK:
 
 **Required Secrets for signed APK** (all optional — falls back to debug APK if absent):
 
-| Secret | Description |
-|--------|-------------|
-| `ANDROID_SIGNING_KEY` | Base64-encoded keystore file: `base64 -w0 touch-grass-bible.jks` |
-| `ANDROID_KEY_ALIAS` | Key alias used when generating the keystore |
-| `ANDROID_KEY_STORE_PASSWORD` | Keystore password |
-| `ANDROID_KEY_PASSWORD` | Key password |
+| Secret                       | Description                                                      |
+| ---------------------------- | ---------------------------------------------------------------- |
+| `ANDROID_SIGNING_KEY`        | Base64-encoded keystore file: `base64 -w0 touch-grass-bible.jks` |
+| `ANDROID_KEY_ALIAS`          | Key alias used when generating the keystore                      |
+| `ANDROID_KEY_STORE_PASSWORD` | Keystore password                                                |
+| `ANDROID_KEY_PASSWORD`       | Key password                                                     |
 
 Add secrets at: **Repository → Settings → Secrets and variables → Actions → New repository secret**
 
@@ -157,12 +161,12 @@ Add secrets at: **Repository → Settings → Secrets and variables → Actions 
 
 ### Local Development Requirements
 
-| Tool | Version | Notes |
-|------|---------|-------|
-| macOS | 13+ (Ventura) | Required — Xcode only runs on macOS |
-| Xcode | 15+ | Install from the Mac App Store |
-| CocoaPods | ≥ 1.14 | `sudo gem install cocoapods` |
-| Node.js | ≥ 20 | |
+| Tool                    | Version           | Notes                                                      |
+| ----------------------- | ----------------- | ---------------------------------------------------------- |
+| macOS                   | 13+ (Ventura)     | Required — Xcode only runs on macOS                        |
+| Xcode                   | 15+               | Install from the Mac App Store                             |
+| CocoaPods               | ≥ 1.14            | `sudo gem install cocoapods`                               |
+| Node.js                 | ≥ 20              |                                                            |
 | Apple Developer Account | Active membership | Required for device testing and distribution (USD 99/year) |
 
 ### Building Locally
@@ -178,11 +182,13 @@ open ios/App/App.xcworkspace   # open in Xcode for signing & building
 ```
 
 In Xcode:
+
 1. Select the `App` target.
 2. Under **Signing & Capabilities**, choose your team and let Xcode manage signing automatically.
 3. Select a connected device or simulator and press ▶ to build and run.
 
 To create a distributable `.ipa`:
+
 1. **Product → Archive** to create an archive.
 2. **Distribute App** → choose distribution method (App Store, Ad Hoc, etc.).
 3. Follow the Xcode export wizard.
@@ -197,15 +203,16 @@ Without signing secrets, the workflow builds for the iOS simulator to verify the
 
 **Required Secrets for signed IPA:**
 
-| Secret | Description |
-|--------|-------------|
-| `IOS_P12_CERTIFICATE` | Base64-encoded `.p12` distribution certificate: `base64 -i certificate.p12 \| tr -d '\n'` |
-| `IOS_P12_PASSWORD` | Password for the `.p12` file |
+| Secret                     | Description                                                                               |
+| -------------------------- | ----------------------------------------------------------------------------------------- |
+| `IOS_P12_CERTIFICATE`      | Base64-encoded `.p12` distribution certificate: `base64 -i certificate.p12 \| tr -d '\n'` |
+| `IOS_P12_PASSWORD`         | Password for the `.p12` file                                                              |
 | `IOS_PROVISIONING_PROFILE` | Base64-encoded `.mobileprovision` file: `base64 -i profile.mobileprovision \| tr -d '\n'` |
-| `IOS_TEAM_ID` | Apple Developer Team ID (10-character string from the Developer portal) |
-| `IOS_KEYCHAIN_PASSWORD` | Any strong random password used to create the temporary CI keychain |
+| `IOS_TEAM_ID`              | Apple Developer Team ID (10-character string from the Developer portal)                   |
+| `IOS_KEYCHAIN_PASSWORD`    | Any strong random password used to create the temporary CI keychain                       |
 
 **Getting a Distribution Certificate and Provisioning Profile:**
+
 1. Log in to [developer.apple.com](https://developer.apple.com).
 2. Go to **Certificates, Identifiers & Profiles**.
 3. Create an **App ID** with bundle ID `io.github.touch_grass_bible`.
@@ -227,6 +234,7 @@ git push origin v3.1.1
 ```
 
 This triggers:
+
 - `static.yml` → deploys web to GitHub Pages
 - `release-electron.yml` → builds Windows / macOS / Linux installers
 - `release-android.yml` → builds Android APK

@@ -13,6 +13,7 @@ npm run build:web
 ```
 
 This runs:
+
 1. `npm run getdatafiles` — Download and process Bible data
 2. `node esbuild.config.mjs production` — Production bundle
 3. `cp src/web/* dist` — Copy web assets to dist
@@ -55,6 +56,7 @@ const ASSETS = [
 ```
 
 **Note:** The large data files (translations, crossrefs, topics) are cached on first load. This means:
+
 - First load requires ~27 MB of downloads
 - All subsequent loads work offline instantly
 
@@ -63,6 +65,7 @@ const ASSETS = [
 **File:** `src/web/manifest.json`
 
 Defines how the app appears when installed as a PWA:
+
 - `display: "standalone"` — No browser chrome
 - App icons at 192px and 512px
 - Proper theme colors
@@ -93,6 +96,7 @@ npm run build:electron
 ```
 
 This runs:
+
 1. Full production build
 2. Copies `src/electron/*` to `dist/`
 3. Runs `npm install` in `dist/` (installs Electron)
@@ -109,9 +113,9 @@ app.whenReady().then(() => {
   const win = new BrowserWindow({
     width: 800,
     height: 600,
-    titleBarStyle: "hidden",  // Clean frameless look
+    titleBarStyle: "hidden", // Clean frameless look
   });
-  win.loadFile("index.html");  // Load the same dist/index.html
+  win.loadFile("index.html"); // Load the same dist/index.html
 });
 ```
 
@@ -138,6 +142,7 @@ npm run build:capacitor
 ```
 
 This runs:
+
 1. `npm run build:web` — Full web build
 2. `npx cap sync` — Syncs the web bundle into the iOS/Android native projects
 
@@ -149,7 +154,7 @@ This runs:
 const config: CapacitorConfig = {
   appId: "io.github.touch_grass_bible",
   appName: "Touch Grass Bible",
-  webDir: "dist",  // Points to the web build output
+  webDir: "dist", // Points to the web build output
 };
 ```
 
@@ -174,6 +179,7 @@ npm run sync:capacitor  # npx cap sync
 ### Native Features
 
 The `@capacitor/filesystem` package is installed and a wrapper class (`src/external/CapacitorFiles.ts`) exists for accessing the native filesystem. This enables:
+
 - Saving notes as actual files (not just localStorage)
 - Exporting/importing settings from the device's Files app
 
@@ -181,24 +187,24 @@ However, full Capacitor filesystem integration may not be complete in the curren
 
 ### Capacitor Packages
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `@capacitor/core` | ^8.2.0 | Core Capacitor runtime |
-| `@capacitor/cli` | ^8.2.0 | CLI tools |
-| `@capacitor/android` | ^8.2.0 | Android native layer |
-| `@capacitor/ios` | ^8.2.0 | iOS native layer |
-| `@capacitor/filesystem` | ^8.1.2 | Native file system access |
-| `@capacitor/status-bar` | ^8.0.1 | Status bar styling |
+| Package                 | Version | Purpose                   |
+| ----------------------- | ------- | ------------------------- |
+| `@capacitor/core`       | ^8.2.0  | Core Capacitor runtime    |
+| `@capacitor/cli`        | ^8.2.0  | CLI tools                 |
+| `@capacitor/android`    | ^8.2.0  | Android native layer      |
+| `@capacitor/ios`        | ^8.2.0  | iOS native layer          |
+| `@capacitor/filesystem` | ^8.1.2  | Native file system access |
+| `@capacitor/status-bar` | ^8.0.1  | Status bar styling        |
 
 ---
 
 ## Comparison
 
-| Feature | Web PWA | Electron | Capacitor |
-|---------|---------|----------|-----------|
-| Offline | ✅ (Service Worker) | ✅ (local files) | ✅ (local files) |
-| Installation | Optional (browser prompt) | Native installer | App Store |
-| Storage | localStorage (~5-10 MB limit) | localStorage | localStorage + filesystem |
-| Distribution | URL | GitHub Releases / direct | App Stores |
-| Auto-update | Service worker | Manual / Squirrel | App Store updates |
-| Platform | Any browser | Windows, macOS, Linux | iOS, Android |
+| Feature      | Web PWA                       | Electron                 | Capacitor                 |
+| ------------ | ----------------------------- | ------------------------ | ------------------------- |
+| Offline      | ✅ (Service Worker)           | ✅ (local files)         | ✅ (local files)          |
+| Installation | Optional (browser prompt)     | Native installer         | App Store                 |
+| Storage      | localStorage (~5-10 MB limit) | localStorage             | localStorage + filesystem |
+| Distribution | URL                           | GitHub Releases / direct | App Stores                |
+| Auto-update  | Service worker                | Manual / Squirrel        | App Store updates         |
+| Platform     | Any browser                   | Windows, macOS, Linux    | iOS, Android              |

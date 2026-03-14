@@ -31,8 +31,8 @@ Each item is an `Item` component (from `src/external/Components.ts`) with a clic
 ```typescript
 class navigationPanel extends View {
   content: HTMLDivElement;
-  constructor(panel: Panel, app: TouchGrassBibleApp)
-  updateContent(): void
+  constructor(panel: Panel, app: TouchGrassBibleApp);
+  updateContent(): void;
 }
 ```
 
@@ -40,12 +40,12 @@ class navigationPanel extends View {
 
 Rebuilds the panel content by creating four `Item` components:
 
-| Item | Opens Category |
-|------|---------------|
-| Search | `BibleSearchCategoryID` (`"bible-search"`) |
-| Notes | `myNotesCategoryID` (`"my-notes"`) |
-| Bookmarks | `BookmarkCategoryID` (`"bookmarks"`) |
-| Menu | `app.commandPalette.menu()` (top-level palette) |
+| Item      | Opens Category                                  |
+| --------- | ----------------------------------------------- |
+| Search    | `BibleSearchCategoryID` (`"bible-search"`)      |
+| Notes     | `myNotesCategoryID` (`"my-notes"`)              |
+| Bookmarks | `BookmarkCategoryID` (`"bookmarks"`)            |
+| Menu      | `app.commandPalette.menu()` (top-level palette) |
 
 ---
 
@@ -64,6 +64,7 @@ this.on("ArrowRightKeyDown", () => {
 ## CSS
 
 The panel uses:
+
 - `.workspace-sidepanel.left` — positions it on the left side
 - `.sidepanel-content` — standard sidepanel content wrapper
 

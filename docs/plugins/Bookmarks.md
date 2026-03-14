@@ -25,10 +25,10 @@ tag = this.app.commandPalette.useState("Start Up Verses");
 
 ### Registered Palettes
 
-| ID | Category |
-|----|---------|
+| ID             | Category                                              |
+| -------------- | ----------------------------------------------------- |
 | `"verse-list"` | `VerseListCategory` — shows verses in the current tag |
-| `"bookmarks"` | `BookmarkCategory` — shows all bookmark tags |
+| `"bookmarks"`  | `BookmarkCategory` — shows all bookmark tags          |
 
 ### Verse Action
 
@@ -36,6 +36,7 @@ tag = this.app.commandPalette.useState("Start Up Verses");
 **Icon:** Bookmark
 
 When the bookmark icon is clicked on a verse, `syncBookmarkStatus()` renders:
+
 1. **Buttons for tags the verse IS in** (styled as `bookmarkAdded`)
    - Click → removes verse from that tag
    - Right-click menu → opens tag in bookmark palette
@@ -50,6 +51,7 @@ When the bookmark icon is clicked on a verse, `syncBookmarkStatus()` renders:
 **Category ID:** `"bookmarks"`
 
 Shows all existing bookmark tags. When triggered, adds three utility commands:
+
 1. **Delete {verse} from "{tag}"** — Remove the current verse from the currently selected tag
 2. **Delete tag: {tag}** — Delete the entire tag
 3. **Save {verse} to new tag** — Prompts for a new tag name using `commandPalette.prompt()`
@@ -57,12 +59,14 @@ Shows all existing bookmark tags. When triggered, adds three utility commands:
 ### Tag Sorting
 
 Tags are sorted with `dateCompare()`:
+
 - Non-date strings come first (alphabetical)
 - Date strings (`YYYY-MM-DD`) come after, sorted most recent first
 
 ### Date Display
 
 `VerseListCategory.convertTopicDate(str)` converts date tag names to human-readable strings:
+
 - `"2024-01-15"` (today) → `"Today"`
 - `"2024-01-14"` (yesterday) → `"Yesterday"`
 - Within the last 7 days → `"Monday 15"` (day name + date)
@@ -89,12 +93,14 @@ When `isediting = true`, each rendered verse shows an X (`IconButton` with X ico
 ### Command Rendering
 
 Each verse shows:
+
 - Title: `"Genesis 1:1"`
 - Description: verse text
 - Context arrow (►) → indicates drill-down will change the verse
 - Delete button (in edit mode)
 
 Selecting a verse:
+
 - Sets `app.verseState` to the verse
 - Switches to TSK cross-references category
 

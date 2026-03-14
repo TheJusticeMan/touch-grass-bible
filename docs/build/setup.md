@@ -51,6 +51,7 @@ npm run dev
 ```
 
 This runs two things in parallel:
+
 1. `node esbuild.config.mjs` — watches `src/` for changes and rebuilds `dist/main.js`
 2. `live-server ./dist --port=3000` — serves `dist/` with auto-reload on file changes
 
@@ -79,6 +80,7 @@ Runs ESLint on `src/*.ts`. The project uses `typescript-eslint` with recommended
 **Configuration:** `eslint.config.mjs`
 
 Key rules:
+
 - TypeScript recommended rules
 - `@typescript-eslint/no-require-imports: off` for `src/electron/` files
 
@@ -89,6 +91,7 @@ npm run format
 ```
 
 Runs Prettier on:
+
 - `src/**/*.ts`
 - `*.md`
 
@@ -110,6 +113,7 @@ The project uses strict TypeScript:
 ```
 
 To type-check without building:
+
 ```bash
 npx tsc --noEmit
 ```
@@ -161,6 +165,7 @@ Run `npm run dev` or `npm run build` to generate the output files.
 ### Port 3000 already in use
 
 Edit the `serve` script in `package.json` to use a different port:
+
 ```json
 "serve": "live-server ./dist --port=3001 --browser=firefox"
 ```

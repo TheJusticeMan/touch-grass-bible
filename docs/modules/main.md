@@ -9,6 +9,7 @@
 ## Purpose
 
 `TouchGrassBibleApp` is the application entry point and top-level coordinator. It:
+
 - Extends the `App` base class from `src/external/App.ts`
 - Instantiates and loads all feature plugins
 - Registers all workspace views
@@ -29,15 +30,15 @@ This singleton is instantiated at module load time. The `App` constructor immedi
 
 ## Properties
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `settings` | `TGAppSettings` | Loaded user settings (merged with defaults) |
-| `verseState` | `PaletteState<VerseRef>` | Currently displayed verse (reactive) |
-| `defaultTranslation` | `PaletteState<translation>` | Active Bible translation (reactive) |
-| `Notes` | `NoteVault` | Vault for free-form notes not tied to a verse |
-| `firstLoad` | `boolean` | True until the command palette is first opened |
-| `saveTimeoutId` | `ReturnType<typeof setTimeout> \| null` | Timer for debounced settings save |
-| `verseActions` | `Map<string, IconActionItem>` | (private) All registered verse action buttons |
+| Property             | Type                                    | Description                                    |
+| -------------------- | --------------------------------------- | ---------------------------------------------- |
+| `settings`           | `TGAppSettings`                         | Loaded user settings (merged with defaults)    |
+| `verseState`         | `PaletteState<VerseRef>`                | Currently displayed verse (reactive)           |
+| `defaultTranslation` | `PaletteState<translation>`             | Active Bible translation (reactive)            |
+| `Notes`              | `NoteVault`                             | Vault for free-form notes not tied to a verse  |
+| `firstLoad`          | `boolean`                               | True until the command palette is first opened |
+| `saveTimeoutId`      | `ReturnType<typeof setTimeout> \| null` | Timer for debounced settings save              |
+| `verseActions`       | `Map<string, IconActionItem>`           | (private) All registered verse action buttons  |
 
 All of the re-exported items from `src/external/App`, `src/TGAppSettings`, `src/VerseRef`, and `src/VerseScreen` are accessible via imports from `"./main"`.
 
@@ -154,12 +155,12 @@ Manage the registry of icon buttons shown on verse displays. Plugins call `addVe
 
 ## Workspace Views Registered
 
-| View ID | Class | Description |
-|---------|-------|-------------|
-| `verse-screen` | `VerseScreen` | Main Bible reading view |
-| `reading-tools` | `View` (static) | Info panel with usage tips |
-| `navigation-panel` | `navigationPanel` | Book/chapter sidebar |
-| `notes-panel` | `NotesPanel` | Personal notes panel |
+| View ID            | Class             | Description                |
+| ------------------ | ----------------- | -------------------------- |
+| `verse-screen`     | `VerseScreen`     | Main Bible reading view    |
+| `reading-tools`    | `View` (static)   | Info panel with usage tips |
+| `navigation-panel` | `navigationPanel` | Book/chapter sidebar       |
+| `notes-panel`      | `NotesPanel`      | Personal notes panel       |
 
 ---
 
@@ -203,8 +204,8 @@ Manage the registry of icon buttons shown on verse displays. Plugins call `addVe
 `main.ts` re-exports from several modules so that plugins only need to import from `"./main"`:
 
 ```typescript
-export * from "./external/App";     // All framework classes
-export * from "./TGAppSettings";    // Settings types
-export * from "./VerseRef";         // Verse reference model
-export * from "./VerseScreen";      // VerseScreen + VerseInfoComponent
+export * from "./external/App"; // All framework classes
+export * from "./TGAppSettings"; // Settings types
+export * from "./VerseRef"; // Verse reference model
+export * from "./VerseScreen"; // VerseScreen + VerseInfoComponent
 ```

@@ -9,6 +9,7 @@ The `processing/` directory contains scripts for downloading and converting Bibl
 **Run via:** `npm run getdatafiles`
 
 This is the primary data pipeline script. It:
+
 1. Downloads cross-references and topics ZIP files from OpenBible.info
 2. Extracts and parses the TSV data
 3. Converts to compact JSON format and writes to `dist/`
@@ -37,6 +38,7 @@ This is the primary data pipeline script. It:
 ### Source Data Formats
 
 **Topic scores TSV:**
+
 ```
 Topic	OSIS	QualityScore
 faith	Heb.11.1	95.3
@@ -45,6 +47,7 @@ prayer	Matt.6.9	92.0
 ```
 
 **Cross-references TSV:**
+
 ```
 FromVerse	ToVerse	Votes
 Gen.1.1	John.1.1	42
@@ -54,10 +57,10 @@ John.3.16	Rom.5.8	156
 
 ### Output Files
 
-| File | Size | Contents |
-|------|------|---------|
-| `dist/topics.json` | ~10 MB | `{ topic: [[OSIS, score], ...] }` |
-| `dist/crossrefs.json` | ~5 MB | `{ fromOSIS: [[toOSIS, votes], ...] }` |
+| File                    | Size   | Contents                                             |
+| ----------------------- | ------ | ---------------------------------------------------- |
+| `dist/topics.json`      | ~10 MB | `{ topic: [[OSIS, score], ...] }`                    |
+| `dist/crossrefs.json`   | ~5 MB  | `{ fromOSIS: [[toOSIS, votes], ...] }`               |
 | `src/translations.json` | ~12 MB | `{ KJV: bibleData, YLT: bibleData, ASV: bibleData }` |
 
 ---
@@ -109,12 +112,12 @@ Converts source files to Markdown format for use in AI chat contexts. Useful for
 
 ## `scripts/` Directory
 
-| Script | Purpose |
-|--------|---------|
-| `Searchtest.ts` | Tests the search functionality |
+| Script                  | Purpose                                            |
+| ----------------------- | -------------------------------------------------- |
+| `Searchtest.ts`         | Tests the search functionality                     |
 | `flatten_embeddings.ts` | Flattens the embedding data structure for analysis |
-| `SearchWorld.js` | Search indexing utility |
-| `embed.js` | Embedding helper script |
+| `SearchWorld.js`        | Search indexing utility                            |
+| `embed.js`              | Embedding helper script                            |
 
 These are development/research utilities not used in the main build pipeline.
 

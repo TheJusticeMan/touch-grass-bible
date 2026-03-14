@@ -19,6 +19,7 @@ this.crossRefs = await this.app.loadJSON<{ [OSIS: string]: [OSIS, number][] }>("
 ```
 
 **Format:**
+
 ```json
 {
   "Gen.1.1": [
@@ -43,8 +44,8 @@ Each entry is `[targetOSIS, voteCount]`. The vote count reflects how many users 
 export default class TSK extends Plugin {
   crossRefs: { [OSIS: string]: [OSIS, number][] } = {};
 
-  async onload(): Promise<void>
-  crossRefsForVerse(verse: VerseRef): VerseRef[]
+  async onload(): Promise<void>;
+  crossRefsForVerse(verse: VerseRef): VerseRef[];
 }
 ```
 
@@ -67,6 +68,7 @@ crossRefsForVerse(verse: VerseRef): VerseRef[] {
 **Icon:** `Waypoints` (Lucide)
 
 Clicking the cross-reference button on a verse:
+
 1. Sets `app.verseState` to the selected verse
 2. Opens the command palette with `topCategory: "tsk-cross-ref"`
 

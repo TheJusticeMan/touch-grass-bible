@@ -15,7 +15,7 @@
 
 ```typescript
 export type bibleData = { [book: string]: string[][] };
-export type OSIS = string;           // e.g., "Gen.1.1"
+export type OSIS = string; // e.g., "Gen.1.1"
 export type translation = "KJV" | "YLT" | "ASV";
 
 export const translationMetadata = {
@@ -29,15 +29,15 @@ export const translationMetadata = {
 
 ## Static Properties (Global Bible Data Store)
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `booksOfTheBible` | `string[]` | 66 book names in canonical order, ALL CAPS |
-| `BookShortNames` | `OSIS[]` | OSIS book codes: `["Gen", "Exod", "Lev", ...]` |
-| `books3letter` | `string[]` | 3-letter book codes for external URLs: `["gen", "exo", ...]` |
-| `bibleTranslations` | `{ [key: string]: bibleData }` | All loaded Bible texts, keyed by translation code |
-| `myNotes` | `Map<OSIS, string>` | Inline per-verse notes, keyed by OSIS string |
-| `Bookmarks` | `BibleTopics` | All user bookmarks |
-| `defaultTranslation` | `translation` | Currently active translation (default: `"KJV"`) |
+| Property             | Type                           | Description                                                  |
+| -------------------- | ------------------------------ | ------------------------------------------------------------ |
+| `booksOfTheBible`    | `string[]`                     | 66 book names in canonical order, ALL CAPS                   |
+| `BookShortNames`     | `OSIS[]`                       | OSIS book codes: `["Gen", "Exod", "Lev", ...]`               |
+| `books3letter`       | `string[]`                     | 3-letter book codes for external URLs: `["gen", "exo", ...]` |
+| `bibleTranslations`  | `{ [key: string]: bibleData }` | All loaded Bible texts, keyed by translation code            |
+| `myNotes`            | `Map<OSIS, string>`            | Inline per-verse notes, keyed by OSIS string                 |
+| `Bookmarks`          | `BibleTopics`                  | All user bookmarks                                           |
+| `defaultTranslation` | `translation`                  | Currently active translation (default: `"KJV"`)              |
 
 ### Derived Static Getters
 
@@ -172,16 +172,18 @@ get gatewayURL(): string
 Two pre-built `Highlighter` instances are exported for rendering verse text:
 
 ### `VerseHighlight`
+
 Used for rendering individual verses in the VerseScreen.
 
-| Rule | Pattern | Rendered As |
-|------|---------|-------------|
-| Translator notes | `[text in brackets]` | `<i>text in brackets</i>` |
-| Divine names | `LORD`, `God` | `<b>LORD</b>`, `<b>God</b>` |
-| Verse number | Leading digits | `<span class="verseNumber">N</span>` |
-| Paragraph break | `#` character | `<span class="versePBreak">¶</span>` |
+| Rule             | Pattern              | Rendered As                          |
+| ---------------- | -------------------- | ------------------------------------ |
+| Translator notes | `[text in brackets]` | `<i>text in brackets</i>`            |
+| Divine names     | `LORD`, `God`        | `<b>LORD</b>`, `<b>God</b>`          |
+| Verse number     | Leading digits       | `<span class="verseNumber">N</span>` |
+| Paragraph break  | `#` character        | `<span class="versePBreak">¶</span>` |
 
 ### `VerseSHighlight`
+
 Used for search results where the verse reference precedes the text.
 
 ---
@@ -195,6 +197,7 @@ type bibleData = { [book: string]: string[][] };
 ```
 
 Structure:
+
 ```
 {
   "GENESIS": [
@@ -224,6 +227,7 @@ Structure:
 ## OSIS Format
 
 The Open Scriptural Information Standard (OSIS) format is used for:
+
 - Storing bookmarks and notes (as Map keys)
 - Identifying cross-references
 - Identifying topic verse lists
@@ -231,6 +235,7 @@ The Open Scriptural Information Standard (OSIS) format is used for:
 Format: `"{BookCode}.{chapter}.{verse}"`
 
 Examples:
+
 - `"Gen.1.1"` → Genesis 1:1
 - `"John.3.16"` → John 3:16
 - `"Rev.22.21"` → Revelation 22:21
@@ -246,19 +251,19 @@ The OSIS book codes are stored in `VerseRef.BookShortNames` (indexed to match `b
 const verse = new VerseRef("JOHN", 3, 16);
 
 // Get text
-console.log(verse.vTXT);        // KJV text of John 3:16
+console.log(verse.vTXT); // KJV text of John 3:16
 console.log(verse.text("YLT")); // YLT text of John 3:16
 
 // Convert formats
-console.log(verse.toOSIS());    // "John.3.16"
-console.log(verse.toString());  // "John 3:16"
+console.log(verse.toOSIS()); // "John.3.16"
+console.log(verse.toString()); // "John 3:16"
 
 // Navigate
 const next = verse.nextChapter; // VerseRef pointing to John 4:1
 
 // Notes
 verse.note = "Memorized this one.";
-console.log(verse.note);        // "Memorized this one."
+console.log(verse.note); // "Memorized this one."
 
 // External links
 console.log(verse.YouVersionURL); // https://www.bible.com/bible/1/jhn.3.16

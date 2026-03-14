@@ -16,7 +16,7 @@ The base class for all UI elements.
 
 ```typescript
 class UIComponent<Tag extends keyof HTMLElementTagNameMap> extends ETarget {
-  element: HTMLElementTagNameMap[Tag];  // The root DOM element
+  element: HTMLElementTagNameMap[Tag]; // The root DOM element
   parent?: HTMLElement;
   children: UIComponent<any>[];
 }
@@ -65,11 +65,11 @@ A clickable button element.
 
 ```typescript
 class Button extends UIComponent<"button"> {
-  setButtonText(text: string): this
-  setIcon(icon: IconNode): this        // Lucide icon
-  setTooltip(text: string): this
-  onClick(callback: () => void): this  // Shorthand for .on("click", cb)
-  setDisabled(disabled: boolean): this
+  setButtonText(text: string): this;
+  setIcon(icon: IconNode): this; // Lucide icon
+  setTooltip(text: string): this;
+  onClick(callback: () => void): this; // Shorthand for .on("click", cb)
+  setDisabled(disabled: boolean): this;
 }
 ```
 
@@ -81,8 +81,8 @@ A button variant designed for icon-only display (no text label).
 
 ```typescript
 class IconButton extends UIComponent<"button"> {
-  setIcon(icon: IconNode): this
-  setTooltip(text: string): this
+  setIcon(icon: IconNode): this;
+  setTooltip(text: string): this;
 }
 ```
 
@@ -144,10 +144,10 @@ A collapsible side panel attached to an `App` instance.
 abstract class sidePanel<TApp extends App> extends ETarget {
   app: TApp;
   containerEl: HTMLElement;
-  open(): void
-  close(): void
-  toggle(): void
-  isOpen: boolean
+  open(): void;
+  close(): void;
+  toggle(): void;
+  isOpen: boolean;
 }
 ```
 
@@ -165,11 +165,11 @@ A modal overlay base class with open/close lifecycle.
 
 ```typescript
 abstract class Openable<Events> extends ETarget<Events> {
-  open(): this
-  close(): this
-  abstract onopen(): void
-  abstract onclose(): void
-  isOpen: boolean
+  open(): this;
+  close(): this;
+  abstract onopen(): void;
+  abstract onclose(): void;
+  isOpen: boolean;
 }
 ```
 
@@ -180,7 +180,7 @@ Used by `noteEditor` for the note editing overlay.
 ## `pdsp` Helper
 
 ```typescript
-function pdsp(handler: () => void): (e: Event) => void
+function pdsp(handler: () => void): (e: Event) => void;
 ```
 
 Returns an event handler that calls `e.preventDefault()` and `e.stopPropagation()` before calling `handler`. Shorthand for preventing event bubbling.
@@ -191,14 +191,14 @@ Returns an event handler that calls `e.preventDefault()` and `e.stopPropagation(
 
 Each major component group has a corresponding CSS file:
 
-| CSS File | Component |
-|----------|-----------|
-| `App.css` | Base app shell layout |
-| `CommandPalette.css` | Palette overlay and items |
-| `Components.css` | Buttons, inputs, items |
-| `Workspace.css` | Panel layouts, tab bars |
-| `screen.css` | ScreenView styling |
-| `VerseScreen.css` | Verse display, highlighting |
-| `NotesPanel.css` | Notes panel, editor overlay |
+| CSS File             | Component                   |
+| -------------------- | --------------------------- |
+| `App.css`            | Base app shell layout       |
+| `CommandPalette.css` | Palette overlay and items   |
+| `Components.css`     | Buttons, inputs, items      |
+| `Workspace.css`      | Panel layouts, tab bars     |
+| `screen.css`         | ScreenView styling          |
+| `VerseScreen.css`    | Verse display, highlighting |
+| `NotesPanel.css`     | Notes panel, editor overlay |
 
 The CSS uses CSS custom properties for theming (foreground/background colors from `settings.style`).

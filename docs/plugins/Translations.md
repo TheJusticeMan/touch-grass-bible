@@ -40,6 +40,7 @@ this.translations = Object.keys(VerseRef.bibleTranslations);
 ### `getCommands(query)`
 
 Fuzzy-matches available translations. Uses `translationMetadata` for full name matching:
+
 - `"KJV"` matches against `"King James Version"`
 - `"YLT"` matches against `"Young's Literal Translation"`
 - `"ASV"` matches against `"American Standard Version"`
@@ -47,10 +48,12 @@ Fuzzy-matches available translations. Uses `translationMetadata` for full name m
 ### Command Rendering
 
 Each translation shows:
+
 - Title: full name from `translationMetadata` (or raw code if not found)
 - Context arrow (►)
 
 Selecting a translation:
+
 1. Sets `app.defaultTranslation` state to the new translation code
 2. Switches topCategory to `""` (empty → shows top-level menu)
 
@@ -62,11 +65,11 @@ Also sets `VerseRef.defaultTranslation` directly as a side effect (in addition t
 
 ## Available Translations
 
-| Code | Full Name |
-|------|-----------|
-| `KJV` | King James Version |
+| Code  | Full Name                   |
+| ----- | --------------------------- |
+| `KJV` | King James Version          |
 | `YLT` | Young's Literal Translation |
-| `ASV` | American Standard Version |
+| `ASV` | American Standard Version   |
 
 All three translations are compiled into `translations.json` which is fetched on app startup. They share the same OSIS book structure and are indexed identically.
 

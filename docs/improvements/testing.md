@@ -5,6 +5,7 @@
 ## Current State
 
 There is currently no test suite. `npm test` prints:
+
 ```
 Error: no test specified
 ```
@@ -18,6 +19,7 @@ The `package.json` includes `@types/jest` as a dev dependency, suggesting Jest w
 ### Vitest (Recommended)
 
 [Vitest](https://vitest.dev/) is the modern choice for TypeScript+ESM projects. It:
+
 - Works natively with ES modules (no CommonJS transform needed)
 - Has a Jest-compatible API (easy migration)
 - Runs fast with esbuild transforms
@@ -28,6 +30,7 @@ npm install --save-dev vitest @vitest/coverage-v8
 ```
 
 Add to `package.json`:
+
 ```json
 "scripts": {
   "test": "vitest run",
@@ -92,7 +95,7 @@ describe("VerseRef", () => {
   test("note setter deletes entry on empty string", () => {
     const ref = new VerseRef("JOHN", 3, 16);
     ref.note = "Something";
-    ref.note = "  ";  // Whitespace only
+    ref.note = "  "; // Whitespace only
     expect(VerseRef.myNotes.has("John.3.16")).toBe(false);
   });
 });
@@ -113,7 +116,7 @@ describe("BibleTopics", () => {
   test("remove deletes topic when no verses remain", () => {
     const ref = new VerseRef("JOHN", 3, 16);
     const topics = new BibleTopics({
-      "Favorites": [["John.3.16", 0]]
+      Favorites: [["John.3.16", 0]],
     });
     topics.remove("Favorites", ref);
     expect(topics.has("Favorites")).toBe(false);
@@ -121,8 +124,11 @@ describe("BibleTopics", () => {
 
   test("getTopicsFromVerse finds correct topics", () => {
     const data = {
-      "Faith": [["Heb.11.1", 0]],
-      "Salvation": [["John.3.16", 0], ["Heb.11.1", 0]],
+      Faith: [["Heb.11.1", 0]],
+      Salvation: [
+        ["John.3.16", 0],
+        ["Heb.11.1", 0],
+      ],
     };
     const topics = new BibleTopics(data);
     const result = topics.getTopicsFromVerse(new VerseRef("HEBREWS", 11, 1));
@@ -131,7 +137,7 @@ describe("BibleTopics", () => {
   });
 
   test("toJSON roundtrips correctly", () => {
-    const data = { "Test": [["Gen.1.1", 5]] };
+    const data = { Test: [["Gen.1.1", 5]] };
     const topics = new BibleTopics(data);
     expect(topics.toJSON()).toEqual(data);
   });
@@ -271,11 +277,8 @@ A shared test utilities file would help:
 // src/test-utils.ts
 export const mockBibleData = {
   KJV: {
-    GENESIS: [
-      null,
-      [null, "1 In the beginning God created..."],
-    ]
-  }
+    GENESIS: [null, [null, "1 In the beginning God created..."]],
+  },
 };
 
 export function createMockPalette(): UnifiedCommandPalette {
@@ -291,11 +294,11 @@ export function createMockApp(): TouchGrassBibleApp {
 
 ## Coverage Goals
 
-| Module | Target Coverage |
-|--------|----------------|
-| `VerseRef` | 90% |
-| `BibleTopics` | 90% |
-| `TGAppSettings` | 80% |
-| Plugins (logic) | 70% |
-| Framework (App, Workspace) | 50% |
-| UI components | 30% (hard to test without DOM) |
+| Module                     | Target Coverage                |
+| -------------------------- | ------------------------------ |
+| `VerseRef`                 | 90%                            |
+| `BibleTopics`              | 90%                            |
+| `TGAppSettings`            | 80%                            |
+| Plugins (logic)            | 70%                            |
+| Framework (App, Workspace) | 50%                            |
+| UI components              | 30% (hard to test without DOM) |

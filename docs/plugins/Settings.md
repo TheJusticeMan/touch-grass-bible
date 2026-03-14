@@ -37,6 +37,7 @@ This category uses only `CMD` (command) and `toggleCMD` (toggle) items registere
 ```
 
 A `toggleCMD` that:
+
 - Shows the current state (`enableLogging`)
 - On toggle: updates `app.console.enabled`, `app.settings.enableLogging`, and saves settings
 

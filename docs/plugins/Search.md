@@ -7,6 +7,7 @@
 ## Overview
 
 `BibleSearchPlugin` provides two command palette categories:
+
 1. **Bible Search** — Full-text search across all verses
 2. **Go to Verse** — Hierarchical navigation: book → chapter → verse
 
@@ -27,6 +28,7 @@ The `specificity` state is shared between both registered categories to track th
 ### `onload()`
 
 Registers both palette categories:
+
 ```typescript
 this.registerPalette(() => new BibleSearchCategory(...), "bible-search");
 this.registerPalette(() => new GoToVerseCategory(...), "go-to-verse");
@@ -59,11 +61,11 @@ The search is synchronous and scans the entire Bible text. For large queries on 
 
 The navigation uses a 3-level hierarchy controlled by `Specificity` enum:
 
-| Level | Display | Input Mode | Results |
-|-------|---------|-----------|---------|
-| `Book` (0) | "Go to verse" | search | All 66 books |
-| `Chapter` (1) | "Go to verse: {Book}" | numeric | All chapters in the book |
-| `Verse` (2) | "Go to verse: {Book}:{Chapter}" | numeric | All verses in the chapter |
+| Level         | Display                         | Input Mode | Results                   |
+| ------------- | ------------------------------- | ---------- | ------------------------- |
+| `Book` (0)    | "Go to verse"                   | search     | All 66 books              |
+| `Chapter` (1) | "Go to verse: {Book}"           | numeric    | All chapters in the book  |
+| `Verse` (2)   | "Go to verse: {Book}:{Chapter}" | numeric    | All verses in the chapter |
 
 ### Navigation Flow
 
@@ -87,6 +89,7 @@ The navigation uses a 3-level hierarchy controlled by `Specificity` enum:
 ### `getcompatible` Fuzzy Matching
 
 The `GoToVerseCategory` uses the inherited `getcompatible` helper for filtering. It:
+
 1. Filters exact substring matches first
 2. Falls back to Levenshtein distance sorting for near matches
 3. At Book level, matches against `ref.book`
