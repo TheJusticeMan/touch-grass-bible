@@ -1,5 +1,5 @@
 import { Panel, View } from "../../external/Workspace";
-import { Button, UIComponent } from "../../main";
+import { Button, RowComponent, StackComponent } from "../../main";
 import type { JournalDay, JournalEntry, JournalStorage } from "./journal-storage";
 import "./JournalPanel.css";
 
@@ -77,12 +77,12 @@ export class JournalPanel extends View {
   private renderShell(): void {
     this.containerEl.empty();
 
-    const root = new UIComponent(this.containerEl, "div").addClass("journal-root");
+    const root = new StackComponent(this.containerEl).addClass("journal-root").setGap(0);
 
-    const header = root.element.createEl("div", { cls: "journal-header" });
-    header.createEl("h3", { text: "Journal" });
+    const header = new RowComponent(root.element).addClass("journal-header").setJustify("between");
+    header.createChild("h3", { text: "Journal" });
 
-    const controls = header.createEl("label", { cls: "journal-append-only" });
+    const controls = header.createChild("label", { cls: "journal-append-only" });
     this.appendOnlyToggle = controls.createEl("input", {
       attr: {
         type: "checkbox",
@@ -105,15 +105,15 @@ export class JournalPanel extends View {
       }
     });
 
-    const composer = root.element.createEl("div", { cls: "journal-composer" });
-    this.composerInput = composer.createEl("textarea", {
+    const composer = new StackComponent(root.element).addClass("journal-composer").setGap("0.5rem");
+    this.composerInput = composer.createChild("textarea", {
       attr: {
         rows: "3",
         placeholder: "Write your thoughts here...",
       },
     });
 
-    new Button(composer).setButtonText("Append").on("click", () => {
+    new Button(composer.element).setButtonText("Append").on("click", () => {
       void this.handleAppend();
     });
 

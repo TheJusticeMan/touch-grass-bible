@@ -1,6 +1,15 @@
 import { ChevronLeft, Plus, X } from "lucide";
 import { Panel, View } from "../../external/Workspace";
-import { Button, ETarget, IconButton, Openable, TextArea, TextInput, UIComponent } from "../../main";
+import {
+  Button,
+  ETarget,
+  IconButton,
+  Openable,
+  RowComponent,
+  TextArea,
+  TextInput,
+  UIComponent,
+} from "../../main";
 import { myNotesCategoryID } from "../categoryIDs";
 import NotesPlugin from "./Notes";
 import "./NotesPanel.css";
@@ -195,17 +204,16 @@ class notePreview extends UIComponent<"div"> {
     public note: Note,
   ) {
     super(parent, "div");
-    // class for styling
-    this.element.classList.add("note-preview");
-    this.element.addEventListener("click", () => this.emit("click"));
+    this.addClass("note-preview");
+    this.listen("click", () => this.emit("click"));
     this.update(note);
     note.on("change", this.update);
   }
   update = (note: Note) => {
     this.note = note;
-    this.element.empty();
+    this.clearChildren();
     // Title
-    const titleEl = this.element.createEl("div", { cls: "note-title" });
+    const titleEl = this.createChild("div", { cls: "note-title" });
     titleEl.textContent = note.name;
     note.tags.forEach(tag => {
       new tagBadge(titleEl, tag, (removedTag: string) => {
@@ -233,12 +241,11 @@ class notePreview extends UIComponent<"div"> {
       });
     // Content (truncated)
     const truncatedText = note.content.length > 100 ? note.content.substring(0, 100) + "..." : note.content;
-    const contentEl = this.element.createEl("div", { cls: "note-content" });
-    contentEl.textContent = truncatedText;
+    this.createChild("div", { cls: "note-content", text: truncatedText });
   };
   destroy() {
     this.note.off("change", this.update);
-    super.destroy();
+    return super.destroy();
   }
 }
 
@@ -268,13 +275,12 @@ class tagBadge extends UIComponent<"div"> {
     public onRemove: (tag: string) => void,
   ) {
     super(parent, "div");
-    this.element.classList.add("tag-badge");
+    this.addClass("tag-badge");
     this.render();
   }
   render() {
-    this.element.empty();
-    const tagText = this.element.createEl("span", { cls: "tag-text" });
-    tagText.textContent = this.tag;
+    this.clearChildren();
+    this.createChild("span", { cls: "tag-text", text: this.tag });
     new IconButton(this.element)
       .setIcon(X)
       .addClass("tag-remove-btn")
@@ -309,7 +315,7 @@ class tagBadge extends UIComponent<"div"> {
  * @param note - The note to be edited.
  */
 class noteEditor extends Openable<{ open: void; close: void }> {
-  content!: HTMLElement;
+  private contentComponent!: UIComponent<"div">;
   constructor(
     private plugin: NotesPlugin,
     public parent: HTMLElement,
@@ -318,35 +324,31 @@ class noteEditor extends Openable<{ open: void; close: void }> {
     super(plugin.app);
   }
   onopen(): void {
-    this.content = this.parent.createEl("div", { cls: "editor-overlay" });
-
-    this.content.createEl("div", { cls: "editor-content" }, contentEd => {
-      contentEd.createEl("header", { cls: "editor-header" }, headerEl => {
-        new Button(headerEl)
-          .setIcon(ChevronLeft)
-          .addClass("editor-btn")
-          .on("click", () => this.close());
-        new TextInput(headerEl)
-          .addClass("editor-title-input")
-          .setValue(this.note.name + " # " + this.note.tags.join(", "))
-          .on("input", (value: string) => {
-            const [namePart, tags] = value.split("#");
-            this.note.tags = tags ? tags.split(",").map(t => t.trim()) : [];
-            this.note.name = namePart.trim();
-            this.plugin.saveSettings();
-          });
+    this.contentComponent = new UIComponent(this.parent, "div").addClass("editor-overlay");
+    const contentEl = this.contentComponent.createChild("div", { cls: "editor-content" });
+    const header = new RowComponent(contentEl).addClass("editor-header");
+    new Button(header.element)
+      .setIcon(ChevronLeft)
+      .addClass("editor-btn")
+      .on("click", () => this.close());
+    new TextInput(header.element)
+      .addClass("editor-title-input")
+      .setValue(this.note.name + " # " + this.note.tags.join(", "))
+      .on("input", (value: string) => {
+        const [namePart, tags] = value.split("#");
+        this.note.tags = tags ? tags.split(",").map(t => t.trim()) : [];
+        this.note.name = namePart.trim();
+        this.plugin.saveSettings();
       });
-
-      new TextArea(contentEd)
-        .addClass("note-editor-textarea")
-        .setValue(this.note.content)
-        .on("input", (value: string) => {
-          this.note.content = value;
-          this.plugin.saveSettings();
-        });
-    });
+    new TextArea(contentEl)
+      .addClass("note-editor-textarea")
+      .setValue(this.note.content)
+      .on("input", (value: string) => {
+        this.note.content = value;
+        this.plugin.saveSettings();
+      });
   }
   onclose(): void {
-    this.content.remove();
+    this.contentComponent.remove();
   }
 }

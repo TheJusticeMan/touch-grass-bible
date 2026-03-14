@@ -2,7 +2,7 @@ import levenshtein from "js-levenshtein";
 import { ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, X } from "lucide";
 import { App, BrowserConsole, CMD } from "./App";
 import "./CommandPalette.css";
-import { Button, inputMode, Item, TextInput } from "./Components";
+import { IconActionComponent, inputMode, Item, TextInput, UIComponent } from "./Components";
 import { ETarget, Openable } from "./Event";
 import { PaletteState, PaletteStateController } from "./PaletteStateController";
 
@@ -95,6 +95,7 @@ export class UnifiedCommandPalette extends Openable<{
   private categories: CategoryLoader<unknown>[] = [];
   private hiddenCategories: CategoryLoader<unknown>[] = []; // Hidden categories
   private containerEl: HTMLElement | null = null;
+  private containerComponent: UIComponent<"div"> | null = null;
 
   private paletteEl!: HTMLElement;
   private searchInput?: TextInput; // Search input element
@@ -236,18 +237,17 @@ export class UnifiedCommandPalette extends Openable<{
     this.categories.forEach(cat => cat.getPalette(this).tryTrigger(this.state));
     this.hiddenCategories.forEach(cat => cat.getPalette(this).tryTrigger(this.state));
 
-    this.containerEl = this.app.contentEl.createEl("div", {
-      cls: "command-palette",
-    });
+    const container = new UIComponent(this.app.contentEl, "div").addClass("command-palette");
+    this.containerComponent = container;
+    this.containerEl = container.element;
     this.handleMobileResize();
-    this.hideKeyboardOnScroll(this.containerEl);
+    this.hideKeyboardOnScroll(container);
 
-    this.paletteEl = this.containerEl.createEl("div", { cls: "palette" });
+    this.paletteEl = container.createChild("div", { cls: "palette" });
     this.headerEl = this.paletteEl.createEl("div", { cls: "palette-header" });
 
-    new Button(this.headerEl)
-      .setIcon(ChevronLeft)
-      .setTooltip("Back to previous context")
+    new IconActionComponent(this.headerEl)
+      .setAction(ChevronLeft, "Back to previous context")
       .on("click", () => {
         this.handleBack();
       });
@@ -260,23 +260,19 @@ export class UnifiedCommandPalette extends Openable<{
           return this.display({ topCategory: CategoryNavigator } );
         }); */
 
-    new Button(this.headerEl)
-      .setIcon(this.state.expanded ? ChevronsDownUp : ChevronsUpDown)
-      .setTooltip("Toggle expanded view")
+    new IconActionComponent(this.headerEl)
+      .setAction(this.state.expanded ? ChevronsDownUp : ChevronsUpDown, "Toggle expanded view")
       .next(btn =>
         btn.on("click", () => {
           this.state.expanded = !this.state.expanded;
           this.paletteContentContainer.classList.toggle("expanded", this.state.expanded);
-          btn.setIcon(this.state.expanded ? ChevronsDownUp : ChevronsUpDown);
+          btn.setAction(this.state.expanded ? ChevronsDownUp : ChevronsUpDown, "Toggle expanded view");
         }),
       );
 
-    new Button(this.headerEl)
-      .setIcon(X)
-      .setTooltip("Close Palette")
-      .on("click", () => {
-        this.close();
-      });
+    new IconActionComponent(this.headerEl).setAction(X, "Close Palette").on("click", () => {
+      this.close();
+    });
 
     this.searchInput = new TextInput(this.paletteEl)
       .addClass("palette-search")
@@ -304,8 +300,8 @@ export class UnifiedCommandPalette extends Openable<{
     this.searchInput.element.focus();
   }
 
-  hideKeyboardOnScroll(containerEl: HTMLElement) {
-    containerEl.addEventListener("touchmove", () => this.searchInput?.element.blur(), { passive: true });
+  hideKeyboardOnScroll(container: UIComponent<"div">) {
+    container.listen("touchmove", () => this.searchInput?.element.blur(), { passive: true });
   }
 
   private handleScroll = () => {
@@ -386,16 +382,18 @@ export class UnifiedCommandPalette extends Openable<{
   }
 
   private checkclose() {
-    if (this.containerEl) {
-      this.containerEl.remove();
+    if (this.containerComponent) {
+      this.containerComponent.remove();
+      this.containerComponent = null;
       this.containerEl = null;
     }
   }
 
   onclose() {
     if (this.app.ctarget === this) this.app.popTarget();
-    if (this.containerEl) {
-      this.containerEl.remove();
+    if (this.containerComponent) {
+      this.containerComponent.remove();
+      this.containerComponent = null;
       this.containerEl = null;
     }
     this.state = this.state.update({

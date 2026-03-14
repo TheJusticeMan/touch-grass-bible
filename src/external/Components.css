@@ -10,6 +10,46 @@
   cursor: grab;
 }
 
+.ui-stack {
+  display: flex;
+  gap: var(--ui-gap, 0.5rem);
+}
+
+.ui-stack.is-column {
+  flex-direction: column;
+}
+
+.ui-stack.is-row {
+  flex-direction: row;
+}
+
+.ui-row {
+  display: flex;
+  align-items: center;
+}
+
+.ui-surface {
+  border-radius: var(--border-radius-medium, 8px);
+  border: 1px solid #ffffff1f;
+  background: #ffffff0a;
+}
+
+.ui-surface.tone-subtle {
+  background: #ffffff06;
+}
+
+.ui-surface.tone-strong {
+  background: #ffffff14;
+  border-color: #ffffff33;
+}
+
+.icon-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
 /* Change cursor when dragging */
 .scrollBubble.active {
   cursor: grabbing;

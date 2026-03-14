@@ -49,7 +49,7 @@ export class ChapterComponent extends UIComponent<"div"> {
     this.verse = ref;
     const h: Highlighter["highlight"] = VerseHighlight.highlight.bind(VerseHighlight);
     const { book, chapter } = ref;
-    this.element.addClass("chapter");
+    this.addClass("chapter");
     this.element.createEl("h2", {
       text: h(ref.toChaperString()),
       cls: "chapterTitle",
@@ -419,7 +419,7 @@ export class VerseInfoComponent extends UIComponent<"div"> {
    * Mirrors the logic from the original renderNoteArea, but encapsulated here.
    */
   render() {
-    this.element.empty(); // Clear previous contents to re-render
+    this.clearChildren(); // Clear previous contents to re-render
 
     for (const action of this.app.getVerseActions()) {
       new IconButton(this.element)
@@ -435,16 +435,16 @@ export class VerseInfoComponent extends UIComponent<"div"> {
   }
 
   private initiateRenderReset() {
-    this.element.empty();
+    this.clearChildren();
     const reset = (e: Event) => {
       e.stopPropagation();
       // do not proceed if the click is inside the element
       if (this.element.contains(e.target as Node))
-        return document.addEventListener("click", reset, { once: true });
+        return this.listenOn(document, "click", reset, { once: true });
       else this.initiateRenderReset(); // Clear and wait for next click to reset
       this.render(); // Re-render to restore original state
     };
 
-    document.addEventListener("click", reset, { once: true });
+    this.listenOn(document, "click", reset, { once: true });
   }
 }

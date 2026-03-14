@@ -3,6 +3,21 @@ import { Highlighter, HighlightType } from "./highlighter";
 import "./Components.css";
 import { ETarget } from "./Event";
 
+type UIComponentInit = {
+  detached?: boolean;
+  prepend?: boolean;
+};
+
+type DomAttrValue = string | number | boolean | null | undefined;
+type DomAttrRecord = Record<string, DomAttrValue>;
+
+type ManagedDomListener = {
+  target: EventTarget;
+  type: string;
+  listener: EventListenerOrEventListenerObject;
+  options?: boolean | AddEventListenerOptions;
+};
+
 /**
  * Represents a generic UI component that wraps an HTMLElement and provides utility methods
  * for DOM manipulation and event handling.
@@ -38,14 +53,20 @@ export class UIComponent<
     [key: string]: unknown;
   },
 > extends ETarget<EventS> {
-  destroy() {
-    this.clear().remove();
-  }
   element: HTMLElementTagNameMap[T];
+  private managedDomListeners: ManagedDomListener[] = [];
+  private disposed = false;
 
-  constructor(parent: Node, tagName: T) {
+  constructor(parent: Node | null, tagName: T, init: UIComponentInit = {}) {
     super();
-    this.element = parent.createEl(tagName);
+    this.element = document.createElement(tagName);
+    if (!init.detached && parent) {
+      this.mount(parent, init.prepend);
+    }
+  }
+
+  static detached<K extends keyof HTMLElementTagNameMap>(tagName: K): UIComponent<K> {
+    return new UIComponent<K>(null, tagName, { detached: true });
   }
 
   setIcon(icon: IconNode) {
@@ -54,9 +75,149 @@ export class UIComponent<
     return this;
   }
 
+  createChild<K extends keyof HTMLElementTagNameMap>(
+    tagName: K,
+    options?: Parameters<HTMLElement["createEl"]>[1],
+    callback?: (el: HTMLElementTagNameMap[K]) => void,
+  ): HTMLElementTagNameMap[K] {
+    return this.element.createEl(tagName, options, callback);
+  }
+
+  createChildComponent<K extends keyof HTMLElementTagNameMap, C extends UIComponent<K>>(
+    ComponentCtor: new (parent: Node) => C,
+    callback?: (component: C) => void,
+  ): C {
+    const component = new ComponentCtor(this.element);
+    callback?.(component);
+    return component;
+  }
+
+  clearChildren() {
+    this.element.empty();
+    return this;
+  }
+
+  mount(parent: Node, prepend = false) {
+    if (prepend && "prepend" in parent) {
+      (parent as ParentNode).prepend(this.element);
+    } else {
+      parent.appendChild(this.element);
+    }
+    return this;
+  }
+
+  detach() {
+    this.element.remove();
+    return this;
+  }
+
+  listen<K extends keyof HTMLElementEventMap>(
+    type: K,
+    listener: (ev: HTMLElementEventMap[K]) => void,
+    options?: boolean | AddEventListenerOptions,
+  ) {
+    return this.listenOn(this.element, type, listener, options);
+  }
+
+  listenOn<E extends Event>(
+    target: EventTarget,
+    type: string,
+    listener: (ev: E) => void,
+    options?: boolean | AddEventListenerOptions,
+  ) {
+    target.addEventListener(type, listener as EventListener, options);
+    this.managedDomListeners.push({
+      target,
+      type,
+      listener: listener as EventListener,
+      options,
+    });
+    return this;
+  }
+
+  unlistenAll() {
+    this.managedDomListeners.forEach(({ target, type, listener, options }) => {
+      target.removeEventListener(type, listener, options);
+    });
+    this.managedDomListeners = [];
+    return this;
+  }
+
+  setText(text: string | DocumentFragment) {
+    if (typeof text === "string") {
+      this.element.textContent = text;
+    } else {
+      this.element.replaceChildren(text);
+    }
+    return this;
+  }
+
+  setAttr(name: string, value: DomAttrValue) {
+    if (value === null || value === undefined || value === false) {
+      this.element.removeAttribute(name);
+      return this;
+    }
+    if (value === true) {
+      this.element.setAttribute(name, "");
+      return this;
+    }
+    this.element.setAttribute(name, String(value));
+    return this;
+  }
+
+  setAttrs(attrs: DomAttrRecord) {
+    Object.entries(attrs).forEach(([name, value]) => this.setAttr(name, value));
+    return this;
+  }
+
+  setAria(attrs: DomAttrRecord) {
+    Object.entries(attrs).forEach(([name, value]) => this.setAttr(`aria-${name}`, value));
+    return this;
+  }
+
+  setData(attrs: DomAttrRecord) {
+    Object.entries(attrs).forEach(([name, value]) => this.setAttr(`data-${name}`, value));
+    return this;
+  }
+
+  setStyle(styles: Record<string, string | number | null | undefined>) {
+    Object.entries(styles).forEach(([name, value]) => {
+      if (value === null || value === undefined) {
+        this.element.style.removeProperty(name);
+      } else {
+        this.element.style.setProperty(name, String(value));
+      }
+    });
+    return this;
+  }
+
+  toggleClass(className: string, force?: boolean) {
+    if (typeof force === "boolean") {
+      this.element.classList.toggle(className, force);
+      return this;
+    }
+    this.element.classList.toggle(className);
+    return this;
+  }
+
+  setHidden(hidden: boolean) {
+    this.element.hidden = hidden;
+    return this;
+  }
+
+  setRole(role: string) {
+    this.element.setAttribute("role", role);
+    return this;
+  }
+
+  setId(id: string) {
+    this.element.id = id;
+    return this;
+  }
+
   setTooltip(tooltip: string) {
     this.element.title = tooltip;
-    this.element.setAttribute("aria-label", tooltip);
+    this.setAria({ label: tooltip });
     return this;
   }
 
@@ -70,8 +231,83 @@ export class UIComponent<
     return this;
   }
 
+  destroy() {
+    return this.remove();
+  }
+
   remove() {
+    if (this.disposed) return this;
+    this.disposed = true;
+    this.unlistenAll();
+    this.clear();
     this.element.remove();
+    return this;
+  }
+}
+
+export class StackComponent extends UIComponent<"div"> {
+  constructor(parent: Node, direction: "row" | "column" = "column") {
+    super(parent, "div");
+    this.addClass("ui-stack");
+    this.setDirection(direction);
+  }
+
+  setDirection(direction: "row" | "column") {
+    this.toggleClass("is-row", direction === "row");
+    this.toggleClass("is-column", direction === "column");
+    return this;
+  }
+
+  setGap(gap: string | number) {
+    this.setStyle({
+      "--ui-gap": typeof gap === "number" ? `${gap}px` : gap,
+    });
+    return this;
+  }
+
+  setAlign(align: "start" | "center" | "end" | "stretch") {
+    const map = {
+      start: "flex-start",
+      center: "center",
+      end: "flex-end",
+      stretch: "stretch",
+    };
+    this.setStyle({ "align-items": map[align] });
+    return this;
+  }
+
+  setJustify(justify: "start" | "center" | "end" | "between" | "around" | "evenly") {
+    const map = {
+      start: "flex-start",
+      center: "center",
+      end: "flex-end",
+      between: "space-between",
+      around: "space-around",
+      evenly: "space-evenly",
+    };
+    this.setStyle({ "justify-content": map[justify] });
+    return this;
+  }
+}
+
+export class RowComponent extends StackComponent {
+  constructor(parent: Node) {
+    super(parent, "row");
+    this.addClass("ui-row");
+    this.setGap("0.5rem");
+  }
+}
+
+export class SurfaceComponent extends UIComponent<"div"> {
+  constructor(parent: Node) {
+    super(parent, "div");
+    this.addClass("ui-surface");
+  }
+
+  setTone(tone: "default" | "subtle" | "strong") {
+    this.toggleClass("tone-default", tone === "default");
+    this.toggleClass("tone-subtle", tone === "subtle");
+    this.toggleClass("tone-strong", tone === "strong");
     return this;
   }
 }
@@ -94,11 +330,11 @@ export class UIComponent<
 export class Button extends UIComponent<"button"> {
   constructor(parent: Node) {
     super(parent, "button");
-    this.element.addEventListener("click", e => {
+    this.listen("click", e => {
       e.stopPropagation();
       return this.emit("click", e);
     });
-    this.element.addEventListener("contextmenu", e => {
+    this.listen("contextmenu", e => {
       e.preventDefault();
       return this.emit("menu", e);
     });
@@ -115,11 +351,31 @@ export class Button extends UIComponent<"button"> {
   }
 }
 
+export class IconActionComponent extends Button {
+  constructor(parent: Node) {
+    super(parent);
+    this.addClass("icon-action");
+    this.setAttr("type", "button");
+  }
+
+  setAction(icon: IconNode, tooltip: string) {
+    this.setIcon(icon);
+    this.setTooltip(tooltip);
+    return this;
+  }
+
+  setPressed(pressed: boolean) {
+    this.setAria({ pressed });
+    this.toggleClass("is-pressed", pressed);
+    return this;
+  }
+}
+
 export class IconButton extends UIComponent<"div"> {
   constructor(parent: Node) {
     super(parent, "div");
     this.element.classList.add("icon-button");
-    this.element.addEventListener("click", e => {
+    this.listen("click", e => {
       e.stopPropagation();
       return this.emit("click", e);
     });
@@ -159,14 +415,14 @@ abstract class AbstractInput<T extends keyof HTMLElementTagNameMap, V> extends U
 > {
   constructor(parent: Node, tagName: T) {
     super(parent, tagName);
-    this.element.addEventListener("input", () => this.emit("input", this.getValue()));
-    this.element.addEventListener("change", () => this.emit("change", this.getValue()));
-    this.element.addEventListener("click", e => this.emit("click", e));
-    this.element.addEventListener("contextmenu", e => {
+    this.listen("input", () => this.emit("input", this.getValue()));
+    this.listen("change", () => this.emit("change", this.getValue()));
+    this.listen("click", e => this.emit("click", e));
+    this.listen("contextmenu", e => {
       e.preventDefault();
       return this.emit("menu", e);
     });
-    this.element.addEventListener("keydown", e => this.emit("keydown", e));
+    this.listen("keydown", e => this.emit("keydown", e));
     this.element.focus();
   }
 

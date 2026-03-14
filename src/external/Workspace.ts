@@ -7,7 +7,7 @@ import "./Workspace.css";
 import { GlobalSwipeHandler } from "./WorkspaceMobileSwipe";
 
 function createDetachedComponent<T extends keyof HTMLElementTagNameMap>(tagName: T): UIComponent<T> {
-  return new UIComponent(document.createDocumentFragment(), tagName);
+  return UIComponent.detached(tagName);
 }
 
 class WorkspaceTabButton extends UIComponent<"button"> {
@@ -25,51 +25,45 @@ class WorkspaceTabButton extends UIComponent<"button"> {
     private onClose?: () => void,
     icon: IconNode | null = null,
   ) {
-    super(document.createDocumentFragment(), "button");
-    this.element.type = "button";
-    this.addClass("panel-tab");
-    this.element.dataset.viewId = tabId;
-    this.iconEl = document.createElement("span");
-    this.iconEl.className = "panel-tab-icon";
-    this.labelEl = document.createElement("span");
-    this.labelEl.className = "panel-tab-label";
-    this.closeEl = document.createElement("span");
-    this.closeEl.className = "panel-tab-close";
-    this.closeEl.setAttribute("role", "button");
+    super(null, "button", { detached: true });
+    this.setAttr("type", "button").addClass("panel-tab").setData({ viewId: tabId });
+    this.iconEl = this.createChild("span", { cls: "panel-tab-icon" });
+    this.labelEl = this.createChild("span", { cls: "panel-tab-label" });
+    this.closeEl = this.createChild("span", {
+      cls: "panel-tab-close",
+      attr: { role: "button" },
+    });
     this.closeEl.setAttribute("aria-label", `Close ${title}`);
-    this.closeIconEl = document.createElement("span");
-    this.closeIconEl.className = "panel-tab-close-icon";
+    this.closeIconEl = this.closeEl.createEl("span", { cls: "panel-tab-close-icon" });
     this.closeIconEl.appendChild(createElement(X, { "stroke-width": 1.75 }));
-    this.closeEl.appendChild(this.closeIconEl);
-    this.element.append(this.iconEl, this.labelEl, this.closeEl);
     this.setTitle(title);
     this.setTabIcon(icon);
     this.setCloseable(!!onClose);
     this.setUnresolved(unresolved);
-    this.element.addEventListener("click", event => {
+    this.listen("click", event => {
       const target = event.target as HTMLElement | null;
       if (target?.closest(".panel-tab-close")) {
         return;
       }
       this.onClick();
     });
-    this.closeEl.addEventListener("pointerdown", event => {
+    this.listenOn<PointerEvent>(this.closeEl, "pointerdown", event => {
       event.stopPropagation();
     });
-    this.closeEl.addEventListener("click", event => {
+    this.listenOn<MouseEvent>(this.closeEl, "click", event => {
       event.preventDefault();
       event.stopPropagation();
       this.onClose?.();
     });
     // Close on middle-click
-    this.element.addEventListener("auxclick", event => {
+    this.listen("auxclick", event => {
       if (event.button === 1) {
         this.onClose?.();
       }
     });
 
     if (onPointerDown) {
-      this.element.addEventListener("pointerdown", event => {
+      this.listen("pointerdown", event => {
         const target = event.target as HTMLElement | null;
         if (target?.closest(".panel-tab-close")) {
           return;
@@ -112,7 +106,7 @@ class WorkspaceTabButton extends UIComponent<"button"> {
 
 class WorkspacePlaceholder extends UIComponent<"div"> {
   constructor(tabId: string) {
-    super(document.createDocumentFragment(), "div");
+    super(null, "div", { detached: true });
     this.addClass("view", "view-unresolved");
     this.element.dataset.viewId = tabId;
   }
@@ -125,7 +119,7 @@ class WorkspacePlaceholder extends UIComponent<"div"> {
 
 class WorkspacePanelContainer extends UIComponent<"div"> {
   constructor(panelId: string) {
-    super(document.createDocumentFragment(), "div");
+    super(null, "div", { detached: true });
     this.addClass("panel");
     this.addClass(panelId);
     this.element.dataset.panelId = panelId;
@@ -140,7 +134,7 @@ class WorkspacePanelContainer extends UIComponent<"div"> {
 
 class WorkspacePanelTabs extends UIComponent<"div"> {
   constructor() {
-    super(document.createDocumentFragment(), "div");
+    super(null, "div", { detached: true });
     this.addClass("panel-tabs");
   }
 
@@ -152,7 +146,7 @@ class WorkspacePanelTabs extends UIComponent<"div"> {
 
 class WorkspacePanelContent extends UIComponent<"div"> {
   constructor() {
-    super(document.createDocumentFragment(), "div");
+    super(null, "div", { detached: true });
     this.addClass("panel-content");
   }
 
@@ -442,6 +436,8 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     );
   }
 
+  draggablePanels: Panel[] = [];
+
   private resolveWindowControlsOwner(): Panel | null {
     if (!this.isElectronRenderer()) {
       return null;
@@ -462,6 +458,26 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     };
 
     const candidate = getPanel(this.rootPanel);
+
+    const getDraggablePanels = (panel: Panel): Panel[] => {
+      if (panel.getMode() === "views") {
+        return [panel];
+      } else if (panel.childPanels.length > 0) {
+        if (panel.getSplitDirection() === "horizontal") {
+          return panel.childPanels.map(child => getDraggablePanels(child.panel)).flat();
+        } else {
+          return getDraggablePanels(panel.childPanels[0].panel);
+        }
+      } else {
+        return [];
+      }
+    };
+
+    const newDraggablePanels: Panel[] = getDraggablePanels(this.rootPanel);
+
+    for (const panel of [...this.draggablePanels, ...newDraggablePanels]) {
+      panel.makeDraggable(newDraggablePanels.includes(panel));
+    }
 
     return candidate;
   }
@@ -973,6 +989,8 @@ export class Panel {
   private persistent = false;
   private addTabButton!: HTMLButtonElement;
   private windowControlsEl: HTMLDivElement | null = null;
+  private windowControlsComponent: UIComponent<"div"> | null = null;
+  private resizeHandleComponents: UIComponent<"div">[] = [];
   private resizeState: {
     pointerId: number;
     handleEl: HTMLDivElement;
@@ -1004,19 +1022,19 @@ export class Panel {
     this.tabBarEl = this.tabBarComponent.element;
     this.contentEl = this.contentComponent.element;
     this.containerEl.append(this.tabBarEl, this.contentEl);
-    this.containerEl.addEventListener(
-      "pointerdown",
-      e => (e.stopPropagation(), this.workspace.setActivePanel(this)),
-    );
-    this.addTabButton = document.createElement("button");
-    this.addTabButton.type = "button";
-    this.addTabButton.className = "panel-tab panel-tab-add";
-    this.addTabButton.setAttribute("aria-label", "New tab");
-    this.addTabButton.appendChild(createElement(Plus, { "stroke-width": 1.75 }));
-    this.addTabButton.addEventListener("click", () => {
-      this.workspace.openView("empty", this);
+    this.containerComponent.listen("pointerdown", e => {
+      e.stopPropagation();
+      this.workspace.setActivePanel(this);
     });
-    this.tabBarEl.appendChild(this.addTabButton);
+    const addTabButtonComponent = UIComponent.detached("button")
+      .setAttr("type", "button")
+      .addClass("panel-tab", "panel-tab-add")
+      .setAria({ label: "New tab" })
+      .setIcon(Plus)
+      .listen("click", () => {
+        this.workspace.openView("empty", this);
+      });
+    this.addTabButton = addTabButtonComponent.mount(this.tabBarEl).element;
     this.applyModeClasses();
     this.applySplitDirection();
   }
@@ -1289,6 +1307,8 @@ export class Panel {
   destroy(): void {
     this.childPanels.forEach(({ panel }) => panel.destroy());
     this.childPanels = [];
+    this.clearResizeHandles();
+    this.clearWindowControls();
     this.views.forEach(panelView => {
       panelView.view?.detach();
       panelView.view?.containerEl.remove();
@@ -1305,6 +1325,8 @@ export class Panel {
   destroyShallow(): void {
     this.childPanels = [];
     this.views = [];
+    this.clearResizeHandles();
+    this.clearWindowControls();
     this.contentEl.innerHTML = "";
     this.tabBarEl.innerHTML = "";
     this.activeViewId = null;
@@ -1459,6 +1481,7 @@ export class Panel {
   refreshLayoutDom(): void {
     this.applyModeClasses();
     this.applySplitDirection();
+    this.clearResizeHandles();
     if (this.mode === "panels") {
       this.contentEl.innerHTML = "";
       this.childPanels.forEach(({ panel }, index) => {
@@ -1535,8 +1558,10 @@ export class Panel {
   private ensureWindowControls(): void {
     const shouldShow = this.mode === "views" && this.workspace.shouldShowWindowControls(this);
     if (!this.windowControlsEl && shouldShow) {
-      const controls = document.createElement("div");
-      controls.className = "panel-window-controls is-hidden";
+      const controlsComponent = UIComponent.detached("div")
+        .addClass("panel-window-controls", "is-hidden")
+        .mount(this.tabBarEl);
+      const controls = controlsComponent.element;
 
       const makeControl = (
         label: IconNode,
@@ -1560,13 +1585,12 @@ export class Panel {
       makeControl(Minimize, "Minimize window", "windowMinimize");
       makeControl(Copy, "Toggle maximize window", "windowMaximize");
       makeControl(X, "Close window", "windowClose");
+      this.windowControlsComponent = controlsComponent;
       this.windowControlsEl = controls;
-      this.tabBarEl.appendChild(this.windowControlsEl);
     }
 
     this.windowControlsEl?.classList.toggle("is-hidden", !shouldShow);
-
-    this.tabBarEl.classList.toggle("electron-window-draggable", shouldShow);
+    this.makeDraggable(shouldShow);
   }
 
   syncWindowControls(): void {
@@ -1574,31 +1598,51 @@ export class Panel {
     this.ensureWindowControls();
   }
 
+  makeDraggable(draggable: boolean): void {
+    this.tabBarEl.classList.toggle("electron-window-draggable", draggable);
+  }
+
   private createResizeHandle(index: number): HTMLDivElement {
-    const handleEl = document.createElement("div");
-    handleEl.className = "panel-resize-handle";
-    handleEl.dataset.index = String(index);
-    handleEl.dataset.direction = this.splitDirection;
-    handleEl.addEventListener("pointerdown", event => {
-      if (event.button !== 0) return;
-      const first = this.childPanels[index];
-      const second = this.childPanels[index + 1];
-      if (!first || !second) return;
-      const lastPrimary = this.splitDirection === "horizontal" ? event.clientX : event.clientY;
-      this.resizeState = {
-        pointerId: event.pointerId,
-        handleEl,
-        firstPanelId: first.panel.id,
-        secondPanelId: second.panel.id,
-        lastPrimary,
-      };
-      handleEl.setPointerCapture(event.pointerId);
-      document.addEventListener("pointermove", this.onResizePointerMove);
-      document.addEventListener("pointerup", this.onResizePointerUp);
-      document.body.classList.add("workspace-resizing");
-      event.preventDefault();
-    });
+    const handleComponent = UIComponent.detached("div")
+      .addClass("panel-resize-handle")
+      .setData({
+        index: String(index),
+        direction: this.splitDirection,
+      })
+      .listen("pointerdown", event => {
+        if (event.button !== 0) return;
+        const first = this.childPanels[index];
+        const second = this.childPanels[index + 1];
+        if (!first || !second) return;
+        const lastPrimary = this.splitDirection === "horizontal" ? event.clientX : event.clientY;
+        this.resizeState = {
+          pointerId: event.pointerId,
+          handleEl: event.currentTarget as HTMLDivElement,
+          firstPanelId: first.panel.id,
+          secondPanelId: second.panel.id,
+          lastPrimary,
+        };
+        (event.currentTarget as HTMLDivElement).setPointerCapture(event.pointerId);
+        document.addEventListener("pointermove", this.onResizePointerMove);
+        document.addEventListener("pointerup", this.onResizePointerUp);
+        document.body.classList.add("workspace-resizing");
+        event.preventDefault();
+      });
+    this.resizeHandleComponents.push(handleComponent);
+    const handleEl = handleComponent.element;
     return handleEl;
+  }
+
+  private clearResizeHandles(): void {
+    this.resizeHandleComponents.forEach(handle => handle.remove());
+    this.resizeHandleComponents = [];
+  }
+
+  private clearWindowControls(): void {
+    this.windowControlsComponent?.remove();
+    this.windowControlsComponent = null;
+    this.windowControlsEl = null;
+    this.tabBarEl.classList.remove("electron-window-draggable");
   }
 
   private handleResizePointerMove(event: PointerEvent): void {

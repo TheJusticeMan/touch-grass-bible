@@ -1,10 +1,6 @@
 import { IconNode } from "lucide";
 import { Panel, View } from "./external/Workspace";
-import TouchGrassBibleApp, {
-  BrowserConsole,
-  CategoryLoaderFunc,
-  VerseInfoComponent
-} from "./main";
+import TouchGrassBibleApp, { BrowserConsole, CategoryLoaderFunc, VerseInfoComponent } from "./main";
 
 abstract class Component {
   private loaded = false;
