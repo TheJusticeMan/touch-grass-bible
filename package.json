@@ -51,10 +51,10 @@
     "add:android": "node -e \"const fs=require('fs'); if(fs.existsSync('android/app/src/main/AndroidManifest.xml')){console.log('Android platform already present.'); process.exit(0);}\" && npx cap add android",
     "add:ios": "node -e \"const fs=require('fs'); if(fs.existsSync('ios/App/App.xcodeproj/project.pbxproj')){console.log('iOS platform already present.'); process.exit(0);}\" && npx cap add ios",
     "capacitor:assets": "npx --yes @capacitor/assets generate --android",
-    "sync:capacitor": "mkdir -p ./dist && npm run build:bundle:capacitor && cp src/web/* dist && npx cap sync",
-    "open:android": "bash -lc 'if command -v studio >/dev/null 2>&1; then npx cap open android; else echo \"Android Studio CLI not found; skipping open:android.\"; fi'",
+    "sync:capacitor": "./scripts/with-android-sdk.sh bash -lc 'mkdir -p ./dist && npm run build:bundle:capacitor && cp src/web/* dist && npx cap sync'",
+    "open:android": "./scripts/with-android-sdk.sh bash -lc 'if command -v studio >/dev/null 2>&1; then npx cap open android; else echo \"Android Studio CLI not found; skipping open:android.\"; fi'",
     "open:ios": "bash -lc 'if [ \"$(uname -s)\" != \"Darwin\" ]; then echo \"open:ios requires macOS; skipping.\"; exit 0; fi; npx cap open ios'",
-    "run:android": "bash -lc 'if [ -z \"$ANDROID_HOME\" ] && [ -z \"$ANDROID_SDK_ROOT\" ]; then echo \"Android SDK env not set; skipping run:android.\"; exit 0; fi; npm run build:capacitor && (npx cap run android || echo \"run:android skipped (no Android device/emulator detected).\")'",
+    "run:android": "./scripts/with-android-sdk.sh --require bash -lc 'npm run build:capacitor && (npx cap run android || echo \"run:android skipped (no Android device/emulator detected).\")'",
     "run:ios": "bash -lc 'if [ \"$(uname -s)\" != \"Darwin\" ]; then echo \"run:ios requires macOS; skipping.\"; exit 0; fi; npm run build:capacitor && npx cap run ios'",
     "init": "npm run setup"
   },
