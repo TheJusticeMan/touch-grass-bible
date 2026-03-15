@@ -75,6 +75,21 @@ class StatefulView extends View {
   }
 }
 
+class ActivatingView extends View {
+  static activations: string[] = [];
+
+  constructor(
+    panel: InstanceType<typeof View>["panel"],
+    private readonly activationId: string,
+  ) {
+    super(panel);
+  }
+
+  override onActivate(): void {
+    ActivatingView.activations.push(this.activationId);
+  }
+}
+
 describe("Workspace active view tracking", () => {
   test("hydrates unresolved active view and tracks it by type", () => {
     const workspace = new Workspace();
@@ -109,6 +124,27 @@ describe("Workspace active view tracking", () => {
     expect(restored).toBe(true);
     expect(workspace.activeView?.viewTypeId).toBe("two");
     expect(workspace.getActiveViewOfType("two")).not.toBeNull();
+  });
+
+  test("restore only activates the saved active view", () => {
+    const workspace = new Workspace();
+    const panel = workspace.createPanel("views");
+    workspace.rootPanel.addPanel(panel);
+
+    ActivatingView.activations = [];
+    workspace.registerView("one", viewPanel => new ActivatingView(viewPanel, "one"));
+    workspace.registerView("two", viewPanel => new ActivatingView(viewPanel, "two"));
+
+    workspace.openView("one", panel, { activate: false, title: "One" });
+    workspace.openView("two", panel, { activate: true, title: "Two" });
+    const serialized = workspace.serializeLayout();
+
+    ActivatingView.activations = [];
+    const restored = workspace.restoreLayout(serialized);
+
+    expect(restored).toBe(true);
+    expect(ActivatingView.activations).toEqual(["two"]);
+    expect(workspace.activeView?.viewTypeId).toBe("two");
   });
 
   test("serializes and restores registered view state", () => {
@@ -153,5 +189,19 @@ describe("Workspace active view tracking", () => {
     const hydrated = workspace.activeView as StatefulView;
     expect(hydrated).not.toBeNull();
     expect(hydrated.value).toBe("restored-unresolved");
+  });
+
+  test("opening a real view closes the active empty view in that panel", () => {
+    const workspace = new Workspace();
+    const panel = workspace.createPanel("views");
+    workspace.rootPanel.addPanel(panel);
+
+    workspace.registerView("one", viewPanel => new View(viewPanel));
+
+    workspace.openView("empty", panel, { activate: true, title: "Empty" });
+    workspace.openView("one", panel, { activate: true, title: "One" });
+
+    expect(panel.getViews().map(view => view.id)).toEqual(["one"]);
+    expect(workspace.activeView?.viewTypeId).toBe("one");
   });
 });

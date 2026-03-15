@@ -163,6 +163,8 @@ type PanelMode = "views" | "panels";
 export type WorkspaceLayout = {
   version: 1;
   rootPanel: SerializedPanel;
+  // The view type ID of the one and only focused view across the workspace.
+  activeViewId?: string;
 };
 
 export type SerializedPanel = {
@@ -170,8 +172,8 @@ export type SerializedPanel = {
   splitDirection: SplitDirection;
   mode: PanelMode;
 
-  // Stores the active view type id (not tab id) for stable layout restore.
-  activeViewId?: string;
+  // Stores the id of the visible view in the panel when the panel is in "views" mode. This allows restoring which tab was visible.
+  visibleViewId?: string;
   views?: SerializedPanelView[];
   children?: SerializedPanelChild[];
   persistent?: boolean;
@@ -569,9 +571,13 @@ export class Workspace extends ETarget<WorkspaceEvents> {
   }
 
   serializeLayout(): WorkspaceLayout {
+    const activeViewId = this._activeView
+      ? this._activeView.panel.views.find(v => v.view === this._activeView)?.id
+      : undefined;
     return {
       version: 1,
       rootPanel: this.rootPanel.serialize(),
+      activeViewId,
     };
   }
 
@@ -585,6 +591,9 @@ export class Workspace extends ETarget<WorkspaceEvents> {
       this.windowControlsOwner = null;
       this.rootPanel.destroy();
       this.rootPanel = this.deserializePanel(layout.rootPanel);
+      if (layout.activeViewId) {
+        this.activateView(layout.activeViewId);
+      }
       this.setActiveView(this.rootPanel.findActiveView());
       this.refreshWindowControls();
     } catch (error) {
@@ -652,8 +661,8 @@ export class Workspace extends ETarget<WorkspaceEvents> {
           state: savedView.state,
         });
       });
-      if (serialized.activeViewId) {
-        panel.activateViewByViewId(serialized.activeViewId);
+      if (serialized.visibleViewId) {
+        panel.activateViewByViewId(serialized.visibleViewId);
       }
     } else {
       panel.setMode("panels");
@@ -1157,6 +1166,9 @@ export class Panel {
     if (this.childPanels.length > 0) {
       throw new Error("A panel cannot have views and child panels at the same time");
     }
+    if (activate && id !== "empty") {
+      this.closeActiveEmptyView();
+    }
     view.initializeTitle(title);
     view.setViewTypeId(id);
     view.initializeState(state);
@@ -1292,7 +1304,7 @@ export class Panel {
         splitDirection: this.splitDirection,
         mode: "views",
         persistent: this.persistent || undefined,
-        activeViewId: active?.id ?? undefined,
+        visibleViewId: active?.id ?? undefined,
         views: this.views.map(panelView => ({
           id: panelView.id,
           title: panelView.title,
@@ -1446,7 +1458,7 @@ export class Panel {
       detachedView.view.initializeState(detachedView.state);
     }
 
-    if (activate || !this.activeViewId) {
+    if (activate) {
       this.setActiveViewById(tabId);
     } else {
       panelView.view?.containerEl.classList.remove("is-active");
@@ -1550,6 +1562,30 @@ export class Panel {
       candidate = `${id}-${i}`;
     }
     return candidate;
+  }
+
+  private closeActiveEmptyView(): void {
+    if (!this.activeViewId) {
+      return;
+    }
+
+    const activeIndex = this.views.findIndex(
+      panelView => panelView.tabId === this.activeViewId && panelView.id === "empty",
+    );
+    if (activeIndex < 0) {
+      return;
+    }
+
+    const [panelView] = this.views.splice(activeIndex, 1);
+    panelView.view?.detach();
+    panelView.view?.containerEl.remove();
+    panelView.placeholderComponent?.remove();
+    panelView.placeholderEl?.remove();
+    panelView.tabComponent.remove();
+    this.activeViewId = null;
+    if (this.workspace.activeView === panelView.view) {
+      this.workspace.setActiveView(null);
+    }
   }
 
   private renderViewOrder(): void {
