@@ -1,16 +1,16 @@
 import { BrainCircuit } from "lucide";
 import { AIchat } from "../AIchat";
-import {
-  Button,
-  CMD,
-  CommandCategory,
-  CommandItem,
-  CommandPaletteState,
-  UnifiedCommandPalette,
-  VerseInfoComponent,
-} from "../main";
 import Plugin from "../Plugin";
 import { AICategoryID, SettingsCategoryID } from "./categoryIDs";
+import { CMD } from "src/external/Comands";
+import {
+  CommandCategory,
+  UnifiedCommandPalette,
+  CommandItem,
+  CommandPaletteState,
+} from "src/external/CommandPalette";
+import { Button } from "src/external/Components";
+import { VerseInfoComponent } from "src/VerseScreen";
 
 interface AIPluginSettings {
   aiApiKey: string;

@@ -1,4 +1,4 @@
-import { BrowserConsole } from "./main";
+import { BrowserConsole } from "./external/MyBrowserConsole";
 
 type ChatMessage = { role: string; content: string };
 type ToolCall = {

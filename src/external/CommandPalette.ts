@@ -1,6 +1,6 @@
 import levenshtein from "js-levenshtein";
 import { ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, X } from "lucide";
-import { App, BrowserConsole, CMD } from "./App";
+import { App } from "./App";
 import "./CommandPalette.css";
 import { IconActionComponent, inputMode, Item, TextInput, UIComponent } from "./Components";
 import { ETarget, Openable } from "./Event";
@@ -8,6 +8,8 @@ import { PaletteState, PaletteStateController } from "./PaletteStateController";
 
 import { escapeRegExp } from "./escapeRegExp";
 import { Highlighter } from "./highlighter";
+import { CMD } from "./Comands";
+import { BrowserConsole } from "./MyBrowserConsole";
 
 export class CategoryLoader<T> {
   private _palette: CommandCategory<T> | null = null;

@@ -1,10 +1,10 @@
+import { VerseRef } from "src/VerseRef";
 import {
   CommandCategory,
-  CommandItem,
-  CommandPaletteState,
   UnifiedCommandPalette,
-  VerseRef,
-} from "../../main";
+  CommandPaletteState,
+  CommandItem,
+} from "src/external/CommandPalette";
 import Plugin from "../../Plugin";
 import { JournalPanel } from "./JournalPanel";
 import { JournalStorage } from "./journal-storage";

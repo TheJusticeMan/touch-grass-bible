@@ -1,18 +1,18 @@
 import { GitCompare } from "lucide";
 import { BibleTopics, BibleTopicsType } from "../BibleTopics";
-import {
-  Button,
-  CMD,
-  CommandCategory,
-  CommandItem,
-  CommandPaletteState,
-  UnifiedCommandPalette,
-  VerseInfoComponent,
-} from "../main";
 import Plugin from "../Plugin";
 import { VerseRef } from "../VerseRef";
 import { TopicListCategoryID, TSKCrossRefCategoryID } from "./categoryIDs";
 import { PaletteState } from "../external/PaletteStateController";
+import { CMD } from "src/external/Comands";
+import {
+  CommandCategory,
+  UnifiedCommandPalette,
+  CommandItem,
+  CommandPaletteState,
+} from "src/external/CommandPalette";
+import { Button } from "src/external/Components";
+import { VerseInfoComponent } from "src/VerseScreen";
 
 export default class TopicalBiblePlugin extends Plugin {
   topics: BibleTopics = new BibleTopics({}); // Initialize with empty topics

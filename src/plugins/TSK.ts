@@ -1,14 +1,14 @@
 import { Waypoints } from "lucide";
-import {
-  CommandCategory,
-  CommandItem,
-  CommandPaletteState,
-  UnifiedCommandPalette,
-  VerseInfoComponent,
-  VerseRef,
-} from "../main";
 import Plugin from "../Plugin";
 import { TSKCrossRefCategoryID } from "./categoryIDs";
+import {
+  CommandPaletteState,
+  CommandCategory,
+  UnifiedCommandPalette,
+  CommandItem,
+} from "src/external/CommandPalette";
+import { VerseRef } from "src/VerseRef";
+import { VerseInfoComponent } from "src/VerseScreen";
 
 type OSIS = string; // OSIS reference format, e.g., "Gen.1.1"
 

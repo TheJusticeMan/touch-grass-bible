@@ -1,5 +1,6 @@
 export const processstart = new Date().getTime();
-import { App, CommandPaletteState } from "./external/App";
+import "./external/MyHTML";
+import { App } from "./external/App";
 import { View, WorkspaceLayout } from "./external/Workspace";
 import info from "./info.json";
 import { internalPlugins, type IconActionItem } from "./Plugin";
@@ -21,32 +22,7 @@ import { bibleData, translation, VerseRef } from "./VerseRef";
 import { VerseScreen } from "./VerseScreen";
 import type { PaletteState } from "./external/PaletteStateController";
 import type { PlatformBridge } from "@platform";
-
-export * from "./external/App";
-export * from "./TGAppSettings";
-export * from "./VerseRef";
-export * from "./VerseScreen";
-
-/**
- * Main application class for the Touch Grass Bible app.
- *
- * Handles initialization, settings management, command palette integration,
- * and loading of core Bible data (KJV, cross-references, topics).
- *
- * @extends App
- *
- * @property {TGAppSettings} settings - Application settings.
- * @property {TGCommandPalette} commandPalette - The command palette instance for user commands.
- *
- * @constructor
- * @param {Document} doc - The document object for the app context.
- *
- * @method onload - Initializes the app, loads settings and data, sets up palettes and event listeners.
- * @method openCommandPalette - Opens the command palette with an optional state.
- * @method onunload - Handles cleanup when the app is unloaded.
- * @method loadsettings - Loads and merges user settings with defaults.
- * @method saveSettings - Persists the current settings.
- */
+import { CommandPaletteState } from "./external/CommandPalette";
 
 function isPlainObject(value: unknown): value is object {
   return value !== null && value !== undefined && typeof value === "object" && !Array.isArray(value);
@@ -69,6 +45,26 @@ function deepMerge<T extends object>(defaults: T, saved: Partial<T>): T {
   return result;
 }
 
+/**
+ * Main application class for the Touch Grass Bible app.
+ *
+ * Handles initialization, settings management, command palette integration,
+ * and loading of core Bible data (KJV, cross-references, topics).
+ *
+ * @extends App
+ *
+ * @property {TGAppSettings} settings - Application settings.
+ * @property {TGCommandPalette} commandPalette - The command palette instance for user commands.
+ *
+ * @constructor
+ * @param {Document} doc - The document object for the app context.
+ *
+ * @method onload - Initializes the app, loads settings and data, sets up palettes and event listeners.
+ * @method openCommandPalette - Opens the command palette with an optional state.
+ * @method onunload - Handles cleanup when the app is unloaded.
+ * @method loadsettings - Loads and merges user settings with defaults.
+ * @method saveSettings - Persists the current settings.
+ */
 export default class TouchGrassBibleApp extends App {
   settings: TGAppSettings = DEFAULT_SETTINGS;
   plugins = new internalPlugins(this);

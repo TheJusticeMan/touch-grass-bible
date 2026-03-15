@@ -1,5 +1,10 @@
+import {
+  CommandCategory,
+  UnifiedCommandPalette,
+  CommandPaletteState,
+  CommandItem,
+} from "src/external/CommandPalette";
 import { PaletteState } from "../external/PaletteStateController";
-import { CommandCategory, CommandItem, CommandPaletteState, UnifiedCommandPalette } from "../main";
 import Plugin from "../Plugin";
 import { VerseRef, bibleData } from "../VerseRef";
 import { BibleSearchCategoryID, GoToVerseCategoryID, TSKCrossRefCategoryID } from "./categoryIDs";

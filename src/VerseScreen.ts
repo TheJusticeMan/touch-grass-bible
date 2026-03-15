@@ -1,16 +1,13 @@
 import apocalypseThrottle from "apocalypse-throttle";
 import { LayoutNode, View } from "./external/Workspace";
 import type { PaletteState } from "./external/PaletteStateController";
-import TouchGrassBibleApp, {
-  Highlighter,
-  IconButton,
-  pdsp,
-  UIComponent,
-  VerseHighlight,
-  VerseRef,
-} from "./main";
+import TouchGrassBibleApp from "./main";
 import { BookScroll, ChapterScroll } from "./Scroll";
 import "./VerseScreen.css";
+import { UIComponent, IconButton } from "./external/Components";
+import { pdsp } from "./external/Event";
+import { Highlighter } from "./external/highlighter";
+import { VerseRef, VerseHighlight } from "./VerseRef";
 
 type VerseScreenState = {
   version: 1;

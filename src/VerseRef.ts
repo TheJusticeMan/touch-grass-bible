@@ -1,5 +1,6 @@
 import { books3letter, BookShortNames, booksOfTheBible } from "./booksOfTheBible";
-import { Highlighter } from "./external/App";
+import { Highlighter } from "./external/highlighter";
+
 export type bibleData = { [book: string]: string[][] };
 
 export const VerseHighlight: Highlighter = new Highlighter([

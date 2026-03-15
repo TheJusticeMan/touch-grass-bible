@@ -1,12 +1,12 @@
-import info from "../info.json";
-import TouchGrassBibleApp, {
-  CMD,
+import { toggleCMD, CMD } from "src/external/Comands";
+import {
   CommandCategory,
-  CommandItem,
-  CommandPaletteState,
   UnifiedCommandPalette,
-  toggleCMD,
-} from "../main";
+  CommandPaletteState,
+  CommandItem,
+} from "src/external/CommandPalette";
+import info from "../info.json";
+import TouchGrassBibleApp from "../main";
 import Plugin from "../Plugin";
 import { DEFAULT_SETTINGS } from "../TGAppSettings";
 import { SettingsCategoryID } from "./categoryIDs";

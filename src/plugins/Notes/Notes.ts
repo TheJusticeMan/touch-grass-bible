@@ -1,15 +1,15 @@
 import { SquarePen } from "lucide";
-import {
-  CommandCategory,
-  CommandItem,
-  CommandPaletteState,
-  TextArea,
-  UnifiedCommandPalette,
-} from "../../main";
 import Plugin from "../../Plugin";
 import { OSISNotes, VerseRef } from "../../VerseRef";
 import { myNotesCategoryID, TSKCrossRefCategoryID } from "../categoryIDs";
 import { Note, NotesPanel, NoteVault } from "./NotesPanel";
+import {
+  CommandCategory,
+  UnifiedCommandPalette,
+  CommandPaletteState,
+  CommandItem,
+} from "src/external/CommandPalette";
+import { TextArea } from "src/external/Components";
 
 interface NotesPluginSettings {
   myNotes: [string, string][];

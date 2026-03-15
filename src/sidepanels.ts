@@ -1,4 +1,4 @@
-import { Item } from "./external/App";
+import { Item } from "./external/Components";
 import { LayoutNode, View } from "./external/Workspace";
 import TouchGrassBibleApp from "./main";
 import { BookmarkCategoryID, BibleSearchCategoryID, myNotesCategoryID } from "./plugins/categoryIDs";
