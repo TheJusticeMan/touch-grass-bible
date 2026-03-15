@@ -180,6 +180,7 @@ export type SerializedPanel = {
 type SerializedPanelView = {
   id: string;
   title: string;
+  state?: unknown;
 };
 
 type SerializedPanelChild = {
@@ -208,6 +209,7 @@ type DetachedPanelView = {
   title: string;
   icon: IconNode | null;
   view: View | null;
+  state?: unknown;
   placeholderEl?: HTMLDivElement;
   placeholderComponent?: WorkspacePlaceholder;
 };
@@ -551,14 +553,18 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     return view;
   }
 
-  openView(id: string, panel: Panel, options: { title?: string; activate?: boolean } = {}): View | null {
+  openView(
+    id: string,
+    panel: Panel,
+    options: { title?: string; activate?: boolean; state?: unknown } = {},
+  ): View | null {
     const viewFactory = this.RegisteredViews.get(id);
     if (!viewFactory) {
-      panel.addUnresolvedView(id, options.title ?? id, options.activate ?? true);
+      panel.addUnresolvedView(id, options.title ?? id, options.activate ?? true, options.state);
       return null;
     }
     const view = viewFactory(panel);
-    panel.addView(id, view, options.title ?? id, options.activate ?? true);
+    panel.addView(id, view, options.title ?? id, options.activate ?? true, options.state);
     return view;
   }
 
@@ -643,6 +649,7 @@ export class Workspace extends ETarget<WorkspaceEvents> {
         this.openView(savedView.id, panel, {
           title: savedView.title,
           activate: false,
+          state: savedView.state,
         });
       });
       if (serialized.activeViewId) {
@@ -686,6 +693,10 @@ export class Workspace extends ETarget<WorkspaceEvents> {
 
   onPanelMutated() {
     this.refreshWindowControls();
+    this.markLayoutChanged();
+  }
+
+  onViewStateMutated() {
     this.markLayoutChanged();
   }
 
@@ -1139,17 +1150,18 @@ export class Panel {
     return this;
   }
 
-  addView(id: string, view: View, title: string = id, activate: boolean = true): this {
+  addView(id: string, view: View, title: string = id, activate: boolean = true, state?: unknown): this {
     if (this.mode !== "views") {
       throw new Error("Panel is in panel mode and cannot accept views");
     }
     if (this.childPanels.length > 0) {
       throw new Error("A panel cannot have views and child panels at the same time");
     }
-    view.attach();
     view.initializeTitle(title);
     view.setViewTypeId(id);
-    this.insertDetachedView({ id, title, icon: view.icon, view }, this.views.length, activate);
+    view.initializeState(state);
+    view.attach();
+    this.insertDetachedView({ id, title, icon: view.icon, view, state }, this.views.length, activate);
     this.workspace.onPanelMutated();
     return this;
   }
@@ -1284,6 +1296,7 @@ export class Panel {
         views: this.views.map(panelView => ({
           id: panelView.id,
           title: panelView.title,
+          state: panelView.view?.getViewState() ?? panelView.state,
         })),
       };
     }
@@ -1383,6 +1396,7 @@ export class Panel {
       title: panelView.title,
       icon: panelView.icon,
       view: panelView.view,
+      state: panelView.view?.getViewState() ?? panelView.state,
       placeholderEl: panelView.placeholderEl,
       placeholderComponent: panelView.placeholderComponent,
     };
@@ -1420,6 +1434,7 @@ export class Panel {
       tabComponent,
       placeholderEl: detachedView.placeholderEl,
       placeholderComponent: detachedView.placeholderComponent,
+      state: detachedView.state,
     };
 
     this.views.splice(insertIndex, 0, panelView);
@@ -1428,6 +1443,7 @@ export class Panel {
     if (detachedView.view) {
       detachedView.view.panel = this;
       detachedView.view.initializeIcon(icon);
+      detachedView.view.initializeState(detachedView.state);
     }
 
     if (activate || !this.activeViewId) {
@@ -1452,6 +1468,7 @@ export class Panel {
         title: panelView.title,
         icon: panelView.icon,
         view: panelView.view,
+        state: panelView.view?.getViewState() ?? panelView.state,
         placeholderEl: panelView.placeholderEl,
         placeholderComponent: panelView.placeholderComponent,
       };
@@ -1513,6 +1530,7 @@ export class Panel {
           title: panelView.title,
           icon: panelView.icon,
           view: panelView.view,
+          state: panelView.view?.getViewState() ?? panelView.state,
           placeholderEl: panelView.placeholderEl,
           placeholderComponent: panelView.placeholderComponent,
         },
@@ -1682,7 +1700,7 @@ export class Panel {
     this.resizeState = null;
   }
 
-  addUnresolvedView(id: string, title: string = id, activate: boolean = true): this {
+  addUnresolvedView(id: string, title: string = id, activate: boolean = true, state?: unknown): this {
     if (this.mode !== "views") {
       throw new Error("Panel is in panel mode and cannot accept views");
     }
@@ -1698,6 +1716,7 @@ export class Panel {
         title,
         icon: null,
         view: null,
+        state,
         placeholderEl,
         placeholderComponent,
       },
@@ -1716,6 +1735,7 @@ export class Panel {
           const view = factory(this);
           view.initializeTitle(panelView.title);
           view.setViewTypeId(panelView.id);
+          view.initializeState(panelView.state);
           view.containerEl.dataset.viewId = panelView.tabId;
           panelView.placeholderEl?.replaceWith(view.containerEl);
           panelView.placeholderEl = undefined;
@@ -1746,6 +1766,7 @@ export class Panel {
           const unresolvedComponent = new WorkspacePlaceholder(panelView.tabId);
           const unresolvedEl = unresolvedComponent.element;
           panelView.view?.deactivate();
+          panelView.state = panelView.view?.getViewState() ?? panelView.state;
           panelView.view?.detach();
           panelView.view?.containerEl.replaceWith(unresolvedEl);
           panelView.view = null;
@@ -1779,6 +1800,14 @@ export class Panel {
     return this;
   }
 
+  markViewStateDirty(view: View): this {
+    const panelView = this.views.find(v => v.view === view);
+    if (!panelView) return this;
+    panelView.state = view.getViewState();
+    this.workspace.onViewStateMutated();
+    return this;
+  }
+
   ensureFallbackView(): this {
     if (!this.persistent) return this;
     if (this.mode !== "views") return this;
@@ -1806,6 +1835,7 @@ type PanelView = {
   title: string;
   icon: IconNode | null;
   view: View | null;
+  state?: unknown;
   tabButton: HTMLButtonElement;
   tabComponent: WorkspaceTabButton;
   placeholderEl?: HTMLDivElement;
@@ -1913,6 +1943,23 @@ export class View extends ETarget<ViewEvents> {
 
   initializeIcon(icon: IconNode | null): void {
     this._icon = icon;
+  }
+
+  getViewState(): unknown {
+    return undefined;
+  }
+
+  setViewState(_state: unknown): void {
+    // Intended for subclasses
+  }
+
+  initializeState(state: unknown): void {
+    if (state === undefined) return;
+    this.setViewState(state);
+  }
+
+  protected requestStateSave(): void {
+    this.panel.markViewStateDirty(this);
   }
 
   // Methods for rendering, updating content, etc.

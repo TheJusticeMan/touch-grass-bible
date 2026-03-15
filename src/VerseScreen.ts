@@ -12,6 +12,15 @@ import TouchGrassBibleApp, {
 import { BookScroll, ChapterScroll } from "./Scroll";
 import "./VerseScreen.css";
 
+type VerseScreenState = {
+  version: 1;
+  verse: {
+    book: string;
+    chapter: number;
+    verse: number;
+  };
+};
+
 /**
  * Represents a UI component for displaying a chapter of verses in the TouchGrass Bible application.
  *
@@ -150,6 +159,20 @@ export class VerseScreen extends View {
   bookScroll!: BookScroll;
   private highlightedVerse: VerseRef | null = null;
 
+  private isVerseScreenState(state: unknown): state is VerseScreenState {
+    if (!state || typeof state !== "object") return false;
+    const candidate = state as Partial<VerseScreenState>;
+    if (candidate.version !== 1 || !candidate.verse) return false;
+    const { book, chapter, verse } = candidate.verse;
+    return (
+      typeof book === "string" &&
+      Number.isInteger(chapter) &&
+      chapter > 0 &&
+      Number.isInteger(verse) &&
+      verse > 0
+    );
+  }
+
   constructor(
     panel: Panel,
     protected app: TouchGrassBibleApp,
@@ -171,6 +194,8 @@ export class VerseScreen extends View {
       } else {
         this.highlightVerse(false);
       }
+
+      this.requestStateSave();
     });
     this.app.console.log("VerseScreen loaded");
 
@@ -369,6 +394,24 @@ export class VerseScreen extends View {
 
   waitFullUpdate(cb: () => void): void {
     window.requestAnimationFrame(() => window.requestAnimationFrame(() => cb()));
+  }
+
+  getViewState(): unknown {
+    const current = this.verse;
+    return {
+      version: 1,
+      verse: {
+        book: current.book,
+        chapter: current.chapter,
+        verse: current.verse,
+      },
+    } satisfies VerseScreenState;
+  }
+
+  setViewState(state: unknown): void {
+    if (!this.isVerseScreenState(state)) return;
+    if (!VerseRef.booksOfTheBible.includes(state.verse.book)) return;
+    this.verseState.set(new VerseRef(state.verse.book, state.verse.chapter, state.verse.verse));
   }
 }
 

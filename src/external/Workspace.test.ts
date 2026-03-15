@@ -59,6 +59,22 @@ function installWorkspaceDomPolyfills(): void {
 
 installWorkspaceDomPolyfills();
 
+class StatefulView extends View {
+  value = "initial";
+
+  getViewState(): unknown {
+    return { value: this.value };
+  }
+
+  setViewState(state: unknown): void {
+    if (!state || typeof state !== "object") return;
+    const value = (state as { value?: unknown }).value;
+    if (typeof value === "string") {
+      this.value = value;
+    }
+  }
+}
+
 describe("Workspace active view tracking", () => {
   test("hydrates unresolved active view and tracks it by type", () => {
     const workspace = new Workspace();
@@ -93,5 +109,49 @@ describe("Workspace active view tracking", () => {
     expect(restored).toBe(true);
     expect(workspace.activeView?.viewTypeId).toBe("two");
     expect(workspace.getActiveViewOfType("two")).not.toBeNull();
+  });
+
+  test("serializes and restores registered view state", () => {
+    const workspace = new Workspace();
+    const panel = workspace.createPanel("views");
+    workspace.rootPanel.addPanel(panel);
+
+    workspace.registerView("stateful", viewPanel => new StatefulView(viewPanel));
+    workspace.openView("stateful", panel, { activate: true, title: "Stateful" });
+
+    const opened = workspace.activeView as StatefulView;
+    opened.value = "john-3-16";
+
+    const serialized = workspace.serializeLayout();
+    const savedState = serialized.rootPanel.children?.[0]?.panel.views?.[0]?.state as
+      | { value?: string }
+      | undefined;
+    expect(savedState?.value).toBe("john-3-16");
+
+    const restored = workspace.restoreLayout(serialized);
+    expect(restored).toBe(true);
+
+    const restoredView = workspace.activeView as StatefulView;
+    expect(restoredView.value).toBe("john-3-16");
+  });
+
+  test("hydrates unresolved views with restored state", () => {
+    const workspace = new Workspace();
+    const panel = workspace.createPanel("views");
+    workspace.rootPanel.addPanel(panel);
+
+    workspace.openView("stateful", panel, {
+      activate: true,
+      title: "Stateful",
+      state: { value: "restored-unresolved" },
+    });
+
+    expect(workspace.activeView).toBeNull();
+
+    workspace.registerView("stateful", viewPanel => new StatefulView(viewPanel));
+
+    const hydrated = workspace.activeView as StatefulView;
+    expect(hydrated).not.toBeNull();
+    expect(hydrated.value).toBe("restored-unresolved");
   });
 });
