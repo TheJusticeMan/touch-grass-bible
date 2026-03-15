@@ -592,9 +592,11 @@ export class Workspace extends ETarget<WorkspaceEvents> {
       this.rootPanel.destroy();
       this.rootPanel = this.deserializePanel(layout.rootPanel);
       if (layout.activeViewId) {
+        // Restore the globally focused view; falls back to whatever panel's visible tab is first found.
         this.activateView(layout.activeViewId);
+      } else {
+        this.setActiveView(this.rootPanel.findActiveView());
       }
-      this.setActiveView(this.rootPanel.findActiveView());
       this.refreshWindowControls();
     } catch (error) {
       console.warn("Failed to restore workspace layout", error);
@@ -662,7 +664,7 @@ export class Workspace extends ETarget<WorkspaceEvents> {
         });
       });
       if (serialized.visibleViewId) {
-        panel.activateViewByViewId(serialized.visibleViewId);
+        panel.showViewByViewId(serialized.visibleViewId);
       }
     } else {
       panel.setMode("panels");
@@ -1210,10 +1212,13 @@ export class Panel {
     return this;
   }
 
-  setActiveViewById(tabId: string | null): this {
+  /**
+   * Make a tab visible within this panel without updating the workspace's global focus.
+   * Use this when restoring layout so each panel's visible tab can be set independently.
+   * For normal user interactions that should also transfer global focus, use setActiveViewById.
+   */
+  showViewById(tabId: string | null): this {
     this.activeViewId = tabId;
-    this.workspace.setActivePanel(this);
-    let nextActive: View | null = null;
     let activeTabButton: HTMLButtonElement | null = null;
     this.views.forEach(panelView => {
       const isActive = panelView.tabId === tabId;
@@ -1222,7 +1227,6 @@ export class Panel {
       panelView.placeholderComponent?.setActive(isActive);
       if (isActive && panelView.view) {
         panelView.view.activate();
-        nextActive = panelView.view;
         activeTabButton = panelView.tabButton;
       } else {
         panelView.view?.deactivate();
@@ -1235,7 +1239,15 @@ export class Panel {
         block: "nearest",
       });
     }
-    this.workspace.setActiveView(nextActive);
+    return this;
+  }
+
+  /** Show a tab and transfer global workspace focus to it. */
+  setActiveViewById(tabId: string | null): this {
+    this.showViewById(tabId);
+    const activeView = tabId ? (this.views.find(pv => pv.tabId === tabId)?.view ?? null) : null;
+    this.workspace.setActivePanel(this);
+    this.workspace.setActiveView(activeView);
     this.workspace.onPanelMutated();
     return this;
   }
@@ -1267,6 +1279,23 @@ export class Panel {
     }
     for (const child of this.childPanels) {
       if (child.panel.activateViewByViewId(viewId)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Show a view by its type ID within this panel tree without updating global focus.
+   * Used during layout restore to set each panel's visible tab independently.
+   */
+  showViewByViewId(viewId: string): boolean {
+    if (this.mode === "views") {
+      const found = this.views.find(view => view.id === viewId);
+      if (!found) return false;
+      this.showViewById(found.tabId);
+      return true;
+    }
+    for (const child of this.childPanels) {
+      if (child.panel.showViewByViewId(viewId)) return true;
     }
     return false;
   }
