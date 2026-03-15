@@ -23,7 +23,7 @@ type ManagedDomListener = {
  * for DOM manipulation and event handling.
  *
  * @template T - The type of HTMLElement this component wraps.
- * @extends ETarget
+ * @extends UIComponent
  *
  * @example
  * ```typescript
@@ -553,12 +553,15 @@ export class toggleInput extends AbstractInput<"button", boolean> {
  * @method setUpListeners() - Sets up internal event listeners for drag and scroll actions.
  * @method startHideTimer(delay?: number) - Starts or resets the auto-hide timer.
  */
-export abstract class scrollBubble extends ETarget<{
-  scroll: number; // Fired when the scroll value changes, passing the new scroll value
-  scrollend: number; // Fired when scrolling ends, passing the final scroll value
-  hide: void; // Fired when the scroll bubble is hidden
-}> {
-  element: HTMLElement | null = null; // The scroll bubble element
+export abstract class scrollBubble extends UIComponent<
+  "div",
+  {
+    scroll: number;
+    scrollend: number;
+    hide: void;
+    [key: string]: unknown;
+  }
+> {
   private _scrollvalue: number = 0; // Current scroll position between 0 and 1
   maxScroll: number = 0; // Maximum scroll value
   isGrabbed: boolean = false;
@@ -566,36 +569,33 @@ export abstract class scrollBubble extends ETarget<{
   private managedParentPosition = false;
 
   private updateBubblePosition = () => {
-    if (!this.element) return;
     this.element.style.top = this.offsetTop;
   };
 
   constructor(public parent: HTMLElement) {
-    super();
+    super(null, "div", { detached: true });
+    this.addClass("scrollBubble");
   }
 
   abstract show(arg: unknown): this; // Abstract method to show the bubble, must be implemented by subclasses
 
   _show() {
     this.startHideTimer(); // Start the hide timer
-    if (this.element) return this; // If already shown, do nothing
+    if (this.element.isConnected) return this; // If already shown, do nothing
     if (window.getComputedStyle(this.parent).position === "static") {
       this.parent.style.position = "relative";
       this.managedParentPosition = true;
     }
 
-    this.element = this.parent.createEl(
-      "div",
-      { cls: "scrollBubble" },
-      el => (el.style.top = this.offsetTop),
-    );
+    this.mount(this.parent);
+    this.element.style.top = this.offsetTop;
     this.setUpListeners();
     return this;
   }
 
   grab = (e: MouseEvent | TouchEvent) => {
     this.startHideTimer(); // Start the hide timer
-    this.element?.classList.add("active");
+    this.element.classList.add("active");
     //this.emit("scroll", this.scrollvalue);
     this.scrollvalue = this.getscrollvalue(e);
     this.isGrabbed = true;
@@ -611,7 +611,7 @@ export abstract class scrollBubble extends ETarget<{
   release = () => {
     if (!this.isGrabbed) return; // Ignore releases if not grabbed
     this.startHideTimer(); // Start the hide timer
-    this.element?.classList.remove("active");
+    this.element.classList.remove("active");
     this.emit("scrollend", this.scrollvalue);
     this.isGrabbed = false;
   };
@@ -623,8 +623,8 @@ export abstract class scrollBubble extends ETarget<{
   }
 
   setUpListeners() {
-    this.element?.removeEventListener("mousedown", this.grab);
-    this.element?.removeEventListener("touchstart", this.grab);
+    this.element.removeEventListener("mousedown", this.grab);
+    this.element.removeEventListener("touchstart", this.grab);
     document.removeEventListener("mousemove", this.move);
     document.removeEventListener("touchmove", this.move);
     document.removeEventListener("mouseup", this.release);
@@ -632,8 +632,8 @@ export abstract class scrollBubble extends ETarget<{
     this.parent.removeEventListener("scroll", this.updateBubblePosition);
     window.removeEventListener("resize", this.updateBubblePosition);
 
-    this.element?.addEventListener("mousedown", this.grab);
-    this.element?.addEventListener("touchstart", this.grab);
+    this.element.addEventListener("mousedown", this.grab);
+    this.element.addEventListener("touchstart", this.grab);
     document.addEventListener("mousemove", this.move);
     document.addEventListener("touchmove", this.move);
     document.addEventListener("mouseup", this.release);
@@ -645,8 +645,8 @@ export abstract class scrollBubble extends ETarget<{
   }
 
   removeListeners() {
-    this.element?.removeEventListener("mousedown", this.grab);
-    this.element?.removeEventListener("touchstart", this.grab);
+    this.element.removeEventListener("mousedown", this.grab);
+    this.element.removeEventListener("touchstart", this.grab);
     document.removeEventListener("mousemove", this.move);
     document.removeEventListener("touchmove", this.move);
     document.removeEventListener("mouseup", this.release);
@@ -672,8 +672,7 @@ export abstract class scrollBubble extends ETarget<{
   _hide() {
     this.removeListeners();
     this.emit("hide");
-    this.element?.remove();
-    this.element = null; // Clear the element reference
+    this.detach();
     if (this.managedParentPosition) {
       this.parent.style.removeProperty("position");
       this.managedParentPosition = false;
@@ -682,8 +681,7 @@ export abstract class scrollBubble extends ETarget<{
   }
 
   destroy() {
-    this.removeListeners();
-    this.element?.remove();
+    this._hide();
     this.clear(); // Remove all event listeners
     if (this.saveTimeoutId) {
       clearTimeout(this.saveTimeoutId);
@@ -705,7 +703,7 @@ export abstract class scrollBubble extends ETarget<{
 
   public set scrollvalue(value: number) {
     this._scrollvalue = Math.max(0, Math.min(1, value)); // Clamp value between 0 and 1
-    if (this.element) this.element.style.top = this.offsetTop; // Update position if element exists
+    this.element.style.top = this.offsetTop;
   }
 
   public get scroll(): number {
@@ -714,7 +712,7 @@ export abstract class scrollBubble extends ETarget<{
 
   public set scroll(value: number) {
     this._scrollvalue = value / this.maxScroll; // Normalize to 0-1 range
-    if (this.element && !this.isGrabbed) this.element.style.top = this.offsetTop; // Update position if not grabbed
+    if (!this.isGrabbed) this.element.style.top = this.offsetTop; // Update position if not grabbed
   }
 
   get offsetTop(): string {
@@ -747,13 +745,19 @@ export abstract class scrollBubble extends ETarget<{
  * @see CommandCategory
  * @see CommandPaletteState
  */
-export class Item extends ETarget<{
-  click: MouseEvent;
-  contextmenu: MouseEvent;
-  hover: MouseEvent;
-  [key: string]: unknown;
-}> {
-  el!: HTMLElement;
+export class Item extends UIComponent<
+  "div",
+  {
+    click: MouseEvent;
+    contextmenu: MouseEvent;
+    hover: MouseEvent;
+    mousemove: MouseEvent;
+    [key: string]: unknown;
+  }
+> {
+  get el(): HTMLDivElement {
+    return this.element;
+  }
   protected infoEl!: HTMLDivElement;
   protected titleEl!: HTMLDivElement;
   protected descriptionEl!: HTMLDivElement;
@@ -765,25 +769,23 @@ export class Item extends ETarget<{
   }
 
   constructor(parent: HTMLElement) {
-    super();
+    super(parent, "div");
     this.highlighter = new Highlighter([]);
-    parent.createEl("div", { cls: "command-item" }, itemEl => {
-      this.el = itemEl;
-      this.infoEl = itemEl.createEl("div", { cls: "command-item-info" }, infoEl => {
-        this.titleEl = infoEl.createEl("div", { cls: "command-title" });
-        this.descriptionEl = infoEl.createEl("div", {
-          cls: ["command-description", "hidden"],
-        });
+    this.addClass("command-item");
+    this.infoEl = this.createChild("div", { cls: "command-item-info" }, infoEl => {
+      this.titleEl = infoEl.createEl("div", { cls: "command-title" });
+      this.descriptionEl = infoEl.createEl("div", {
+        cls: ["command-description", "hidden"],
       });
-      this.componentWrapper = itemEl.createEl("div", { cls: "command-comp" });
-      itemEl.addEventListener("click", e => this.emit("click", e));
-      itemEl.addEventListener("contextmenu", e => {
-        e.preventDefault();
-        this.emit("contextmenu", e);
-      });
-      itemEl.addEventListener("mouseenter", e => this.emit("hover", e));
-      itemEl.addEventListener("mousemove", e => this.emit("mousemove", e));
     });
+    this.componentWrapper = this.createChild("div", { cls: "command-comp" });
+    this.listen("click", e => this.emit("click", e));
+    this.listen("contextmenu", e => {
+      e.preventDefault();
+      this.emit("contextmenu", e);
+    });
+    this.listen("mouseenter", e => this.emit("hover", e));
+    this.listen("mousemove", e => this.emit("mousemove", e));
   }
 
   highlight(args: HighlightType[] | Highlighter) {

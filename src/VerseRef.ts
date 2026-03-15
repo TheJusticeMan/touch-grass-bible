@@ -119,7 +119,7 @@ export class VerseRef {
   toString(): string {
     return `${this.book.toTitleCase()} ${this.chapter}:${this.verse}`;
   }
-  toChaperString(): string {
+  toChapterString(): string {
     return `${this.book.toTitleCase()} ${this.chapter}`;
   }
   verseData(translation: translation): string {

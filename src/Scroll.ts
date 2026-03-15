@@ -1,4 +1,4 @@
-import { scrollBubble } from "./external/App";
+import { scrollBubble } from "./external/Components";
 import { VerseRef } from "./VerseRef";
 
 export class ChapterScroll extends scrollBubble {

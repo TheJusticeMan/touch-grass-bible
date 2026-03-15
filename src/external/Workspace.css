@@ -414,7 +414,7 @@
     position: fixed;
     top: 0;
     left: 0;
-    width: min(24rem, 88vw);
+    /* width: min(24rem, 88vw); */
     height: 100dvh;
     transform: translateX(var(--rightpanel-open));
     z-index: 999;
@@ -425,7 +425,7 @@
     position: fixed;
     top: 0;
     left: 0;
-    width: min(24rem, 88vw);
+    /* //width: min(24rem, 88vw); */
     height: 100dvh;
     transform: translateX(var(--leftpanel-open));
     z-index: 999;

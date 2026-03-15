@@ -1,5 +1,6 @@
 import apocalypseThrottle from "apocalypse-throttle";
 import { Panel, View } from "./external/Workspace";
+import type { PaletteState } from "./external/PaletteStateController";
 import TouchGrassBibleApp, {
   Highlighter,
   IconButton,
@@ -50,14 +51,14 @@ export class ChapterComponent extends UIComponent<"div"> {
     const h: Highlighter["highlight"] = VerseHighlight.highlight.bind(VerseHighlight);
     const { book, chapter } = ref;
     this.addClass("chapter");
-    this.element.createEl("h2", {
-      text: h(ref.toChaperString()),
+    this.createChild("h2", {
+      text: h(ref.toChapterString()),
       cls: "chapterTitle",
     });
     ref.cTXT.forEach((text: string, v: number) => {
       if (v === 0) return;
       const newVerse = new VerseRef(book, chapter, v);
-      this.verses[v] = this.element.createEl("div", {}, (el: HTMLElement) => {
+      this.verses[v] = this.createChild("div", {}, (el: HTMLElement) => {
         el.createEl("div", { text: h(`${v} ${text}`), cls: "verse" }, (el: HTMLElement) => {
           if (text.includes("#")) el.addClass("versePBreak");
 
@@ -139,7 +140,7 @@ export class ChapterComponent extends UIComponent<"div"> {
  */
 export class VerseScreen extends View {
   content: HTMLElement;
-  _verse: VerseRef = new VerseRef();
+  verseState: PaletteState<VerseRef>;
   chapterContainer!: HTMLElement;
   renderedChapters: ChapterComponent[] = [];
   maxRenderedChapters = 11; // Keep this an odd number
@@ -155,42 +156,36 @@ export class VerseScreen extends View {
   ) {
     super(panel);
     this.containerEl.classList.add("screen-view", "content");
+    this.verseState = this.app.commandPalette.useState(new VerseRef("GENESIS", 1, 1));
     this.content = this.containerEl; //.createEl("div", { cls: "content" });
-    app.verseState.onChange(verse => (this.verse = verse));
   }
 
-  onload(): void {
-    this.app.console.log("VerseScreen loaded");
+  onAttach(): void {
+    this.verseState.onChange(verse => {
+      this.updateTitle();
+      this.chapterScroll?.setRef(verse);
+      this.bookScroll?.setRef(verse);
 
-    this.app.commandPalette.on("close", () => {
-      /* this.app.Bookmarks.addToHistory(this.verse); */
-      this.app.saveSettings();
-    });
-
-    this.chapterContainer = this.content;
-    this.content.addEventListener("scroll", this.handleScroll, {
-      passive: true,
-    });
-
-    this.verse = this.app.verseState.get(); // Initialize verse from state
-    this.bookScroll = new BookScroll(this.content, v => {
-      this.chapterScroll.show(v);
-      return (this.verse = v);
-    });
-    this.chapterScroll = new ChapterScroll(this.content, v => {
-      this.bookScroll.show(v);
-      return (this.verse = v);
-    });
-
-    this.app.on("verse-actions-change", () => {
-      this.refreshActiveVerseInfo();
-    });
-
-    this.app.on("verse-info-highlight", verse => {
-      if (verse instanceof VerseRef) {
-        this.highlightVerseInfoButton(verse);
+      if (!this.renderedChapters.some(c => c.verse.isSameChapter(verse))) {
+        this.renderInitialChapters();
+      } else {
+        this.highlightVerse(false);
       }
     });
+    this.app.console.log("VerseScreen loaded");
+
+    this.chapterContainer = this.content;
+    this.content.addEventListener("scroll", this.handleScroll, { passive: true });
+
+    this.bookScroll = new BookScroll(this.content, v => (this.chapterScroll.show(v), (this.verse = v)));
+    this.chapterScroll = new ChapterScroll(this.content, v => (this.bookScroll.show(v), (this.verse = v)));
+
+    this.app.on("verse-actions-change", () => this.refreshActiveVerseInfo());
+
+    this.app.on(
+      "verse-info-highlight",
+      verse => verse instanceof VerseRef && this.highlightVerseInfoButton(verse),
+    );
   }
 
   /**
@@ -198,40 +193,29 @@ export class VerseScreen extends View {
    * Checks if this view is already the active verse screen to avoid redundant setup.
    */
   onActivate(): void {
-    // Guard: if this view is already the active view of its type, skip redundant initialization
-    const activeVerse = this.panel.workspace.getActiveViewOfType("verse-screen");
-    if (this === activeVerse && this.renderedChapters.length > 0) {
-      // Already active and initialized, just refresh the display
-      return;
-    }
-    // If verses not yet rendered, render them now
-    if (this.renderedChapters.length === 0) {
-      this.verse = this.app.verseState.get();
+    if (!VerseRef.bible) return;
+    this.updateTitle();
+    this.chapterScroll?.setRef(this.verse);
+    this.bookScroll?.setRef(this.verse);
+
+    if (!this.renderedChapters.some(c => c.verse.isSameChapter(this.verse))) {
+      this.renderInitialChapters();
+    } else {
+      this.highlightVerse(true);
     }
   }
 
   private get verse(): VerseRef {
-    return this._verse;
+    return this.verseState.get();
   }
 
   private set verse(value: VerseRef) {
-    if (value.isSame(this._verse)) return;
-    this._verse = value;
-    this.updateTitle();
-    /* if (!this.chapterScroll?.isGrabbed && !this.bookScroll?.isGrabbed)
-      this.app.Bookmarks.addToHistory(this.verse); */
-    this.chapterScroll?.setRef(value);
-    this.bookScroll?.setRef(value);
-
-    if (!this.renderedChapters.some(c => c.verse.isSameChapter(value))) {
-      this.renderInitialChapters();
-    } else {
-      this.highlightVerse(false);
-    }
+    //if (value.isSame(this.verse)) return;
+    this.verseState.set(value);
   }
 
   updateTitle() {
-    this.title = this._verse.toString();
+    this.title = this.verse.toString();
   }
 
   renderInitialChapters() {
@@ -241,7 +225,7 @@ export class VerseScreen extends View {
 
     this.renderedChapters = [];
 
-    const centerRef = this._verse;
+    const centerRef = this.verse;
     const chaptersToRender: VerseRef[] = [centerRef];
 
     let prev = centerRef;
@@ -271,21 +255,21 @@ export class VerseScreen extends View {
 
   highlightVerse(instant = false) {
     this.removeActive();
-    const component = this.renderedChapters.find(c => c.verse.isSameChapter(this._verse));
+    const component = this.renderedChapters.find(c => c.verse.isSameChapter(this.verse));
     if (component) {
       if (instant) {
-        component.scrollToInstant(this._verse);
+        component.scrollToInstant(this.verse);
       } else {
-        component.scrollTo(this._verse);
+        component.scrollTo(this.verse);
       }
-      this.highlightVerseInfoButton(this._verse);
+      this.highlightVerseInfoButton(this.verse);
     }
   }
 
   private refreshActiveVerseInfo(): void {
-    const component = this.renderedChapters.find(c => c.verse.isSameChapter(this._verse));
-    component?.verseInfos[this._verse.verse]?.render();
-    this.highlightVerseInfoButton(this._verse);
+    const component = this.renderedChapters.find(c => c.verse.isSameChapter(this.verse));
+    component?.verseInfos[this.verse.verse]?.render();
+    this.highlightVerseInfoButton(this.verse);
   }
 
   private highlightVerseInfoButton(verse: VerseRef): void {
@@ -378,7 +362,7 @@ export class VerseScreen extends View {
   showScrollIndicators(v: VerseRef): this {
     this.chapterScroll?.show(v);
     this.bookScroll?.show(v);
-    if (!v.isSameChapter(this._verse)) this.title = v.toChaperString();
+    if (!v.isSameChapter(this.verse)) this.title = v.toChapterString();
     else this.updateTitle();
     return this;
   }

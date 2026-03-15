@@ -19,6 +19,7 @@ import { DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
 import SharePlugin from "./plugins/Share";
 import { bibleData, translation, VerseRef } from "./VerseRef";
 import { VerseScreen } from "./VerseScreen";
+import type { PaletteState } from "./external/PaletteStateController";
 import type { PlatformBridge } from "@platform";
 
 export * from "./external/App";
@@ -74,17 +75,20 @@ export default class TouchGrassBibleApp extends App {
   private verseActions: Map<string, IconActionItem> = new Map();
   firstLoad = true;
   saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
-  verseState = this.commandPalette.useState(new VerseRef("GENESIS", 1, 1));
+  private fallbackVerseState = this.commandPalette.useState(new VerseRef("GENESIS", 1, 1));
   defaultTranslation = this.commandPalette.useState("KJV" as translation);
+
+  get verseState(): PaletteState<VerseRef> {
+    const activeVerseScreen = this.workspace.getActiveViewOfType("verse-screen");
+    return activeVerseScreen instanceof VerseScreen ? activeVerseScreen.verseState : this.fallbackVerseState;
+  }
 
   constructor(doc: Document, platformBridge?: PlatformBridge) {
     super(doc, "Touch Grass Bible", platformBridge);
   }
 
   async onload() {
-    this.on("ArrowRightKeyDown", () => {
-      this.workspace.activateView("navigation-panel");
-    });
+    this.on("ArrowRightKeyDown", () => this.workspace.activateView("navigation-panel"));
 
     this.defaultTranslation.onChange(newTranslation => (VerseRef.defaultTranslation = newTranslation));
 
@@ -222,6 +226,7 @@ export default class TouchGrassBibleApp extends App {
       },
     );
     this.plugins.load();
+    document.getElementById("loadingScreen")?.remove();
   }
 
   /**
@@ -288,11 +293,7 @@ export default class TouchGrassBibleApp extends App {
   }
 
   private registerWorkspaceViews() {
-    this.workspace.registerView("verse-screen", panel => {
-      const verseScreen = new VerseScreen(panel, this);
-      verseScreen.onload();
-      return verseScreen;
-    });
+    this.workspace.registerView("verse-screen", panel => new VerseScreen(panel, this));
 
     this.workspace.registerView("reading-tools", panel => {
       const view = new View(panel);
@@ -304,9 +305,7 @@ export default class TouchGrassBibleApp extends App {
       return view;
     });
 
-    this.workspace.registerView("navigation-panel", panel => {
-      return new navigationPanel(panel, this);
-    });
+    this.workspace.registerView("navigation-panel", panel => new navigationPanel(panel, this));
   }
 
   private ensureMainScreenTab() {

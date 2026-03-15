@@ -170,6 +170,7 @@ export type SerializedPanel = {
   splitDirection: SplitDirection;
   mode: PanelMode;
 
+  // Stores the active view type id (not tab id) for stable layout restore.
   activeViewId?: string;
   views?: SerializedPanelView[];
   children?: SerializedPanelChild[];
@@ -527,17 +528,13 @@ export class Workspace extends ETarget<WorkspaceEvents> {
   registerView(id: string, view: ViewFactory) {
     this.RegisteredViews.set(id, view);
     this.rootPanel.hydrateViewsById(id, view);
-    this._activeView = this.rootPanel.findActiveView();
-    this.setActivePanel(this._activeView?.panel ?? this._activePanel);
-    this.markLayoutChanged();
+    this.setActiveView(this.rootPanel.findActiveView());
   }
 
   unregisterView(id: string) {
     this.RegisteredViews.delete(id);
     this.rootPanel.unloadViewsById(id);
-    this._activeView = this.rootPanel.findActiveView();
-    this.setActivePanel(this._activeView?.panel ?? this._activePanel);
-    this.markLayoutChanged();
+    this.setActiveView(this.rootPanel.findActiveView());
   }
 
   listRegisteredViews(): string[] {
@@ -582,15 +579,13 @@ export class Workspace extends ETarget<WorkspaceEvents> {
       this.windowControlsOwner = null;
       this.rootPanel.destroy();
       this.rootPanel = this.deserializePanel(layout.rootPanel);
-      this._activeView = this.rootPanel.findActiveView();
-      this.setActivePanel(this._activeView?.panel ?? null);
+      this.setActiveView(this.rootPanel.findActiveView());
       this.refreshWindowControls();
     } catch (error) {
       console.warn("Failed to restore workspace layout", error);
       this.rootPanel = this.createPanel("panels", "horizontal", "root");
       this.windowControlsOwner = null;
-      this._activeView = null;
-      this.setActivePanel(null);
+      this.setActiveView(null);
       this.suppressLayoutEvents = false;
       this.markLayoutChanged();
       return false;
@@ -651,7 +646,7 @@ export class Workspace extends ETarget<WorkspaceEvents> {
         });
       });
       if (serialized.activeViewId) {
-        panel.setActiveViewById(serialized.activeViewId);
+        panel.activateViewByViewId(serialized.activeViewId);
       }
     } else {
       panel.setMode("panels");
@@ -752,8 +747,7 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     while (current) {
       current = this.normalizeOne(current);
     }
-    this._activeView = this.rootPanel.findActiveView();
-    this.setActivePanel(this._activeView?.panel ?? this._activePanel);
+    this.setActiveView(this.rootPanel.findActiveView());
   }
 
   private normalizeOne(panel: Panel): Panel | null {
@@ -1280,12 +1274,13 @@ export class Panel {
 
   serialize(): SerializedPanel {
     if (this.mode === "views") {
+      const active = this.views.find(view => view.tabId === this.activeViewId);
       return {
         id: this.id,
         splitDirection: this.splitDirection,
         mode: "views",
         persistent: this.persistent || undefined,
-        activeViewId: this.activeViewId ?? undefined,
+        activeViewId: active?.id ?? undefined,
         views: this.views.map(panelView => ({
           id: panelView.id,
           title: panelView.title,
@@ -1720,6 +1715,7 @@ export class Panel {
         .forEach(panelView => {
           const view = factory(this);
           view.initializeTitle(panelView.title);
+          view.setViewTypeId(panelView.id);
           view.containerEl.dataset.viewId = panelView.tabId;
           panelView.placeholderEl?.replaceWith(view.containerEl);
           panelView.placeholderEl = undefined;

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -9,9 +9,89 @@
     <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png" />
     <title>Touch Grass Bible</title>
+    <style>
+      .loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #444;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        /* Make sure it's on top of all other elements */
+      }
+
+      .loading-spinner {
+        border: 8px solid #aaa;
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        animation: spin 2s linear infinite;
+      }
+
+      @keyframes spin {
+        0% {
+          border-radius: 100% 0%;
+          border-color: #fff #000;
+        }
+
+        25% {
+          border-radius: 0% 100%;
+        }
+
+        50% {
+          border-radius: 100% 0%;
+          border-color: #000 #fff;
+        }
+
+        75% {
+          border-radius: 0% 100%;
+        }
+
+        100% {
+          border-radius: 100% 0%;
+          border-color: #fff #000;
+        }
+      }
+
+      .loading-screen p {
+        margin-top: 20px;
+        font-size: 18px;
+        color: #ccc;
+      }
+    </style>
   </head>
+
   <body>
+    <div id="loadingScreen" class="loading-screen">
+      <div class="loading-spinner"></div>
+      <p id="loading-text">Loading... 0%</p>
+    </div>
     <script>
+      let percent = 0;
+      const loadingText = document.getElementById("loading-text");
+
+      function updateLoadingText() {
+        percent++;
+        if (percent > 100) percent = 999;
+        loadingText.textContent = `Loading... ${percent}%`;
+
+        setTimeout(() => {
+          if (Math.random() < 0.1) {
+            // 10% chance to jump to a random percent
+            percent = Math.floor(Math.random() * 50 + 25);
+          }
+          if (loadingText.isConnected) updateLoadingText();
+        }, 100);
+      }
+
+      updateLoadingText();
+
+      const processstart = new Date().getTime();
       window.addEventListener("load", () => {
         if ("serviceWorker" in navigator) {
           navigator.serviceWorker
