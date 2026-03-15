@@ -1,5 +1,5 @@
 import { IconNode } from "lucide";
-import { Panel, View } from "./external/Workspace";
+import { LayoutNode, View } from "./external/Workspace";
 import TouchGrassBibleApp, { BrowserConsole, CategoryLoaderFunc, VerseInfoComponent } from "./main";
 
 abstract class Component {
@@ -77,7 +77,7 @@ export default class Plugin extends Component {
     this.registerUnload(() => this.app.commandPalette.removePalette(load, id));
   }
 
-  registerView(id: string, view: (panel: Panel) => View) {
+  registerView(id: string, view: (panel: LayoutNode) => View) {
     this.app.workspace.registerView(id, view);
     this.registerUnload(() => this.app.workspace.unregisterView(id));
   }

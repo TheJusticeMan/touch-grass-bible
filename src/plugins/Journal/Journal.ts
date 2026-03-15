@@ -54,7 +54,7 @@ export default class JournalPlugin extends Plugin {
     if (!activated) {
       const activePanel = this.app.workspace.activePanel;
       const targetPanel =
-        activePanel?.getMode() === "views"
+        activePanel?.getMode() === "TabGroup"
           ? activePanel
           : (this.app.workspace.rootPanel.childPanels.at(-1)?.panel ?? null);
       if (targetPanel) {

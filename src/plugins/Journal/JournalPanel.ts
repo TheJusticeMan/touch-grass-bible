@@ -1,4 +1,4 @@
-import { Panel, View } from "../../external/Workspace";
+import { LayoutNode, View } from "../../external/Workspace";
 import { Button, RowComponent, StackComponent } from "../../main";
 import type { JournalDay, JournalEntry, JournalStorage } from "./journal-storage";
 import "./JournalPanel.css";
@@ -39,7 +39,7 @@ export class JournalPanel extends View {
   private statusEl!: HTMLDivElement;
 
   constructor(
-    panel: Panel,
+    panel: LayoutNode,
     private plugin: JournalPanelPlugin,
   ) {
     super(panel);

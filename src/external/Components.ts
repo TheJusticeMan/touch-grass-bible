@@ -246,15 +246,15 @@ export class UIComponent<
 }
 
 export class StackComponent extends UIComponent<"div"> {
-  constructor(parent: Node, direction: "row" | "column" = "column") {
+  constructor(parent: Node, axis: "row" | "column" = "column") {
     super(parent, "div");
     this.addClass("ui-stack");
-    this.setDirection(direction);
+    this.setAxis(axis);
   }
 
-  setDirection(direction: "row" | "column") {
-    this.toggleClass("is-row", direction === "row");
-    this.toggleClass("is-column", direction === "column");
+  setAxis(axis: "row" | "column") {
+    this.toggleClass("is-row", axis === "row");
+    this.toggleClass("is-column", axis === "column");
     return this;
   }
 

@@ -12,7 +12,7 @@ import SettingsPlugin from "./plugins/Settings";
 import TopicalBiblePlugin from "./plugins/TopicalBible";
 import TranslationsPlugin from "./plugins/Translations";
 import TSK from "./plugins/TSK";
-import { navigationPanel } from "./sidepanels";
+import { NavigationPanel } from "./sidepanels";
 import "./style.css";
 import { DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
 
@@ -305,7 +305,7 @@ export default class TouchGrassBibleApp extends App {
       return view;
     });
 
-    this.workspace.registerView("navigation-panel", panel => new navigationPanel(panel, this));
+    this.workspace.registerView("navigation-panel", panel => new NavigationPanel(panel, this));
   }
 
   private ensureMainScreenTab() {
@@ -318,32 +318,36 @@ export default class TouchGrassBibleApp extends App {
 
   getDefaultWorkspaceLayout(): WorkspaceLayout {
     return {
-      version: 1,
+      version: 2,
+      activeViewPanelPath: [1],
+      activeViewIndex: 0,
       rootPanel: {
         id: "root",
-        mode: "panels",
-        splitDirection: "horizontal",
+        mode: "SplitGroup",
+        splitAxis: "row",
         children: [
           {
             size: 1,
             panel: {
               id: "left-tabs",
-              mode: "views",
-              splitDirection: "horizontal",
+              mode: "TabGroup",
+              splitAxis: "row",
               persistent: true,
-              views: [{ id: "navigation-panel", title: "Navigate" }],
+              visibleViewIndex: 0,
+              views: [{ viewType: "navigation-panel", title: "Navigate" }],
             },
           },
           {
             size: 3,
             panel: {
               id: "main-tabs",
-              mode: "views",
-              splitDirection: "horizontal",
+              mode: "TabGroup",
+              splitAxis: "row",
               persistent: true,
+              visibleViewIndex: 0,
               views: [
-                { id: "verse-screen", title: "Scripture" },
-                { id: "reading-tools", title: "Tools" },
+                { viewType: "verse-screen", title: "Scripture" },
+                { viewType: "reading-tools", title: "Tools" },
               ],
             },
           },
@@ -351,10 +355,11 @@ export default class TouchGrassBibleApp extends App {
             size: 2,
             panel: {
               id: "right-tabs",
-              mode: "views",
-              splitDirection: "horizontal",
+              mode: "TabGroup",
+              splitAxis: "row",
               persistent: true,
-              views: [{ id: "notes-panel", title: "Notes" }],
+              visibleViewIndex: 0,
+              views: [{ viewType: "notes-panel", title: "Notes" }],
             },
           },
         ],

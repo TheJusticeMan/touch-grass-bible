@@ -1,186 +1,46 @@
 // Workspace.ts
 
-import { Copy, createElement, IconNode, Minimize, Plus, X } from "lucide";
+import { Copy, IconNode, Minimize, Plus, X } from "lucide";
 import { Button, UIComponent } from "./Components";
 import { ETarget } from "./Event";
 import "./Workspace.css";
+import {
+  WorkspacePanelContainer,
+  WorkspacePanelContent,
+  WorkspacePanelTabs,
+  WorkspacePlaceholder,
+  WorkspaceTabButton,
+} from "./WorkspaceDom";
+import { DragDropController, type PanelDropEdge } from "./WorkspaceDragDrop";
+import { WorkspaceLayoutModel } from "./WorkspaceLayoutModel";
 import { GlobalSwipeHandler } from "./WorkspaceMobileSwipe";
+import { monkeypatchAllWorkspaceMethods } from "./WorkspaceTrace";
 
-function createDetachedComponent<T extends keyof HTMLElementTagNameMap>(tagName: T): UIComponent<T> {
-  return UIComponent.detached(tagName);
-}
+const WORKSPACE_CONFIG_NAME = "workspace";
+const AUTO_SAVE_DELAY_MS = 500;
 
-class WorkspaceTabButton extends UIComponent<"button"> {
-  private iconEl: HTMLSpanElement;
-  private labelEl: HTMLSpanElement;
-  private closeEl: HTMLSpanElement;
-  private closeIconEl: HTMLSpanElement;
-
-  constructor(
-    tabId: string,
-    title: string,
-    private onClick: () => void,
-    unresolved: boolean = false,
-    onPointerDown?: (event: PointerEvent) => void,
-    private onClose?: () => void,
-    icon: IconNode | null = null,
-  ) {
-    super(null, "button", { detached: true });
-    this.setAttr("type", "button").addClass("panel-tab").setData({ viewId: tabId });
-    this.iconEl = this.createChild("span", { cls: "panel-tab-icon" });
-    this.labelEl = this.createChild("span", { cls: "panel-tab-label" });
-    this.closeEl = this.createChild("span", {
-      cls: "panel-tab-close",
-      attr: { role: "button" },
-    });
-    this.closeEl.setAttribute("aria-label", `Close ${title}`);
-    this.closeIconEl = this.closeEl.createEl("span", { cls: "panel-tab-close-icon" });
-    this.closeIconEl.appendChild(createElement(X, { "stroke-width": 1.75 }));
-    this.setTitle(title);
-    this.setTabIcon(icon);
-    this.setCloseable(!!onClose);
-    this.setUnresolved(unresolved);
-    this.listen("click", event => {
-      const target = event.target as HTMLElement | null;
-      if (target?.closest(".panel-tab-close")) {
-        return;
-      }
-      this.onClick();
-    });
-    this.listenOn<PointerEvent>(this.closeEl, "pointerdown", event => {
-      event.stopPropagation();
-    });
-    this.listenOn<MouseEvent>(this.closeEl, "click", event => {
-      event.preventDefault();
-      event.stopPropagation();
-      this.onClose?.();
-    });
-    // Close on middle-click
-    this.listen("auxclick", event => {
-      if (event.button === 1) {
-        this.onClose?.();
-      }
-    });
-
-    if (onPointerDown) {
-      this.listen("pointerdown", event => {
-        const target = event.target as HTMLElement | null;
-        if (target?.closest(".panel-tab-close")) {
-          return;
-        }
-        onPointerDown(event);
-      });
-    }
-  }
-
-  setTitle(title: string): this {
-    this.labelEl.textContent = title;
-    this.closeEl.setAttribute("aria-label", `Close ${title}`);
-    return this;
-  }
-
-  setTabIcon(icon: IconNode | null): this {
-    this.iconEl.replaceChildren();
-    if (icon) {
-      this.iconEl.appendChild(createElement(icon, { "stroke-width": 1.75 }));
-    }
-    this.iconEl.classList.toggle("is-hidden", !icon);
-    return this;
-  }
-
-  setCloseable(closeable: boolean): this {
-    this.closeEl.classList.toggle("is-hidden", !closeable);
-    return this;
-  }
-
-  setActive(active: boolean): this {
-    this.element.classList.toggle("is-active", active);
-    return this;
-  }
-
-  setUnresolved(unresolved: boolean): this {
-    this.element.classList.toggle("is-unresolved", unresolved);
-    return this;
-  }
-}
-
-class WorkspacePlaceholder extends UIComponent<"div"> {
-  constructor(tabId: string) {
-    super(null, "div", { detached: true });
-    this.addClass("view", "view-unresolved");
-    this.element.dataset.viewId = tabId;
-  }
-
-  setActive(active: boolean): this {
-    this.element.classList.toggle("is-active", active);
-    return this;
-  }
-}
-
-class WorkspacePanelContainer extends UIComponent<"div"> {
-  constructor(panelId: string) {
-    super(null, "div", { detached: true });
-    this.addClass("panel");
-    this.addClass(panelId);
-    this.element.dataset.panelId = panelId;
-  }
-
-  setMode(mode: PanelMode): this {
-    this.element.classList.toggle("panel-mode-views", mode === "views");
-    this.element.classList.toggle("panel-mode-panels", mode === "panels");
-    return this;
-  }
-}
-
-class WorkspacePanelTabs extends UIComponent<"div"> {
-  constructor() {
-    super(null, "div", { detached: true });
-    this.addClass("panel-tabs");
-  }
-
-  setHidden(hidden: boolean): this {
-    this.element.classList.toggle("is-hidden", hidden);
-    return this;
-  }
-}
-
-class WorkspacePanelContent extends UIComponent<"div"> {
-  constructor() {
-    super(null, "div", { detached: true });
-    this.addClass("panel-content");
-  }
-
-  setSplitDirection(splitDirection: SplitDirection): this {
-    this.element.classList.toggle("horizontal", splitDirection === "horizontal");
-    this.element.classList.toggle("vertical", splitDirection === "vertical");
-    return this;
-  }
-}
-
-type SplitDirection = "horizontal" | "vertical";
-type PanelMode = "views" | "panels";
+export type SplitAxis = "row" | "column";
+export type NodeType = "TabGroup" | "SplitGroup";
 
 export type WorkspaceLayout = {
-  version: 1;
+  version: 2;
   rootPanel: SerializedPanel;
-  // The view type ID of the one and only focused view across the workspace.
-  activeViewId?: string;
+  activeViewPanelPath?: number[];
+  activeViewIndex?: number;
 };
 
 export type SerializedPanel = {
   id: string;
-  splitDirection: SplitDirection;
-  mode: PanelMode;
-
-  // Stores the id of the visible view in the panel when the panel is in "views" mode. This allows restoring which tab was visible.
-  visibleViewId?: string;
+  splitAxis: SplitAxis;
+  mode: NodeType;
+  visibleViewIndex?: number;
   views?: SerializedPanelView[];
   children?: SerializedPanelChild[];
   persistent?: boolean;
 };
 
 type SerializedPanelView = {
-  id: string;
+  viewType: string;
   title: string;
   state?: unknown;
 };
@@ -190,24 +50,8 @@ type SerializedPanelChild = {
   panel: SerializedPanel;
 };
 
-type PanelDropEdge = "left" | "right" | "top" | "bottom" | "center";
-
-type DragDropState = {
-  sourcePanel: Panel;
-  tabId: string;
-  pointerId: number;
-  startX: number;
-  startY: number;
-  dragging: boolean;
-  sourceTabButton: HTMLButtonElement;
-  targetPanel: Panel | null;
-  targetEdge: PanelDropEdge | null;
-  targetInsertIndex: number | null;
-  targetTabButton: HTMLButtonElement | null;
-};
-
-type DetachedPanelView = {
-  id: string;
+export type DetachedTab = {
+  viewType: string;
   title: string;
   icon: IconNode | null;
   view: View | null;
@@ -216,7 +60,23 @@ type DetachedPanelView = {
   placeholderComponent?: WorkspacePlaceholder;
 };
 
-type ViewFactory = (panel: Panel) => View;
+export type DropIntent =
+  | {
+      kind: "reorder";
+      sourcePanelId: string;
+      sourceTabId: string;
+      targetPanelId: string;
+      targetIndex: number;
+    }
+  | {
+      kind: "split";
+      sourcePanelId: string;
+      sourceTabId: string;
+      targetPanelId: string;
+      edge: Exclude<PanelDropEdge, "center">;
+    };
+
+type ViewFactory = (panel: LayoutNode) => View;
 
 type RestoreLayoutFromStringOptions = {
   onInvalidJSON?: (error: unknown) => void;
@@ -245,6 +105,127 @@ type ViewEvents = {
   close: void;
 };
 
+class LayoutTreeService {
+  constructor(private workspace: Workspace) {}
+
+  applyDropIntent(intent: DropIntent): boolean {
+    const sourcePanel = this.workspace.findPanelById(intent.sourcePanelId);
+    const targetPanel = this.workspace.findPanelById(intent.targetPanelId);
+    if (!sourcePanel || !targetPanel) {
+      return false;
+    }
+
+    const sourceIndex = sourcePanel.getViewIndexByTabId(intent.sourceTabId);
+    const extracted = sourcePanel.extractDetachedView(intent.sourceTabId);
+    if (!extracted) {
+      return false;
+    }
+
+    if (intent.kind === "reorder") {
+      let targetIndex = intent.targetIndex;
+      if (sourceIndex >= 0 && targetPanel === sourcePanel && targetIndex > sourceIndex) {
+        targetIndex -= 1;
+      }
+      targetPanel.insertDetachedView(extracted, targetIndex, true);
+      if (targetPanel !== sourcePanel) {
+        this.normalizeLayout(sourcePanel);
+      }
+      return true;
+    }
+
+    if (targetPanel === sourcePanel && sourcePanel.views.length === 0) {
+      sourcePanel.insertDetachedView(extracted, 0, true);
+      return false;
+    }
+
+    this.splitPanelForDrop(targetPanel, intent.edge, extracted);
+    this.normalizeLayout(sourcePanel);
+    return true;
+  }
+
+  splitPanelForDrop(
+    target: LayoutNode,
+    edge: Exclude<PanelDropEdge, "center">,
+    incoming: DetachedTab,
+  ): LayoutNode {
+    const splitAxis: SplitAxis = edge === "left" || edge === "right" ? "row" : "column";
+    const existingPanel = this.workspace.createPanel("TabGroup", splitAxis, undefined, target);
+    target.moveAllViewsTo(existingPanel);
+
+    const incomingPanel = this.workspace.createPanel("TabGroup", splitAxis, undefined, target);
+    incomingPanel.insertDetachedView(incoming, 0, true);
+
+    target.setMode("SplitGroup", false);
+    target.setSplitAxis(splitAxis, false);
+    if (edge === "left" || edge === "top") {
+      target.addPanel(incomingPanel, 1, false);
+      target.addPanel(existingPanel, 1, false);
+    } else {
+      target.addPanel(existingPanel, 1, false);
+      target.addPanel(incomingPanel, 1, false);
+    }
+    target.refreshLayoutDom();
+    this.normalizeLayout(target);
+    this.workspace.onPanelMutated();
+    return incomingPanel;
+  }
+
+  normalizeLayout(startPanel: LayoutNode): void {
+    let current: LayoutNode | null = startPanel;
+    while (current) {
+      current = this.normalizeOne(current);
+    }
+    this.workspace.setActiveView(this.workspace.rootPanel.findActiveView());
+  }
+
+  private normalizeOne(panel: LayoutNode): LayoutNode | null {
+    if (panel.getMode() === "TabGroup") {
+      if (panel.views.length > 0) {
+        return panel.parent;
+      }
+      if (panel.isPersistent()) {
+        panel.ensureFallbackView();
+        return panel.parent;
+      }
+      if (!panel.parent) {
+        return null;
+      }
+      const parent = panel.parent;
+      parent.removePanel(panel.id, { keepChildAlive: true, notify: false });
+      parent.refreshLayoutDom();
+      return parent;
+    }
+
+    if (panel.childPanels.length === 0) {
+      panel.setMode("TabGroup", false);
+      panel.refreshLayoutDom();
+      return panel.parent;
+    }
+
+    if (panel.childPanels.length > 1) {
+      return panel.parent;
+    }
+
+    const onlyChild = panel.childPanels[0].panel;
+    if (panel.isPersistent()) {
+      onlyChild.setPersistent(true);
+    }
+
+    if (!panel.parent) {
+      panel.absorbPanel(onlyChild);
+      onlyChild.destroyShallow();
+      panel.refreshLayoutDom();
+      return panel;
+    }
+
+    const parent = panel.parent;
+    parent.replaceChildPanel(panel.id, onlyChild);
+    panel.destroyShallow();
+    parent.refreshLayoutDom();
+    return parent;
+  }
+}
+
 /**
  * A singleton managing the workspace, including open views and active state.
  * It handles layout arrangement, resizing, and inter-view interactions
@@ -257,13 +238,14 @@ type ViewEvents = {
  */
 export class Workspace extends ETarget<WorkspaceEvents> {
   private RegisteredViews: Map<string, ViewFactory> = new Map();
-  rootPanel: Panel;
+  rootPanel: LayoutNode;
+  private mutator: LayoutTreeService;
   private _activeView: View | null = null;
-  private _activePanel: Panel | null = null;
+  private _activePanel: LayoutNode | null = null;
   private _lastActiveViewByType: Map<string, View> = new Map();
   private panelCounter = 0;
   private suppressLayoutEvents = false;
-  private dragState: DragDropState | null = null;
+  private dragDrop: DragDropController;
   private app: WorkspaceHost | null = null;
   private initialized = false;
   private initializingPromise: Promise<boolean> | null = null;
@@ -271,29 +253,16 @@ export class Workspace extends ETarget<WorkspaceEvents> {
   private autoSaveBound = false;
   private saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private globalSwipeHandler: GlobalSwipeHandler | null = null;
-  private windowControlsOwner: Panel | null = null;
-
-  private readonly onDocumentPointerMove = (event: PointerEvent) => {
-    this.handleTabPointerMove(event);
-  };
-
-  private readonly onDocumentPointerUp = (event: PointerEvent) => {
-    this.handleTabPointerUp(event);
-  };
+  private windowControlsOwner: LayoutNode | null = null;
+  private _isElectronRenderer: boolean | null = null;
 
   constructor(app?: WorkspaceHost) {
     super();
     this.app = app ?? null;
-    this.rootPanel = this.createPanel("panels", "horizontal", "root");
+    this.rootPanel = this.createPanel("SplitGroup", "row", "root");
+    this.mutator = new LayoutTreeService(this);
+    this.dragDrop = new DragDropController(this);
     this.registerView("empty", panel => new EmptyView(panel));
-  }
-
-  private getConfigName(): string {
-    return "workspace";
-  }
-
-  private getAutoSaveDelay(): number {
-    return 500;
   }
 
   private ensureHost(): HTMLDivElement {
@@ -328,7 +297,7 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     }
 
     this.initializingPromise = (async () => {
-      const rawLayout = await this.app!.loadConfig(this.getConfigName());
+      const rawLayout = await this.app!.loadConfig(WORKSPACE_CONFIG_NAME);
       const restored = this.restoreLayoutFromString(rawLayout, this.app!.getDefaultWorkspaceLayout(), {
         onInvalidJSON: error => this.app?.onWorkspaceLayoutInvalid(error),
         onRejectedLayout: () => this.app?.onWorkspaceLayoutRejected(),
@@ -349,10 +318,10 @@ export class Workspace extends ETarget<WorkspaceEvents> {
       return;
     }
     const serializedLayout = this.serializeLayout();
-    await this.app.saveConfig(this.getConfigName(), JSON.stringify(serializedLayout));
+    await this.app.saveConfig(WORKSPACE_CONFIG_NAME, JSON.stringify(serializedLayout));
   }
 
-  saveAfterDelay(delay: number = this.getAutoSaveDelay()) {
+  saveAfterDelay(delay: number = AUTO_SAVE_DELAY_MS) {
     if (this.saveTimeoutId !== null) {
       clearTimeout(this.saveTimeoutId);
       this.saveTimeoutId = null;
@@ -363,7 +332,7 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     }, delay);
   }
 
-  enableAutoSave(delay: number = this.getAutoSaveDelay()) {
+  enableAutoSave(delay: number = AUTO_SAVE_DELAY_MS) {
     if (this.autoSaveBound) {
       return;
     }
@@ -379,21 +348,16 @@ export class Workspace extends ETarget<WorkspaceEvents> {
       this.saveTimeoutId = null;
     }
     void this.saveLayout();
+    this.dragDrop.destroy();
     this.globalSwipeHandler?.destroy();
     this.globalSwipeHandler = null;
-  }
-
-  createEmptyView(ViewClass: (panel: Panel) => View) {
-    this.unregisterView("empty");
-    this.registerView("empty", ViewClass);
-    return this;
   }
 
   get activeView(): View | null {
     return this._activeView;
   }
 
-  get activePanel(): Panel | null {
+  get activePanel(): LayoutNode | null {
     return this._activePanel;
   }
 
@@ -413,46 +377,36 @@ export class Workspace extends ETarget<WorkspaceEvents> {
   }
 
   createPanel(
-    mode: PanelMode = "views",
-    splitDirection: SplitDirection = "horizontal",
+    mode: NodeType = "TabGroup",
+    splitAxis: SplitAxis = "row",
     id?: string,
-    parent?: Panel | null,
-  ): Panel {
+    parent?: LayoutNode | null,
+  ): LayoutNode {
     const panelId = id ?? `panel-${++this.panelCounter}`;
-    return new Panel(this, panelId, mode, splitDirection, parent);
-  }
-
-  createDefaultLayout(): WorkspaceLayout {
-    return {
-      version: 1,
-      rootPanel: {
-        id: "root",
-        mode: "panels",
-        splitDirection: "horizontal",
-        children: [],
-      },
-    };
+    return new LayoutNode(this, panelId, mode, splitAxis, parent);
   }
 
   private isElectronRenderer(): boolean {
-    return (
-      typeof window !== "undefined" &&
-      !!(window as { touchGrassElectronPlatform?: object }).touchGrassElectronPlatform
-    );
+    if (this._isElectronRenderer === null) {
+      this._isElectronRenderer =
+        typeof window !== "undefined" &&
+        !!(window as { touchGrassElectronPlatform?: object }).touchGrassElectronPlatform;
+    }
+    return this._isElectronRenderer;
   }
 
-  draggablePanels: Panel[] = [];
+  draggablePanels: LayoutNode[] = [];
 
-  private resolveWindowControlsOwner(): Panel | null {
+  private resolveWindowControlsOwner(): LayoutNode | null {
     if (!this.isElectronRenderer()) {
       return null;
     }
 
-    const getPanel = (panel: Panel): Panel | null => {
-      if (panel.getMode() === "views") {
+    const getPanel = (panel: LayoutNode): LayoutNode | null => {
+      if (panel.getMode() === "TabGroup") {
         return panel;
       } else if (panel.childPanels.length > 0) {
-        if (panel.getSplitDirection() === "horizontal") {
+        if (panel.getSplitAxis() === "row") {
           return getPanel(panel.childPanels[panel.childPanels.length - 1].panel);
         } else {
           return getPanel(panel.childPanels[0].panel);
@@ -464,11 +418,11 @@ export class Workspace extends ETarget<WorkspaceEvents> {
 
     const candidate = getPanel(this.rootPanel);
 
-    const getDraggablePanels = (panel: Panel): Panel[] => {
-      if (panel.getMode() === "views") {
+    const getDraggablePanels = (panel: LayoutNode): LayoutNode[] => {
+      if (panel.getMode() === "TabGroup") {
         return [panel];
       } else if (panel.childPanels.length > 0) {
-        if (panel.getSplitDirection() === "horizontal") {
+        if (panel.getSplitAxis() === "row") {
           return panel.childPanels.map(child => getDraggablePanels(child.panel)).flat();
         } else {
           return getDraggablePanels(panel.childPanels[0].panel);
@@ -478,16 +432,18 @@ export class Workspace extends ETarget<WorkspaceEvents> {
       }
     };
 
-    const newDraggablePanels: Panel[] = getDraggablePanels(this.rootPanel);
+    const newDraggablePanels: LayoutNode[] = getDraggablePanels(this.rootPanel);
 
     for (const panel of [...this.draggablePanels, ...newDraggablePanels]) {
       panel.makeDraggable(newDraggablePanels.includes(panel));
     }
 
+    this.draggablePanels = newDraggablePanels;
+
     return candidate;
   }
 
-  shouldShowWindowControls(panel: Panel): boolean {
+  shouldShowWindowControls(panel: LayoutNode): boolean {
     return this.windowControlsOwner === panel;
   }
 
@@ -511,6 +467,12 @@ export class Workspace extends ETarget<WorkspaceEvents> {
   }
 
   setActiveView(view: View | null) {
+    if (this._activeView === view) {
+      if (view) {
+        this.setActivePanel(view.panel);
+      }
+      return;
+    }
     this._activeView = view;
     if (view) {
       this.setActivePanel(view.panel);
@@ -522,22 +484,32 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     this.markLayoutChanged();
   }
 
-  setActivePanel(panel: Panel | null) {
+  setActivePanel(panel: LayoutNode | null) {
     if (this._activePanel === panel) return;
     this._activePanel?.setFocused(false);
     this._activePanel = panel;
     this._activePanel?.setFocused(true);
   }
 
-  registerView(id: string, view: ViewFactory) {
-    this.RegisteredViews.set(id, view);
-    this.rootPanel.hydrateViewsById(id, view);
+  registerView(viewType: string, view: ViewFactory) {
+    const previousActive = this._activeView;
+    this.RegisteredViews.set(viewType, view);
+    this.rootPanel.hydrateViewsByType(viewType, view);
+    if (previousActive) {
+      this.setActiveView(previousActive);
+      return;
+    }
     this.setActiveView(this.rootPanel.findActiveView());
   }
 
-  unregisterView(id: string) {
-    this.RegisteredViews.delete(id);
-    this.rootPanel.unloadViewsById(id);
+  unregisterView(viewType: string) {
+    const previousActive = this._activeView;
+    this.RegisteredViews.delete(viewType);
+    this.rootPanel.unloadViewsByType(viewType);
+    if (previousActive && previousActive.viewTypeId !== viewType) {
+      this.setActiveView(previousActive);
+      return;
+    }
     this.setActiveView(this.rootPanel.findActiveView());
   }
 
@@ -545,39 +517,28 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     return Array.from(this.RegisteredViews.keys());
   }
 
-  newView(id: string, panel: Panel): View | null {
-    const viewFactory = this.RegisteredViews.get(id);
-    if (!viewFactory) {
-      return null;
-    }
-    const view = viewFactory(panel);
-    panel.addView(id, view, id, false);
-    return view;
-  }
-
   openView(
-    id: string,
-    panel: Panel,
+    viewType: string,
+    panel: LayoutNode,
     options: { title?: string; activate?: boolean; state?: unknown } = {},
   ): View | null {
-    const viewFactory = this.RegisteredViews.get(id);
+    const viewFactory = this.RegisteredViews.get(viewType);
     if (!viewFactory) {
-      panel.addUnresolvedView(id, options.title ?? id, options.activate ?? true, options.state);
+      panel.addUnresolvedView(viewType, options.title ?? viewType, options.activate ?? true, options.state);
       return null;
     }
     const view = viewFactory(panel);
-    panel.addView(id, view, options.title ?? id, options.activate ?? true, options.state);
+    panel.addView(viewType, view, options.title ?? viewType, options.activate ?? true, options.state);
     return view;
   }
 
   serializeLayout(): WorkspaceLayout {
-    const activeViewId = this._activeView
-      ? this._activeView.panel.views.find(v => v.view === this._activeView)?.id
-      : undefined;
+    const activeLocation = this.getActiveViewLocation();
     return {
-      version: 1,
+      version: 2,
       rootPanel: this.rootPanel.serialize(),
-      activeViewId,
+      activeViewPanelPath: activeLocation?.panelPath,
+      activeViewIndex: activeLocation?.viewIndex,
     };
   }
 
@@ -591,16 +552,22 @@ export class Workspace extends ETarget<WorkspaceEvents> {
       this.windowControlsOwner = null;
       this.rootPanel.destroy();
       this.rootPanel = this.deserializePanel(layout.rootPanel);
-      if (layout.activeViewId) {
-        // Restore the globally focused view; falls back to whatever panel's visible tab is first found.
-        this.activateView(layout.activeViewId);
+      if (
+        Array.isArray(layout.activeViewPanelPath) &&
+        layout.activeViewPanelPath.every(index => Number.isInteger(index) && index >= 0) &&
+        typeof layout.activeViewIndex === "number"
+      ) {
+        const restored = this.activateViewByIndex(layout.activeViewPanelPath, layout.activeViewIndex);
+        if (!restored) {
+          this.setActiveView(this.rootPanel.findActiveView());
+        }
       } else {
         this.setActiveView(this.rootPanel.findActiveView());
       }
       this.refreshWindowControls();
     } catch (error) {
       console.warn("Failed to restore workspace layout", error);
-      this.rootPanel = this.createPanel("panels", "horizontal", "root");
+      this.rootPanel = this.createPanel("SplitGroup", "row", "root");
       this.windowControlsOwner = null;
       this.setActiveView(null);
       this.suppressLayoutEvents = false;
@@ -635,39 +602,43 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     return restored;
   }
 
-  hasViewInLayout(viewId: string, panel: Panel = this.rootPanel): boolean {
-    if (panel.getMode() === "views") {
-      return panel.getViews().some((view: { id: string }) => view.id === viewId);
+  hasViewInLayout(viewType: string, panel: LayoutNode = this.rootPanel): boolean {
+    if (panel === this.rootPanel) {
+      return WorkspaceLayoutModel.hasView(this.serializeLayout(), viewType);
     }
 
-    return panel.childPanels.some(child => this.hasViewInLayout(viewId, child.panel));
+    if (panel.getMode() === "TabGroup") {
+      return panel.getViews().some(view => view.viewType === viewType);
+    }
+
+    return panel.childPanels.some(child => this.hasViewInLayout(viewType, child.panel));
   }
 
-  ensureViewInLayout(viewId: string, fallbackLayout: WorkspaceLayout): boolean {
-    if (this.hasViewInLayout(viewId)) {
+  ensureViewInLayout(viewType: string, fallbackLayout: WorkspaceLayout): boolean {
+    if (this.hasViewInLayout(viewType)) {
       return true;
     }
     this.restoreLayout(fallbackLayout);
     return false;
   }
 
-  private deserializePanel(serialized: SerializedPanel, parent?: Panel | null): Panel {
-    const panel = this.createPanel(serialized.mode, serialized.splitDirection, serialized.id, parent);
+  private deserializePanel(serialized: SerializedPanel, parent?: LayoutNode | null): LayoutNode {
+    const panel = this.createPanel(serialized.mode, serialized.splitAxis, serialized.id, parent);
     panel.setPersistent(!!serialized.persistent);
-    if (serialized.mode === "views") {
-      panel.setMode("views");
+    if (serialized.mode === "TabGroup") {
+      panel.setMode("TabGroup");
       serialized.views?.forEach(savedView => {
-        this.openView(savedView.id, panel, {
+        this.openView(savedView.viewType, panel, {
           title: savedView.title,
           activate: false,
           state: savedView.state,
         });
       });
-      if (serialized.visibleViewId) {
-        panel.showViewByViewId(serialized.visibleViewId);
+      if (typeof serialized.visibleViewIndex === "number") {
+        panel.showViewByIndex(serialized.visibleViewIndex, false);
       }
     } else {
-      panel.setMode("panels");
+      panel.setMode("SplitGroup");
       serialized.children?.forEach(({ size, panel: childPanel }) => {
         const child = this.deserializePanel(childPanel, panel);
         panel.addPanel(child, size);
@@ -677,33 +648,13 @@ export class Workspace extends ETarget<WorkspaceEvents> {
   }
 
   private isValidLayout(layout: WorkspaceLayout): boolean {
-    if (!layout || layout.version !== 1 || !layout.rootPanel) {
-      return false;
-    }
-    return this.isValidSerializedPanel(layout.rootPanel);
-  }
-
-  private isValidSerializedPanel(panel: SerializedPanel): boolean {
-    if (!panel.id || (panel.mode !== "views" && panel.mode !== "panels")) {
-      return false;
-    }
-    if (panel.persistent !== undefined && typeof panel.persistent !== "boolean") {
-      return false;
-    }
-    if (panel.splitDirection !== "horizontal" && panel.splitDirection !== "vertical") {
-      return false;
-    }
-    if (panel.mode === "views") {
-      if (panel.children && panel.children.length > 0) return false;
-      if (panel.views && !panel.views.every(view => !!view.id && !!view.title)) return false;
-      return true;
-    }
-    if (panel.views && panel.views.length > 0) return false;
-    return (panel.children ?? []).every(child => child.size > 0 && this.isValidSerializedPanel(child.panel));
+    return WorkspaceLayoutModel.isValidLayout(layout);
   }
 
   onPanelMutated() {
-    this.refreshWindowControls();
+    if (!this.suppressLayoutEvents) {
+      this.refreshWindowControls();
+    }
     this.markLayoutChanged();
   }
 
@@ -711,301 +662,93 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     this.markLayoutChanged();
   }
 
-  activateView(viewId: string): boolean {
-    return this.rootPanel.activateViewByViewId(viewId);
+  activateView(viewType: string): boolean {
+    return this.rootPanel.activateViewByViewType(viewType);
   }
 
-  handleTabPointerDown(panel: Panel, tabId: string, event: PointerEvent): void {
-    if (event.button !== 0 || this.dragState) return;
-    const sourceTabButton = event.currentTarget as HTMLButtonElement | null;
-    if (!sourceTabButton) return;
-    this.dragState = {
-      sourcePanel: panel,
-      tabId,
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      dragging: false,
-      sourceTabButton,
-      targetPanel: null,
-      targetEdge: null,
-      targetInsertIndex: null,
-      targetTabButton: null,
+  private getActiveViewLocation(): { panelPath: number[]; viewIndex: number } | null {
+    if (!this._activeView) {
+      return null;
+    }
+    const viewIndex = this._activeView.panel.views.findIndex(v => v.view === this._activeView);
+    if (viewIndex < 0) {
+      return null;
+    }
+    const panelPath = this.findPanelPath(this._activeView.panel);
+    if (!panelPath) {
+      return null;
+    }
+    return { panelPath, viewIndex };
+  }
+
+  private findPanelPath(targetPanel: LayoutNode): number[] | null {
+    const walk = (panel: LayoutNode, path: number[]): number[] | null => {
+      if (panel === targetPanel) {
+        return path;
+      }
+      for (let i = 0; i < panel.childPanels.length; i += 1) {
+        const found = walk(panel.childPanels[i].panel, [...path, i]);
+        if (found) {
+          return found;
+        }
+      }
+      return null;
     };
-    sourceTabButton.setPointerCapture(event.pointerId);
-    document.addEventListener("pointermove", this.onDocumentPointerMove);
-    document.addEventListener("pointerup", this.onDocumentPointerUp);
+
+    return walk(this.rootPanel, []);
+  }
+
+  private getPanelByPath(path: number[]): LayoutNode | null {
+    let panel: LayoutNode = this.rootPanel;
+    for (const index of path) {
+      const next = panel.childPanels[index]?.panel;
+      if (!next) {
+        return null;
+      }
+      panel = next;
+    }
+    return panel;
+  }
+
+  private activateViewByIndex(panelPath: number[], viewIndex: number): boolean {
+    const panel = this.getPanelByPath(panelPath);
+    if (!panel || panel.getMode() !== "TabGroup") {
+      return false;
+    }
+    return panel.setActiveViewByIndex(viewIndex);
+  }
+
+  handleTabPointerDown(panel: LayoutNode, tabId: string, event: PointerEvent): void {
+    this.dragDrop.handleTabPointerDown(panel, tabId, event);
   }
 
   splitPanelForDrop(
-    target: Panel,
+    target: LayoutNode,
     edge: Exclude<PanelDropEdge, "center">,
-    incoming: DetachedPanelView,
-  ): Panel {
-    const splitDirection: SplitDirection = edge === "left" || edge === "right" ? "horizontal" : "vertical";
-    const existingPanel = this.createPanel("views", splitDirection, undefined, target);
-    target.moveAllViewsTo(existingPanel);
-
-    const incomingPanel = this.createPanel("views", splitDirection, undefined, target);
-    incomingPanel.insertDetachedView(incoming, 0, true);
-
-    target.setModeSilent("panels");
-    target.setSplitDirectionSilent(splitDirection);
-    if (edge === "left" || edge === "top") {
-      target.addPanelSilent(incomingPanel, 1);
-      target.addPanelSilent(existingPanel, 1);
-    } else {
-      target.addPanelSilent(existingPanel, 1);
-      target.addPanelSilent(incomingPanel, 1);
-    }
-    target.refreshLayoutDom();
-    this.normalizeLayout(target);
-    this.onPanelMutated();
-    return incomingPanel;
+    incoming: DetachedTab,
+  ): LayoutNode {
+    return this.mutator.splitPanelForDrop(target, edge, incoming);
   }
 
-  normalizeLayout(startPanel: Panel): void {
-    let current: Panel | null = startPanel;
-    while (current) {
-      current = this.normalizeOne(current);
-    }
-    this.setActiveView(this.rootPanel.findActiveView());
+  normalizeLayout(startPanel: LayoutNode): void {
+    this.mutator.normalizeLayout(startPanel);
   }
 
-  private normalizeOne(panel: Panel): Panel | null {
-    if (panel.getMode() === "views") {
-      if (panel.views.length > 0) {
-        return panel.parent;
-      }
-      if (panel.isPersistent()) {
-        panel.ensureFallbackView();
-        return panel.parent;
-      }
-      if (!panel.parent) {
-        return null;
-      }
-      const parent = panel.parent;
-      parent.removePanelSilent(panel.id, true);
-      parent.refreshLayoutDom();
-      return parent;
-    }
-
-    if (panel.childPanels.length === 0) {
-      panel.setModeSilent("views");
-      panel.refreshLayoutDom();
-      return panel.parent;
-    }
-
-    if (panel.childPanels.length > 1) {
-      return panel.parent;
-    }
-
-    const onlyChild = panel.childPanels[0].panel;
-    if (!panel.parent) {
-      panel.absorbPanel(onlyChild);
-      onlyChild.destroyShallow();
-      panel.refreshLayoutDom();
-      return panel;
-    }
-
-    const parent = panel.parent;
-    parent.replaceChildPanelSilent(panel.id, onlyChild);
-    panel.destroyShallow();
-    parent.refreshLayoutDom();
-    return parent;
-  }
-
-  private handleTabPointerMove(event: PointerEvent): void {
-    const dragState = this.dragState;
-    if (!dragState || event.pointerId !== dragState.pointerId) return;
-
-    const distance = Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY);
-    if (!dragState.dragging && distance < 6) {
-      return;
-    }
-
-    if (!dragState.dragging) {
-      dragState.dragging = true;
-      dragState.sourceTabButton.classList.add("is-dragging");
-      document.body.classList.add("workspace-tab-dragging");
-    }
-
-    this.updateDropTarget(event.clientX, event.clientY);
-  }
-
-  private handleTabPointerUp(event: PointerEvent): void {
-    const dragState = this.dragState;
-    if (!dragState || event.pointerId !== dragState.pointerId) return;
-
-    dragState.sourceTabButton.releasePointerCapture(event.pointerId);
-    this.clearDropTargetClasses();
-
-    if (!dragState.dragging) {
-      this.clearDragState();
-      return;
-    }
-
-    const moved = this.performDrop();
-    this.clearDragState();
+  applyDropIntent(intent: DropIntent): boolean {
+    const moved = this.mutator.applyDropIntent(intent);
     if (moved) {
       this.onPanelMutated();
     }
+    return moved;
   }
 
-  private performDrop(): boolean {
-    const dragState = this.dragState;
-    if (!dragState || !dragState.targetPanel || !dragState.targetEdge) return false;
-
-    const sourceIndex = dragState.sourcePanel.getViewIndexByTabId(dragState.tabId);
-    const extracted = dragState.sourcePanel.extractDetachedView(dragState.tabId);
-    if (!extracted) return false;
-
-    if (
-      dragState.targetEdge !== "center" &&
-      dragState.targetPanel === dragState.sourcePanel &&
-      dragState.targetPanel.views.length === 0
-    ) {
-      dragState.sourcePanel.insertDetachedView(extracted, 0, true);
-      return false;
-    }
-
-    if (dragState.targetEdge === "center") {
-      let targetIndex = dragState.targetInsertIndex ?? dragState.targetPanel.views.length;
-      if (sourceIndex >= 0 && dragState.targetPanel === dragState.sourcePanel && targetIndex > sourceIndex) {
-        targetIndex -= 1;
-      }
-      dragState.targetPanel.insertDetachedView(extracted, targetIndex, true);
-      this.normalizeLayout(dragState.sourcePanel);
-      return true;
-    }
-
-    this.splitPanelForDrop(dragState.targetPanel, dragState.targetEdge, extracted);
-    this.normalizeLayout(dragState.sourcePanel);
-    return true;
-  }
-
-  private updateDropTarget(clientX: number, clientY: number): void {
-    const dragState = this.dragState;
-    if (!dragState) return;
-
-    const hit = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
-    if (!hit) {
-      this.setDropTarget(null, null, null, null);
-      return;
-    }
-
-    const tabBar = hit.closest(".panel-tabs") as HTMLDivElement | null;
-    if (tabBar) {
-      const panelEl = tabBar.closest(".panel") as HTMLDivElement | null;
-      const panel = panelEl ? this.findPanelById(panelEl.dataset.panelId ?? "") : null;
-      if (panel && panel.getMode() === "views") {
-        const tabButton = hit.closest(".panel-tab") as HTMLButtonElement | null;
-        const insertIndex = panel.getInsertIndexForPointer(tabButton);
-        this.setDropTarget(panel, "center", insertIndex, tabButton);
-        return;
-      }
-    }
-
-    const panelEl = hit.closest(".panel") as HTMLDivElement | null;
-    const panel = panelEl ? this.findPanelById(panelEl.dataset.panelId ?? "") : null;
-    if (!panel || panel.getMode() !== "views" || panel.views.length === 0) {
-      this.setDropTarget(null, null, null, null);
-      return;
-    }
-
-    const contentRect = panel.contentEl.getBoundingClientRect();
-    if (contentRect.width <= 0 || contentRect.height <= 0) {
-      this.setDropTarget(null, null, null, null);
-      return;
-    }
-    const x = (clientX - contentRect.left) / contentRect.width;
-    const y = (clientY - contentRect.top) / contentRect.height;
-    const edgeThreshold = 0.24;
-    let edge: PanelDropEdge = "center";
-    if (x <= edgeThreshold) edge = "left";
-    else if (x >= 1 - edgeThreshold) edge = "right";
-    else if (y <= edgeThreshold) edge = "top";
-    else if (y >= 1 - edgeThreshold) edge = "bottom";
-    this.setDropTarget(panel, edge, panel.views.length, null);
-  }
-
-  private setDropTarget(
-    panel: Panel | null,
-    edge: PanelDropEdge | null,
-    insertIndex: number | null,
-    tabButton: HTMLButtonElement | null,
-  ): void {
-    const dragState = this.dragState;
-    if (!dragState) return;
-
-    if (
-      dragState.targetPanel === panel &&
-      dragState.targetEdge === edge &&
-      dragState.targetInsertIndex === insertIndex &&
-      dragState.targetTabButton === tabButton
-    ) {
-      return;
-    }
-
-    this.clearDropTargetClasses();
-    dragState.targetPanel = panel;
-    dragState.targetEdge = edge;
-    dragState.targetInsertIndex = insertIndex;
-    dragState.targetTabButton = tabButton;
-
-    if (!panel || !edge) return;
-    panel.containerEl.classList.add("is-drop-target", `drop-edge-${edge}`);
-    if (tabButton) {
-      tabButton.classList.add("is-drop-before");
-    }
-  }
-
-  private clearDropTargetClasses(): void {
-    const dragState = this.dragState;
-    if (!dragState) return;
-    dragState.targetPanel?.containerEl.classList.remove(
-      "is-drop-target",
-      "drop-edge-left",
-      "drop-edge-right",
-      "drop-edge-top",
-      "drop-edge-bottom",
-      "drop-edge-center",
-    );
-    dragState.targetTabButton?.classList.remove("is-drop-before");
-  }
-
-  private clearDragState(): void {
-    const dragState = this.dragState;
-    if (!dragState) return;
-    this.clearDropTargetClasses();
-    dragState.sourceTabButton.classList.remove("is-dragging");
-    document.body.classList.remove("workspace-tab-dragging");
-    document.removeEventListener("pointermove", this.onDocumentPointerMove);
-    document.removeEventListener("pointerup", this.onDocumentPointerUp);
-    this.dragState = null;
-  }
-
-  findPanelById(panelId: string): Panel | null {
+  findPanelById(panelId: string): LayoutNode | null {
     if (!panelId) return null;
     return this.rootPanel.findPanelById(panelId);
   }
 }
 
-export class Panel {
-  private containerComponent: WorkspacePanelContainer;
-  private tabBarComponent: WorkspacePanelTabs;
-  private contentComponent: WorkspacePanelContent;
-  containerEl: HTMLDivElement;
-  tabBarEl: HTMLDivElement;
-  contentEl: HTMLDivElement;
-  childPanels: Array<{ panel: Panel; size: number }> = [];
-  views: PanelView[] = [];
-  activeViewId: string | null = null;
-  parent: Panel | null = null;
-  private persistent = false;
-  private addTabButton!: HTMLButtonElement;
-  private windowControlsEl: HTMLDivElement | null = null;
-  private windowControlsComponent: UIComponent<"div"> | null = null;
+class SplitterController {
   private resizeHandleComponents: UIComponent<"div">[] = [];
   private resizeState: {
     pointerId: number;
@@ -1023,12 +766,119 @@ export class Panel {
     this.handleResizePointerUp(event);
   };
 
+  constructor(private panel: LayoutNode) {}
+
+  createHandle(index: number): HTMLDivElement {
+    const handleComponent = UIComponent.detached("div")
+      .addClass("panel-resize-handle")
+      .setData({
+        index: String(index),
+        splitAxis: this.panel.getSplitAxis(),
+      })
+      .listen("pointerdown", event => {
+        if (event.button !== 0) return;
+        const first = this.panel.childPanels[index];
+        const second = this.panel.childPanels[index + 1];
+        if (!first || !second) return;
+        const lastPrimary = this.panel.getSplitAxis() === "row" ? event.clientX : event.clientY;
+        this.resizeState = {
+          pointerId: event.pointerId,
+          handleEl: event.currentTarget as HTMLDivElement,
+          firstPanelId: first.panel.id,
+          secondPanelId: second.panel.id,
+          lastPrimary,
+        };
+        (event.currentTarget as HTMLDivElement).setPointerCapture(event.pointerId);
+        document.addEventListener("pointermove", this.onResizePointerMove);
+        document.addEventListener("pointerup", this.onResizePointerUp);
+        document.body.classList.add("workspace-resizing");
+        event.preventDefault();
+      });
+    this.resizeHandleComponents.push(handleComponent);
+    return handleComponent.element;
+  }
+
+  clearHandles(): void {
+    this.resizeHandleComponents.forEach(handle => handle.remove());
+    this.resizeHandleComponents = [];
+  }
+
+  destroy(): void {
+    this.clearHandles();
+    if (this.resizeState) {
+      document.removeEventListener("pointermove", this.onResizePointerMove);
+      document.removeEventListener("pointerup", this.onResizePointerUp);
+      document.body.classList.remove("workspace-resizing");
+      this.resizeState = null;
+    }
+  }
+
+  private handleResizePointerMove(event: PointerEvent): void {
+    const resizeState = this.resizeState;
+    if (!resizeState || event.pointerId !== resizeState.pointerId) return;
+    const first = this.panel.childPanels.find(entry => entry.panel.id === resizeState.firstPanelId);
+    const second = this.panel.childPanels.find(entry => entry.panel.id === resizeState.secondPanelId);
+    if (!first || !second) return;
+
+    const currentPrimary = this.panel.getSplitAxis() === "row" ? event.clientX : event.clientY;
+    const deltaPrimary = currentPrimary - resizeState.lastPrimary;
+    if (deltaPrimary === 0) return;
+
+    const firstBounds = first.panel.containerEl.getBoundingClientRect();
+    const secondBounds = second.panel.containerEl.getBoundingClientRect();
+    const pairPrimary =
+      this.panel.getSplitAxis() === "row"
+        ? firstBounds.width + secondBounds.width
+        : firstBounds.height + secondBounds.height;
+    if (pairPrimary <= 0) return;
+
+    const totalSize = first.size + second.size;
+    const deltaRatio = (deltaPrimary / pairPrimary) * totalSize;
+    const minSize = 0.1;
+    const nextFirst = Math.max(minSize, Math.min(first.size + deltaRatio, totalSize - minSize));
+    const nextSecond = Math.max(minSize, totalSize - nextFirst);
+
+    first.size = nextFirst;
+    second.size = nextSecond;
+    resizeState.lastPrimary = currentPrimary;
+    this.panel.layoutChildPanelSizes();
+    this.panel.workspace.onPanelMutated();
+  }
+
+  private handleResizePointerUp(event: PointerEvent): void {
+    const resizeState = this.resizeState;
+    if (!resizeState || event.pointerId !== resizeState.pointerId) return;
+    resizeState.handleEl.releasePointerCapture(event.pointerId);
+    document.removeEventListener("pointermove", this.onResizePointerMove);
+    document.removeEventListener("pointerup", this.onResizePointerUp);
+    document.body.classList.remove("workspace-resizing");
+    this.resizeState = null;
+  }
+}
+
+export class LayoutNode {
+  private containerComponent: WorkspacePanelContainer;
+  private tabBarComponent: WorkspacePanelTabs;
+  private contentComponent: WorkspacePanelContent;
+  containerEl: HTMLDivElement;
+  tabBarEl: HTMLDivElement;
+  contentEl: HTMLDivElement;
+  childPanels: Array<{ panel: LayoutNode; size: number }> = [];
+  views: PanelView[] = [];
+  activeViewId: string | null = null;
+  parent: LayoutNode | null = null;
+  private persistent = false;
+  private addTabButton!: HTMLButtonElement;
+  private windowControlsEl: HTMLDivElement | null = null;
+  private windowControlsComponent: UIComponent<"div"> | null = null;
+  private splitterController: SplitterController;
+
   constructor(
     public workspace: Workspace,
     readonly id: string,
-    private mode: PanelMode = "views",
-    private splitDirection: SplitDirection = "horizontal",
-    parent?: Panel | null,
+    private mode: NodeType = "TabGroup",
+    private splitAxis: SplitAxis = "row",
+    parent?: LayoutNode | null,
   ) {
     this.parent = parent ?? null;
     this.containerComponent = new WorkspacePanelContainer(id);
@@ -1037,6 +887,7 @@ export class Panel {
     this.containerEl = this.containerComponent.element;
     this.tabBarEl = this.tabBarComponent.element;
     this.contentEl = this.contentComponent.element;
+    this.splitterController = new SplitterController(this);
     this.containerEl.append(this.tabBarEl, this.contentEl);
     this.containerComponent.listen("pointerdown", e => {
       e.stopPropagation();
@@ -1052,28 +903,30 @@ export class Panel {
       });
     this.addTabButton = addTabButtonComponent.mount(this.tabBarEl).element;
     this.applyModeClasses();
-    this.applySplitDirection();
+    this.applySplitAxis();
   }
 
-  getMode(): PanelMode {
+  getMode(): NodeType {
     return this.mode;
   }
 
-  getSplitDirection(): SplitDirection {
-    return this.splitDirection;
+  getSplitAxis(): SplitAxis {
+    return this.splitAxis;
   }
 
-  setMode(mode: PanelMode): this {
+  setMode(mode: NodeType, notify: boolean = true): this {
     if (mode === this.mode) return this;
-    if (mode === "views" && this.childPanels.length > 0) {
+    if (mode === "TabGroup" && this.childPanels.length > 0) {
       throw new Error("Cannot switch panel to view mode while it has child panels");
     }
-    if (mode === "panels" && this.views.length > 0) {
+    if (mode === "SplitGroup" && this.views.length > 0) {
       throw new Error("Cannot switch panel to panel mode while it has views");
     }
     this.mode = mode;
     this.applyModeClasses();
-    this.workspace.onPanelMutated();
+    if (notify) {
+      this.workspace.onPanelMutated();
+    }
     return this;
   }
 
@@ -1086,15 +939,17 @@ export class Panel {
     return this.persistent;
   }
 
-  setSplitDirection(splitDirection: SplitDirection): this {
-    this.splitDirection = splitDirection;
+  setSplitAxis(setAxis: SplitAxis, notify: boolean = true): this {
+    this.splitAxis = setAxis;
     this.refreshLayoutDom();
-    this.workspace.onPanelMutated();
+    if (notify) {
+      this.workspace.onPanelMutated();
+    }
     return this;
   }
 
-  addPanel(panel: Panel, size: number = 1): this {
-    if (this.mode !== "panels") {
+  addPanel(panel: LayoutNode, size: number = 1, notify: boolean = true): this {
+    if (this.mode !== "SplitGroup") {
       throw new Error("Panel is in view mode and cannot accept child panels");
     }
     if (this.views.length > 0) {
@@ -1102,17 +957,10 @@ export class Panel {
     }
     panel.parent = this;
     this.childPanels.push({ panel, size: Math.max(0.1, size) });
-    this.refreshLayoutDom();
-    this.workspace.onPanelMutated();
-    return this;
-  }
-
-  addPanelSilent(panel: Panel, size: number = 1): this {
-    if (this.mode !== "panels") {
-      throw new Error("Panel is in view mode and cannot accept child panels");
+    if (notify) {
+      this.refreshLayoutDom();
+      this.workspace.onPanelMutated();
     }
-    panel.parent = this;
-    this.childPanels.push({ panel, size: Math.max(0.1, size) });
     return this;
   }
 
@@ -1125,18 +973,10 @@ export class Panel {
     return this;
   }
 
-  removePanel(panelId: string): this {
-    const index = this.childPanels.findIndex(entry => entry.panel.id === panelId);
-    if (index < 0) return this;
-    const [child] = this.childPanels.splice(index, 1);
-    child.panel.parent = null;
-    child.panel.destroy();
-    this.refreshLayoutDom();
-    this.workspace.onPanelMutated();
-    return this;
-  }
-
-  removePanelSilent(panelId: string, keepChildAlive: boolean = false): this {
+  removePanel(
+    panelId: string,
+    { keepChildAlive = false, notify = true }: { keepChildAlive?: boolean; notify?: boolean } = {},
+  ): this {
     const index = this.childPanels.findIndex(entry => entry.panel.id === panelId);
     if (index < 0) return this;
     const [child] = this.childPanels.splice(index, 1);
@@ -1145,11 +985,16 @@ export class Panel {
     if (!keepChildAlive) {
       child.panel.destroy();
     }
-    this.layoutChildPanelSizes();
+    if (notify) {
+      this.refreshLayoutDom();
+      this.workspace.onPanelMutated();
+    } else {
+      this.layoutChildPanelSizes();
+    }
     return this;
   }
 
-  replaceChildPanelSilent(panelId: string, replacement: Panel): this {
+  replaceChildPanel(panelId: string, replacement: LayoutNode): this {
     const index = this.childPanels.findIndex(entry => entry.panel.id === panelId);
     if (index < 0) return this;
     const previous = this.childPanels[index];
@@ -1161,22 +1006,34 @@ export class Panel {
     return this;
   }
 
-  addView(id: string, view: View, title: string = id, activate: boolean = true, state?: unknown): this {
-    if (this.mode !== "views") {
+  addView(
+    viewType: string,
+    view: View,
+    title: string = viewType,
+    activate: boolean = true,
+    state?: unknown,
+  ): this {
+    if (this.mode !== "TabGroup") {
       throw new Error("Panel is in panel mode and cannot accept views");
     }
     if (this.childPanels.length > 0) {
       throw new Error("A panel cannot have views and child panels at the same time");
     }
-    if (activate && id !== "empty") {
+    if (activate && viewType !== "empty") {
       this.closeActiveEmptyView();
     }
     view.initializeTitle(title);
-    view.setViewTypeId(id);
+    view.setViewTypeId(viewType);
     view.initializeState(state);
     view.attach();
-    this.insertDetachedView({ id, title, icon: view.icon, view, state }, this.views.length, activate);
-    this.workspace.onPanelMutated();
+    this.insertDetachedView({ viewType, title, icon: view.icon, view, state }, this.views.length, activate);
+    // When activate=true, insertDetachedView → setActiveViewById → setActiveView already called
+    // markLayoutChanged, so only refresh window controls here to avoid a duplicate save schedule.
+    if (activate) {
+      this.workspace.refreshWindowControls();
+    } else {
+      this.workspace.onPanelMutated();
+    }
     return this;
   }
 
@@ -1217,7 +1074,7 @@ export class Panel {
    * Use this when restoring layout so each panel's visible tab can be set independently.
    * For normal user interactions that should also transfer global focus, use setActiveViewById.
    */
-  showViewById(tabId: string | null): this {
+  showViewById(tabId: string | null, notifyViewLifecycle: boolean = true): this {
     this.activeViewId = tabId;
     let activeTabButton: HTMLButtonElement | null = null;
     this.views.forEach(panelView => {
@@ -1226,9 +1083,11 @@ export class Panel {
       panelView.view?.containerEl.classList.toggle("is-active", isActive);
       panelView.placeholderComponent?.setActive(isActive);
       if (isActive && panelView.view) {
-        panelView.view.activate();
+        if (notifyViewLifecycle) {
+          panelView.view.activate();
+        }
         activeTabButton = panelView.tabButton;
-      } else {
+      } else if (notifyViewLifecycle) {
         panelView.view?.deactivate();
       }
     });
@@ -1248,8 +1107,27 @@ export class Panel {
     const activeView = tabId ? (this.views.find(pv => pv.tabId === tabId)?.view ?? null) : null;
     this.workspace.setActivePanel(this);
     this.workspace.setActiveView(activeView);
-    this.workspace.onPanelMutated();
     return this;
+  }
+
+  showViewByIndex(index: number, notifyViewLifecycle: boolean = true): boolean {
+    const clampedIndex = Math.max(0, Math.min(index, this.views.length - 1));
+    const tabId = this.views[clampedIndex]?.tabId;
+    if (!tabId) {
+      return false;
+    }
+    this.showViewById(tabId, notifyViewLifecycle);
+    return true;
+  }
+
+  setActiveViewByIndex(index: number): boolean {
+    const clampedIndex = Math.max(0, Math.min(index, this.views.length - 1));
+    const tabId = this.views[clampedIndex]?.tabId;
+    if (!tabId) {
+      return false;
+    }
+    this.setActiveViewById(tabId);
+    return true;
   }
 
   setFocused(focused: boolean): this {
@@ -1257,28 +1135,38 @@ export class Panel {
     return this;
   }
 
-  getInsertIndexForPointer(hoveredTabButton: HTMLButtonElement | null): number {
+  getInsertIndexForPointer(hoveredTabButton: HTMLButtonElement | null, pointerClientX?: number): number {
     if (!hoveredTabButton) {
       return this.views.length;
     }
     const hoveredIndex = this.views.findIndex(panelView => panelView.tabButton === hoveredTabButton);
     if (hoveredIndex < 0) return this.views.length;
-    return hoveredIndex;
+    if (typeof pointerClientX !== "number") {
+      return hoveredIndex;
+    }
+
+    const rect = hoveredTabButton.getBoundingClientRect();
+    if (rect.width <= 0) {
+      return hoveredIndex;
+    }
+
+    const midpoint = rect.left + rect.width / 2;
+    return pointerClientX < midpoint ? hoveredIndex : hoveredIndex + 1;
   }
 
   getViewIndexByTabId(tabId: string): number {
     return this.views.findIndex(panelView => panelView.tabId === tabId);
   }
 
-  activateViewByViewId(viewId: string): boolean {
-    if (this.mode === "views") {
-      const found = this.views.find(view => view.id === viewId);
+  activateViewByViewType(viewType: string): boolean {
+    if (this.mode === "TabGroup") {
+      const found = this.views.find(view => view.viewType === viewType);
       if (!found) return false;
       this.setActiveViewById(found.tabId);
       return true;
     }
     for (const child of this.childPanels) {
-      if (child.panel.activateViewByViewId(viewId)) return true;
+      if (child.panel.activateViewByViewType(viewType)) return true;
     }
     return false;
   }
@@ -1287,24 +1175,24 @@ export class Panel {
    * Show a view by its type ID within this panel tree without updating global focus.
    * Used during layout restore to set each panel's visible tab independently.
    */
-  showViewByViewId(viewId: string): boolean {
-    if (this.mode === "views") {
-      const found = this.views.find(view => view.id === viewId);
+  showViewByViewId(viewType: string, notifyViewLifecycle: boolean = true): boolean {
+    if (this.mode === "TabGroup") {
+      const found = this.views.find(view => view.viewType === viewType);
       if (!found) return false;
-      this.showViewById(found.tabId);
+      this.showViewById(found.tabId, notifyViewLifecycle);
       return true;
     }
     for (const child of this.childPanels) {
-      if (child.panel.showViewByViewId(viewId)) return true;
+      if (child.panel.showViewByViewId(viewType, notifyViewLifecycle)) return true;
     }
     return false;
   }
 
-  getViews(): Array<{ id: string; tabId: string; title: string; view: View }> {
+  getViews(): Array<{ viewType: string; tabId: string; title: string; view: View }> {
     return this.views
       .filter(panelView => !!panelView.view)
       .map(panelView => ({
-        id: panelView.id,
+        viewType: panelView.viewType,
         tabId: panelView.tabId,
         title: panelView.title,
         view: panelView.view as View,
@@ -1312,7 +1200,7 @@ export class Panel {
   }
 
   findActiveView(): View | null {
-    if (this.mode === "views") {
+    if (this.mode === "TabGroup") {
       const active = this.views.find(view => view.tabId === this.activeViewId);
       return active?.view || null;
     }
@@ -1326,16 +1214,16 @@ export class Panel {
   }
 
   serialize(): SerializedPanel {
-    if (this.mode === "views") {
-      const active = this.views.find(view => view.tabId === this.activeViewId);
+    if (this.mode === "TabGroup") {
+      const activeIndex = this.views.findIndex(view => view.tabId === this.activeViewId);
       return {
         id: this.id,
-        splitDirection: this.splitDirection,
-        mode: "views",
+        splitAxis: this.splitAxis,
+        mode: "TabGroup",
         persistent: this.persistent || undefined,
-        visibleViewId: active?.id ?? undefined,
+        visibleViewIndex: activeIndex >= 0 ? activeIndex : undefined,
         views: this.views.map(panelView => ({
-          id: panelView.id,
+          viewType: panelView.viewType,
           title: panelView.title,
           state: panelView.view?.getViewState() ?? panelView.state,
         })),
@@ -1343,8 +1231,8 @@ export class Panel {
     }
     return {
       id: this.id,
-      splitDirection: this.splitDirection,
-      mode: "panels",
+      splitAxis: this.splitAxis,
+      mode: "SplitGroup",
       persistent: this.persistent || undefined,
       children: this.childPanels.map(({ panel, size }) => ({
         size,
@@ -1356,7 +1244,7 @@ export class Panel {
   destroy(): void {
     this.childPanels.forEach(({ panel }) => panel.destroy());
     this.childPanels = [];
-    this.clearResizeHandles();
+    this.splitterController.destroy();
     this.clearWindowControls();
     this.views.forEach(panelView => {
       panelView.view?.detach();
@@ -1365,8 +1253,8 @@ export class Panel {
       panelView.tabButton.remove();
     });
     this.views = [];
-    this.contentEl.innerHTML = "";
-    this.tabBarEl.innerHTML = "";
+    this.contentEl.empty();
+    this.tabBarEl.empty();
     this.activeViewId = null;
     this.containerEl.remove();
   }
@@ -1374,27 +1262,27 @@ export class Panel {
   destroyShallow(): void {
     this.childPanels = [];
     this.views = [];
-    this.clearResizeHandles();
+    this.splitterController.destroy();
     this.clearWindowControls();
-    this.contentEl.innerHTML = "";
-    this.tabBarEl.innerHTML = "";
+    this.contentEl.empty();
+    this.tabBarEl.empty();
     this.activeViewId = null;
     this.parent = null;
   }
 
   private applyModeClasses() {
     this.containerComponent.setMode(this.mode);
-    this.tabBarComponent.setHidden(this.mode !== "views");
-    this.addTabButton.classList.toggle("is-hidden", this.mode !== "views");
+    this.tabBarComponent.setHidden(this.mode !== "TabGroup");
+    this.addTabButton.classList.toggle("is-hidden", this.mode !== "TabGroup");
   }
 
-  private applySplitDirection() {
-    this.contentComponent.setSplitDirection(this.splitDirection);
+  private applySplitAxis() {
+    this.contentComponent.setSplitAxis(this.splitAxis);
     this.layoutChildPanelSizes();
   }
 
-  private layoutChildPanelSizes() {
-    if (this.mode !== "panels") return;
+  layoutChildPanelSizes() {
+    if (this.mode !== "SplitGroup") return;
     this.childPanels.forEach(({ panel, size }) => {
       panel.containerEl.style.flexGrow = String(size);
       panel.containerEl.style.flexBasis = "0";
@@ -1403,7 +1291,7 @@ export class Panel {
     });
   }
 
-  findPanelById(panelId: string): Panel | null {
+  findPanelById(panelId: string): LayoutNode | null {
     if (this.id === panelId) {
       return this;
     }
@@ -1416,7 +1304,7 @@ export class Panel {
     return null;
   }
 
-  extractDetachedView(tabId: string): DetachedPanelView | null {
+  extractDetachedView(tabId: string): DetachedTab | null {
     const index = this.views.findIndex(panelView => panelView.tabId === tabId);
     if (index < 0) return null;
     const [panelView] = this.views.splice(index, 1);
@@ -1433,7 +1321,7 @@ export class Panel {
     this.ensureFallbackView();
 
     return {
-      id: panelView.id,
+      viewType: panelView.viewType,
       title: panelView.title,
       icon: panelView.icon,
       view: panelView.view,
@@ -1443,8 +1331,8 @@ export class Panel {
     };
   }
 
-  insertDetachedView(detachedView: DetachedPanelView, targetIndex: number, activate: boolean): string {
-    if (this.mode !== "views") {
+  insertDetachedView(detachedView: DetachedTab, targetIndex: number, activate: boolean): string {
+    if (this.mode !== "TabGroup") {
       throw new Error("Panel is in panel mode and cannot accept views");
     }
     if (this.childPanels.length > 0) {
@@ -1452,7 +1340,7 @@ export class Panel {
     }
 
     const insertIndex = Math.max(0, Math.min(targetIndex, this.views.length));
-    const tabId = this.createUniqueTabId(detachedView.id);
+    const tabId = this.createUniqueTabId(detachedView.viewType);
     const icon = detachedView.icon ?? detachedView.view?.icon ?? null;
     const tabComponent = new WorkspaceTabButton(
       tabId,
@@ -1466,7 +1354,7 @@ export class Panel {
     const tabButton = tabComponent.element;
 
     const panelView: PanelView = {
-      id: detachedView.id,
+      viewType: detachedView.viewType,
       tabId,
       title: detachedView.title,
       icon,
@@ -1497,15 +1385,15 @@ export class Panel {
     return tabId;
   }
 
-  moveAllViewsTo(target: Panel): void {
+  moveAllViewsTo(target: LayoutNode): void {
     const movingViews = [...this.views];
     this.views = [];
     this.activeViewId = null;
-    this.tabBarEl.innerHTML = "";
-    this.contentEl.innerHTML = "";
+    this.tabBarEl.empty();
+    this.contentEl.empty();
     movingViews.forEach(panelView => {
       const detached = {
-        id: panelView.id,
+        viewType: panelView.viewType,
         title: panelView.title,
         icon: panelView.icon,
         view: panelView.view,
@@ -1519,39 +1407,27 @@ export class Panel {
     target.setActiveViewById(target.views[0]?.tabId ?? null);
   }
 
-  setModeSilent(mode: PanelMode): this {
-    this.mode = mode;
-    this.applyModeClasses();
-    return this;
-  }
-
-  setSplitDirectionSilent(splitDirection: SplitDirection): this {
-    this.splitDirection = splitDirection;
-    this.applySplitDirection();
-    return this;
-  }
-
   refreshLayoutDom(): void {
     this.applyModeClasses();
-    this.applySplitDirection();
-    this.clearResizeHandles();
-    if (this.mode === "panels") {
-      this.contentEl.innerHTML = "";
+    this.applySplitAxis();
+    this.splitterController.clearHandles();
+    if (this.mode === "SplitGroup") {
+      this.contentEl.empty();
       this.childPanels.forEach(({ panel }, index) => {
         panel.parent = this;
         this.contentEl.appendChild(panel.containerEl);
         if (index < this.childPanels.length - 1) {
-          this.contentEl.appendChild(this.createResizeHandle(index));
+          this.contentEl.appendChild(this.splitterController.createHandle(index));
         }
       });
-      this.layoutChildPanelSizes();
     }
     this.renderViewOrder();
   }
 
-  absorbPanel(source: Panel): void {
+  absorbPanel(source: LayoutNode): void {
+    this.persistent = this.persistent || source.isPersistent();
     this.mode = source.mode;
-    this.splitDirection = source.splitDirection;
+    this.splitAxis = source.splitAxis;
     this.childPanels = source.childPanels;
     this.views = [];
     this.activeViewId = null;
@@ -1567,7 +1443,7 @@ export class Panel {
       panelView.placeholderEl?.remove();
       this.insertDetachedView(
         {
-          id: panelView.id,
+          viewType: panelView.viewType,
           title: panelView.title,
           icon: panelView.icon,
           view: panelView.view,
@@ -1599,7 +1475,7 @@ export class Panel {
     }
 
     const activeIndex = this.views.findIndex(
-      panelView => panelView.tabId === this.activeViewId && panelView.id === "empty",
+      panelView => panelView.tabId === this.activeViewId && panelView.viewType === "empty",
     );
     if (activeIndex < 0) {
       return;
@@ -1618,7 +1494,7 @@ export class Panel {
   }
 
   private renderViewOrder(): void {
-    if (this.mode !== "views") return;
+    if (this.mode !== "TabGroup") return;
     this.views.forEach(panelView => {
       this.tabBarEl.appendChild(panelView.tabButton);
       const contentEl = panelView.view?.containerEl ?? panelView.placeholderEl;
@@ -1634,7 +1510,7 @@ export class Panel {
   }
 
   private ensureWindowControls(): void {
-    const shouldShow = this.mode === "views" && this.workspace.shouldShowWindowControls(this);
+    const shouldShow = this.mode === "TabGroup" && this.workspace.shouldShowWindowControls(this);
     if (!this.windowControlsEl && shouldShow) {
       const controlsComponent = UIComponent.detached("div")
         .addClass("panel-window-controls", "is-hidden")
@@ -1680,42 +1556,6 @@ export class Panel {
     this.tabBarEl.classList.toggle("electron-window-draggable", draggable);
   }
 
-  private createResizeHandle(index: number): HTMLDivElement {
-    const handleComponent = UIComponent.detached("div")
-      .addClass("panel-resize-handle")
-      .setData({
-        index: String(index),
-        direction: this.splitDirection,
-      })
-      .listen("pointerdown", event => {
-        if (event.button !== 0) return;
-        const first = this.childPanels[index];
-        const second = this.childPanels[index + 1];
-        if (!first || !second) return;
-        const lastPrimary = this.splitDirection === "horizontal" ? event.clientX : event.clientY;
-        this.resizeState = {
-          pointerId: event.pointerId,
-          handleEl: event.currentTarget as HTMLDivElement,
-          firstPanelId: first.panel.id,
-          secondPanelId: second.panel.id,
-          lastPrimary,
-        };
-        (event.currentTarget as HTMLDivElement).setPointerCapture(event.pointerId);
-        document.addEventListener("pointermove", this.onResizePointerMove);
-        document.addEventListener("pointerup", this.onResizePointerUp);
-        document.body.classList.add("workspace-resizing");
-        event.preventDefault();
-      });
-    this.resizeHandleComponents.push(handleComponent);
-    const handleEl = handleComponent.element;
-    return handleEl;
-  }
-
-  private clearResizeHandles(): void {
-    this.resizeHandleComponents.forEach(handle => handle.remove());
-    this.resizeHandleComponents = [];
-  }
-
   private clearWindowControls(): void {
     this.windowControlsComponent?.remove();
     this.windowControlsComponent = null;
@@ -1723,50 +1563,13 @@ export class Panel {
     this.tabBarEl.classList.remove("electron-window-draggable");
   }
 
-  private handleResizePointerMove(event: PointerEvent): void {
-    const resizeState = this.resizeState;
-    if (!resizeState || event.pointerId !== resizeState.pointerId) return;
-    const first = this.childPanels.find(entry => entry.panel.id === resizeState.firstPanelId);
-    const second = this.childPanels.find(entry => entry.panel.id === resizeState.secondPanelId);
-    if (!first || !second) return;
-
-    const currentPrimary = this.splitDirection === "horizontal" ? event.clientX : event.clientY;
-    const deltaPrimary = currentPrimary - resizeState.lastPrimary;
-    if (deltaPrimary === 0) return;
-
-    const firstBounds = first.panel.containerEl.getBoundingClientRect();
-    const secondBounds = second.panel.containerEl.getBoundingClientRect();
-    const pairPrimary =
-      this.splitDirection === "horizontal"
-        ? firstBounds.width + secondBounds.width
-        : firstBounds.height + secondBounds.height;
-    if (pairPrimary <= 0) return;
-
-    const totalSize = first.size + second.size;
-    const deltaRatio = (deltaPrimary / pairPrimary) * totalSize;
-    const minSize = 0.1;
-    const nextFirst = Math.max(minSize, Math.min(first.size + deltaRatio, totalSize - minSize));
-    const nextSecond = Math.max(minSize, totalSize - nextFirst);
-
-    first.size = nextFirst;
-    second.size = nextSecond;
-    resizeState.lastPrimary = currentPrimary;
-    this.layoutChildPanelSizes();
-    this.workspace.onPanelMutated();
-  }
-
-  private handleResizePointerUp(event: PointerEvent): void {
-    const resizeState = this.resizeState;
-    if (!resizeState || event.pointerId !== resizeState.pointerId) return;
-    resizeState.handleEl.releasePointerCapture(event.pointerId);
-    document.removeEventListener("pointermove", this.onResizePointerMove);
-    document.removeEventListener("pointerup", this.onResizePointerUp);
-    document.body.classList.remove("workspace-resizing");
-    this.resizeState = null;
-  }
-
-  addUnresolvedView(id: string, title: string = id, activate: boolean = true, state?: unknown): this {
-    if (this.mode !== "views") {
+  addUnresolvedView(
+    viewType: string,
+    title: string = viewType,
+    activate: boolean = true,
+    state?: unknown,
+  ): this {
+    if (this.mode !== "TabGroup") {
       throw new Error("Panel is in panel mode and cannot accept views");
     }
     if (this.childPanels.length > 0) {
@@ -1777,7 +1580,7 @@ export class Panel {
     const placeholderEl = placeholderComponent.element;
     this.insertDetachedView(
       {
-        id,
+        viewType,
         title,
         icon: null,
         view: null,
@@ -1792,14 +1595,14 @@ export class Panel {
     return this;
   }
 
-  hydrateViewsById(viewId: string, factory: (panel: Panel) => View): this {
-    if (this.mode === "views") {
+  hydrateViewsByType(viewType: string, factory: (panel: LayoutNode) => View): this {
+    if (this.mode === "TabGroup") {
       this.views
-        .filter(panelView => panelView.id === viewId && !panelView.view)
+        .filter(panelView => panelView.viewType === viewType && !panelView.view)
         .forEach(panelView => {
           const view = factory(this);
           view.initializeTitle(panelView.title);
-          view.setViewTypeId(panelView.id);
+          view.setViewTypeId(panelView.viewType);
           view.initializeState(panelView.state);
           view.containerEl.dataset.viewId = panelView.tabId;
           panelView.placeholderEl?.replaceWith(view.containerEl);
@@ -1819,14 +1622,14 @@ export class Panel {
         });
       return this;
     }
-    this.childPanels.forEach(({ panel }) => panel.hydrateViewsById(viewId, factory));
+    this.childPanels.forEach(({ panel }) => panel.hydrateViewsByType(viewType, factory));
     return this;
   }
 
-  unloadViewsById(viewId: string): this {
-    if (this.mode === "views") {
+  unloadViewsByType(viewType: string): this {
+    if (this.mode === "TabGroup") {
       this.views
-        .filter(panelView => panelView.id === viewId && !!panelView.view)
+        .filter(panelView => panelView.viewType === viewType && !!panelView.view)
         .forEach(panelView => {
           const unresolvedComponent = new WorkspacePlaceholder(panelView.tabId);
           const unresolvedEl = unresolvedComponent.element;
@@ -1841,7 +1644,7 @@ export class Panel {
         });
       return this;
     }
-    this.childPanels.forEach(({ panel }) => panel.unloadViewsById(viewId));
+    this.childPanels.forEach(({ panel }) => panel.unloadViewsByType(viewType));
     return this;
   }
 
@@ -1875,7 +1678,7 @@ export class Panel {
 
   ensureFallbackView(): this {
     if (!this.persistent) return this;
-    if (this.mode !== "views") return this;
+    if (this.mode !== "TabGroup") return this;
     if (this.views.length > 0) return this;
     this.workspace.openView("empty", this, { activate: true, title: "empty" });
     return this;
@@ -1895,7 +1698,7 @@ export class Panel {
 }
 
 type PanelView = {
-  id: string;
+  viewType: string;
   tabId: string;
   title: string;
   icon: IconNode | null;
@@ -1918,9 +1721,9 @@ export class View extends ETarget<ViewEvents> {
   private _viewTypeId: string = "";
   containerEl: HTMLDivElement;
 
-  constructor(public panel: Panel) {
+  constructor(public panel: LayoutNode) {
     super();
-    this.containerEl = createDetachedComponent("div").addClass("view").element;
+    this.containerEl = UIComponent.detached("div").addClass("view").element;
   }
 
   /**
@@ -2038,12 +1841,24 @@ class EmptyView extends View {
     content.style.flexDirection = "column";
     content.style.gap = "1em";
     content.style.padding = "1em";
-    this.panel.workspace.listRegisteredViews().forEach(viewId => {
-      if (viewId !== "empty") {
-        new Button(content).setButtonText(`Open ${viewId}`).on("click", () => {
-          this.panel.workspace.openView(viewId, this.panel, { activate: true });
+    this.panel.workspace.listRegisteredViews().forEach(viewType => {
+      if (viewType !== "empty") {
+        new Button(content).setButtonText(`Open ${viewType}`).on("click", () => {
+          this.panel.workspace.openView(viewType, this.panel, { activate: true });
         });
       }
     });
   }
 }
+
+monkeypatchAllWorkspaceMethods([
+  /* ["WorkspaceTabButton", WorkspaceTabButton],
+  ["WorkspacePlaceholder", WorkspacePlaceholder],
+  ["WorkspacePanelContainer", WorkspacePanelContainer],
+  ["WorkspacePanelTabs", WorkspacePanelTabs],
+  ["WorkspacePanelContent", WorkspacePanelContent], */
+  ["Workspace", Workspace],
+  ["Panel", LayoutNode],
+  ["View", View],
+  /* ["EmptyView", EmptyView], */
+]);

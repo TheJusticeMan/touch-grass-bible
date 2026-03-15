@@ -1,5 +1,5 @@
 import { Item } from "./external/App";
-import { Panel, View } from "./external/Workspace";
+import { LayoutNode, View } from "./external/Workspace";
 import TouchGrassBibleApp from "./main";
 import { BookmarkCategoryID, BibleSearchCategoryID, myNotesCategoryID } from "./plugins/categoryIDs";
 
@@ -7,10 +7,10 @@ import { BookmarkCategoryID, BibleSearchCategoryID, myNotesCategoryID } from "./
  * Navigation panel for navigating through books and chapters.
  * The side will be a menu for opening the command palette.
  */
-export class navigationPanel extends View {
+export class NavigationPanel extends View {
   content: HTMLDivElement;
   constructor(
-    panel: Panel,
+    panel: LayoutNode,
     public app: TouchGrassBibleApp,
   ) {
     super(panel);

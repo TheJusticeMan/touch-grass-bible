@@ -1,5 +1,5 @@
 import apocalypseThrottle from "apocalypse-throttle";
-import { Panel, View } from "./external/Workspace";
+import { LayoutNode, View } from "./external/Workspace";
 import type { PaletteState } from "./external/PaletteStateController";
 import TouchGrassBibleApp, {
   Highlighter,
@@ -174,7 +174,7 @@ export class VerseScreen extends View {
   }
 
   constructor(
-    panel: Panel,
+    panel: LayoutNode,
     protected app: TouchGrassBibleApp,
   ) {
     super(panel);

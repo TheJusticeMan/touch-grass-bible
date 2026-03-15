@@ -1,5 +1,5 @@
 import { ChevronLeft, Plus, X } from "lucide";
-import { Panel, View } from "../../external/Workspace";
+import { LayoutNode, View } from "../../external/Workspace";
 import {
   Button,
   ETarget,
@@ -123,7 +123,7 @@ export class NotesPanel extends View {
   NotePreviews: notePreview[] = [];
   content: HTMLDivElement;
   constructor(
-    panel: Panel,
+    panel: LayoutNode,
     public plugin: NotesPlugin,
   ) {
     super(panel);
