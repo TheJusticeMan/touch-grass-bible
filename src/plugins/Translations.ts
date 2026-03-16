@@ -5,8 +5,16 @@ import {
   CommandItem,
 } from "src/external/CommandPalette";
 import Plugin from "../Plugin";
-import { VerseRef, translation, translationMetadata } from "../VerseRef";
+import { VerseRef, translation } from "../VerseRef";
 import { TranslationsCategoryID } from "./categoryIDs";
+
+export const translationMetadata: {
+  [key: string]: { name: string; shortName: string };
+} = {
+  KJV: { name: "King James Version", shortName: "KJV" },
+  YLT: { name: "Young's Literal Translation", shortName: "YLT" },
+  ASV: { name: "American Standard Version", shortName: "ASV" },
+};
 
 export default class TranslationsPlugin extends Plugin {
   async onload(): Promise<void> {

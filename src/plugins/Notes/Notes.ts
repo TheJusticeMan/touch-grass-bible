@@ -1,6 +1,6 @@
 import { SquarePen } from "lucide";
 import Plugin from "../../Plugin";
-import { OSISNotes, VerseRef } from "../../VerseRef";
+import { OSIS, VerseRef } from "../../VerseRef";
 import { myNotesCategoryID, TSKCrossRefCategoryID } from "../categoryIDs";
 import { Note, NotesPanel, NoteVault } from "./NotesPanel";
 import {
@@ -111,5 +111,37 @@ class myNotesCategory extends CommandCategory<VerseRef> {
 
   executeCommand(_command: VerseRef): void {
     this.commandPalette.close();
+  }
+}
+
+export class OSISNotes {
+  constructor(public myNotes: Map<OSIS, string>) {}
+
+  get(verse: VerseRef): string {
+    return this.myNotes.get(verse.OSIS) || "";
+  }
+
+  set(verse: VerseRef, note: string): void {
+    if (note.trim() === "") {
+      this.myNotes.delete(verse.OSIS);
+    } else {
+      this.myNotes.set(verse.OSIS, note);
+    }
+  }
+
+  keys(): IterableIterator<VerseRef> {
+    const iterator = this.myNotes.keys();
+    return {
+      [Symbol.iterator]() {
+        return this;
+      },
+      next(): IteratorResult<VerseRef> {
+        const result = iterator.next();
+        if (result.done) {
+          return { done: true, value: undefined };
+        }
+        return { done: false, value: VerseRef.fromOSIS(result.value) };
+      },
+    };
   }
 }

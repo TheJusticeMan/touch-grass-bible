@@ -1,31 +1,9 @@
 import { books3letter, BookShortNames, booksOfTheBible } from "./booksOfTheBible";
-import { Highlighter } from "./external/highlighter";
 
 export type bibleData = { [book: string]: string[][] };
 
-export const VerseHighlight: Highlighter = new Highlighter([
-  { regEXP: /\[(.+?)\]/gi, elTag: "i" },
-  { regEXP: /(LORD|God)/gi, elTag: "b" },
-  { regEXP: /^(\d+)/gi, cls: "verseNumber" },
-  { regEXP: /#/gi, cls: "versePBreak", replace: "\u00B6" },
-]);
-
-export const VerseSHighlight: Highlighter = new Highlighter([
-  { regEXP: /\[(.+?)\]/gi, elTag: "i" },
-  { regEXP: /(LORD|God)/gi, elTag: "b" },
-  { regEXP: /^([^:]+:\d+)/gi, cls: "verseNumber" },
-  { regEXP: /#/gi, cls: "versePBreak", replace: "\u00B6" },
-]);
-
 export type OSIS = string;
 export type translation = "KJV" | "YLT" | "ASV";
-export const translationMetadata: {
-  [key: string]: { name: string; shortName: string };
-} = {
-  KJV: { name: "King James Version", shortName: "KJV" },
-  YLT: { name: "Young's Literal Translation", shortName: "YLT" },
-  ASV: { name: "American Standard Version", shortName: "ASV" },
-};
 /**
  * Represents a reference to a specific verse in the Bible, including book, chapter, and verse.
  * Provides utilities for converting between different reference formats (e.g., OSIS),
@@ -240,37 +218,5 @@ export class VerseRef {
 
     const lastVerseIndex = VerseRef.bible[prevBook][prevChapter].length - 1;
     return new VerseRef(prevBook, prevChapter, lastVerseIndex);
-  }
-}
-
-export class OSISNotes {
-  constructor(public myNotes: Map<OSIS, string>) {}
-
-  get(verse: VerseRef): string {
-    return this.myNotes.get(verse.OSIS) || "";
-  }
-
-  set(verse: VerseRef, note: string): void {
-    if (note.trim() === "") {
-      this.myNotes.delete(verse.OSIS);
-    } else {
-      this.myNotes.set(verse.OSIS, note);
-    }
-  }
-
-  keys(): IterableIterator<VerseRef> {
-    const iterator = this.myNotes.keys();
-    return {
-      [Symbol.iterator]() {
-        return this;
-      },
-      next(): IteratorResult<VerseRef> {
-        const result = iterator.next();
-        if (result.done) {
-          return { done: true, value: undefined };
-        }
-        return { done: false, value: VerseRef.fromOSIS(result.value) };
-      },
-    };
   }
 }

@@ -14,7 +14,7 @@ import TopicalBiblePlugin from "./plugins/TopicalBible";
 import TranslationsPlugin from "./plugins/Translations";
 import TSK from "./plugins/TSK";
 import { NavigationPanel } from "./sidepanels";
-import "./style.css";
+import "./main.css";
 import { DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
 
 import SharePlugin from "./plugins/Share";

@@ -7,7 +7,14 @@ import "./VerseScreen.css";
 import { UIComponent, IconButton } from "./external/Components";
 import { pdsp } from "./external/Event";
 import { Highlighter } from "./external/highlighter";
-import { VerseRef, VerseHighlight } from "./VerseRef";
+import { VerseRef } from "./VerseRef";
+
+export const VerseHighlight: Highlighter = new Highlighter([
+  { regEXP: /\[(.+?)\]/gi, elTag: "i" },
+  { regEXP: /(LORD|God)/gi, elTag: "b" },
+  { regEXP: /^(\d+)/gi, cls: "verseNumber" },
+  { regEXP: /#/gi, cls: "versePBreak", replace: "\u00B6" },
+]);
 
 type VerseScreenState = {
   version: 1;
