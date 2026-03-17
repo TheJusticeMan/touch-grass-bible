@@ -71,4 +71,4 @@ abstract class App extends ETarget<Events> {
 2. **Plugin API**: Expose more methods for plugin access
 3. **Error Recovery**: Better error handling for data loading
 4. **Theme Support**: Built-in theming system
-5. **Accessibility**: Add ARIA attributes to AppShellElement
+5. **Accessibility**: Add ARIA attributes to app-shell-element

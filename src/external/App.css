@@ -10,7 +10,7 @@ body {
   touch-action: none;
 }
 
-.AppShellElement {
+.app-shell-element {
   position: fixed;
   top: 0;
   left: 0;

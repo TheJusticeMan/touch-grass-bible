@@ -12,8 +12,8 @@ import { VerseRef } from "./VerseRef";
 export const VerseHighlight: Highlighter = new Highlighter([
   { regEXP: /\[(.+?)\]/gi, elTag: "i" },
   { regEXP: /(LORD|God)/gi, elTag: "b" },
-  { regEXP: /^(\d+)/gi, cls: "verseNumber" },
-  { regEXP: /#/gi, cls: "versePBreak", replace: "\u00B6" },
+  { regEXP: /^(\d+)/gi, cls: "number" },
+  { regEXP: /#/gi, cls: "paragraph-break", replace: "\u00B6" },
 ]);
 
 type VerseScreenState = {
@@ -45,7 +45,7 @@ type VerseScreenState = {
  * @param ref - The reference object containing book, chapter, and verse data.
  * @param app - The main application instance.
  *
- * @method removeActive - Removes the "verseActive" class from any currently active verse element.
+ * @method removeActive - Removes the "active" class from any currently active verse element.
  * @method scrollTo - Smoothly scrolls to the specified verse and marks it as active.
  * @method scrollToInstant - Instantly scrolls to the specified verse and marks it as active.
  */
@@ -66,14 +66,14 @@ export class ChapterComponent extends UIComponent<"div"> {
     this.addClass("chapter");
     this.createChild("h2", {
       text: h(ref.toChapterString()),
-      cls: "chapterTitle",
+      cls: "chapter-title",
     });
     ref.cTXT.forEach((text: string, v: number) => {
       if (v === 0) return;
       const newVerse = new VerseRef(book, chapter, v);
       this.verses[v] = this.createChild("div", {}, (el: HTMLElement) => {
         el.createEl("div", { text: h(`${v} ${text}`), cls: "verse" }, (el: HTMLElement) => {
-          if (text.includes("#")) el.addClass("versePBreak");
+          if (text.includes("#")) el.addClass("paragraph-break");
 
           el.addEventListener("click", () => this.app.verseState.set(newVerse));
           el.addEventListener(
@@ -93,11 +93,11 @@ export class ChapterComponent extends UIComponent<"div"> {
   }
 
   removeActive() {
-    this.element.querySelector(".verseActive")?.classList.remove("verseActive");
+    this.element.querySelector(".active")?.classList.remove("active");
   }
 
   setActive(verse: VerseRef) {
-    this.verses[verse.verse]?.classList.add("verseActive");
+    this.verses[verse.verse]?.classList.add("active");
     this.verseInfos[verse.verse]?.render(); // Render the info container when active
   }
 
@@ -423,7 +423,7 @@ export class VerseScreen extends View {
  * A component for displaying and managing verse-specific information (e.g., notes, bookmarks, topics).
  * Encapsulates the logic for rendering an info container below each verse.
  *
- * This replaces the raw `infoContainer[v]` div and the `renderNoteArea` method,
+ * This replaces the raw `info-container[v]` div and the `renderNoteArea` method,
  * promoting reusability and modularity. It handles dynamic rendering of notes (as a textarea),
  * bookmarks, and topics based on the provided VerseRef.
  *
@@ -441,7 +441,7 @@ export class VerseInfoComponent extends UIComponent<"div"> {
     private app: TouchGrassBibleApp,
   ) {
     super(parent, "div");
-    this.addClass("infoContainer");
+    this.addClass("info-container");
     // Initial render can be empty; it will be populated via render() when the verse is active.
   }
 

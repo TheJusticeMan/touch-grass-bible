@@ -1,7 +1,7 @@
-import { scrollBubble } from "./external/Components";
+import { ScrollBubble } from "./external/Components";
 import { VerseRef } from "./VerseRef";
 
-export class ChapterScroll extends scrollBubble {
+export class ChapterScroll extends ScrollBubble {
   chapter: VerseRef = new VerseRef();
   constructor(
     parent: HTMLElement,
@@ -40,7 +40,7 @@ export class ChapterScroll extends scrollBubble {
   }
 }
 
-export class BookScroll extends scrollBubble {
+export class BookScroll extends ScrollBubble {
   book: VerseRef = new VerseRef();
 
   constructor(

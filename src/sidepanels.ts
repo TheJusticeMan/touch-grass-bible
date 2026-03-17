@@ -14,7 +14,6 @@ export class NavigationPanel extends View {
     public app: TouchGrassBibleApp,
   ) {
     super(panel);
-    this.containerEl.classList.add("workspace-sidepanel", "left");
     this.content = this.containerEl;
     this.updateContent();
   }

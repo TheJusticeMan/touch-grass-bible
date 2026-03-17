@@ -1,4 +1,4 @@
-.scrollBubble {
+.scroll-bubble {
   position: absolute;
   right: 0;
   /* transform: translateY(-50%); */
@@ -51,7 +51,7 @@
 }
 
 /* Change cursor when dragging */
-.scrollBubble.active {
+.scroll-bubble.active {
   cursor: grabbing;
 }
 

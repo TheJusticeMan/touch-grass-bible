@@ -17,11 +17,13 @@ export const translationMetadata: {
 };
 
 export default class TranslationsPlugin extends Plugin {
+  defaultTranslation = this.app.commandPalette.useState("KJV" as translation);
   async onload(): Promise<void> {
     this.registerPalette(
       () => new translationCategory(this.app.commandPalette, this),
       TranslationsCategoryID,
     );
+    this.defaultTranslation.onChange(newTranslation => (VerseRef.defaultTranslation = newTranslation));
   }
 }
 
@@ -51,13 +53,12 @@ class translationCategory extends CommandCategory<string> {
   ): (state: CommandPaletteState) => CommandPaletteState {
     Item.setTitle(translationMetadata[command]?.name || command).addctx();
     return state => {
-      this.plugin.app.defaultTranslation.set(command as translation);
+      this.plugin.defaultTranslation.set(command as translation);
       return state.update({ topCategory: "" });
     };
   }
 
-  executeCommand(command: string): void {
-    VerseRef.defaultTranslation = command as translation;
+  executeCommand(): void {
     this.commandPalette.close();
   }
 }

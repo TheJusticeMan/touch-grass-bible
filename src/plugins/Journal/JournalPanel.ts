@@ -43,7 +43,6 @@ export class JournalPanel extends View {
     private plugin: JournalPanelPlugin,
   ) {
     super(panel);
-    this.containerEl.classList.add("workspace-sidepanel", "journal-panel");
   }
 
   async onAttach(): Promise<void> {

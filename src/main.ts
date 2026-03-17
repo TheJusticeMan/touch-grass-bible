@@ -1,28 +1,28 @@
 export const processstart = new Date().getTime();
-import "./external/MyHTML";
 import { App } from "./external/App";
+import "./external/MyHTML";
 import { View, WorkspaceLayout } from "./external/Workspace";
 import info from "./info.json";
+import "./main.css";
 import { internalPlugins, type IconActionItem } from "./Plugin";
 import AIPlugin from "./plugins/AI";
 import BookmarkPlugin from "./plugins/Bookmarks";
-import NotesPlugin from "./plugins/Notes/Notes";
 import JournalPlugin from "./plugins/Journal";
+import NotesPlugin from "./plugins/Notes/Notes";
 import BibleSearchPlugin from "./plugins/Search";
 import SettingsPlugin from "./plugins/Settings";
 import TopicalBiblePlugin from "./plugins/TopicalBible";
 import TranslationsPlugin from "./plugins/Translations";
 import TSK from "./plugins/TSK";
 import { NavigationPanel } from "./sidepanels";
-import "./main.css";
-import { DEFAULT_SETTINGS, TGAppSettings, DEFAULT_CATEGORY_ORDER } from "./TGAppSettings";
+import { DEFAULT_CATEGORY_ORDER, DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
 
-import SharePlugin from "./plugins/Share";
-import { bibleData, translation, VerseRef } from "./VerseRef";
-import { VerseScreen } from "./VerseScreen";
-import type { PaletteState } from "./external/PaletteStateController";
 import type { PlatformBridge } from "@platform";
 import { CommandPaletteState } from "./external/CommandPalette";
+import type { PaletteState } from "./external/PaletteStateController";
+import SharePlugin from "./plugins/Share";
+import { bibleData, VerseRef } from "./VerseRef";
+import { VerseScreen } from "./VerseScreen";
 
 function isPlainObject(value: unknown): value is object {
   return value !== null && value !== undefined && typeof value === "object" && !Array.isArray(value);
@@ -72,7 +72,6 @@ export default class TouchGrassBibleApp extends App {
   firstLoad = true;
   saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private fallbackVerseState = this.commandPalette.useState(new VerseRef("GENESIS", 1, 1));
-  defaultTranslation = this.commandPalette.useState("KJV" as translation);
 
   get verseState(): PaletteState<VerseRef> {
     const activeVerseScreen = this.workspace.getActiveViewOfType("verse-screen");
@@ -85,8 +84,6 @@ export default class TouchGrassBibleApp extends App {
 
   async onload() {
     this.on("ArrowRightKeyDown", () => this.workspace.activateView("navigation-panel"));
-
-    this.defaultTranslation.onChange(newTranslation => (VerseRef.defaultTranslation = newTranslation));
 
     await this.loadsettings(DEFAULT_SETTINGS);
     this.commandPalette.setCategoryOrder(this.settings.categoryOrder || DEFAULT_CATEGORY_ORDER);

@@ -16,7 +16,7 @@ Core UI building blocks:
 | `TextInput`           | Text input field          |
 | `Item`                | List item                 |
 | `IconActionComponent` | Icon with action          |
-| `scrollBubble`        | Scroll position indicator |
+| `ScrollBubble`        | Scroll position indicator |
 
 ### DOM Elements (WorkspaceDom.ts)
 

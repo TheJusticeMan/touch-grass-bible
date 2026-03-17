@@ -518,7 +518,7 @@ export class toggleInput extends AbstractInput<"button", boolean> {
 /**
  * Represents a draggable scroll bubble UI component that can be attached to a parent HTMLElement.
  *
- * The `scrollBubble` provides a visual indicator and controller for scrolling within a container.
+ * The `ScrollBubble` provides a visual indicator and controller for scrolling within a container.
  * It emits custom events for grab, move, release, scroll, and scrollend actions, and manages its own
  * visibility with an auto-hide timer.
  *
@@ -526,7 +526,7 @@ export class toggleInput extends AbstractInput<"button", boolean> {
  *
  * @example
  * ```typescript
- * const bubble = new scrollBubble(containerElement);
+ * const bubble = new ScrollBubble(containerElement);
  * bubble.maxScroll = 1000;
  * bubble._show();
  * bubble.on("scroll", (value) => {
@@ -553,7 +553,7 @@ export class toggleInput extends AbstractInput<"button", boolean> {
  * @method setUpListeners() - Sets up internal event listeners for drag and scroll actions.
  * @method startHideTimer(delay?: number) - Starts or resets the auto-hide timer.
  */
-export abstract class scrollBubble extends UIComponent<
+export abstract class ScrollBubble extends UIComponent<
   "div",
   {
     scroll: number;
@@ -574,7 +574,7 @@ export abstract class scrollBubble extends UIComponent<
 
   constructor(public parent: HTMLElement) {
     super(null, "div", { detached: true });
-    this.addClass("scrollBubble");
+    this.addClass("scroll-bubble");
   }
 
   abstract show(arg: unknown): this; // Abstract method to show the bubble, must be implemented by subclasses

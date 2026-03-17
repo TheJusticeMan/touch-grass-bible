@@ -59,7 +59,7 @@ export default class NotesPlugin extends Plugin {
       onTrigger: verseInfo => {
         const noteInput = new TextArea(verseInfo.element)
           .setValue(this.myNotes.get(verseInfo.verse) || "")
-          .addClass("noteArea")
+          .addClass("note-area")
           .setPlaceholder(" - Add your note here...")
           .on("click", e => e.stopPropagation())
           .on("input", (value: string) => {

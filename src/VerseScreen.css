@@ -2,7 +2,7 @@
   display: inline;
 }
 
-.noteArea {
+.note-area {
   display: block;
   box-sizing: border-box;
   width: 100%;
@@ -17,17 +17,17 @@
   resize: vertical;
 }
 
-.infoContainer {
+.info-container {
   display: none;
 }
-.bookmarkNotAdded {
+.bookmark-not-added {
   color: #fff;
 }
-.bookmarkAdded {
+.bookmark-added {
   color: #f0f;
 }
 
-.verseActive .infoContainer {
+.active .info-container {
   display: block;
   /* margin-top: 1em;
   padding: 1em;
@@ -36,7 +36,7 @@
   background-color: #0008; */
 }
 
-.verseActive .infoContainer.is-highlighted {
+.active .info-container.is-highlighted {
   display: block;
   border-left: 2px solid #fff8;
   padding-left: 0.35rem;

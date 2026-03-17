@@ -110,7 +110,7 @@ abstract class App extends ETarget<{
     this.target.push(this as ETarget); // Default to the app itself for keyboard events
     this.console = new BrowserConsole(true, `${this._title || "App"}:`);
     this.console.header("color:#f0f; font-size:40px; font-weight:bold;");
-    this.contentEl = this.doc.body.createEl("div", { cls: "AppShellElement" });
+    this.contentEl = this.doc.body.createEl("div", { cls: "app-shell-element" });
     this.workspace = new Workspace(this);
     new touchDragger(this.contentEl).onany((name, e) => this.ctarget.emit(name, e));
 

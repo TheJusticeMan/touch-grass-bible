@@ -78,7 +78,7 @@ export default class BookmarkPlugin extends Plugin {
     usedTags.forEach(topic => {
       new Button(verseInfo.element)
         .setButtonText(`${VerseListCategory.convertTopicDate(topic)}`)
-        .addClass("bookmarkAdded")
+        .addClass("bookmark-added")
         .on("click", () => {
           this.Bookmarks.remove(topic, verseInfo.verse);
           this.syncBookmarkStatus(verseInfo);
@@ -103,7 +103,7 @@ export default class BookmarkPlugin extends Plugin {
 
       new TextInput(verseInfo.element)
         .setPlaceholder("Enter bookmark name...")
-        .addClass("noteArea")
+        .addClass("note-area")
         .on("click", e => e.stopPropagation())
         .on("input", (value: string) => (tag = value.trim()))
         .on("keydown", e => (e as KeyboardEvent).key === "Enter" && addBookmark());
@@ -114,7 +114,7 @@ export default class BookmarkPlugin extends Plugin {
     unusedTags.forEach(topic => {
       new Button(verseInfo.element)
         .setButtonText(`${VerseListCategory.convertTopicDate(topic)}`)
-        .addClass("bookmarkNotAdded")
+        .addClass("bookmark-not-added")
         .on("click", () => {
           this.Bookmarks.add(topic, verseInfo.verse);
           this.syncBookmarkStatus(verseInfo);

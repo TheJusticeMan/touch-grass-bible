@@ -27,20 +27,20 @@ body {
   text-shadow: 0 0 5px #fff4;
 }
 
-.content .verse .verseNumber {
+.content .verse .number {
   color: #fff8;
   padding: 0.5em;
 }
 
-.content .verseActive .verseNumber {
+.content .active .verse .number {
   color: #f0fc;
 }
 
-.content .verse .versePBreak {
+.content .verse .paragraph-break {
   color: #fff8;
 }
 
-.content .chapterTitle {
+.content .chapter-title {
   text-align: center;
   color: #fff8;
   font-size: 1.5em;
@@ -64,51 +64,17 @@ body {
   line-height: 1.5;
 }
 
-.sidepanel-content {
-  padding: 2em;
-  color: var(--foreground);
-  font-family: var(--font);
-  font-size: var(--font-size);
-  overflow: scroll;
-}
-
-.sidepanel-content .note {
-  text-indent: 1em;
-  padding: 0.4em;
-  max-width: var(--readingwidth);
-  margin: auto;
-}
-
-.sidepanel-content .note .verseNumber {
-  color: #fff8;
-  padding: 0.5em;
-}
-
-.sidepanel-content textarea {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 10em;
-  background-color: transparent;
-  color: inherit;
-  font-family: inherit;
-  font-size: inherit;
-  border: 1px solid #fff4;
-  padding: 1em;
-  outline: none;
-  resize: vertical;
-}
-
 .wrap .chapter .verse {
   display: inline;
 }
 
-.wrap .chapter div.versePBreak::before {
+.wrap .chapter div.paragraph-break::before {
   display: block;
   content: "";
 }
 
-.wrap .chapter .versePBreak .verseNumber,
-.wrap .chapter > .verse:first-of-type .verseNumber {
+.wrap .chapter .paragraph-break .number,
+.wrap .chapter > .verse:first-of-type .number {
   /* display: inline-block; */
   font-size: 2em;
   text-transform: capitalize;
@@ -117,7 +83,7 @@ body {
   padding: 0.2em 0.1em 0 0;
 }
 
-.wrap .chapter .versePBreak .versePBreak {
+.wrap .chapter .paragraph-break .paragraph-break {
   display: none;
 }
 
