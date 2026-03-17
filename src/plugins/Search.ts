@@ -1,8 +1,8 @@
 import {
   CommandCategory,
-  UnifiedCommandPalette,
-  CommandPaletteState,
   CommandItem,
+  CommandPaletteState,
+  UnifiedCommandPalette,
 } from "src/external/CommandPalette";
 import { PaletteState } from "../external/PaletteStateController";
 import Plugin from "../Plugin";
@@ -47,7 +47,7 @@ class BibleSearchCategory extends CommandCategory<VerseRef> {
 
   onTrigger(_state: CommandPaletteState): void {
     this.bible = VerseRef.bible;
-    this.specificity.set(Specificity.Book); // Set to full verse search when triggered
+    this.specificity.set(Specificity.Book); // Set to book-level search when triggered
   }
 
   getCommands(query: string): VerseRef[] {
@@ -89,100 +89,134 @@ class BibleSearchCategory extends CommandCategory<VerseRef> {
   }
 }
 
-class GoToVerseCategory extends CommandCategory<VerseRef> {
+/**
+ * Find a verse as we type, matching against the book name, chapter number, verse number
+ *
+ * Look at the first few characters of the query to an if there are few enough books that match
+ *
+ * WE are tying to get the best match for the user as they type, so we want to be flexible with the query and not require them to type the full book name or chapter number or verse number
+ *
+ * We can use the specificity state to determine how much of the verse reference we are trying to match against, and we can update the specificity state as the user types to narrow down the results
+ *
+ * First figure out what books match the first part of the query, then if there is less than 5 books that match, we can move on to matching the chapter number, then the verse number, and finally the full verse text
+ * loop
+ *
+ *
+ *
+ */
+type BibleMatch = {
+  book: string;
+  chapter?: number;
+  verse?: number;
+};
+
+class GoToVerseCategory extends CommandCategory<BibleMatch> {
   readonly name = "Go to verse";
   readonly description = "Navigate to a specific verse in the Bible";
-  list: VerseRef[] = [];
-  specificity: PaletteState<Specificity>;
 
   constructor(
     public commandPalette: UnifiedCommandPalette,
     public plugin: BibleSearchPlugin,
   ) {
     super(commandPalette);
-    this.specificity = this.plugin.specificity; // Use the specificity state from the plugin
   }
-
-  onTrigger(state: CommandPaletteState): void {
-    if (this.commandPalette.state.topCategory !== GoToVerseCategoryID) this.specificity.set(Specificity.Book); // Reset to book-level if coming from a different category
-    if (state) {
-      const verse = this.plugin.app.verseState.get();
-
-      switch (this.specificity.get()) {
-        case Specificity.Book: // Book
-          this.list = VerseRef.booksOfTheBible.map(book => new VerseRef(book, 1, 1));
-          break;
-        case Specificity.Chapter: // Book and Chapter
-          this.title = `Go to verse: ${verse.book}`;
-          this.commandPalette.inputMode = "numeric";
-          this.list = verse.bTXT?.slice(1).map((_c, index) => new VerseRef(verse.book, index + 1, 1)) || [];
-          break;
-        case Specificity.Verse: // Book, Chapter, and Verse
-          this.title = `Go to verse: ${verse.book}:${verse.chapter}`;
-          this.list =
-            verse.cTXT.slice(1).map((_v, index) => new VerseRef(verse.book, verse.chapter, index + 1)) || [];
-          break;
-      }
-    } else {
-      this.specificity.set(Specificity.Book);
-      this.list = VerseRef.booksOfTheBible.map(book => new VerseRef(book, 1, 1));
-    }
+  onTrigger(): void {
+    throw new Error("Method not implemented.");
   }
+  getCommands(query: string): BibleMatch[] {
+    const eat = (q: string, list: string[]) => {
+      const lowerQ = q.toLowerCase().trim();
 
-  getCommands(query: string): VerseRef[] {
-    switch (this.specificity.get()) {
-      case Specificity.Book: // Book
-        return this.getcompatible(query, this.list, ref => ref.book);
-      case Specificity.Chapter: // Book and Chapter
-        return this.getcompatible(query, this.list, ref => ref.chapter.toString());
-      case Specificity.Verse: // Book, Chapter, and Verse
-        return this.getcompatible(
-          query,
-          this.list,
-          ref => ref.verse.toString(),
-          ref => ref.vTXT,
-        );
-      default:
-        return [];
-    }
-  }
+      // Pre-calculate matches to find the global maxMatchLen for this query
+      const matches = list.map(item => {
+        const lowerItem = item.toLowerCase();
+        let matchLen = 0;
+        while (
+          matchLen < lowerQ.length &&
+          matchLen < lowerItem.length &&
+          lowerQ[matchLen] === lowerItem[matchLen]
+        ) {
+          matchLen++;
+        }
+        return { item, lowerItem, matchLen };
+      });
 
-  renderCommand(
-    verse: VerseRef,
-    Item: CommandItem<VerseRef>,
-  ): (state: CommandPaletteState) => CommandPaletteState {
-    switch (this.specificity.get()) {
-      case Specificity.Book: // Book
-        Item.setTitle(verse.book.toTitleCase()).addctx();
-        return state => {
-          this.specificity.set(Specificity.Chapter);
-          this.plugin.app.verseState.set(verse);
-          return state.update({ topCategory: GoToVerseCategoryID });
-        };
-      case Specificity.Chapter: // Book and Chapter
-        Item.setTitle(`${verse.book.toTitleCase()} ${verse.chapter}`).addctx();
-        return state => {
-          this.specificity.set(Specificity.Verse);
-          this.plugin.app.verseState.set(verse);
-          return state.update({ topCategory: GoToVerseCategoryID });
-        };
-      case Specificity.Verse: // Book, Chapter, and Verse
-        Item.setTitle(verse.toString()).setDescription(verse.vTXT);
-        return state => {
-          this.specificity.set(Specificity.Book); // Reset to book-level for the next time
-          this.plugin.app.verseState.set(verse);
-          return state.update({ topCategory: TSKCrossRefCategoryID });
-        };
-    }
-    return state => {
-      this.specificity.set(Specificity.Book); // Reset to book-level for the next time
-      this.plugin.app.verseState.set(verse);
-      return state.update({ topCategory: TSKCrossRefCategoryID });
+      const maxMatchLen = Math.max(0, ...matches.map(m => m.matchLen));
+
+      // Only return if we actually matched something substantial
+      if (maxMatchLen === 0) return [];
+
+      return matches
+        .filter(m => m.matchLen === maxMatchLen)
+        .map(m => ({
+          item: m.item,
+          remaining: lowerQ.slice(m.matchLen).trim(),
+        }));
     };
-  }
 
-  executeCommand(_ref: VerseRef): void {
-    if (this.specificity.get() > 0) this.commandPalette.close();
-    else this.commandPalette.display();
+    const bestBookMatches = eat(query, VerseRef.booksOfTheBible);
+
+    // We only proceed with specific number parsing if we have a clear book match
+    if (bestBookMatches.length === 1) {
+      const { item: book, remaining } = bestBookMatches[0];
+
+      // 1. Try to "eat" the Chapter
+      // We need a list of strings representing possible chapters (1-150)
+      const chapterList = Array.from({ length: VerseRef.bible[book].length - 1 }, (_, i) =>
+        (i + 1).toString(),
+      );
+      console.log(`Trying to match chapter from: "${remaining}" against ${chapterList} chapters`);
+      const chapterMatches = eat(remaining, chapterList);
+
+      let chapter: number | undefined;
+
+      if (chapterMatches.length === 1) {
+        const { item: chItem, remaining: verseRemaining } = chapterMatches[0];
+        chapter = parseInt(chItem, 10);
+
+        // 2. Try to "eat" the Verse from what's left
+        const verseList = Array.from({ length: VerseRef.bible[book][chapter].length - 1 }, (_, i) =>
+          (i + 1).toString(),
+        );
+        const verseMatches = eat(verseRemaining, verseList);
+
+        this.console.log(
+          `Trying to match verse from: "${verseRemaining}" against ${verseList.length} verses in chapter ${chapter} of ${book}`,
+        );
+
+        if (!verseMatches.length) return verseList.map(v => ({ book, chapter, verse: parseInt(v, 10) }));
+
+        return verseMatches.map(({ item }) => ({
+          book,
+          chapter,
+          verse: parseInt(item, 10),
+        }));
+      }
+
+      if (!chapterMatches.length) return chapterList.map(ch => ({ book, chapter: parseInt(ch, 10) }));
+
+      return chapterMatches.map(({ item }) => ({
+        book,
+        chapter: parseInt(item, 10),
+      }));
+    } else {
+      return bestBookMatches.map(m => ({
+        book: m.item,
+      }));
+    }
+  }
+  renderCommand(
+    command: BibleMatch,
+    el: CommandItem<BibleMatch>,
+  ): Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState) {
+    const { book, chapter, verse } = command;
+    el.setTitle(book + (chapter ? ` ${chapter}` : "") + (verse ? `:${verse}` : ""));
+    return { topCategory: TSKCrossRefCategoryID };
+  }
+  executeCommand(command: BibleMatch): void {
+    const { book, chapter, verse } = command;
+    const verseRef = new VerseRef(book, chapter ?? 1, verse ?? 1);
+    this.plugin.app.verseState.set(verseRef);
+    this.commandPalette.close();
   }
 }
