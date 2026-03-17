@@ -1,5 +1,18 @@
 import { BibleTopicsType } from "./BibleTopics";
 
+export const DEFAULT_CATEGORY_ORDER: string[] = [
+  "verse-list",
+  "tsk-cross-ref",
+  "bookmarks",
+  "go-to-verse",
+  "topics",
+  "bible-search",
+  "translations",
+  "my-notes",
+  "journal",
+  "settings",
+  "ai",
+];
 export interface TGAppSettings {
   schemaVersion: number;
   enableLogging: boolean;
@@ -20,6 +33,7 @@ export interface TGAppSettings {
     dateCreated: string;
     dateModified: string;
   }[];
+  categoryOrder: string[];
 }
 
 export const DEFAULT_SETTINGS: TGAppSettings = {
@@ -33,4 +47,5 @@ export const DEFAULT_SETTINGS: TGAppSettings = {
     Font: "Fontserif",
     fontSize: 16,
   },
+  categoryOrder: DEFAULT_CATEGORY_ORDER,
 };

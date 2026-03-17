@@ -15,7 +15,7 @@ import TranslationsPlugin from "./plugins/Translations";
 import TSK from "./plugins/TSK";
 import { NavigationPanel } from "./sidepanels";
 import "./main.css";
-import { DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
+import { DEFAULT_SETTINGS, TGAppSettings, DEFAULT_CATEGORY_ORDER } from "./TGAppSettings";
 
 import SharePlugin from "./plugins/Share";
 import { bibleData, translation, VerseRef } from "./VerseRef";
@@ -89,6 +89,7 @@ export default class TouchGrassBibleApp extends App {
     this.defaultTranslation.onChange(newTranslation => (VerseRef.defaultTranslation = newTranslation));
 
     await this.loadsettings(DEFAULT_SETTINGS);
+    this.commandPalette.setCategoryOrder(this.settings.categoryOrder || DEFAULT_CATEGORY_ORDER);
     this.registerWorkspaceViews();
     this.ensureMainScreenTab();
 

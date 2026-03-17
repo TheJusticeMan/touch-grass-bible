@@ -108,6 +108,7 @@ export class UnifiedCommandPalette extends Openable<{
   private stateController: PaletteStateController<CommandPaletteState>;
   private headerEl!: HTMLDivElement;
   private maxResults: number = 100; // Maximum results to show
+  private categoryOrder: string[] = [];
   //private CategoryNavigator: CategoryNavigator<>;
   private contentOverview!: HTMLDivElement;
 
@@ -182,6 +183,7 @@ export class UnifiedCommandPalette extends Openable<{
   // Add category (class constructor or instance)
   addPalette(load: CategoryLoaderFunc<unknown>, id: string): this {
     this.categories.push(new CategoryLoader(load, id));
+    this.sortCategoriesByOrder(this.categoryOrder);
     return this;
   }
 
@@ -206,6 +208,19 @@ export class UnifiedCommandPalette extends Openable<{
 
   removeHiddenPalette(load: CategoryLoaderFunc<unknown>, id: string): void {
     this.hiddenCategories = this.hiddenCategories.filter(cat => cat.id !== id || cat.getPalette !== load);
+  }
+
+  sortCategoriesByOrder(order: string[]): void {
+    this.categories.sort((a, b) => {
+      const aIdx = order.indexOf(a.id);
+      const bIdx = order.indexOf(b.id);
+      return aIdx < 0 ? 1 : bIdx < 0 ? -1 : aIdx - bIdx;
+    });
+  }
+
+  setCategoryOrder(order: string[]): void {
+    this.categoryOrder = order;
+    this.sortCategoriesByOrder(order);
   }
 
   // Open and initialize palette UI
