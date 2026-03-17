@@ -135,7 +135,7 @@ export class DragDropController {
       const panel = panelEl ? this.workspace.findPanelById(panelEl.dataset.panelId ?? "") : null;
       if (panel && panel.getMode() === "TabGroup") {
         const tabButton = hit.closest(".panel-tab") as HTMLButtonElement | null;
-        const insertIndex = panel.getInsertIndexForPointer(tabButton, clientX);
+        const insertIndex = panel.getInsertIndexForPointer(tabButton);
         this.setDropTarget(panel, "center", insertIndex, tabButton);
         return;
       }

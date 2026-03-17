@@ -1135,23 +1135,13 @@ export class LayoutNode {
     return this;
   }
 
-  getInsertIndexForPointer(hoveredTabButton: HTMLButtonElement | null, pointerClientX?: number): number {
+  getInsertIndexForPointer(hoveredTabButton: HTMLButtonElement | null): number {
     if (!hoveredTabButton) {
       return this.views.length;
     }
     const hoveredIndex = this.views.findIndex(panelView => panelView.tabButton === hoveredTabButton);
     if (hoveredIndex < 0) return this.views.length;
-    if (typeof pointerClientX !== "number") {
-      return hoveredIndex;
-    }
-
-    const rect = hoveredTabButton.getBoundingClientRect();
-    if (rect.width <= 0) {
-      return hoveredIndex;
-    }
-
-    const midpoint = rect.left + rect.width / 2;
-    return pointerClientX < midpoint ? hoveredIndex : hoveredIndex + 1;
+    return hoveredIndex;
   }
 
   getViewIndexByTabId(tabId: string): number {
