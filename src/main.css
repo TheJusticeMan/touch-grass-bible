@@ -1,67 +1,151 @@
-/* Updated for dark theme and fixed header/footer */
+/* ============================================================
+   Design tokens — single source of truth for the whole app
+   ============================================================ */
 
-body {
+:root {
+  /* --- Color palette --- */
+  --color-bg: #050505;
+  --color-surface: rgb(255 255 255 / 0.06);
+  --color-surface-strong: rgb(255 255 255 / 0.12);
+  --color-border: rgb(255 255 255 / 0.14);
+  --color-text: rgb(255 255 255 / 0.94);
+  --color-text-muted: rgb(255 255 255 / 0.62);
+  --color-accent: #9ed0ff;
+  --color-accent-bookmark: #f0f;
+
+  /* --- Shadows --- */
+  --shadow-soft: 0 8px 24px rgb(0 0 0 / 0.28);
+  --shadow-glow: 0 0 16px -8px #fff;
+
+  /* --- Border-radius: asymmetric "shifted-curve" language --- */
+  --radius-shift-sm: 0.35rem 0.7rem;
+  --radius-shift-md: 0.5em 1em;
+  --radius-shift-lg: 1em 2em;
+  --radius-round-sm: 0.5rem;
+  --radius-round-md: 0.875rem;
+  --radius-circle: 999px;
+
+  /* Backward-compat aliases (used throughout the codebase) */
+  --border-radius-small: var(--radius-shift-sm);
+  --border-radius-medium: var(--radius-shift-md);
+  --border-radius-large: var(--radius-shift-lg);
+
+  /* --- Spacing --- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+
+  /* --- Typography --- */
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-size-base: 16px;
+  --font-size-sm: 0.875rem;
+  --font-size-xs: 0.78rem;
+
+  /* --- Z-index scale --- */
+  --z-floating-action: 20;
+  --z-panel-overlay: 200;
+  --z-menu: 400;
+  --z-command-palette: 800;
+  --z-modal: 900;
+
+  /* --- Reading view --- */
+  --reading-width: 25em;
+  --navbar-height: 5em;
+  --text-display: block;
+
+  /* Legacy aliases so JS/other code still works */
+  --readingwidth: var(--reading-width);
+  --navbarheight: var(--navbar-height);
+  --textdisplay: var(--text-display);
+
+  /* --- App foreground/background (set here; can be overridden by theme) --- */
   --background: #000f;
   --foreground: #ffff;
-  --readingwidth: 25em;
-  --navbarheight: 5em;
-  --textdisplay: block;
-  --border-radius-small: 0.35rem 0.7rem;
-  --border-radius-medium: 0.5em 1em;
-  --border-radius-large: 1rem 2rem;
+
+  /* --- Semantic one-off colors --- */
+  --color-verse-ref-bg: rgb(0 0 42 / 0.67);
 }
 
+/* ============================================================
+   Global accessibility helpers
+   ============================================================ */
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+   Reading view
+   ============================================================ */
+
 .highlighted-query {
-  color: #f0fc;
+  color: rgb(240 0 255 / 0.8);
 }
 
 .content .verse {
   text-indent: 1em;
   text-align: justify;
   padding: 0.4em;
-  display: var(--textdisplay);
+  display: var(--text-display);
   cursor: pointer;
 }
 
 .content .verse:hover {
-  text-shadow: 0 0 5px #fff4;
+  text-shadow: 0 0 5px rgb(255 255 255 / 0.25);
+}
+
+.content .verse:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-shift-sm);
 }
 
 .content .verse .number {
-  color: #fff8;
+  color: rgb(255 255 255 / 0.5);
   padding: 0.5em;
 }
 
 .content .active .verse .number {
-  color: #f0fc;
+  color: var(--color-accent);
 }
 
 .content .verse .paragraph-break {
-  color: #fff8;
+  color: rgb(255 255 255 / 0.5);
 }
 
 .content .chapter-title {
   text-align: center;
-  color: #fff8;
+  color: rgb(255 255 255 / 0.5);
   font-size: 1.5em;
   font-weight: bold;
   margin: 1em auto;
-  max-width: var(--readingwidth);
+  max-width: var(--reading-width);
 }
 
 .content .chapter {
   margin: 2em auto;
-  max-width: var(--readingwidth);
-}
-
-.content .chapter:last-of-type .verse:last-of-type {
-  min-height: 100vh;
-  padding-bottom: 2rem;
-}
-.content .chapter {
+  max-width: var(--reading-width);
   word-spacing: 0.5em;
   letter-spacing: 0.1em;
   line-height: 1.5;
+}
+
+.content .chapter:last-of-type .verse:last-of-type {
+  /* avoid awkward whitespace on mobile; use padding instead */
+  padding-bottom: 4rem;
 }
 
 .wrap .chapter .verse {
@@ -75,7 +159,6 @@ body {
 
 .wrap .chapter .paragraph-break .number,
 .wrap .chapter > .verse:first-of-type .number {
-  /* display: inline-block; */
   font-size: 2em;
   text-transform: capitalize;
   float: left;
@@ -87,26 +170,36 @@ body {
   display: none;
 }
 
+/* ============================================================
+   Command-palette floating action button
+   ============================================================ */
+
 .command-palette-fab {
   position: fixed;
-  right: 1rem;
-  bottom: 1rem;
+  right: var(--space-4);
+  bottom: var(--space-4);
   width: 44px;
   height: 44px;
-  border: 1px solid #fff4;
-  border-radius: 999px;
-  background: #000a;
-  color: #fff;
-  font-size: 0.72rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-circle);
+  background: rgb(0 0 0 / 0.65);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
   font-weight: 700;
   letter-spacing: 0.04em;
   cursor: pointer;
-  z-index: 1000;
+  z-index: var(--z-floating-action);
   backdrop-filter: blur(4px);
+  transition: background-color 0.15s ease;
 }
 
 .command-palette-fab:hover {
-  background: #fff2;
+  background: var(--color-surface-strong);
+}
+
+.command-palette-fab:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .command-palette-fab.is-hidden {

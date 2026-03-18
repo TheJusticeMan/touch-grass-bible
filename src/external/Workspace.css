@@ -1,11 +1,14 @@
+/* Workspace.css — panel shell, tabs, resize handles, and window controls */
+
 .workspace-root-host {
-  --workspace-border: #fff2;
-  --workspace-surface: #0008;
-  --workspace-surface-2: #fff1;
-  --workspace-surface-3: #fff2;
-  --workspace-tab-text: #fffb;
-  --workspace-tab-muted: #fff8;
-  --workspace-glow: 0 0 16px -8px #fff;
+  /* Panel chrome tokens */
+  --workspace-border: var(--color-border, rgb(255 255 255 / 0.14));
+  --workspace-surface: rgb(0 0 0 / 0.5);
+  --workspace-surface-2: var(--color-surface, rgb(255 255 255 / 0.06));
+  --workspace-surface-3: var(--color-surface-strong, rgb(255 255 255 / 0.12));
+  --workspace-tab-text: var(--color-text, rgb(255 255 255 / 0.94));
+  --workspace-tab-muted: var(--color-text-muted, rgb(255 255 255 / 0.62));
+  --workspace-glow: var(--shadow-glow, 0 0 16px -8px #fff);
   --workspace-tab-gap: 0.45rem;
   --workspace-tab-strip-padding: 0.5rem;
   --workspace-tab-padding-y: 0.4rem;
@@ -16,6 +19,7 @@
   --workspace-resize-handle-size: 0.625rem;
   --rightpanel-open: -100%;
   --leftpanel-open: 100%;
+
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -39,9 +43,6 @@
   position: relative;
 }
 
-/* .panel.is-active-panel {
-}
- */
 .panel-mode-panels {
   gap: 0;
 }
@@ -86,12 +87,12 @@
 }
 
 .panel-tabs::-webkit-scrollbar-thumb {
-  background: #fff4;
-  border-radius: 999px;
+  background: var(--color-border, rgb(255 255 255 / 0.14));
+  border-radius: var(--radius-circle);
 }
 
 .panel.is-active-panel .panel-tabs {
-  background: #fff1;
+  background: var(--color-surface, rgb(255 255 255 / 0.06));
 }
 
 .panel-tabs.is-hidden {
@@ -108,6 +109,12 @@
 
 .panel-tab-add:hover {
   opacity: 1;
+}
+
+.panel-tab-add:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .panel-tab-add.is-hidden {
@@ -134,11 +141,16 @@
   align-items: center;
   gap: 0.4rem;
   transition:
-    background 0.15s ease,
+    background-color 0.15s ease,
     border-color 0.15s ease,
     color 0.15s ease;
   flex: 0 0 auto;
   -webkit-app-region: no-drag;
+}
+
+.panel-tab:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .panel-window-controls {
@@ -160,8 +172,8 @@
   height: var(--workspace-control-size);
   border: 1px solid var(--workspace-border);
   border-radius: var(--border-radius-small);
-  background: #0008;
-  color: #fff;
+  background: rgb(0 0 0 / 0.5);
+  color: var(--color-text, #fff);
   font-size: 0.78rem;
   cursor: pointer;
   display: inline-flex;
@@ -172,6 +184,11 @@
 
 .panel-window-control:hover {
   background: var(--workspace-surface-3);
+}
+
+.panel-window-control:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .panel-tab-icon {
@@ -212,7 +229,13 @@
 }
 
 .panel-tab-close:hover {
-  background: #fff3;
+  background: var(--color-surface-strong, rgb(255 255 255 / 0.12));
+  opacity: 1;
+}
+
+.panel-tab-close:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
   opacity: 1;
 }
 
@@ -225,6 +248,8 @@
   flex: 0 0 auto;
   position: relative;
   z-index: 2;
+  touch-action: none;
+  user-select: none;
 }
 
 .panel-content.horizontal > .panel-resize-handle {
@@ -243,9 +268,9 @@
   content: "";
   position: absolute;
   inset: 0.1rem;
-  border-radius: 999px;
+  border-radius: var(--radius-circle);
   opacity: 0;
-  background: #fff3;
+  background: var(--color-surface-strong, rgb(255 255 255 / 0.12));
   transition: opacity 0.15s ease;
 }
 
@@ -261,23 +286,26 @@
 }
 
 .panel.is-active-panel .panel-tab.is-active {
-  color: #fff;
-  border-color: #fff3;
-  background: #fff3;
+  color: var(--color-text, #fff);
+  border-color: var(--color-surface-strong, rgb(255 255 255 / 0.12));
+  background: var(--color-surface-strong, rgb(255 255 255 / 0.12));
   box-shadow: var(--workspace-glow);
 }
 
 .panel-tab.is-unresolved {
   border-style: dashed;
-  color: #fffd;
+  color: var(--color-text, rgb(255 255 255 / 0.94));
   opacity: 0.8;
 }
+
 .panel-tab.is-dragging {
   opacity: 0.45;
 }
+
 .panel-tab.is-drop-before {
   position: relative;
 }
+
 .panel-tab.is-drop-before::before {
   content: "";
   position: absolute;
@@ -285,31 +313,37 @@
   top: 15%;
   height: 70%;
   width: 2px;
-  border-radius: 999px;
-  background: #fff;
+  border-radius: var(--radius-circle);
+  background: var(--color-text, #fff);
 }
+
 .panel.is-drop-target::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
   border-radius: var(--border-radius-small);
-  border: 1px solid #fff4;
+  border: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
 }
+
 .panel.drop-edge-center::after {
-  box-shadow: inset 0 0 0 1px #fff4;
+  box-shadow: inset 0 0 0 1px var(--color-border, rgb(255 255 255 / 0.14));
 }
+
 .panel.drop-edge-left::after {
-  background: linear-gradient(to right, #fff2 0%, transparent 28%);
+  background: linear-gradient(to right, var(--color-surface, rgb(255 255 255 / 0.06)) 0%, transparent 28%);
 }
+
 .panel.drop-edge-right::after {
-  background: linear-gradient(to left, #fff2 0%, transparent 28%);
+  background: linear-gradient(to left, var(--color-surface, rgb(255 255 255 / 0.06)) 0%, transparent 28%);
 }
+
 .panel.drop-edge-top::after {
-  background: linear-gradient(to bottom, #fff2 0%, transparent 28%);
+  background: linear-gradient(to bottom, var(--color-surface, rgb(255 255 255 / 0.06)) 0%, transparent 28%);
 }
+
 .panel.drop-edge-bottom::after {
-  background: linear-gradient(to top, #fff2 0%, transparent 28%);
+  background: linear-gradient(to top, var(--color-surface, rgb(255 255 255 / 0.06)) 0%, transparent 28%);
 }
 
 .panel-content {
@@ -329,7 +363,7 @@
 
 .panel-mode-views > .panel-content {
   position: relative;
-  background: #0008;
+  background: var(--workspace-surface);
 }
 
 .panel-mode-views > .panel-content > .view {
@@ -351,7 +385,7 @@
 
 .view-unresolved {
   position: relative;
-  background: linear-gradient(135deg, #0009 0%, #0005 100%);
+  background: linear-gradient(135deg, rgb(0 0 0 / 0.6) 0%, rgb(0 0 0 / 0.31) 100%);
 }
 
 .view-unresolved::before {
@@ -360,7 +394,7 @@
   inset: 0;
   display: grid;
   place-items: center;
-  color: #fff8;
+  color: var(--color-text-muted, rgb(255 255 255 / 0.62));
   font-size: 0.95rem;
   letter-spacing: 0.03em;
 }
@@ -376,7 +410,8 @@
   color: var(--foreground, #fff);
 }
 
-/* Screens smaller than 600px */
+/* ── Responsive: small screens ──────────────────────────────── */
+
 @media (max-width: 600px) {
   .workspace-root-host {
     --workspace-tab-gap: 0.35rem;
@@ -388,28 +423,31 @@
     --workspace-resize-handle-size: 0.5rem;
   }
 
+  /* Side panels slide in/out on mobile.
+     Use explicit role classes (.panel-is-left, .panel-is-right) when possible
+     to replace these positional selectors. */
   .workspace-root-host > .panel > .panel-content > .panel:first-of-type {
     position: fixed;
     top: 0;
     left: 0;
-    /* width: min(24rem, 88vw); */
     height: 100dvh;
     transform: translateX(var(--rightpanel-open));
-    z-index: 999;
+    z-index: var(--z-panel-overlay, 200);
     transition: transform 0.15s ease;
     backdrop-filter: blur(6px);
   }
+
   .workspace-root-host > .panel > .panel-content > .panel:last-of-type {
     position: fixed;
     top: 0;
     left: 0;
-    /* //width: min(24rem, 88vw); */
     height: 100dvh;
     transform: translateX(var(--leftpanel-open));
-    z-index: 999;
+    z-index: var(--z-panel-overlay, 200);
     transition: transform 0.15s ease;
     backdrop-filter: blur(6px);
   }
+
   .workspace-root-host > .panel > .panel-content > .panel-resize-handle {
     display: none;
   }
