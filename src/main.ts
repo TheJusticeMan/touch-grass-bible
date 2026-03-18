@@ -9,6 +9,7 @@ import AIPlugin from "./plugins/AI";
 import BookmarkPlugin from "./plugins/Bookmarks";
 import GestureCommandsPlugin from "./plugins/GestureCommands";
 import JournalPlugin from "./plugins/Journal";
+import NavesTopicalBiblePlugin from "./plugins/NavesTopicalBible/NavesTopicalBible";
 import NotesPlugin from "./plugins/Notes/Notes";
 import BibleSearchPlugin from "./plugins/Search";
 import SettingsPlugin from "./plugins/Settings";
@@ -163,6 +164,15 @@ export default class TouchGrassBibleApp extends App {
           id: "topical-bible",
           name: "Topical Bible",
           description: "Browse topics and their associated verses from OpenBible.info.",
+          version: "1.0.0",
+        },
+      },
+      {
+        pluginClass: NavesTopicalBiblePlugin,
+        manifest: {
+          id: "naves-topical-bible",
+          name: "Nave's Topical Bible",
+          description: "Browse Nave's Topical Bible topics, subtopics, related topics, and verses.",
           version: "1.0.0",
         },
       },
