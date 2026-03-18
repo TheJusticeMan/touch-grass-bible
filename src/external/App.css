@@ -8,6 +8,7 @@ body {
   overflow: hidden;
   background-color: var(--color-bg, #050505);
   overscroll-behavior: contain;
+  user-select: none;
 }
 
 .app-shell-element {
