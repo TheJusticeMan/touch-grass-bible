@@ -7,6 +7,17 @@ import { UnifiedCommandPalette } from "./CommandPalette";
 
 export { App, AppState };
 
+/**
+ * Represents a command that can be registered with the application
+ * and triggered by name, keyboard shortcut, or gesture.
+ */
+export interface AppCommand {
+  id: string;
+  name: string;
+  description?: string;
+  callback: () => void;
+}
+
 class AppState {
   constructor(
     public name: string = "",
@@ -81,6 +92,44 @@ abstract class App extends ETarget<{
   readonly platformBridge: PlatformBridge;
 
   commandPalette: UnifiedCommandPalette = new UnifiedCommandPalette(this);
+
+  private _commands: Map<string, AppCommand> = new Map();
+
+  /**
+   * Registers a command with the application.
+   * @param command - The command to register.
+   * @returns The current instance for method chaining.
+   */
+  addCommand(command: AppCommand): this {
+    this._commands.set(command.id, command);
+    return this;
+  }
+
+  /**
+   * Removes a previously registered command.
+   * @param commandId - The id of the command to remove.
+   * @returns The current instance for method chaining.
+   */
+  removeCommand(commandId: string): this {
+    this._commands.delete(commandId);
+    return this;
+  }
+
+  /**
+   * Retrieves a registered command by its id.
+   * @param commandId - The id of the command to retrieve.
+   * @returns The command, or undefined if not found.
+   */
+  getCommand(commandId: string): AppCommand | undefined {
+    return this._commands.get(commandId);
+  }
+
+  /**
+   * Returns all registered commands.
+   */
+  getCommands(): AppCommand[] {
+    return Array.from(this._commands.values());
+  }
 
   private target: ETarget[] = [];
   /**

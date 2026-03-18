@@ -7,6 +7,7 @@ import "./main.css";
 import { internalPlugins, type IconActionItem } from "./Plugin";
 import AIPlugin from "./plugins/AI";
 import BookmarkPlugin from "./plugins/Bookmarks";
+import GestureCommandsPlugin from "./plugins/GestureCommands";
 import JournalPlugin from "./plugins/Journal";
 import NotesPlugin from "./plugins/Notes/Notes";
 import BibleSearchPlugin from "./plugins/Search";
@@ -72,6 +73,7 @@ export default class TouchGrassBibleApp extends App {
   firstLoad = true;
   saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private fallbackVerseState = this.commandPalette.useState(new VerseRef("GENESIS", 1, 1));
+  fab: HTMLButtonElement | null = null;
 
   get verseState(): PaletteState<VerseRef> {
     const activeVerseScreen = this.workspace.getActiveViewOfType("verse-screen");
@@ -113,7 +115,7 @@ export default class TouchGrassBibleApp extends App {
     this.console.log(info.name, info.version, "loaded");
     this.on("Ctrl+EnterKeyDown", () => !this.commandPalette.isOpen && this.openCommandPalette());
 
-    const commandButton = this.contentEl.createEl("button", {
+    this.fab = this.contentEl.createEl("button", {
       cls: "command-palette-fab",
       text: "CMD",
       attr: {
@@ -121,9 +123,9 @@ export default class TouchGrassBibleApp extends App {
         "aria-label": "Open command palette",
       },
     });
-    commandButton.addEventListener("click", () => this.openCommandPalette());
-    this.commandPalette.on("open", () => commandButton.classList.add("is-hidden"));
-    this.commandPalette.on("close", () => commandButton.classList.remove("is-hidden"));
+    this.fab.addEventListener("click", () => this.openCommandPalette());
+    this.commandPalette.on("open", () => this.fab?.classList.add("is-hidden"));
+    this.commandPalette.on("close", () => this.fab?.classList.remove("is-hidden"));
 
     this.console.log(new Date().getTime() - processstart, "ms startup time");
     this.console.log("Touch Grass Bible is ready!");
@@ -215,6 +217,15 @@ export default class TouchGrassBibleApp extends App {
           id: "share",
           name: "Share",
           description: "Share verses via external links.",
+          version: "1.0.0",
+        },
+      },
+      {
+        pluginClass: GestureCommandsPlugin,
+        manifest: {
+          id: "gesture-commands",
+          name: "Gesture Commands",
+          description: "Trigger commands by drawing gestures on the floating action button.",
           version: "1.0.0",
         },
       },

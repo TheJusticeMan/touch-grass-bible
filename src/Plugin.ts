@@ -4,6 +4,7 @@ import TouchGrassBibleApp from "./main";
 import { CategoryLoaderFunc } from "./external/CommandPalette";
 import { BrowserConsole } from "./external/MyBrowserConsole";
 import { VerseInfoComponent } from "./VerseScreen";
+import { AppCommand } from "./external/App";
 
 abstract class Component {
   private loaded = false;
@@ -78,6 +79,30 @@ export default class Plugin extends Component {
   registerPalette(load: CategoryLoaderFunc<unknown>, id: string) {
     this.app.commandPalette.addPalette(load, id);
     this.registerUnload(() => this.app.commandPalette.removePalette(load, id));
+
+    // Get the palette name and description to create a well-named command
+    const category = this.app.commandPalette.getCategory(id);
+    const palette = category?.getPalette(this.app.commandPalette);
+
+    // Auto-register a command that opens the command palette with this category on top
+    this.registerCommand({
+      id: `open-palette-${id}`,
+      name: palette ? `Open: ${palette.name}` : `Open: ${id}`,
+      description: palette?.description,
+      callback: () => this.app.openCommandPalette({ topCategory: id }),
+    });
+  }
+
+  /**
+   * Registers a command with the application.
+   * The command is automatically removed when the plugin unloads.
+   * @param command - The command to register.
+   * @returns The current instance for method chaining.
+   */
+  registerCommand(command: AppCommand): this {
+    this.app.addCommand(command);
+    this.registerUnload(() => this.app.removeCommand(command.id));
+    return this;
   }
 
   registerView(id: string, view: (panel: LayoutNode) => View) {
