@@ -95,8 +95,8 @@
   background: none;
   width: 100%;
   transition:
-    background-color 0.15s ease,
-    color 0.13s ease;
+    background-color var(--motion-fast, 0.15s ease),
+    color var(--motion-fast, 0.15s ease);
   user-select: none;
 }
 

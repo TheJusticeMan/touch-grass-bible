@@ -433,7 +433,19 @@
     height: 100dvh;
     transform: translateX(var(--rightpanel-open));
     z-index: var(--z-panel-overlay, 200);
-    transition: transform 0.15s ease;
+    transition: transform var(--motion-fast, 0.15s ease);
+    backdrop-filter: blur(6px);
+  }
+
+  .workspace-root-host > .panel > .panel-content > .panel.panel-is-left {
+    /* same styles as :first-of-type */
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100dvh;
+    transform: translateX(var(--rightpanel-open));
+    z-index: var(--z-panel-overlay, 200);
+    transition: transform var(--motion-fast, 0.15s ease);
     backdrop-filter: blur(6px);
   }
 
@@ -444,7 +456,18 @@
     height: 100dvh;
     transform: translateX(var(--leftpanel-open));
     z-index: var(--z-panel-overlay, 200);
-    transition: transform 0.15s ease;
+    transition: transform var(--motion-fast, 0.15s ease);
+    backdrop-filter: blur(6px);
+  }
+
+  .workspace-root-host > .panel > .panel-content > .panel.panel-is-right {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100dvh;
+    transform: translateX(var(--leftpanel-open));
+    z-index: var(--z-panel-overlay, 200);
+    transition: transform var(--motion-fast, 0.15s ease);
     backdrop-filter: blur(6px);
   }
 

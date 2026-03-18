@@ -8,7 +8,7 @@
   width: calc(100% - 2em);
   max-width: 48rem;
   height: calc(100% - 2em);
-  background: rgb(0 0 0 / 0.5);
+  background: var(--color-overlay-soft, rgb(0 0 0 / 0.5));
   border-radius: var(--border-radius-large);
   box-shadow: var(--shadow-glow, 0 0 16px -8px #fff);
   backdrop-filter: blur(8px);
@@ -29,10 +29,10 @@
 .palette {
   display: flex;
   flex-direction: column;
-  padding: 8px;
+  padding: var(--space-2, 0.5rem);
   height: 100%;
   box-sizing: border-box;
-  color: var(--foreground);
+  color: var(--color-text, rgb(255 255 255 / 0.94));
   background-color: transparent;
 }
 
@@ -40,10 +40,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
   background-color: var(--color-surface, rgb(255 255 255 / 0.06));
   border-radius: var(--border-radius-small);
-  color: var(--foreground);
+  color: var(--color-text, rgb(255 255 255 / 0.94));
 }
 
 .palette-header button:focus-visible {
@@ -52,18 +52,18 @@
 }
 
 .palette-header button.active {
-  background-color: var(--accent1);
+  background-color: var(--color-accent, #9ed0ff);
   color: #000;
 }
 
 .palette-search {
-  padding: 10px 14px;
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
   border: none;
   border-radius: var(--border-radius-small);
   background-color: var(--color-surface, rgb(255 255 255 / 0.06));
-  color: var(--foreground);
+  color: var(--color-text, rgb(255 255 255 / 0.94));
   font-size: 1rem;
-  transition: background-color 0.2s ease;
+  transition: background-color var(--motion-base, 0.2s ease);
   width: 100%;
   box-sizing: border-box;
   /* Allow text selection in the search box */
@@ -82,7 +82,7 @@
   display: flex;
   flex-direction: row;
   box-sizing: border-box;
-  margin-top: 8px;
+  margin-top: var(--space-2, 0.5rem);
   flex: 1;
   gap: 1em;
   overflow: hidden;
@@ -106,10 +106,10 @@
 .palette-content .category-title {
   position: sticky;
   top: 0;
-  background: rgb(0 0 0 / 0.5);
+  background: var(--color-overlay-soft, rgb(0 0 0 / 0.5));
   backdrop-filter: blur(2px);
   border-bottom: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
-  padding: 12px 12px 8px;
+  padding: var(--space-3, 0.75rem) var(--space-3, 0.75rem) var(--space-2, 0.5rem);
   color: var(--color-text-muted, rgb(255 255 255 / 0.62));
   text-align: end;
   cursor: pointer;
@@ -133,9 +133,9 @@
   border-top: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
   cursor: pointer;
   transition:
-    background-color 0.2s ease,
-    transform 0.1s ease;
-  color: var(--foreground);
+    background-color var(--motion-base, 0.2s ease),
+    transform var(--motion-fast, 0.15s ease);
+  color: var(--color-text, rgb(255 255 255 / 0.94));
 }
 
 .category-title + .command-item {
@@ -153,7 +153,7 @@
 
 .command-item-info {
   display: block;
-  padding: 8px 12px;
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
   flex: 1 1 auto;
   /* Allow text selection in command descriptions */
   user-select: text;

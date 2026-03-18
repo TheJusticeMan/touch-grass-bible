@@ -1,4 +1,4 @@
-.icon-button {
+.verse-icon-button {
   display: inline;
 }
 
@@ -43,10 +43,10 @@
 }
 
 .content {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: var(--font);
-  font-size: var(--font-size);
+  background-color: var(--color-bg, #050505);
+  color: var(--color-text, rgb(255 255 255 / 0.94));
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: var(--font-size-base, 16px);
   /* Scrollbar hidden — a visual cue (scroll-bubble) exists for drag-scroll.
      The scrollbar-width:none approach is intentional for this reading view. */
   scrollbar-width: none;
