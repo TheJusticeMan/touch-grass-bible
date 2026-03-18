@@ -8,7 +8,7 @@ Reviewed files:
 - `src/VerseScreen.css`
 - `src/external/App.css`
 - `src/external/CommandPalette.css`
-- `src/external/Components.css`
+- `src/external/UIComponents.css`
 - `src/external/Workspace.css`
 - `src/plugins/Notes/NotesPanel.css`
 - `src/plugins/Journal/JournalPanel.css`
@@ -43,7 +43,7 @@ Fix:
 Fix:
 
 - Define one owner per reusable class.
-- Keep app-wide primitives in `src/external/Components.css` or `src/main.css`.
+- Keep app-wide primitives in `src/external/UIComponents.css` or `src/main.css`.
 - Keep feature-specific classes local to their screen or plugin stylesheet.
 - Avoid reusing generic class names like `.icon-button` unless they are truly shared.
 
@@ -115,7 +115,7 @@ Fix:
 - Tighten hierarchy between palette chrome, category headers, and command rows.
 - Consider a clearer visual distinction between selected row, hovered row, and focused row.
 
-### `src/external/Components.css`
+### `src/external/UIComponents.css`
 
 - Treat this as the primitive layer for menus, surfaces, layout helpers, and scroll bubbles.
 - Add shared interactive states once here so feature files do not keep recreating them.
@@ -156,7 +156,7 @@ Use a simple layered model:
 2. Shell and primitives
 
 - `src/external/App.css`
-- `src/external/Components.css`
+- `src/external/UIComponents.css`
 - `src/external/Workspace.css`
 - `src/external/CommandPalette.css`
 

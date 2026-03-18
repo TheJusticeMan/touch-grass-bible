@@ -28,14 +28,14 @@ This page focuses on the shared framework under `src/external/`: workspace, comm
 - Medium: improve sizing and safe-area handling across desktop and mobile
 - Low: improve overflow handling for long titles and descriptions
 
-## `src/external/Components.ts`
+## `src/external/UIComponents.ts`
 
 - High: fix `Item.highlight()` so it passes valid highlight configuration into `Highlighter`
 - High: remove auto-focus side effects from input constructors
 - High: replace clickable non-semantic `div` controls with buttons or full keyboard semantics
 - Medium: make menus viewport-aware and closable with Escape
 
-## `src/external/Components.css`
+## `src/external/UIComponents.css`
 
 - Medium: add z-index and viewport-safe behavior for context menus
 - Medium: add visible focus and disabled states that match semantic controls
@@ -126,7 +126,7 @@ This page focuses on the shared framework under `src/external/`: workspace, comm
 
 ## Test gaps
 
-- High: add direct tests for `src/external/CommandPalette.ts`, `src/external/PaletteStateController.ts`, `src/external/Event.ts`, `src/external/settings.ts`, `src/external/highlighter.ts`, `src/external/MyHTML.ts`, and `src/external/Components.ts`
+- High: add direct tests for `src/external/CommandPalette.ts`, `src/external/PaletteStateController.ts`, `src/external/Event.ts`, `src/external/settings.ts`, `src/external/highlighter.ts`, `src/external/MyHTML.ts`, and `src/external/UIComponents.ts`
 - High: expand workspace drag/drop tests to cover midpoint insertion and cancel cleanup
 - Medium: expand swipe tests to cover actual swipe thresholds, vertical rejection, and destroy cleanup
 
