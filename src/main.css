@@ -7,6 +7,7 @@
   --color-bg: #050505;
   --color-surface: rgb(255 255 255 / 0.06);
   --color-surface-strong: rgb(255 255 255 / 0.12);
+  --color-surface-hover: rgb(255 255 255 / 0.2);
   --color-border: rgb(255 255 255 / 0.14);
   --color-text: rgb(255 255 255 / 0.94);
   --color-text-muted: rgb(255 255 255 / 0.62);
