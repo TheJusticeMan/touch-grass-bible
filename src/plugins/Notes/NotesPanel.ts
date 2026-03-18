@@ -3,7 +3,14 @@ import { LayoutNode, View } from "../../external/Workspace";
 import { myNotesCategoryID } from "../categoryIDs";
 import NotesPlugin from "./Notes";
 import "./NotesPanel.css";
-import { TextInput, Button, UIComponent, IconButton, RowComponent, TextArea } from "src/external/Components";
+import {
+  TextInput,
+  Button,
+  UIComponent,
+  IconButton,
+  RowComponent,
+  TextArea,
+} from "src/external/UIComponents";
 import { ETarget, Openable } from "src/external/Event";
 
 export class Note extends ETarget<{ change: Note }> {

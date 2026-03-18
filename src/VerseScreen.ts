@@ -4,7 +4,7 @@ import type { PaletteState } from "./external/PaletteStateController";
 import TouchGrassBibleApp from "./main";
 import { BookScroll, ChapterScroll } from "./Scroll";
 import "./VerseScreen.css";
-import { UIComponent, IconButton } from "./external/Components";
+import { UIComponent, IconButton } from "./external/UIComponents";
 import { pdsp } from "./external/Event";
 import { Highlighter } from "./external/highlighter";
 import { VerseRef } from "./VerseRef";

@@ -1,6 +1,6 @@
 import { CheckSquare, createElement, IconNode, Square } from "lucide";
 import { Highlighter, HighlightType } from "./highlighter";
-import "./Components.css";
+import "./UIComponents.css";
 import { ETarget } from "./Event";
 
 type UIComponentInit = {

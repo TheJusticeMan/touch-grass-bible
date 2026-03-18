@@ -9,7 +9,7 @@ import {
   CommandPaletteState,
   CommandItem,
 } from "src/external/CommandPalette";
-import { TextArea } from "src/external/Components";
+import { TextArea } from "src/external/UIComponents";
 
 interface NotesPluginSettings {
   myNotes: [string, string][];

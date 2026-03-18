@@ -10,7 +10,7 @@ import {
   CommandItem,
   CommandPaletteState,
 } from "src/external/CommandPalette";
-import { Button, IconButton, TextInput } from "src/external/Components";
+import { Button, IconButton, TextInput } from "src/external/UIComponents";
 import { VerseRef } from "src/VerseRef";
 import { VerseInfoComponent } from "src/VerseScreen";
 

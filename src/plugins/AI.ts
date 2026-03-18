@@ -9,7 +9,7 @@ import {
   CommandItem,
   CommandPaletteState,
 } from "src/external/CommandPalette";
-import { Button } from "src/external/Components";
+import { Button } from "src/external/UIComponents";
 import { VerseInfoComponent } from "src/VerseScreen";
 
 interface AIPluginSettings {

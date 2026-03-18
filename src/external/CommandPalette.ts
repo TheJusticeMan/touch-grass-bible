@@ -2,7 +2,7 @@ import levenshtein from "js-levenshtein";
 import { ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, X } from "lucide";
 import { App } from "./App";
 import "./CommandPalette.css";
-import { IconActionComponent, inputMode, Item, TextInput, UIComponent } from "./Components";
+import { IconActionComponent, inputMode, Item, TextInput, UIComponent } from "./UIComponents";
 import { ETarget, Openable } from "./Event";
 import { PaletteState, PaletteStateController } from "./PaletteStateController";
 
@@ -127,7 +127,7 @@ export class UnifiedCommandPalette extends Openable<{
     this.on("keydown", this.handleKey);
     this.on("historypop", this.handleBack);
     this.on("dragX", e => {
-      if (e.deltaX > 0) this.display({ topCategory: "category-navigator" });
+      if (e.deltaX > 0) this.display({ topCategory: "navigator" });
     });
     this.on("draggingX", e => {
       if (e.deltaX > 0)
@@ -139,7 +139,7 @@ export class UnifiedCommandPalette extends Openable<{
   }
 
   menu() {
-    this.update({ topCategory: "category-navigator" }).open();
+    this.update({ topCategory: "navigator" }).open();
   }
 
   private saveStateHistory(): this {

@@ -1,4 +1,4 @@
-import { StackComponent, RowComponent, Button } from "src/external/Components";
+import { StackComponent, RowComponent, Button } from "src/external/UIComponents";
 import { LayoutNode, View } from "../../external/Workspace";
 import type { JournalDay, JournalEntry, JournalStorage } from "./journal-storage";
 import "./JournalPanel.css";

@@ -1,6 +1,6 @@
 import { GitCompare } from "lucide";
 import Plugin from "../../Plugin";
-import { Button } from "src/external/Components";
+import { Button } from "src/external/UIComponents";
 import {
   CommandCategory,
   CommandItem,
