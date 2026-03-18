@@ -1,50 +1,61 @@
+/* App.css — shell, controls, and global accessibility rules */
+
 body {
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100dvh;
   margin: 0;
   padding: 0;
   overflow: hidden;
-  user-select: none;
-  background-color: black;
+  background-color: var(--color-bg, #050505);
   overscroll-behavior: contain;
-  touch-action: none;
+  user-select: none;
 }
 
 .app-shell-element {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100dvh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  /* align-items: center;
-  justify-content: center; */
-  background-color: #000;
-  color: #fff;
-  font-family: Arial, sans-serif;
-  font-size: 16px;
+  background-color: var(--color-bg, #050505);
+  color: var(--color-text, #fff);
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: var(--font-size-base, 16px);
 }
 
-input,
+/* Shared control styles — applied to button and .input only.
+   input, textarea, and select are styled more conservatively
+   so they retain native usability (text selection, IME, etc.). */
 button,
-textarea,
-select,
 .input {
   border: none;
   font-size: 1rem;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s ease;
   box-sizing: border-box;
   align-items: center;
-  background-color: #fff1;
+  background-color: var(--color-surface, rgb(255 255 255 / 0.06));
   border-radius: var(--border-radius-medium);
-  color: #fff;
+  color: var(--color-text, #fff);
   cursor: pointer;
   display: inline-flex;
   justify-content: center;
-  outline: none;
-  padding: 0.5em 1em;
+  padding: var(--space-2, 0.5rem) var(--space-4, 1rem);
   white-space: nowrap;
-  user-select: none;
+}
+
+input,
+textarea,
+select {
+  border: none;
+  font-size: 1rem;
+  transition: background-color 0.2s ease;
+  box-sizing: border-box;
+  background-color: var(--color-surface, rgb(255 255 255 / 0.06));
+  border-radius: var(--border-radius-medium);
+  color: var(--color-text, #fff);
+  display: block;
+  padding: var(--space-2, 0.5rem) var(--space-4, 1rem);
 }

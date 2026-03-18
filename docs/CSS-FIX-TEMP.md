@@ -1,6 +1,8 @@
-# CSS Improvement Guide For Touch Grass Bible
+# CSS Improvement Guide
 
-This guide replaces the old generic notes with a project-specific CSS review based on these files:
+This guide is specific to the current Touch Grass Bible stylesheets, not generic CSS advice.
+
+Reviewed files:
 
 - `src/main.css`
 - `src/VerseScreen.css`
@@ -11,274 +13,220 @@ This guide replaces the old generic notes with a project-specific CSS review bas
 - `src/plugins/Notes/NotesPanel.css`
 - `src/plugins/Journal/JournalPanel.css`
 
-## What the current CSS gets right
+## What is already working well
 
-- The app already uses some shared custom properties like `--foreground`, `--background`, and border-radius tokens.
-- The workspace and command palette have a recognizable visual language built around translucent dark surfaces.
-- CSS is already split by feature area, which makes it possible to improve incrementally instead of rewriting everything.
-- The asymmetric border radius values like `0.5em 1em` and especially `1em 2em` give the UI a distinct softened, shifted-curve personality that should be preserved.
+- `src/main.css` already acts as the main token file and has a decent base for color, spacing, radius, z-index, and reduced-motion rules.
+- Shared focus styling exists in several places, which means the project already has the right accessibility direction.
+- The project is already split into logical CSS files by feature area instead of one giant stylesheet.
+- Workspace, notes, journal, and palette styles already use CSS variables enough that a stronger design system is realistic.
 
-## Main problems to fix first
+## Main problems found in the current CSS
 
-### 1. Consolidate design tokens
+### 1. Tokens are only partially centralized
 
-Right now the project mixes shared variables with many hardcoded values like `#fff1`, `#fff2`, `#fff4`, `#0008`, `#000c`, and one-off font stacks.
+- `src/main.css` defines many tokens, but several files still use raw colors like `#222`, `#444`, `white`, `rgb(0 0 0 / 0.5)`, and repeated border values.
+- `src/VerseScreen.css` still depends on older variables like `--background`, `--foreground`, `--font`, and `--font-size`, while newer files use `--color-*` and `--font-*` tokens.
+- Some files mix old aliases like `--border-radius-large` with newer names like `--radius-round-sm`.
 
-Add a stronger token layer in a shared file or at the root, but keep the signature shifted-curve radii as first-class tokens instead of normalizing everything to symmetric rounded corners:
+Fix:
 
-```css
-:root {
-  --color-bg: #050505;
-  --color-surface: rgb(255 255 255 / 0.06);
-  --color-surface-strong: rgb(255 255 255 / 0.12);
-  --color-border: rgb(255 255 255 / 0.14);
-  --color-text: rgb(255 255 255 / 0.94);
-  --color-text-muted: rgb(255 255 255 / 0.62);
-  --color-accent: #9ed0ff;
-  --shadow-soft: 0 8px 24px rgb(0 0 0 / 0.28);
-  --radius-shift-sm: 0.35rem 0.7rem;
-  --radius-shift-md: 0.5em 1em;
-  --radius-shift-lg: 1em 2em;
-  --radius-round-sm: 0.5rem;
-  --radius-round-md: 0.875rem;
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-}
-```
+- Keep `src/main.css` as the only design-token source.
+- Phase out legacy aliases once the rest of the CSS is updated.
+- Replace hardcoded colors and dimensions in feature files with semantic tokens.
 
-Then replace repeated inline color math across `src/external/Workspace.css`, `src/external/CommandPalette.css`, `src/plugins/Notes/NotesPanel.css`, and `src/plugins/Journal/JournalPanel.css`.
+## 2. Component ownership is blurry
 
-Important: do not flatten the current look into generic pill radii everywhere. The `1em 2em` curve should remain the default for major surfaces like panels, cards, overlays, and verse-adjacent containers unless there is a specific usability reason to use a tighter radius.
+- `.icon-button` appears in both `src/external/CommandPalette.css` and `src/VerseScreen.css` with different behavior.
+- Reading styles are split between `src/main.css` and `src/VerseScreen.css`, which is workable, but the boundary is not obvious.
+- Some shared interaction patterns are repeated instead of abstracted, especially focus, hover, borders, glass backgrounds, and panel surfaces.
 
-### 2. Fix global interaction rules
+Fix:
 
-`src/external/App.css` currently applies very aggressive body rules:
+- Define one owner per reusable class.
+- Keep app-wide primitives in `src/external/Components.css` or `src/main.css`.
+- Keep feature-specific classes local to their screen or plugin stylesheet.
+- Avoid reusing generic class names like `.icon-button` unless they are truly shared.
 
-- `overflow: hidden`
-- `user-select: none`
-- `touch-action: none`
+## 3. Accessibility is improved but still inconsistent
 
-These make text selection, native scrolling, and normal form interaction harder than they should be.
+- Many controls have `:focus-visible`, but not all interactive surfaces are equally clear.
+- `src/VerseScreen.css` intentionally hides scrollbars, which may be acceptable for the reading view, but it should be paired with stronger alternative cues and touch-target checks.
+- `src/external/Workspace.css` and `src/external/CommandPalette.css` are much better than before, but there are still hover-heavy patterns and subtle low-contrast text in some areas.
+- `src/external/App.css` still locks the shell to `overflow: hidden`, which makes layout behavior more fragile and raises the bar for every child surface to handle scrolling perfectly.
 
-Recommended direction:
+Fix:
 
-- keep `overflow: hidden` only where layout containers truly need it
-- remove global `user-select: none`; apply it only to drag handles and icon-only controls
-- remove global `touch-action: none`; use it only on drag/swipe elements like resize handles or scroll bubbles
+- Standardize focus states through shared tokens instead of per-file ad hoc outlines.
+- Audit contrast for muted text against translucent surfaces.
+- Keep hidden-scrollbar behavior only where it is product-critical.
+- Prefer minimum 44px touch targets for floating actions, tab controls, menu items, and verse actions.
 
-### 3. Improve accessibility and keyboard visibility
+## 4. Mobile behavior is still somewhat structural, not semantic
 
-The CSS is still mouse-first in several places.
+- `src/external/Workspace.css` still uses positional selectors like `:first-of-type` and `:last-of-type` for mobile side panels.
+- That makes the mobile layout depend on DOM order rather than explicit intent.
+- Overlay, side-panel, and floating-action behavior is spread across multiple files instead of using a shared shell pattern.
 
-Common issues:
+Fix:
 
-- hover styles without equivalent focus styles
-- hidden scrollbars in `src/VerseScreen.css`
-- clickable UI that may not expose obvious focus affordances
-- animations without reduced-motion handling
+- Move mobile panel behavior to role classes such as `.panel-is-left`, `.panel-is-main`, and `.panel-is-right`.
+- Standardize overlay layout primitives for fullscreen editors, modals, and sheets.
+- Use safe-area aware spacing tokens for mobile fixed-position UI.
 
-Add a shared focus rule set:
+## 5. Motion and visual language are not fully unified
 
-```css
-:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-```
+- Some files use hover lift, blur, and glow well.
+- `src/plugins/Notes/NotesPanel.css` adds its own animation and overlay styling that feels separate from the rest of the app.
+- Multiple files define translucent black surfaces independently.
 
-And add reduced-motion handling:
+Fix:
 
-```css
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-```
+- Create a small motion system: hover, press, enter, overlay, and reduced-motion variants.
+- Create surface tokens for panel, card, overlay, and elevated card instead of repeating `rgb(0 0 0 / ...)` and `rgb(255 255 255 / ...)` values.
 
-### 4. Reduce CSS drift between feature areas
-
-Different files define their own fonts and interaction patterns:
-
-- `src/external/App.css` uses `Arial, sans-serif`
-- `src/external/CommandPalette.css` uses `sans-serif`
-- `src/plugins/Notes/NotesPanel.css` uses a system font stack
-- `src/VerseScreen.css` relies on `var(--font)`
-
-Pick one project-level typography system and expose it as variables. The current mix makes the UI feel assembled instead of designed.
-
-### 5. Standardize layering and overlays
-
-The project uses multiple ad hoc z-index values:
-
-- `10`
-- `999`
-- `1000`
-- `1200`
-- `1300`
-
-Create a small layering scale:
-
-```css
-:root {
-  --z-floating-action: 20;
-  --z-panel-overlay: 200;
-  --z-menu: 400;
-  --z-command-palette: 800;
-  --z-modal: 900;
-}
-```
-
-This will make `Workspace`, `CommandPalette`, context menus, and note overlays much easier to reason about.
-
-### 6. Preserve the app's signature curve language
-
-One thing that should not be lost during cleanup is the app's distinctive border radius style.
-
-Keep this principle:
-
-- shifted asymmetric radii like `1em 2em` are part of the app identity
-- large interactive surfaces should usually use shifted radii, not generic `12px` or `999px` rounding
-- only use fully round radii for clearly circular controls like icon buttons or floating action buttons
-- if a new component is meant to feel native to this app, start with the shifted radius tokens first
-
-That means cleanup should aim for consistency, not flattening.
-
-## File-by-file recommendations
-
-### `src/external/App.css`
-
-- Replace hardcoded `100vw` and `100vh` shell sizing with `100%` or `100dvh` where appropriate.
-- Stop applying `cursor: pointer` to all `input`, `textarea`, and `select` elements.
-- Move shared control styling into a reusable control class instead of globally styling every form element the same way.
-- Add a real focus state instead of relying on `outline: none`.
+## File-by-file guidance
 
 ### `src/main.css`
 
-- Move root variables from `body` to `:root` unless they are intentionally page-scoped.
-- Replace custom properties like `--readingwidth` and `--navbarheight` with kebab-case names for consistency, such as `--reading-width` and `--navbar-height`.
-- Preserve `--border-radius-small`, `--border-radius-medium`, and `--border-radius-large` as signature shifted-curve tokens, even if you rename them for consistency.
-- Revisit `min-height: 100vh` on the last verse block; it may create awkward whitespace on mobile and in embedded panels.
-- The `.wrap .chapter` selectors are doing structural styling that would be clearer with component-level class names.
+- Keep this as the token and global-rules file.
+- Move any remaining one-off component styling out if it does not apply app-wide.
+- Add semantic tokens for overlay backgrounds, card borders, muted text levels, and motion timing.
+- Replace the bookmark accent `#f0f` with a named semantic token that fits the rest of the palette better.
+- Add typography tokens for reading text, UI text, headings, and mono/debug text if needed.
 
-### `src/VerseScreen.css`
+### `src/external/App.css`
 
-- Do not hide all scrollbars by default; at minimum, only hide them when a better visual cue exists.
-- Add explicit styles for expanded verse info blocks beyond `display: block`.
-- Replace hardcoded bookmark colors like `#f0f` with named accent variables.
-- Avoid relying on `.active .info-container` alone if the DOM structure changes frequently; use a more direct component class when possible.
-
-### `src/external/CommandPalette.css`
-
-- Replace generic `font-family: sans-serif` with project typography tokens.
-- Add `:focus-visible` styles for `.command-item`, header buttons, and category titles.
-- Improve large-screen layout by adding a max width and centering the palette.
-- Reduce duplicated `display: flex` declarations and remove commented-out dead code.
-- `user-select: none` on the whole palette should be narrowed; users may need to copy text from descriptions.
-
-### `src/external/Components.css`
-
-- Give `.context-menu` an explicit z-index token.
-- Increase `.scroll-bubble` touch target size and provide a visible active/focus state.
-- Replace comment-heavy sections with small utility tokens or more descriptive section grouping.
-- Add disabled styles if menu items or icon actions can become unavailable.
+- Keep only shell-level rules here.
+- Avoid setting interaction behavior globally unless every screen truly needs it.
+- Recheck `overflow: hidden`, `overscroll-behavior: contain`, and `user-select: none` at the shell level.
+- Add shared control states for disabled, hover, focus, and pressed behavior instead of relying on individual feature files.
 
 ### `src/external/Workspace.css`
 
-- This file should become the main source of shared layout tokens for panel chrome.
-- Keep tab, panel, and workspace surface radii aligned with the project's asymmetric curve language instead of replacing them with generic symmetric radii.
-- Replace `first-of-type` and `last-of-type` mobile side-panel assumptions with explicit panel-role classes.
-- Add keyboard focus styles for tabs, close buttons, add buttons, resize handles, and window controls.
-- Add `prefers-reduced-motion` coverage for transforms and transitions.
-- Extract repeated translucent surface values into tokens instead of embedding them in many selectors.
+- Convert mobile side panels from positional selectors to semantic role classes.
+- Pull repeated translucent surfaces into reusable tokens.
+- Normalize tab, close-button, resize-handle, and window-control sizing around shared size tokens.
+- Add clearer active, hover, and drag states that remain legible on lower-contrast displays.
+
+### `src/external/CommandPalette.css`
+
+- Replace undeclared or unclear values like `var(--accent1)` with real shared tokens.
+- Normalize spacing and type scale with the token system from `src/main.css`.
+- Tighten hierarchy between palette chrome, category headers, and command rows.
+- Consider a clearer visual distinction between selected row, hovered row, and focused row.
+
+### `src/external/Components.css`
+
+- Treat this as the primitive layer for menus, surfaces, layout helpers, and scroll bubbles.
+- Add shared interactive states once here so feature files do not keep recreating them.
+- Convert fixed menu spacing and sizing to tokens.
+- Add a shared elevation system instead of file-local shadows.
+
+### `src/VerseScreen.css`
+
+- Migrate old variables to the same token system used elsewhere.
+- Rename or scope `.icon-button` if it is not the same primitive used by the palette.
+- Consider moving generic note-editor styles out if they overlap with the Notes plugin patterns.
+- Keep reading-surface behavior minimal here: only styles specific to verse interaction should live in this file.
 
 ### `src/plugins/Notes/NotesPanel.css`
 
-- This file is the most visually custom, but it needs cleanup.
-- Replace `transition: all` with targeted properties.
-- Avoid `overflow: scroll`; use `overflow: auto` unless scrollbars should always show.
-- `min-height: 100vh` can fight the workspace layout; prefer `min-height: 100%` inside the panel system.
-- The editor overlay should use `100dvh` instead of `100vh`.
-- `backdrop-filter: Blur(8px)` should be normalized to `blur(8px)` for consistency.
-- `.tag-remove-btn { font-size: 0.012px; }` is a red flag and should be replaced with intentional visually-hidden or icon-button styling.
-- The fade-in animation should be disabled for reduced-motion users.
+- This file needs the biggest cleanup.
+- Replace repeated hardcoded colors, shadows, and animation values with tokens.
+- Unify overlay styles with other fullscreen surfaces.
+- Split the file conceptually into note list, floating action, editor overlay, and tag UI sections.
+- Remove duplicate `.note-preview` blocks unless the second block is intentionally modifier-based.
 
 ### `src/plugins/Journal/JournalPanel.css`
 
-- Promote repeated surface, border, and muted text colors into shared tokens.
-- Add focus styles for `summary`, textarea, and any clickable journal entries.
-- If verse history entries become clickable, add hover and focus states that clearly communicate it.
-- Sticky day headers are good; keep them, but use shared spacing and border tokens.
+- This file is relatively clean and should become a model for plugin CSS.
+- Replace remaining raw translucent blacks with semantic surface tokens.
+- Add a clearer interactive treatment for verse-reference entries if they become clickable.
+- Reuse shared panel, card, and input tokens instead of redefining them locally.
 
-## Suggested CSS architecture for this project
+## Recommended CSS architecture for this project
 
-Use a simple layered approach rather than a full framework rewrite.
+Use a simple layered model:
 
-### Layer 1: foundation
+1. Tokens
 
-- reset/base rules
-- tokens for color, spacing, radius, typography, motion, shadows, z-index
-- global accessibility helpers
+- `src/main.css`
+- colors, spacing, type, radius, shadows, z-index, motion, safe-area
 
-### Layer 2: primitives
+2. Shell and primitives
 
-- buttons
-- inputs
-- surface cards
-- overlays
-- scroll affordances
-- focus ring helpers
+- `src/external/App.css`
+- `src/external/Components.css`
+- `src/external/Workspace.css`
+- `src/external/CommandPalette.css`
 
-### Layer 3: framework
+3. App feature surfaces
 
-- workspace shell
-- command palette
-- context menu
-- panel tabs
+- `src/VerseScreen.css`
+- `src/plugins/Notes/NotesPanel.css`
+- `src/plugins/Journal/JournalPanel.css`
 
-### Layer 4: feature styles
+Rule of thumb:
 
-- verse screen
-- notes panel
-- journal panel
+- If a class can be reused by more than one feature, it should not be owned by a plugin stylesheet.
+- If a style only exists for one screen, keep it local.
+- If a value appears three times, convert it to a token.
 
-That means `src/external/App.css`, `src/external/Components.css`, `src/external/Workspace.css`, and `src/external/CommandPalette.css` should define most reusable patterns. Feature CSS files should mostly compose those patterns instead of starting from scratch.
+## Naming guidance for this codebase
 
-## Practical cleanup rules
+- Prefer feature-scoped names over generic names.
+- Good: `.journal-entry`, `.note-preview`, `.panel-tab`, `.palette-search`
+- Risky: `.content`, `.active`, `.icon-button`, `.visible`
+- If a class is intentionally generic, document which file owns it.
 
-- Prefer kebab-case custom property names consistently.
-- Prefer semantic class names over location-based selectors like `.content .chapter .verse` when possible.
-- Preserve the asymmetric `1em 2em` curve language as a deliberate design choice, not an inconsistency to be normalized away.
-- Avoid `transition: all`.
-- Avoid global `outline: none` unless a replacement focus style exists.
-- Avoid commented-out CSS blocks staying in production files for long periods.
-- Prefer `overflow: auto` over `overflow: scroll` unless forced scrollbars are intentional.
-- Prefer `min-height: 100%` inside panel containers over `100vh` unless the element truly owns the viewport.
-- Use component tokens for colors instead of repeated `#fff2` and `#0008` literals.
+Recommended pattern:
 
-## Suggested implementation order
+- shared primitive: `.ui-*`
+- workspace: `.panel-*`, `.workspace-*`
+- palette: `.palette-*`, `.command-*`
+- verse screen: `.verse-*`, `.reading-*`
+- notes: `.note-*`, `.editor-*`, `.tag-*`
+- journal: `.journal-*`
 
-1. Fix `src/external/App.css` global interaction rules.
-2. Create shared color, spacing, radius, motion, and z-index tokens.
-3. Add global `:focus-visible` and `prefers-reduced-motion` support.
-4. Normalize typography across app shell, command palette, notes, and reading view.
-5. Refactor `src/external/Workspace.css` and `src/external/CommandPalette.css` to consume shared tokens.
-6. Clean up `src/plugins/Notes/NotesPanel.css`, which currently has the most one-off styling and a few obvious smell points.
-7. Revisit `src/VerseScreen.css` scrollbar and interaction visibility decisions.
+## Short implementation plan
 
-## Definition of done for CSS cleanup
+### Phase 1: token cleanup
 
-- shared tokens exist and replace most repeated color literals
-- shifted radius tokens are preserved and remain the default for major app surfaces
-- keyboard focus is visible across all interactive surfaces
-- reduced-motion users are respected
-- overlays and menus use a documented z-index scale
-- no global rule blocks normal text selection or form use unnecessarily
-- feature styles depend on shared primitives instead of redefining their own visual systems
+- Add missing semantic tokens in `src/main.css`
+- Replace hardcoded colors, shadows, and radii in all other CSS files
+- Remove legacy aliases only after all references are migrated
+
+### Phase 2: shared primitives cleanup
+
+- Resolve duplicate ownership of `.icon-button` and similar shared classes
+- Centralize button, surface, overlay, menu, and focus patterns
+- Standardize interactive states across workspace, palette, notes, and journal
+
+### Phase 3: mobile and layout cleanup
+
+- Replace positional mobile workspace selectors with semantic classes
+- Add safe-area spacing for fullscreen overlays and floating actions
+- Audit hidden overflow and hidden scrollbar usage
+
+### Phase 4: feature polish
+
+- Refactor `src/plugins/Notes/NotesPanel.css` into clearer sections and shared primitives
+- Align `src/VerseScreen.css` with the main token system
+- Make journal and notes overlays feel like part of one app, not separate mini-themes
+
+## Tooling recommendations
+
+- Add Stylelint with rules for duplicate properties, unknown custom properties, and color/token enforcement.
+- Keep Prettier for formatting, but let Stylelint enforce architecture decisions.
+- Add a small visual QA checklist for desktop, mobile, keyboard-only navigation, and reduced-motion mode.
+
+## Success criteria
+
+The CSS is in good shape when:
+
+- all major colors, spacing values, shadows, radii, and motion timings come from tokens
+- shared classes have one clear owner
+- feature styles no longer redefine common surfaces and controls
+- mobile layout rules depend on semantic classes, not DOM order
+- focus, hover, pressed, and disabled states feel consistent across the app
+- the notes, journal, workspace, and reading surfaces look like one design system
