@@ -94,7 +94,7 @@ type StateTargetLike<T> = {
  * await component.unload();
  * ```
  */
-abstract class Component {
+export abstract class Component {
   /** Indicates whether this component has completed a successful load cycle. */
   private loaded = false;
 

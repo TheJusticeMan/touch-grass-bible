@@ -10,6 +10,7 @@ if you want to view the source, please visit the github repository of this app
 `;
 const prod = process.argv[2] === "production";
 const buildTarget = process.env.APP_TARGET || "web";
+const enableExternalPlugins = process.env.ENABLE_EXTERNAL_PLUGINS === "true";
 
 if (!["web", "electron", "capacitor"].includes(buildTarget)) {
   throw new Error(`Unsupported APP_TARGET: ${buildTarget}`);
@@ -33,6 +34,33 @@ function writeMetadata() {
   writeFileSync("src/info.json", JSON.stringify(mymetadata, null, 2));
 }
 
+/**
+ * Generates `dist/index.html` from the web template, conditionally injecting
+ * a Content Security Policy meta tag based on the build mode.
+ *
+ * - Secure build (`ENABLE_EXTERNAL_PLUGINS=false`): strict CSP that disallows
+ *   eval and blob: script sources.
+ * - Extensible build (`ENABLE_EXTERNAL_PLUGINS=true`): relaxed CSP that
+ *   permits `blob:` script sources and `unsafe-eval` required for dynamic
+ *   plugin evaluation.
+ */
+function writeIndexHtml() {
+  const template = readFileSync("src/web/index.html", "utf8");
+
+  const cspContent = enableExternalPlugins
+    ? "default-src 'self'; script-src 'self' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src blob:;"
+    : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;";
+
+  const cspMetaTag = `    <meta http-equiv="Content-Security-Policy" content="${cspContent}" />`;
+
+  const output = template.replace(
+    /(<meta\s+charset\s*=\s*"UTF-8"\s*\/>)/i,
+    `$1\n${cspMetaTag}`,
+  );
+
+  writeFileSync("dist/index.html", output);
+}
+
 // Always write metadata before starting
 writeMetadata();
 
@@ -51,6 +79,9 @@ const context = await esbuild.context({
   logLevel: "info",
   minify: prod,
   treeShaking: true,
+  define: {
+    __ENABLE_EXTERNAL_PLUGINS__: JSON.stringify(enableExternalPlugins),
+  },
   plugins: [
     {
       name: "metadata-writer",
@@ -82,13 +113,16 @@ const context = await esbuild.context({
 if (prod) {
   const result = await context.rebuild();
 
+  // Write processed index.html with appropriate CSP
+  writeIndexHtml();
+
   // 3. Write the metafile to disk
   if (result.metafile) {
     writeFileSync("meta.json", JSON.stringify(result.metafile, null, 2));
     console.log("Analysis metafile generated: meta.json");
   }
 
-  console.log(`Built target: ${buildTarget}`);
+  console.log(`Built target: ${buildTarget} (external plugins: ${enableExternalPlugins})`);
 
   process.exit(0);
 } else {
