@@ -7,8 +7,8 @@ import {
 } from "src/external/CommandPalette";
 import info from "../info.json";
 import TouchGrassBibleApp from "../main";
-import Plugin from "../Plugin";
-import { DEFAULT_SETTINGS } from "../TGAppSettings";
+import Plugin from "../core/Plugin";
+import { DEFAULT_SETTINGS } from "../config/TGAppSettings";
 import { SettingsCategoryID } from "./categoryIDs";
 
 export default class SettingsPlugin extends Plugin {

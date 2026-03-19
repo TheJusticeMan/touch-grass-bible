@@ -1,4 +1,4 @@
-import { VerseRef } from "../../VerseRef";
+import { VerseRef } from "../../models/VerseRef";
 
 export type NaveTopic = {
   title: string;

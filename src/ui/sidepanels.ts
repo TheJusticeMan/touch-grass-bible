@@ -1,7 +1,7 @@
-import { Item } from "./external/UIComponents";
-import { LayoutNode, View } from "./external/Workspace";
-import TouchGrassBibleApp from "./main";
-import { BookmarkCategoryID, BibleSearchCategoryID, myNotesCategoryID } from "./plugins/categoryIDs";
+import { Item } from "../external/UIComponents";
+import { LayoutNode, View } from "../external/Workspace";
+import TouchGrassBibleApp from "../main";
+import { BookmarkCategoryID, BibleSearchCategoryID, myNotesCategoryID } from "../plugins/categoryIDs";
 
 /**
  * Navigation panel for navigating through books and chapters.

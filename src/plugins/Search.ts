@@ -4,8 +4,8 @@ import {
   CommandPaletteState,
   UnifiedCommandPalette,
 } from "src/external/CommandPalette";
-import Plugin from "../Plugin";
-import { VerseRef, bibleData } from "../VerseRef";
+import Plugin from "../core/Plugin";
+import { VerseRef, bibleData } from "../models/VerseRef";
 import { BibleSearchCategoryID, GoToVerseCategoryID, TSKCrossRefCategoryID } from "./categoryIDs";
 
 export default class BibleSearchPlugin extends Plugin {

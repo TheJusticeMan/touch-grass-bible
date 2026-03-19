@@ -1,10 +1,10 @@
 import { IconNode } from "lucide";
-import { LayoutNode, View } from "./external/Workspace";
-import TouchGrassBibleApp from "./main";
-import { CategoryLoaderFunc } from "./external/CommandPalette";
-import { BrowserConsole } from "./external/MyBrowserConsole";
-import { VerseInfoComponent } from "./VerseScreen";
-import { AppCommand } from "./external/App";
+import { LayoutNode, View } from "../external/Workspace";
+import TouchGrassBibleApp from "../main";
+import { CategoryLoaderFunc } from "../external/CommandPalette";
+import { BrowserConsole } from "../external/MyBrowserConsole";
+import { VerseInfoComponent } from "../ui/VerseScreen";
+import { AppCommand } from "../external/App";
 
 abstract class Component {
   private loaded = false;

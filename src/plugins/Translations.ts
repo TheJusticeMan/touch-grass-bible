@@ -4,8 +4,8 @@ import {
   CommandPaletteState,
   CommandItem,
 } from "src/external/CommandPalette";
-import Plugin from "../Plugin";
-import { VerseRef, translation } from "../VerseRef";
+import Plugin from "../core/Plugin";
+import { VerseRef, translation } from "../models/VerseRef";
 import { TranslationsCategoryID } from "./categoryIDs";
 
 export const translationMetadata: {

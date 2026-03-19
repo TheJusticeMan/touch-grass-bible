@@ -4,7 +4,7 @@ import "./external/MyHTML";
 import { View, WorkspaceLayout } from "./external/Workspace";
 import info from "./info.json";
 import "./main.css";
-import { internalPlugins, type IconActionItem } from "./Plugin";
+import { internalPlugins, type IconActionItem } from "./core/Plugin";
 import AIPlugin from "./plugins/AI";
 import BookmarkPlugin from "./plugins/Bookmarks";
 import GestureCommandsPlugin from "./plugins/GestureCommands";
@@ -16,15 +16,15 @@ import SettingsPlugin from "./plugins/Settings";
 import TopicalBiblePlugin from "./plugins/TopicalBible";
 import TranslationsPlugin from "./plugins/Translations";
 import TSK from "./plugins/TSK";
-import { NavigationPanel } from "./sidepanels";
-import { DEFAULT_CATEGORY_ORDER, DEFAULT_SETTINGS, TGAppSettings } from "./TGAppSettings";
+import { NavigationPanel } from "./ui/sidepanels";
+import { DEFAULT_CATEGORY_ORDER, DEFAULT_SETTINGS, TGAppSettings } from "./config/TGAppSettings";
 
 import type { PlatformBridge } from "@platform";
 import { CommandPaletteState } from "./external/CommandPalette";
 import type { PaletteState } from "./external/PaletteStateController";
 import SharePlugin from "./plugins/Share";
-import { bibleData, VerseRef } from "./VerseRef";
-import { VerseScreen } from "./VerseScreen";
+import { bibleData, VerseRef } from "./models/VerseRef";
+import { VerseScreen } from "./ui/VerseScreen";
 
 function isPlainObject(value: unknown): value is object {
   return value !== null && value !== undefined && typeof value === "object" && !Array.isArray(value);

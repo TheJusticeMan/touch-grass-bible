@@ -1,8 +1,8 @@
 import { Bookmark, Plus, X } from "lucide";
 import TouchGrassBibleApp from "../main";
-import Plugin from "../Plugin";
+import Plugin from "../core/Plugin";
 import { BookmarkCategoryID, TSKCrossRefCategoryID, VerseListCategoryID } from "./categoryIDs";
-import { BibleTopics, BibleTopicsType } from "../BibleTopics";
+import { BibleTopics, BibleTopicsType } from "../models/BibleTopics";
 import { CMD } from "src/external/Comands";
 import {
   CommandCategory,
@@ -11,8 +11,8 @@ import {
   CommandPaletteState,
 } from "src/external/CommandPalette";
 import { Button, IconButton, TextInput } from "src/external/UIComponents";
-import { VerseRef } from "src/VerseRef";
-import { VerseInfoComponent } from "src/VerseScreen";
+import { VerseRef } from "src/models/VerseRef";
+import { VerseInfoComponent } from "src/ui/VerseScreen";
 
 interface BookmarkSettings {
   Bookmarks: BibleTopicsType;

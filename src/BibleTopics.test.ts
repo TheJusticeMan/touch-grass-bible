@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { BibleTopics } from "./BibleTopics";
-import { VerseRef } from "./VerseRef";
+import { BibleTopics } from "./models/BibleTopics";
+import { VerseRef } from "./models/VerseRef";
 
 describe("BibleTopics", () => {
   test("constructor with empty data creates empty topics", () => {

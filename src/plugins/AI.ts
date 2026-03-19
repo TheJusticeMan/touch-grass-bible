@@ -1,6 +1,6 @@
 import { BrainCircuit } from "lucide";
-import { AIchat } from "../AIchat";
-import Plugin from "../Plugin";
+import { AIchat } from "../services/AIchat";
+import Plugin from "../core/Plugin";
 import { AICategoryID, SettingsCategoryID } from "./categoryIDs";
 import { CMD } from "src/external/Comands";
 import {
@@ -10,7 +10,7 @@ import {
   CommandPaletteState,
 } from "src/external/CommandPalette";
 import { Button } from "src/external/UIComponents";
-import { VerseInfoComponent } from "src/VerseScreen";
+import { VerseInfoComponent } from "src/ui/VerseScreen";
 
 interface AIPluginSettings {
   aiApiKey: string;

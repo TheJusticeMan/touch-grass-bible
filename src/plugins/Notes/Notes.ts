@@ -1,6 +1,6 @@
 import { SquarePen } from "lucide";
-import Plugin from "../../Plugin";
-import { OSIS, VerseRef } from "../../VerseRef";
+import Plugin from "../../core/Plugin";
+import { OSIS, VerseRef } from "../../models/VerseRef";
 import { myNotesCategoryID, TSKCrossRefCategoryID } from "../categoryIDs";
 import { Note, NotesPanel, NoteVault } from "./NotesPanel";
 import {

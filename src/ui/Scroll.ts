@@ -1,5 +1,5 @@
-import { ScrollBubble } from "./external/UIComponents";
-import { VerseRef } from "./VerseRef";
+import { ScrollBubble } from "../external/UIComponents";
+import { VerseRef } from "../models/VerseRef";
 
 export class ChapterScroll extends ScrollBubble {
   chapter: VerseRef = new VerseRef();

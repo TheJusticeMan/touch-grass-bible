@@ -1,5 +1,5 @@
 import { Waypoints } from "lucide";
-import Plugin from "../Plugin";
+import Plugin from "../core/Plugin";
 import { TSKCrossRefCategoryID } from "./categoryIDs";
 import {
   CommandPaletteState,
@@ -7,8 +7,8 @@ import {
   UnifiedCommandPalette,
   CommandItem,
 } from "src/external/CommandPalette";
-import { VerseRef } from "src/VerseRef";
-import { VerseInfoComponent } from "src/VerseScreen";
+import { VerseRef } from "src/models/VerseRef";
+import { VerseInfoComponent } from "src/ui/VerseScreen";
 
 type OSIS = string; // OSIS reference format, e.g., "Gen.1.1"
 

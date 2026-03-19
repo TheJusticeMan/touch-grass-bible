@@ -4,7 +4,7 @@ import {
   CommandPaletteState,
   UnifiedCommandPalette,
 } from "src/external/CommandPalette";
-import Plugin from "../Plugin";
+import Plugin from "../core/Plugin";
 
 /**
  * Represents a command that can be triggered by a gesture.
@@ -353,9 +353,7 @@ class GestureCommandsCategory extends CommandCategory<GestureCommand> {
   }
 
   renderCommand(command: GestureCommand, Item: CommandItem<GestureCommand>): Partial<CommandPaletteState> {
-    Item.setTitle(command.name).setDescription(
-      `Gesture: ${command.gesturePath} → ${command.commandId}`,
-    );
+    Item.setTitle(command.name).setDescription(`Gesture: ${command.gesturePath} → ${command.commandId}`);
     return {};
   }
 

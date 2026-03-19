@@ -1,5 +1,5 @@
 import { GitCompare } from "lucide";
-import Plugin from "../../Plugin";
+import Plugin from "../../core/Plugin";
 import { Button } from "src/external/UIComponents";
 import {
   CommandCategory,
@@ -8,8 +8,8 @@ import {
   UnifiedCommandPalette,
 } from "src/external/CommandPalette";
 import { CMD } from "src/external/Comands";
-import { VerseInfoComponent } from "src/VerseScreen";
-import { VerseRef } from "src/VerseRef";
+import { VerseInfoComponent } from "src/ui/VerseScreen";
+import { VerseRef } from "src/models/VerseRef";
 import {
   buildNaveIndex,
   findTopicsForVerse,

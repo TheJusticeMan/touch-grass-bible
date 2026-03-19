@@ -1,5 +1,5 @@
 import { Share } from "lucide";
-import Plugin from "../Plugin";
+import Plugin from "../core/Plugin";
 import { Button } from "src/external/UIComponents";
 
 export default class SharePlugin extends Plugin {

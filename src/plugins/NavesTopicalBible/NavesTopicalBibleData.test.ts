@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { VerseRef, type bibleData } from "../../VerseRef";
+import { VerseRef, type bibleData } from "../../models/VerseRef";
 import {
   buildNaveIndex,
   findTopicsForVerse,

@@ -1,4 +1,4 @@
-import { BibleTopicsType } from "./BibleTopics";
+import { BibleTopicsType } from "../models/BibleTopics";
 
 export const DEFAULT_CATEGORY_ORDER: string[] = [
   "verse-list",

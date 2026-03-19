@@ -3,7 +3,7 @@ import { describe, test, expect } from "vitest";
 // deepMerge is not exported from main.ts - test via TGAppSettings behavior
 // We test the observable behavior: settings loaded with missing nested keys
 // should receive defaults for the missing keys.
-import { DEFAULT_SETTINGS } from "./TGAppSettings";
+import { DEFAULT_SETTINGS } from "./config/TGAppSettings";
 
 describe("deepMerge (via loadsettings behavior)", () => {
   test("DEFAULT_SETTINGS has expected schemaVersion", () => {

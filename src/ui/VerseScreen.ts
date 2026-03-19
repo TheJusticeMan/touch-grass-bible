@@ -1,13 +1,13 @@
 import apocalypseThrottle from "apocalypse-throttle";
-import { LayoutNode, View } from "./external/Workspace";
-import type { PaletteState } from "./external/PaletteStateController";
-import TouchGrassBibleApp from "./main";
+import { LayoutNode, View } from "../external/Workspace";
+import type { PaletteState } from "../external/PaletteStateController";
+import TouchGrassBibleApp from "../main";
 import { BookScroll, ChapterScroll } from "./Scroll";
 import "./VerseScreen.css";
-import { UIComponent, IconButton } from "./external/UIComponents";
-import { pdsp } from "./external/Event";
-import { Highlighter } from "./external/highlighter";
-import { VerseRef } from "./VerseRef";
+import { UIComponent, IconButton } from "../external/UIComponents";
+import { pdsp } from "../external/Event";
+import { Highlighter } from "../external/highlighter";
+import { VerseRef } from "../models/VerseRef";
 
 export const VerseHighlight: Highlighter = new Highlighter([
   { regEXP: /\[(.+?)\]/gi, elTag: "i" },

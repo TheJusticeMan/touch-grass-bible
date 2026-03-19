@@ -1,4 +1,4 @@
-import { VerseRef } from "src/VerseRef";
+import { VerseRef } from "src/models/VerseRef";
 import TouchGrassBibleApp from "../../main";
 
 export type JournalEntry = {

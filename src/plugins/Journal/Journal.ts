@@ -1,11 +1,11 @@
-import { VerseRef } from "src/VerseRef";
+import { VerseRef } from "src/models/VerseRef";
 import {
   CommandCategory,
   UnifiedCommandPalette,
   CommandPaletteState,
   CommandItem,
 } from "src/external/CommandPalette";
-import Plugin from "../../Plugin";
+import Plugin from "../../core/Plugin";
 import { JournalPanel } from "./JournalPanel";
 import { JournalStorage } from "./journal-storage";
 
