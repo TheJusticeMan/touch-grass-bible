@@ -10,8 +10,8 @@ import { BibleSearchCategoryID, GoToVerseCategoryID, TSKCrossRefCategoryID } fro
 
 export default class BibleSearchPlugin extends Plugin {
   async onload(): Promise<void> {
-    this.registerPalette(() => new BibleSearchCategory(this.app.commandPalette, this), BibleSearchCategoryID);
-    this.registerPalette(() => new GoToVerseCategory(this.app.commandPalette, this), GoToVerseCategoryID);
+    this.registerPalette(() => new BibleSearchCategory(this.palette.instance, this), BibleSearchCategoryID);
+    this.registerPalette(() => new GoToVerseCategory(this.palette.instance, this), GoToVerseCategoryID);
   }
 }
 
@@ -62,7 +62,7 @@ class BibleSearchCategory extends CommandCategory<VerseRef> {
     Item.setTitle(verse.toString()).setDescription(verse.vTXT).addctx().setHidden(false);
     return state => {
       this.plugin.app.verseState.set(verse);
-      return state.update({ topCategory: "tsk-cross-ref" });
+      return state.update({ topCategory: TSKCrossRefCategoryID });
     };
   }
 

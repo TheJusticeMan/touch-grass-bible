@@ -6,74 +6,71 @@ import {
   CommandItem,
 } from "src/external/CommandPalette";
 import info from "../info.json";
-import TouchGrassBibleApp from "../main";
 import Plugin from "../core/Plugin";
 import { DEFAULT_SETTINGS } from "../config/TGAppSettings";
 import { SettingsCategoryID } from "./categoryIDs";
 
 export default class SettingsPlugin extends Plugin {
   async onload(): Promise<void> {
-    this.registerPalette(() => new SettingsCategory(this.app.commandPalette, this), SettingsCategoryID);
+    this.registerPalette(() => new SettingsCategory(this.palette.instance, this), SettingsCategoryID);
   }
 }
 
 class SettingsCategory extends CommandCategory<string> {
   readonly name = "Settings";
   readonly description = "Configure Touch Grass Bible settings";
-  app: TouchGrassBibleApp;
 
   constructor(
     public commandPalette: UnifiedCommandPalette,
     public plugin: SettingsPlugin,
   ) {
     super(commandPalette);
-    this.app = plugin.app;
   }
 
   onTrigger(_state: CommandPaletteState): void {
     new toggleCMD(this.defaultCMD)
-      .setValue(this.app.settings.enableLogging)
+      .setValue(this.plugin.app.settings.enableLogging)
       .setName("Debug console")
       .on("change", (enabled: boolean) => {
-        this.app.console.enabled = enabled;
-        this.app.settings.enableLogging = enabled;
-        this.app.saveSettings();
+        this.plugin.app.console.enabled = enabled;
+        this.plugin.app.settings.enableLogging = enabled;
+        this.plugin.app.saveSettings();
       });
     new CMD(this.defaultCMD)
       .setName("Download settings")
       .setDescription("Download your current settings as a JSON file")
       .on("_click", () => {
-        this.app.saveSettings();
-        this.app.downloadFile("TouchGrassBibleSettings.json", this.app.settings);
+        this.plugin.app.saveSettings();
+        this.plugin.files.download("TouchGrassBibleSettings.json", this.plugin.app.settings);
       });
     new CMD(this.defaultCMD)
       .setName("Upload settings")
       .setDescription("Upload a JSON file to update your settings")
       .on("_click", () => {
-        this.app.uploadFile(
+        this.plugin.files.upload(
           ".json",
           newSettings => {
-            this.app.settings = Object.assign({}, DEFAULT_SETTINGS, newSettings);
+            this.plugin.app.settings = Object.assign({}, DEFAULT_SETTINGS, newSettings as object);
 
-            this.app.saveSettings();
+            this.plugin.app.saveSettings();
           },
-          error => this.app.console.error("Failed to parse settings file:", error),
-          message => this.app.console.warn(message),
+          error => this.plugin.app.console.error("Failed to parse settings file:", error),
+          message => this.plugin.app.console.warn(message),
         );
       });
     new CMD(this.defaultCMD)
       .setName("Reset settings")
       .setDescription("Reset settings to default values")
       .on("_click", () => {
-        this.app.commandPalette
-          .confirm("Are you sure you want to delete all your data including bookmarks?")
+        this.plugin
+          .palette.confirm("Are you sure you want to delete all your data including bookmarks?")
           .then(confirmed => {
             if (!confirmed) return;
-            this.app.settings = { ...DEFAULT_SETTINGS };
+            this.plugin.app.settings = { ...DEFAULT_SETTINGS };
 
-            this.app.saveSettings();
+            this.plugin.app.saveSettings();
 
-            this.app.commandPalette.display({ topCategory: "" });
+            this.commandPalette.display({ topCategory: "" });
           });
       });
     new CMD(this.defaultCMD)

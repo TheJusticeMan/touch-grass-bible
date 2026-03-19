@@ -383,10 +383,7 @@ export default class GestureCommandsPlugin extends Plugin {
       return;
     }
 
-    this.registerPalette(
-      () => new GestureCommandsCategory(this.app.commandPalette, this),
-      "gesture-commands",
-    );
+    this.registerPalette(() => new GestureCommandsCategory(this.palette.instance, this), "gesture-commands");
 
     this.recognizer = new GestureRecognizer(
       fab,
@@ -409,7 +406,7 @@ export default class GestureCommandsPlugin extends Plugin {
     const match = this.settings.gestureCommands.find(cmd => cmd.gesturePath === path);
     if (match) {
       this.console.log("Matched gesture:", match.name);
-      const cmd = this.app.getCommand(match.commandId);
+      const cmd = this.commands.get(match.commandId);
       if (cmd) {
         cmd.callback();
       } else {

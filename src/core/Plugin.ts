@@ -1,10 +1,70 @@
 import { IconNode } from "lucide";
-import { LayoutNode, View } from "../external/Workspace";
+import { CommandPaletteState, CategoryLoaderFunc, UnifiedCommandPalette } from "../external/CommandPalette";
+import { TGAppSettings } from "../config/TGAppSettings";
+import { LayoutNode, View, Workspace } from "../external/Workspace";
 import TouchGrassBibleApp from "../main";
-import { CategoryLoaderFunc } from "../external/CommandPalette";
 import { BrowserConsole } from "../external/MyBrowserConsole";
+import { PaletteState } from "../external/PaletteStateController";
 import { VerseInfoComponent } from "../ui/VerseScreen";
 import { AppCommand } from "../external/App";
+
+type VerseStateValue = TouchGrassBibleApp["verseState"] extends PaletteState<infer T> ? T : never;
+
+type PluginAppApi = {
+  readonly console: BrowserConsole;
+  readonly fab: HTMLButtonElement | null;
+  readonly verseState: PaletteState<VerseStateValue>;
+  settings: TGAppSettings;
+  openCommandPalette(state?: Partial<CommandPaletteState>): void;
+  saveSettings(): void;
+  saveSettingsAfterDelay(delay?: number): void;
+};
+
+type PluginPaletteApi = {
+  readonly instance: UnifiedCommandPalette;
+  menu(): void;
+  useState<T>(initialValue: T): PaletteState<T>;
+  prompt(text: string): Promise<string | null>;
+  confirm(text: string): Promise<boolean>;
+  setCategoryOrder(order: string[]): void;
+};
+
+type PluginCommandsApi = {
+  get(commandId: string): AppCommand | undefined;
+  list(): AppCommand[];
+};
+
+type PluginWorkspaceApi = {
+  readonly activePanel: LayoutNode | null;
+  readonly rootPanel: LayoutNode;
+  open(viewType: string, panel: LayoutNode, options?: Parameters<Workspace["openView"]>[2]): View | null;
+  activate(viewType: string): boolean;
+  getActiveViewOfType(viewType: string): View | null;
+};
+
+type PluginFilesApi = {
+  loadJSON<T>(url: string): Promise<T>;
+  readText(path: string): Promise<string>;
+  writeText(path: string, content: string): Promise<void>;
+  readJson<T>(path: string): Promise<T>;
+  writeJson(path: string, data: unknown): Promise<void>;
+  upload(
+    accept: string,
+    onFileContent: (content: unknown) => void,
+    onError?: (error: unknown) => void,
+    onWarn?: (message: string) => void,
+  ): Promise<void>;
+  download(filename: string, data: unknown): void;
+};
+
+type EventTargetLike<E extends Record<string, unknown>> = {
+  on<K extends keyof E>(eventName: K, handler: (e: E[K]) => void): unknown;
+  off<K extends keyof E>(eventName: K, handler: (e: E[K]) => void): unknown;
+};
+
+type StateTargetLike<T> = {
+  onChange(listener: (value: T, previous: T) => void): () => void;
+};
 
 /**
  * Base lifecycle unit for plugin-like objects.
@@ -160,7 +220,7 @@ export type IconActionItem = {
 /**
  * Static metadata that identifies and describes a plugin.
  */
-type PluginMetadata = {
+export type PluginMetadata = {
   /** Stable plugin id used for registry keys and persisted settings scopes. */
   id: string;
 
@@ -177,8 +237,9 @@ type PluginMetadata = {
 /**
  * Base class for internal plugins registered with the application runtime.
  *
- * `Plugin` wraps common registration helpers and automatically wires cleanup
- * into the component lifecycle via `registerUnload()`.
+ * `Plugin` keeps plugin-specific lifecycle and registration concerns local,
+ * while exposing grouped app capabilities through `app`, `palette`,
+ * `commands`, `workspace`, and `files`.
  *
  * @remarks
  * Any command, view, palette, or verse action registered through this class is
@@ -187,6 +248,16 @@ type PluginMetadata = {
 export default class Plugin extends Component {
   /** Logger scoped to this plugin's display name. */
   console: BrowserConsole;
+  /** App-shell capabilities used by plugins at runtime. */
+  readonly app: PluginAppApi;
+  /** Command palette capabilities and state helpers. */
+  readonly palette: PluginPaletteApi;
+  /** Read-only command registry access for plugins. */
+  readonly commands: PluginCommandsApi;
+  /** Workspace navigation and view activation helpers. */
+  readonly workspace: PluginWorkspaceApi;
+  /** File and data loading helpers backed by the host app. */
+  readonly files: PluginFilesApi;
 
   /**
    * Creates a plugin instance bound to an app and manifest.
@@ -195,11 +266,86 @@ export default class Plugin extends Component {
    * @param manifest - Plugin metadata used for identity and settings scope.
    */
   constructor(
-    public app: TouchGrassBibleApp,
+    private readonly host: TouchGrassBibleApp,
     public manifest: PluginMetadata,
   ) {
     super();
     this.console = new BrowserConsole(true, `[${manifest.name}]`);
+    const app = this.host;
+    this.app = {
+      get console() {
+        return app.console;
+      },
+      get fab() {
+        return app.fab;
+      },
+      get verseState() {
+        return app.verseState;
+      },
+      get settings() {
+        return app.settings;
+      },
+      set settings(settings: TGAppSettings) {
+        app.settings = settings;
+      },
+      openCommandPalette: (state: Partial<CommandPaletteState> = {}) => app.openCommandPalette(state),
+      saveSettings: () => app.saveSettings(),
+      saveSettingsAfterDelay: (delay?: number) => app.saveSettingsAfterDelay(delay),
+    };
+    this.palette = {
+      get instance() {
+        return app.commandPalette;
+      },
+      menu: () => app.commandPalette.menu(),
+      useState: <T>(initialValue: T) => app.commandPalette.useState(initialValue),
+      prompt: (text: string) => app.commandPalette.prompt(text),
+      confirm: (text: string) => app.commandPalette.confirm(text),
+      setCategoryOrder: (order: string[]) => app.commandPalette.setCategoryOrder(order),
+    };
+    this.commands = {
+      get: (commandId: string) => app.getCommand(commandId),
+      list: () => app.getCommands(),
+    };
+    this.workspace = {
+      get activePanel() {
+        return app.workspace.activePanel;
+      },
+      get rootPanel() {
+        return app.workspace.rootPanel;
+      },
+      open: (viewType, panel, options) => app.workspace.openView(viewType, panel, options),
+      activate: (viewType: string) => app.workspace.activateView(viewType),
+      getActiveViewOfType: (viewType: string) => app.workspace.getActiveViewOfType(viewType),
+    };
+    this.files = {
+      loadJSON: <T>(url: string) => app.loadJSON<T>(url),
+      readText: (path: string) => app.readTextFile(path),
+      writeText: (path: string, content: string) => app.writeTextFile(path, content),
+      readJson: <T>(path: string) => app.readJsonFile<T>(path),
+      writeJson: (path: string, data: unknown) => app.writeJsonFile(path, data),
+      upload: (
+        accept: string,
+        onFileContent: (content: unknown) => void,
+        onError?: (error: unknown) => void,
+        onWarn?: (message: string) => void,
+      ) => app.uploadFile(accept, onFileContent, onError, onWarn),
+      download: (filename: string, data: unknown) => app.downloadFile(filename, data),
+    };
+  }
+
+  registerEvent<E extends Record<string, unknown>, K extends keyof E>(
+    target: EventTargetLike<E>,
+    eventName: K,
+    handler: (e: E[K]) => void,
+  ): this {
+    target.on(eventName, handler);
+    return this.registerUnload(() => {
+      target.off(eventName, handler);
+    });
+  }
+
+  registerStateChange<T>(target: StateTargetLike<T>, listener: (value: T, previous: T) => void): this {
+    return this.registerUnload(target.onChange(listener));
   }
 
   /**
@@ -219,12 +365,12 @@ export default class Plugin extends Component {
    * ```
    */
   registerPalette(load: CategoryLoaderFunc<unknown>, id: string) {
-    this.app.commandPalette.addPalette(load, id);
-    this.registerUnload(() => this.app.commandPalette.removePalette(load, id));
+    this.palette.instance.addPalette(load, id);
+    this.registerUnload(() => this.palette.instance.removePalette(load, id));
 
     // Get the palette name and description to create a well-named command
-    const category = this.app.commandPalette.getCategory(id);
-    const palette = category?.getPalette(this.app.commandPalette);
+    const category = this.palette.instance.getCategory(id);
+    const palette = category?.getPalette(this.palette.instance);
 
     // Auto-register a command that opens the command palette with this category on top
     this.registerCommand({
@@ -242,8 +388,8 @@ export default class Plugin extends Component {
    * @returns The current instance for method chaining.
    */
   registerCommand(command: AppCommand): this {
-    this.app.addCommand(command);
-    this.registerUnload(() => this.app.removeCommand(command.id));
+    this.host.addCommand(command);
+    this.registerUnload(() => this.host.removeCommand(command.id));
     return this;
   }
 
@@ -254,8 +400,9 @@ export default class Plugin extends Component {
    * @param view - Factory that creates a view for a layout panel node.
    */
   registerView(id: string, view: (panel: LayoutNode) => View) {
-    this.app.workspace.registerView(id, view);
-    this.registerUnload(() => this.app.workspace.unregisterView(id));
+    this.host.workspace.registerView(id, view);
+    this.registerUnload(() => this.host.workspace.unregisterView(id));
+    return this;
   }
 
   /**
@@ -264,8 +411,9 @@ export default class Plugin extends Component {
    * @param action - Verse action definition including icon and trigger handler.
    */
   addVerseAction({ id, name, description, icon, onTrigger }: IconActionItem) {
-    this.app.addVerseAction({ id, name, description, icon, onTrigger });
-    this.registerUnload(() => this.app.removeVerseAction(id));
+    this.host.addVerseAction({ id, name, description, icon, onTrigger });
+    this.registerUnload(() => this.host.removeVerseAction(id));
+    return this;
   }
 
   /**
@@ -286,7 +434,7 @@ export default class Plugin extends Component {
    * ```
    */
   async loadSettings<T>(defaultSettings: T): Promise<T> {
-    return { ...defaultSettings, ...(await this.app.loadConfigObject<T>(this.manifest.id)) };
+    return { ...defaultSettings, ...(await this.host.loadConfigObject<T>(this.manifest.id)) };
   }
 
   /**
@@ -301,7 +449,7 @@ export default class Plugin extends Component {
    * ```
    */
   async saveSettings<T>(settings: T) {
-    await this.app.saveConfigObject<T>(this.manifest.id, settings);
+    await this.host.saveConfigObject<T>(this.manifest.id, settings);
   }
 }
 
@@ -319,7 +467,7 @@ export default class Plugin extends Component {
  * );
  * ```
  */
-export class internalPlugins extends Component {
+export class InternalPlugins extends Component {
   /** Registered plugins keyed by manifest id. */
   plugins: Map<string, Plugin> = new Map();
 

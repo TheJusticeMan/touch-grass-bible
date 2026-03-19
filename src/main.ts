@@ -4,7 +4,7 @@ import "./external/MyHTML";
 import { View, WorkspaceLayout } from "./external/Workspace";
 import info from "./info.json";
 import "./main.css";
-import { internalPlugins, type IconActionItem } from "./core/Plugin";
+import { InternalPlugins, type IconActionItem } from "./core/Plugin";
 import AIPlugin from "./plugins/AI";
 import BookmarkPlugin from "./plugins/Bookmarks";
 import GestureCommandsPlugin from "./plugins/GestureCommands";
@@ -69,7 +69,7 @@ function deepMerge<T extends object>(defaults: T, saved: Partial<T>): T {
  */
 export default class TouchGrassBibleApp extends App {
   settings: TGAppSettings = DEFAULT_SETTINGS;
-  plugins = new internalPlugins(this);
+  plugins = new InternalPlugins(this);
   private verseActions: Map<string, IconActionItem> = new Map();
   firstLoad = true;
   saveTimeoutId: ReturnType<typeof setTimeout> | null = null;

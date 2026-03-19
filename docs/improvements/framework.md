@@ -75,7 +75,8 @@ This page focuses on the shared framework under `src/external/`: workspace, comm
 ## `src/external/Workspace.css`
 
 - High: replace mobile `first-of-type` and `last-of-type` assumptions with explicit panel-role classes
-- Medium: add `:focus-visible` styles for tabs, close buttons, resize handles, and window controls
+- [x] Medium: add `:focus-visible` styles for tabs, close buttons, and window controls
+- Medium: add `:focus-visible` styles for resize handles
 - Medium: respect `prefers-reduced-motion`
 
 ## `src/external/WorkspaceDom.ts`

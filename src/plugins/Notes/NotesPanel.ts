@@ -154,7 +154,7 @@ export class NotesPanel extends View {
       .setPlaceholder("Search Notes...")
       .addClass("search-notes-input")
       .setType("search")
-      .on("click", () => this.plugin.app.commandPalette.update({ topCategory: myNotesCategoryID }).open());
+      .on("click", () => this.plugin.app.openCommandPalette({ topCategory: myNotesCategoryID }));
     this.plugin.Vault.getAllNotes()
       .sort((a, b) => b.dateModified.getTime() - a.dateModified.getTime())
       .forEach(note =>

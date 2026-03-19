@@ -22,7 +22,7 @@ const defaultJournalSettings: JournalSettings = {
 
 export default class JournalPlugin extends Plugin {
   settings: JournalSettings = defaultJournalSettings;
-  storage: JournalStorage = new JournalStorage(this.app);
+  storage: JournalStorage = new JournalStorage(this);
   private panelInstances = new Set<JournalPanel>();
   private lastVerseLog = "";
 
@@ -38,9 +38,9 @@ export default class JournalPlugin extends Plugin {
       return view;
     });
 
-    this.registerPalette(() => new JournalCategory(this.app.commandPalette, this), JournalCategoryID);
+    this.registerPalette(() => new JournalCategory(this.palette.instance, this), JournalCategoryID);
 
-    this.app.verseState.onChange(verse => {
+    this.registerStateChange(this.app.verseState, verse => {
       void this.handleVerseChange(verse);
     });
   }
@@ -50,15 +50,15 @@ export default class JournalPlugin extends Plugin {
   }
 
   openJournal(): void {
-    const activated = this.app.workspace.activateView(JournalViewID);
+    const activated = this.workspace.activate(JournalViewID);
     if (!activated) {
-      const activePanel = this.app.workspace.activePanel;
+      const activePanel = this.workspace.activePanel;
       const targetPanel =
         activePanel?.getMode() === "TabGroup"
           ? activePanel
-          : (this.app.workspace.rootPanel.childPanels.at(-1)?.panel ?? null);
+          : (this.workspace.rootPanel.childPanels.at(-1)?.panel ?? null);
       if (targetPanel) {
-        this.app.workspace.openView(JournalViewID, targetPanel, {
+        this.workspace.open(JournalViewID, targetPanel, {
           title: "Journal",
           activate: true,
         });

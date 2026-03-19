@@ -57,8 +57,8 @@ function formatTopicDescription(topic: NaveTopicNode, relationLabel?: string): s
 
 export default class NavesTopicalBiblePlugin extends Plugin {
   index: NaveIndex = buildNaveIndex([]);
-  selectedTopicId = this.app.commandPalette.useState("");
-  focusedTopicIds = this.app.commandPalette.useState<string[]>([]);
+  selectedTopicId = this.palette.useState("");
+  focusedTopicIds = this.palette.useState<string[]>([]);
 
   getAutoExpandedTopicId(topicId: string): string {
     let currentTopicId = topicId;
@@ -83,16 +83,13 @@ export default class NavesTopicalBiblePlugin extends Plugin {
 
   async onload(): Promise<void> {
     try {
-      const topics = await this.app.loadJSON<NaveTopic[]>("parsed-nave.json");
+      const topics = await this.files.loadJSON<NaveTopic[]>("parsed-nave.json");
       this.index = buildNaveIndex(topics);
     } catch (e) {
       this.console.error("Failed to load parsed-nave.json. Nave's Topical Bible will be unavailable.", e);
     }
 
-    this.registerPalette(
-      () => new NavesTopicCategory(this.app.commandPalette, this),
-      NavesTopicListCategoryID,
-    );
+    this.registerPalette(() => new NavesTopicCategory(this.palette.instance, this), NavesTopicListCategoryID);
 
     this.addVerseAction({
       id: "naves-topic",

@@ -17,13 +17,12 @@ export const translationMetadata: {
 };
 
 export default class TranslationsPlugin extends Plugin {
-  defaultTranslation = this.app.commandPalette.useState("KJV" as translation);
+  defaultTranslation = this.palette.useState("KJV" as translation);
   async onload(): Promise<void> {
-    this.registerPalette(
-      () => new translationCategory(this.app.commandPalette, this),
-      TranslationsCategoryID,
-    );
-    this.defaultTranslation.onChange(newTranslation => (VerseRef.defaultTranslation = newTranslation));
+    this.registerPalette(() => new translationCategory(this.palette.instance, this), TranslationsCategoryID);
+    this.registerStateChange(this.defaultTranslation, newTranslation => {
+      VerseRef.defaultTranslation = newTranslation;
+    });
   }
 }
 

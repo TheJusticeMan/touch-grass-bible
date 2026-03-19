@@ -11,7 +11,7 @@ This page covers user-facing feature improvements under `src/plugins/`.
 ## `src/plugins/Bookmarks.ts`
 
 - High: debounce or batch bookmark-history persistence so verse navigation does not thrash storage
-- High: fix `dateCompare()` so sorting matches the intended behavior
+- [x] High: fix `dateCompare()` so sorting matches the intended behavior
 - Medium: improve tag creation with trimming, duplicate prevention, rename support, and better empty-name handling
 
 ## `src/plugins/Bookmarks.test.ts`

@@ -4,7 +4,7 @@ import { Button } from "src/external/UIComponents";
 
 export default class SharePlugin extends Plugin {
   async onload() {
-    this.app.addVerseAction({
+    this.addVerseAction({
       id: "share-verse",
       name: "Share Verse",
       description: "Copy a link to this verse to your clipboard.",
