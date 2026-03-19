@@ -11,18 +11,44 @@ import { Highlighter } from "./highlighter";
 import { CMD } from "./Comands";
 import { BrowserConsole } from "./MyBrowserConsole";
 
+/**
+ * Lazy wrapper for a command category factory.
+ *
+ * The loader defers category instantiation until first access and then caches
+ * the created category instance for future calls.
+ *
+ * @typeParam T - Command item type represented by the category.
+ */
 export class CategoryLoader<T> {
   private _palette: CommandCategory<T> | null = null;
+
+  /**
+   * @param load - Factory callback that creates a category instance.
+   * @param id - Stable category id used for registration and lookup.
+   */
   constructor(
     private load: CategoryLoaderFunc<T>,
     readonly id: string,
   ) {}
 
+  /**
+   * Returns this loader's category instance, creating it on first access.
+   *
+   * @param commandPalette - Palette runtime used by the category factory.
+   * @returns Cached command category instance.
+   */
   public getPalette(commandPalette: UnifiedCommandPalette): CommandCategory<T> {
     return this._palette || (this._palette = this.load(commandPalette));
   }
 }
 
+/**
+ * Factory signature used to register command categories.
+ *
+ * @typeParam T - Command item type represented by the returned category.
+ * @param commandPalette - Palette runtime that owns the category.
+ * @returns A command category instance.
+ */
 export type CategoryLoaderFunc<T> = (commandPalette: UnifiedCommandPalette) => CommandCategory<T>;
 
 /**
@@ -138,6 +164,11 @@ export class UnifiedCommandPalette extends Openable<{
     });
   }
 
+  /**
+   * Opens the navigator category used as the palette's quick access menu.
+   *
+   * @returns The current palette instance for method chaining.
+   */
   menu() {
     this.update({ topCategory: "navigator" }).open();
   }
@@ -147,14 +178,33 @@ export class UnifiedCommandPalette extends Openable<{
     return this;
   }
 
+  /**
+   * Creates palette-scoped reactive state storage.
+   *
+   * @typeParam T - State value type.
+   * @param initialValue - Initial value for the state holder.
+   * @returns A reactive state handle managed by the palette state controller.
+   */
   useState<T>(initialValue: T): PaletteState<T> {
     return this.stateController.useState(initialValue);
   }
 
+  /**
+   * Shows a prompt interaction and resolves with text or `null`.
+   *
+   * @param text - Prompt message shown to the user.
+   * @returns A promise resolving to entered text or `null` when cancelled.
+   */
   prompt(text: string): Promise<string | null> {
     return this.getPromptCategory()?.prompt(text) ?? Promise.resolve(null);
   }
 
+  /**
+   * Shows a confirmation interaction.
+   *
+   * @param text - Confirmation prompt message.
+   * @returns A promise resolving to `true` for confirm and `false` for cancel.
+   */
   confirm(text: string): Promise<boolean> {
     return this.getPromptCategory()?.confirm(text) ?? Promise.resolve(false);
   }
@@ -164,52 +214,115 @@ export class UnifiedCommandPalette extends Openable<{
     if (promptCategory instanceof PromptCategory) return promptCategory;
   }
 
+  /** Number of rendered command items in the current view. */
   get length(): number {
     return this.commandItems.length;
   }
 
+  /**
+   * Current top category loader.
+   *
+   * Falls back to the first visible category when no explicit top category is set.
+   */
   get topCategory(): CategoryLoader<unknown> | undefined {
     return this.getCategory(this.state.topCategory) || this.categories[0];
   }
 
+  /** Visible command categories in registration order. */
   get palettes(): CategoryLoader<unknown>[] {
     return this.categories; // Exclude the ListOfPalettes category
   }
 
+  /** Currently selected command item, or `null` when no item is selected. */
   get selCMD(): CommandItem<unknown> | null {
     return this.commandItems[this.selectedIndex] || null; // Return the currently selected command item or null if none
   }
 
-  // Add category (class constructor or instance)
+  /**
+   * Registers a visible command category.
+   *
+   * Categories are lazily instantiated and can be reordered using
+   * `setCategoryOrder()`.
+   *
+   * @param load - Category factory callback.
+   * @param id - Stable category id.
+   * @returns The current palette instance for method chaining.
+   *
+   * @example
+   * ```ts
+   * palette.addPalette(cp => new MyCategory(cp), "my-category");
+   * ```
+   */
   addPalette(load: CategoryLoaderFunc<unknown>, id: string): this {
     this.categories.push(new CategoryLoader(load, id));
     this.sortCategoriesByOrder(this.categoryOrder);
     return this;
   }
 
+  /**
+   * Registers multiple visible categories in a single call.
+   *
+   * @param categories - Category descriptor objects with `load` and `id`.
+   * @returns The current palette instance for method chaining.
+   */
   addPalettes(...categories: { load: CategoryLoaderFunc<unknown>; id: string }[]): this {
     categories.forEach(category => this.addPalette(category.load, category.id));
     return this;
   }
 
+  /**
+   * Removes a visible category registration.
+   *
+   * @param load - Category factory callback used during registration.
+   * @param id - Category id used during registration.
+   */
   removePalette(load: CategoryLoaderFunc<unknown>, id: string): void {
     this.categories = this.categories.filter(cat => cat.id !== id || cat.getPalette !== load);
   }
 
+  /**
+   * Registers a hidden category.
+   *
+   * Hidden categories are available via id lookup but not shown in normal
+   * category listings.
+   *
+   * @param load - Category factory callback.
+   * @param id - Stable category id.
+   * @returns The current palette instance for method chaining.
+   */
   addHiddenPalette(load: CategoryLoaderFunc<unknown>, id: string): this {
     this.hiddenCategories.push(new CategoryLoader(load, id));
     return this;
   }
 
+  /**
+   * Registers multiple hidden categories in a single call.
+   *
+   * @param categories - Category descriptor objects with `load` and `id`.
+   * @returns The current palette instance for method chaining.
+   */
   addHiddenPalettes(...categories: { load: CategoryLoaderFunc<unknown>; id: string }[]): this {
     categories.forEach(category => this.addHiddenPalette(category.load, category.id));
     return this;
   }
 
+  /**
+   * Removes a hidden category registration.
+   *
+   * @param load - Category factory callback used during registration.
+   * @param id - Category id used during registration.
+   */
   removeHiddenPalette(load: CategoryLoaderFunc<unknown>, id: string): void {
     this.hiddenCategories = this.hiddenCategories.filter(cat => cat.id !== id || cat.getPalette !== load);
   }
 
+  /**
+   * Sorts visible categories by a preferred id order.
+   *
+   * Categories not found in the provided order are moved to the end.
+   *
+   * @param order - Ordered list of category ids.
+   */
   sortCategoriesByOrder(order: string[]): void {
     this.categories.sort((a, b) => {
       const aIdx = order.indexOf(a.id);
@@ -218,29 +331,56 @@ export class UnifiedCommandPalette extends Openable<{
     });
   }
 
+  /**
+   * Sets and applies category sort order for visible categories.
+   *
+   * @param order - Ordered list of category ids.
+   */
   setCategoryOrder(order: string[]): void {
     this.categoryOrder = order;
     this.sortCategoriesByOrder(order);
   }
 
-  // Open and initialize palette UI
+  /**
+   * Lifecycle hook invoked when the palette opens.
+   *
+   * Ensures this palette is the current event target, clears context history,
+   * and renders the initial display.
+   */
   onopen() {
     if (this.app.ctarget !== this) this.app.pushTarget(this as ETarget);
     this.stateController.clearContexts();
     this.display();
   }
 
+  /**
+   * Opens the palette directly in a specific category.
+   *
+   * @param category - Category id to show as top category.
+   */
   opencategory(category: string) {
     /* this.hiddenCategories.find(cat => cat.constructor === category) || this._addHiddenPalette(category); */
     this.update({ topCategory: category }).open();
   }
 
+  /**
+   * Updates palette state using a partial state object.
+   *
+   * @param context - Partial state updates.
+   * @returns The current palette instance for method chaining.
+   */
   update(context: Partial<CommandPaletteState> = {}) {
     this.state = this.stateController.update(context);
     this.emit("update", this.state);
     return this;
   }
 
+  /**
+   * Displays the palette with an optional state context.
+   *
+   * @param context - Partial state update applied before rendering.
+   * @param shouldSaveHistory - When true, pushes app history for back navigation.
+   */
   display(context: Partial<CommandPaletteState> = {}, shouldSaveHistory = true) {
     if (this.app.ctarget !== this) this.app.pushTarget(this as ETarget);
     this.emit("display", this.state);
@@ -368,11 +508,12 @@ export class UnifiedCommandPalette extends Openable<{
         this.ActivateContextFromCommand(this.commandItems[this.selectedIndex]);
         break;
       case "ArrowLeft":
-      case "Shift+Tab":
+      case "Shift+Tab": {
         const previous = this.stateController.popPreviousContext();
         if (!previous) return;
         this.display(previous, false); // Open previous context
         break;
+      }
     }
   };
 
@@ -389,6 +530,12 @@ export class UnifiedCommandPalette extends Openable<{
     }
   };
 
+  /**
+   * Sets the search input value and re-renders command results.
+   *
+   * @param value - New query value.
+   * @param select - When true, selects the input text after updating.
+   */
   setValue(value: string, select = false) {
     this.searchInput?.setValue(value);
     if (select) this.searchInput?.element.select();
@@ -406,6 +553,12 @@ export class UnifiedCommandPalette extends Openable<{
     }
   }
 
+  /**
+   * Lifecycle hook invoked when the palette closes.
+   *
+   * Clears mounted elements, restores default state values, and resets history
+   * context tracking.
+   */
   onclose() {
     if (this.app.ctarget === this) this.app.popTarget();
     if (this.containerComponent) {
@@ -520,6 +673,11 @@ export class UnifiedCommandPalette extends Openable<{
     return this; // Return this for chaining
   }
 
+  /**
+   * Ordered categories for the current display pass.
+   *
+   * This respects top-category focus and sibling-category overrides.
+   */
   get categoriesToShow(): CategoryLoader<unknown>[] {
     const { topCategory } = this.state;
     const top = this.topCategory;
@@ -582,11 +740,24 @@ export class UnifiedCommandPalette extends Openable<{
 export class CommandPaletteState {
   maxResults: number = 100; // Maximum results to show
   expanded: boolean = true; // Whether the palette items are expanded
+
+  /**
+   * @param palette - Palette instance this state belongs to.
+   * @param query - Active query text.
+   * @param topCategory - Active top category id.
+   */
   constructor(
     public palette: UnifiedCommandPalette,
     public query: string = "",
     public topCategory: string = "",
   ) {}
+
+  /**
+   * Returns an immutable-like cloned state with partial updates applied.
+   *
+   * @param partial - Partial state values to override.
+   * @returns New state object preserving prototype behavior.
+   */
   update(partial: Partial<this> = {}): this {
     return Object.assign(Object.create(this), this, partial);
   }
@@ -657,6 +828,12 @@ export abstract class CommandCategory<T> {
     this.onInit?.(); // Call onInit if defined
   }
 
+  /**
+   * Initializes query-derived helpers for a rendering pass.
+   *
+   * @param state - Current palette state.
+   * @returns The current category instance for method chaining.
+   */
   setUp(state: CommandPaletteState): this {
     this.highlighter = new Highlighter([
       {
@@ -669,17 +846,48 @@ export abstract class CommandCategory<T> {
     this.query = state.query;
     return this;
   }
+
+  /**
+   * Trigger hook for preparing category data before render.
+   *
+   * @param state - Current palette state.
+   */
   abstract onTrigger(state: CommandPaletteState): void;
+
+  /**
+   * Returns commands matching the supplied query.
+   *
+   * @param query - User query text.
+   */
   abstract getCommands(query: string): T[];
+
+  /**
+   * Renders a command item and returns its state transition.
+   *
+   * @param command - Command being rendered.
+   * @param el - UI item element for mutation.
+   */
   abstract renderCommand(
     command: T,
     el: CommandItem<T>,
   ): Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState);
+
+  /**
+   * Executes a command when selected.
+   *
+   * @param command - Command to execute.
+   */
   abstract executeCommand(command: T): void;
   onForward?: (state: CommandPaletteState) => CommandPaletteState; // Optional function to modify state when navigating forward
 
   onInit?(): void; // Called when the category is initialized
 
+  /**
+   * Safe wrapper around `onTrigger()` with error logging.
+   *
+   * @param state - Current palette state.
+   * @returns The current category instance for method chaining.
+   */
   tryTrigger(state: CommandPaletteState): this {
     this.title = this.name;
     try {
@@ -693,6 +901,12 @@ export abstract class CommandCategory<T> {
     return this;
   }
 
+  /**
+   * Safe wrapper around `getCommands()` with error logging.
+   *
+   * @param query - User query text.
+   * @returns Matching commands, or an empty array on error.
+   */
   trygetCommands(query: string): T[] {
     try {
       return this.getCommands(query);
@@ -702,6 +916,13 @@ export abstract class CommandCategory<T> {
     }
   }
 
+  /**
+   * Safe wrapper around `renderCommand()` with error logging.
+   *
+   * @param command - Command being rendered.
+   * @param el - UI item element for mutation.
+   * @returns A state transition callback.
+   */
   tryrender(command: T, el: CommandItem<T>): (state: CommandPaletteState) => CommandPaletteState {
     try {
       const result = this.renderCommand(command, el);
@@ -712,6 +933,13 @@ export abstract class CommandCategory<T> {
     return state => state.update({});
   }
 
+  /**
+   * Applies command state transition and safely executes command logic.
+   *
+   * @param command - Command to execute.
+   * @param toState - State transition function from render phase.
+   * @returns The current category instance for method chaining.
+   */
   tryexecute(command: T, toState: (state: CommandPaletteState) => CommandPaletteState): this {
     this.commandPalette.state = toState(this.commandPalette.state);
     try {
@@ -722,6 +950,15 @@ export abstract class CommandCategory<T> {
     return this;
   }
 
+  /**
+   * Filters items by case-insensitive substring criteria while avoiding duplicates.
+   *
+   * @typeParam T - Item type.
+   * @param query - Query text.
+   * @param array - Candidate item list.
+   * @param criteria - String selector callbacks used for matching.
+   * @returns Matching items.
+   */
   getcompatible<T>(query: string, array: T[], ...criteria: Array<(item: T) => string>): T[] {
     if (!query) return array;
 
@@ -741,6 +978,15 @@ export abstract class CommandCategory<T> {
       .flat();
   }
 
+  /**
+   * Fuzzy-filters items using Levenshtein distance while avoiding duplicates.
+   *
+   * @typeParam T - Item type.
+   * @param query - Query text.
+   * @param array - Candidate item list.
+   * @param criteria - String selector callbacks used for matching.
+   * @returns Matching items ordered by distance per criterion.
+   */
   getcompatibleWithLevenshtein<T>(query: string, array: T[], ...criteria: ((item: T) => string)[]): T[] {
     if (!query) return array; // Return all items if no query
     const lowerQuery = query.toLowerCase();
@@ -765,6 +1011,11 @@ export abstract class CommandCategory<T> {
       .flat();
   }
 
+  /**
+   * Lazy access to the default extra-command category.
+   *
+   * @returns The default command category instance.
+   */
   get defaultCMD(): CMDCategory {
     if (!this._extraCMD) this._extraCMD = new CMDCategory(this.commandPalette);
     return this._extraCMD;
@@ -810,6 +1061,11 @@ export class CommandItem<T> extends Item {
     this.toState = () => this.PaletteCat.commandPalette.state.update({});
   }
 
+  /**
+   * Adds a context-menu affordance icon to this command item.
+   *
+   * @returns The current command item instance for method chaining.
+   */
   addctx() {
     this.addIconButton(btn => {
       btn
@@ -824,6 +1080,7 @@ export class CommandItem<T> extends Item {
     return this;
   }
 
+  /** Whether this item currently exposes a context-menu affordance. */
   get contextMenuAllowed() {
     return this.allowsContextMenu;
   }
@@ -926,6 +1183,8 @@ export class CMDCategory extends CommandCategory<CMD> {
   name: string = "";
   description: string = "";
   protected commands: CMD[] = [];
+
+  /** Clears command entries for the next trigger cycle. */
   resetCommands() {
     this.commands = [];
   }
@@ -933,15 +1192,41 @@ export class CMDCategory extends CommandCategory<CMD> {
   onTrigger(_state: CommandPaletteState) {
     return;
   }
+
+  /**
+   * Returns matching commands by command name.
+   *
+   * @param query - Query text.
+   */
   getCommands(query: string): CMD[] {
     return this.getcompatible(query, this.commands, a => a.name);
   }
+
+  /**
+   * Delegates command rendering to the command's render callback.
+   *
+   * @param command - Command to render.
+   * @param el - UI item element for mutation.
+   */
   renderCommand(command: CMD, el: CommandItem<CMD>): Partial<CommandPaletteState> {
     return command.render(command, el);
   }
+
+  /**
+   * Delegates command execution to the command's click callback.
+   *
+   * @param command - Command to execute.
+   */
   executeCommand(command: CMD): void {
     command.click(command);
   }
+
+  /**
+   * Adds one command to this category.
+   *
+   * @param command - Command to add.
+   * @returns This category instance for method chaining.
+   */
   addCMD(command: CMD): CMDCategory {
     this.commands.push(command);
     return this;
