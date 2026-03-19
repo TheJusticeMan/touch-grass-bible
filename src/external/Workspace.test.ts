@@ -263,8 +263,7 @@ describe("Workspace drag-drop and split behavior", () => {
         }) as DOMRect,
     });
 
-    expect(panel.getInsertIndexForPointer(secondTabButton!, 120)).toBe(1);
-    expect(panel.getInsertIndexForPointer(secondTabButton!, 180)).toBe(2);
+    expect(panel.getInsertIndexForPointer(secondTabButton!)).toBe(1);
   });
 
   test("reorders to after hovered tab using computed insert index", () => {

@@ -3,7 +3,14 @@ import { LayoutNode, View } from "../../external/Workspace";
 import { myNotesCategoryID } from "../categoryIDs";
 import NotesPlugin from "./Notes";
 import "./NotesPanel.css";
-import { TextInput, Button, UIComponent, IconButton, RowComponent, TextArea } from "src/external/Components";
+import {
+  TextInput,
+  Button,
+  UIComponent,
+  IconButton,
+  RowComponent,
+  TextArea,
+} from "src/external/UIComponents";
 import { ETarget, Openable } from "src/external/Event";
 
 export class Note extends ETarget<{ change: Note }> {
@@ -147,7 +154,7 @@ export class NotesPanel extends View {
       .setPlaceholder("Search Notes...")
       .addClass("search-notes-input")
       .setType("search")
-      .on("click", () => this.plugin.app.commandPalette.update({ topCategory: myNotesCategoryID }).open());
+      .on("click", () => this.plugin.app.openCommandPalette({ topCategory: myNotesCategoryID }));
     this.plugin.Vault.getAllNotes()
       .sort((a, b) => b.dateModified.getTime() - a.dateModified.getTime())
       .forEach(note =>

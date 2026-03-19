@@ -1,7 +1,7 @@
 import { GitCompare } from "lucide";
-import { BibleTopics, BibleTopicsType } from "../BibleTopics";
-import Plugin from "../Plugin";
-import { VerseRef } from "../VerseRef";
+import { BibleTopics, BibleTopicsType } from "../models/BibleTopics";
+import Plugin from "../core/Plugin";
+import { VerseRef } from "../models/VerseRef";
 import { TopicListCategoryID, TSKCrossRefCategoryID } from "./categoryIDs";
 import { PaletteState } from "../external/PaletteStateController";
 import { CMD } from "src/external/Comands";
@@ -11,21 +11,21 @@ import {
   CommandItem,
   CommandPaletteState,
 } from "src/external/CommandPalette";
-import { Button } from "src/external/Components";
-import { VerseInfoComponent } from "src/VerseScreen";
+import { Button } from "src/external/UIComponents";
+import { VerseInfoComponent } from "src/ui/VerseScreen";
 
 export default class TopicalBiblePlugin extends Plugin {
   topics: BibleTopics = new BibleTopics({}); // Initialize with empty topics
-  topic = this.app.commandPalette.useState(""); // State to track the currently selected topic
+  topic = this.palette.useState(""); // State to track the currently selected topic
 
   async onload(): Promise<void> {
     try {
-      this.topics = new BibleTopics(await this.app.loadJSON<BibleTopicsType>("topics.json"));
+      this.topics = new BibleTopics(await this.files.loadJSON<BibleTopicsType>("topics.json"));
     } catch (e) {
       this.console.error("Failed to load topics.json. Topical Bible will be unavailable.", e);
     }
 
-    this.registerPalette(() => new topicListCategory(this.app.commandPalette, this), TopicListCategoryID);
+    this.registerPalette(() => new topicListCategory(this.palette.instance, this), TopicListCategoryID);
 
     this.addVerseAction({
       id: "topic",

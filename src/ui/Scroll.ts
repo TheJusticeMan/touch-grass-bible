@@ -1,5 +1,5 @@
-import { ScrollBubble } from "./external/Components";
-import { VerseRef } from "./VerseRef";
+import { ScrollBubble } from "../external/UIComponents";
+import { VerseRef } from "../models/VerseRef";
 
 export class ChapterScroll extends ScrollBubble {
   chapter: VerseRef = new VerseRef();
@@ -56,7 +56,7 @@ export class BookScroll extends ScrollBubble {
     this.scroll = VerseRef.booksOfTheBible.indexOf(book.book);
     this.onScroll(this.cb);
     this._show();
-    this.element!.style.right = "2em";
+    this.element!.style.right = "2.75rem";
     return this;
   }
 

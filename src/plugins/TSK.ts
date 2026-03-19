@@ -1,5 +1,5 @@
 import { Waypoints } from "lucide";
-import Plugin from "../Plugin";
+import Plugin from "../core/Plugin";
 import { TSKCrossRefCategoryID } from "./categoryIDs";
 import {
   CommandPaletteState,
@@ -7,8 +7,8 @@ import {
   UnifiedCommandPalette,
   CommandItem,
 } from "src/external/CommandPalette";
-import { VerseRef } from "src/VerseRef";
-import { VerseInfoComponent } from "src/VerseScreen";
+import { VerseRef } from "src/models/VerseRef";
+import { VerseInfoComponent } from "src/ui/VerseScreen";
 
 type OSIS = string; // OSIS reference format, e.g., "Gen.1.1"
 
@@ -16,13 +16,13 @@ export default class TSK extends Plugin {
   crossRefs: { [OSIS: string]: [OSIS, number][] } = {};
   async onload(): Promise<void> {
     try {
-      this.crossRefs = await this.app.loadJSON<{
+      this.crossRefs = await this.files.loadJSON<{
         [OSIS: string]: [OSIS, number][];
       }>("crossrefs.json");
     } catch (e) {
       this.console.error("Failed to load crossrefs.json. Cross references will be unavailable.", e);
     }
-    this.registerPalette(() => new CrossRefCategory(this.app.commandPalette, this), TSKCrossRefCategoryID);
+    this.registerPalette(() => new CrossRefCategory(this.palette.instance, this), TSKCrossRefCategoryID);
 
     this.addVerseAction({
       id: "cross-ref",

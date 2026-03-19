@@ -1,5 +1,5 @@
 import { get } from "https";
-import { writeFileSync, createWriteStream, unlinkSync, write } from "fs";
+import { copyFileSync, writeFileSync, createWriteStream, unlinkSync, write } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { Open } from "unzipper";
@@ -60,6 +60,7 @@ async function unzipFirstFileAsString(zipPath) {
         crossrefs[FromVerse].push([ToVerse, Number(Votes)]);
       });
     writeFileSync(join(_dest, "crossrefs.json"), JSON.stringify(crossrefs));
+    copyFileSync(join("./data", "parsed-nave.json"), join(_dest, "parsed-nave.json"));
 
     files.forEach(f => unlinkSync(f.path));
     // Use data/data2 as needed

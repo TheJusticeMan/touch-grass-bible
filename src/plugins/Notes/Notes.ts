@@ -1,6 +1,6 @@
 import { SquarePen } from "lucide";
-import Plugin from "../../Plugin";
-import { OSIS, VerseRef } from "../../VerseRef";
+import Plugin from "../../core/Plugin";
+import { OSIS, VerseRef } from "../../models/VerseRef";
 import { myNotesCategoryID, TSKCrossRefCategoryID } from "../categoryIDs";
 import { Note, NotesPanel, NoteVault } from "./NotesPanel";
 import {
@@ -9,7 +9,7 @@ import {
   CommandPaletteState,
   CommandItem,
 } from "src/external/CommandPalette";
-import { TextArea } from "src/external/Components";
+import { TextArea } from "src/external/UIComponents";
 
 interface NotesPluginSettings {
   myNotes: [string, string][];
@@ -47,7 +47,7 @@ export default class NotesPlugin extends Plugin {
     }
     this.Vault.loadNotes(this.settings.ExtraNotes.map(nj => Note.fromJSON(nj)));
 
-    this.registerPalette(() => new myNotesCategory(this.app.commandPalette, this), myNotesCategoryID);
+    this.registerPalette(() => new myNotesCategory(this.palette.instance, this), myNotesCategoryID);
     this.registerView("notes-panel", panel => {
       return new NotesPanel(panel, this);
     });

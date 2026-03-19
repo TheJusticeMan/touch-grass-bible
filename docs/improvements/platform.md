@@ -97,7 +97,8 @@ This page covers runtime adapters, Electron, web, Capacitor, packaging, and offl
 
 ## Test files
 
-- Medium: expand `src/platform/web.test.ts`, `src/platform/electron.test.ts`, and `src/platform/capacitor.test.ts` to cover unhappy paths and corrupt data handling
+- [x] Medium: expand `src/platform/web.test.ts`, `src/platform/electron.test.ts`, and `src/platform/capacitor.test.ts` to cover unhappy paths
+- Medium: expand `src/platform/web.test.ts`, `src/platform/electron.test.ts`, and `src/platform/capacitor.test.ts` to cover corrupt data handling
 
 ## Cross-platform themes
 

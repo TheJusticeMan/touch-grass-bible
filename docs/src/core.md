@@ -76,13 +76,14 @@ This page covers the root-level `src/` files that define the app shell, Bible do
 - Installs internal plugins for bookmarks, TSK, search, topical browsing, notes, journal, translations, settings, AI, and sharing.
 - Manages verse actions, palette opening, delayed settings persistence, and startup UI cleanup.
 
-## `src/Plugin.ts`
+## `src/core/Plugin.ts`
 
 - Purpose: plugin base classes and plugin manager
-- Key APIs: `Plugin`, `internalPlugins`, `IconActionItem`
+- Key APIs: `Plugin`, `InternalPlugins`, `IconActionItem`, grouped capabilities via `plugin.app`, `plugin.palette`, `plugin.commands`, `plugin.workspace`, and `plugin.files`
 - Defines component lifecycle helpers like `load()`, `unload()`, child management, and cleanup registration.
-- Provides helpers for plugins to register categories, views, verse actions, and scoped settings.
-- `internalPlugins` manages plugin registration, duplicate ID protection, and lifecycle wiring.
+- Keeps registration helpers (`registerPalette()`, `registerCommand()`, `registerView()`, `addVerseAction()`) focused on lifecycle-safe cleanup.
+- Exposes grouped runtime capabilities so plugins can access app state, palette state, workspace control, command lookup, and file I/O without depending on the full app object shape.
+- `InternalPlugins` manages plugin registration, duplicate ID protection, and lifecycle wiring.
 
 ## `src/Scroll.ts`
 

@@ -1,8 +1,7 @@
 import { Bookmark, Plus, X } from "lucide";
-import TouchGrassBibleApp from "../main";
-import Plugin from "../Plugin";
+import Plugin from "../core/Plugin";
 import { BookmarkCategoryID, TSKCrossRefCategoryID, VerseListCategoryID } from "./categoryIDs";
-import { BibleTopics, BibleTopicsType } from "../BibleTopics";
+import { BibleTopics, BibleTopicsType } from "../models/BibleTopics";
 import { CMD } from "src/external/Comands";
 import {
   CommandCategory,
@@ -10,9 +9,9 @@ import {
   CommandItem,
   CommandPaletteState,
 } from "src/external/CommandPalette";
-import { Button, IconButton, TextInput } from "src/external/Components";
-import { VerseRef } from "src/VerseRef";
-import { VerseInfoComponent } from "src/VerseScreen";
+import { Button, IconButton, TextInput } from "src/external/UIComponents";
+import { VerseRef } from "src/models/VerseRef";
+import { VerseInfoComponent } from "src/ui/VerseScreen";
 
 interface BookmarkSettings {
   Bookmarks: BibleTopicsType;
@@ -32,7 +31,7 @@ const defaultBookmarks: BookmarkSettings = {
 };
 
 export default class BookmarkPlugin extends Plugin {
-  tag = this.app.commandPalette.useState("Start Up Verses"); // State to track the currently selected bookmark tag
+  tag = this.palette.useState("Start Up Verses"); // State to track the currently selected bookmark tag
   settings: BookmarkSettings = defaultBookmarks;
   Bookmarks = new BibleTopics({});
 
@@ -47,8 +46,9 @@ export default class BookmarkPlugin extends Plugin {
     this.console.log("Loaded bookmarks from settings:", this.settings.Bookmarks);
     this.Bookmarks = new BibleTopics(this.settings.Bookmarks);
 
-    this.app.verseState.onChange(verse => {
-      return (this.Bookmarks.addToHistory(verse), this.saveSettings());
+    this.registerStateChange(this.app.verseState, verse => {
+      this.Bookmarks.addToHistory(verse);
+      void this.saveSettings();
     });
 
     if (window.location.hash) {
@@ -57,8 +57,8 @@ export default class BookmarkPlugin extends Plugin {
       if (el) el.scrollIntoView({ behavior: "smooth" });
     }
 
-    this.registerPalette(() => new VerseListCategory(this.app.commandPalette, this), VerseListCategoryID);
-    this.registerPalette(() => new BookmarkCategory(this.app.commandPalette, this), BookmarkCategoryID);
+    this.registerPalette(() => new VerseListCategory(this.palette.instance, this), VerseListCategoryID);
+    this.registerPalette(() => new BookmarkCategory(this.palette.instance, this), BookmarkCategoryID);
 
     this.addVerseAction({
       id: "bookmark",
@@ -240,25 +240,23 @@ class BookmarkCategory extends CommandCategory<string> {
   tags: string[] = [];
   name = "Bookmarks";
   description = "List of bookmark tags";
-  app: TouchGrassBibleApp;
 
   constructor(
     public commandPalette: UnifiedCommandPalette,
     public plugin: BookmarkPlugin,
   ) {
     super(commandPalette);
-    this.app = plugin.app;
   }
 
   onTrigger(_state: CommandPaletteState): void {
     const tag = this.plugin.tag.get();
-    const verse = this.app.verseState.get();
+    const verse = this.plugin.app.verseState.get();
     new CMD(this.defaultCMD)
       .setName(`Delete ${verse.toString()} from "${tag}"`)
       .setDescription("Delete a verse from a bookmark tag")
       .on("_click", () => {
         const tag = this.plugin.tag.get();
-        const verse = this.app.verseState.get();
+        const verse = this.plugin.app.verseState.get();
         this.plugin.Bookmarks.remove(tag, verse);
         this.commandPalette.display();
         this.plugin.saveSettings();
@@ -278,7 +276,7 @@ class BookmarkCategory extends CommandCategory<string> {
       .setDescription("Save the current verse to a bookmark tag")
       .on("_click", () => {
         this.console.log("Prompting for new bookmark tag for", verse.toString());
-        this.commandPalette.prompt("Enter new bookmark tag").then(st => {
+        this.plugin.palette.prompt("Enter new bookmark tag").then(st => {
           this.console.log("Adding bookmark", verse.toString(), "to tag", st);
           if (!st) return;
           this.console.log("Adding bookmark", verse.toString(), "to tag", st);

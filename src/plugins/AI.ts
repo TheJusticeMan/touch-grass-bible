@@ -1,6 +1,6 @@
 import { BrainCircuit } from "lucide";
-import { AIchat } from "../AIchat";
-import Plugin from "../Plugin";
+import { AIchat } from "../services/AIchat";
+import Plugin from "../core/Plugin";
 import { AICategoryID, SettingsCategoryID } from "./categoryIDs";
 import { CMD } from "src/external/Comands";
 import {
@@ -9,8 +9,8 @@ import {
   CommandItem,
   CommandPaletteState,
 } from "src/external/CommandPalette";
-import { Button } from "src/external/Components";
-import { VerseInfoComponent } from "src/VerseScreen";
+import { Button } from "src/external/UIComponents";
+import { VerseInfoComponent } from "src/ui/VerseScreen";
 
 interface AIPluginSettings {
   aiApiKey: string;
@@ -26,7 +26,7 @@ export default class AIPlugin extends Plugin {
 
   async onload() {
     this.settings = await this.loadSettings(defaultAISettings);
-    this.registerPalette(() => new AICommandPalette(this.app.commandPalette, this), AICategoryID);
+    this.registerPalette(() => new AICommandPalette(this.palette.instance, this), AICategoryID);
 
     this.addVerseAction({
       id: "ai-ask",
@@ -92,7 +92,7 @@ class AICommandPalette extends CommandCategory<string> {
           (this.plugin.settings.aiApiKey ? " Key is currently set." : " No key set."),
       )
       .on("_click", () => {
-        this.commandPalette.prompt("Enter your OpenAI-compatible API key:").then(key => {
+        this.plugin.palette.prompt("Enter your OpenAI-compatible API key:").then(key => {
           if (key === null) return;
           this.plugin.settings.aiApiKey = key.trim();
           this.plugin.saveSettings();

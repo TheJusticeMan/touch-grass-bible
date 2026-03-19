@@ -41,7 +41,7 @@ This page covers the reusable framework layer under `src/external/`, including t
 - Styles the translucent overlay, search input, two-column layout, and selected item states.
 - Matches DOM structures created by `src/external/CommandPalette.ts`.
 
-## `src/external/Components.ts`
+## `src/external/UIComponents.ts`
 
 - Purpose: reusable DOM component toolkit
 - Key APIs: `UIComponent`, `StackComponent`, `RowComponent`, `SurfaceComponent`, `Button`, `IconButton`, `ScrollBubble`, `Item`, `Menu`
@@ -49,12 +49,12 @@ This page covers the reusable framework layer under `src/external/`, including t
 - Provides reusable inputs, buttons, icon actions, menus, and list-row components.
 - Defines `ScrollBubble`, which powers book/chapter navigation in the reading UI.
 
-## `src/external/Components.css`
+## `src/external/UIComponents.css`
 
 - Purpose: shared component styling
 - Key selectors: `.scroll-bubble`, layout utility classes, menu classes, `.icon-action`
 - Styles scroll bubbles, flex layout helpers, icon actions, and context menus.
-- Supports the UI primitives defined in `src/external/Components.ts`.
+- Supports the UI primitives defined in `src/external/UIComponents.ts`.
 
 ## `src/external/Event.ts`
 

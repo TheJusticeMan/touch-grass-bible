@@ -5,6 +5,7 @@ const ASSETS = [
   "./manifest.json",
   "./favicon.ico",
   "./crossrefs.json",
+  "./parsed-nave.json",
   "./topics.json",
   "./translations.json",
   "./main.js",
@@ -22,7 +23,7 @@ self.addEventListener("install", event => {
 
 // Fetch event: Serve cached content when offline or force bypass cache
 self.addEventListener("fetch", event =>
-  event.respondWith(caches.match(event.request).then(response => response || fetch(event.request)))
+  event.respondWith(caches.match(event.request).then(response => response || fetch(event.request))),
 );
 
 // Activate event: Clean up old caches
@@ -31,8 +32,8 @@ self.addEventListener("activate", event => {
     caches
       .keys()
       .then(cacheNames =>
-        Promise.all(cacheNames.map(cacheName => cacheName !== CACHE_NAME && caches.delete(cacheName)))
-      )
+        Promise.all(cacheNames.map(cacheName => cacheName !== CACHE_NAME && caches.delete(cacheName))),
+      ),
   );
   self.clients.claim(); // Immediately control all clients
 });

@@ -1,7 +1,7 @@
 // Workspace.ts
 
 import { Copy, IconNode, Minimize, Plus, X } from "lucide";
-import { Button, UIComponent } from "./Components";
+import { Button, UIComponent } from "./UIComponents";
 import { ETarget } from "./Event";
 import "./Workspace.css";
 import {

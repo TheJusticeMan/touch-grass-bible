@@ -7,13 +7,43 @@ import { UnifiedCommandPalette } from "./CommandPalette";
 
 export { App, AppState };
 
+/**
+ * Represents a command that can be registered with the application
+ * and triggered by name, keyboard shortcut, or gesture.
+ */
+export interface AppCommand {
+  /** Stable command id used for registration and lookup. */
+  id: string;
+
+  /** Human-readable command name shown in UI surfaces. */
+  name: string;
+
+  /** Optional command description for tooltips and command palette details. */
+  description?: string;
+
+  /** Callback executed when the command is triggered. */
+  callback: () => void;
+}
+
+/**
+ * Immutable-like application state snapshot used for history entries.
+ */
 class AppState {
+  /**
+   * @param name - Optional descriptive name for this state snapshot.
+   * @param time - Timestamp associated with snapshot creation.
+   */
   constructor(
     public name: string = "",
     public time: Date = new Date(),
   ) {}
 
-  // Creates a new AppHistory with updated properties
+  /**
+   * Returns a cloned state object with partial updates applied.
+   *
+   * @param partial - Partial state values to override.
+   * @returns New state instance with updated timestamp.
+   */
   update(partial: Partial<AppState>): AppState {
     return Object.assign(Object.create(this), this, partial, {
       time: new Date(),
@@ -75,12 +105,58 @@ abstract class App extends ETarget<{
   dragYcancel: { deltaX: number; deltaY: number };
   [key: string]: unknown;
 }> {
+  /** Console instance for app-level logs and diagnostics. */
   console: BrowserConsole;
+
+  /** Root content element mounted in the document body. */
   contentEl: HTMLElement;
+
+  /** Workspace manager responsible for view registration and layout lifecycle. */
   workspace: Workspace;
+
+  /** Platform abstraction for storage, files, and environment services. */
   readonly platformBridge: PlatformBridge;
 
+  /** Shared command palette instance used across the app shell. */
   commandPalette: UnifiedCommandPalette = new UnifiedCommandPalette(this);
+
+  private _commands: Map<string, AppCommand> = new Map();
+
+  /**
+   * Registers a command with the application.
+   * @param command - The command to register.
+   * @returns The current instance for method chaining.
+   */
+  addCommand(command: AppCommand): this {
+    this._commands.set(command.id, command);
+    return this;
+  }
+
+  /**
+   * Removes a previously registered command.
+   * @param commandId - The id of the command to remove.
+   * @returns The current instance for method chaining.
+   */
+  removeCommand(commandId: string): this {
+    this._commands.delete(commandId);
+    return this;
+  }
+
+  /**
+   * Retrieves a registered command by its id.
+   * @param commandId - The id of the command to retrieve.
+   * @returns The command, or undefined if not found.
+   */
+  getCommand(commandId: string): AppCommand | undefined {
+    return this._commands.get(commandId);
+  }
+
+  /**
+   * Returns all registered commands.
+   */
+  getCommands(): AppCommand[] {
+    return Array.from(this._commands.values());
+  }
 
   private target: ETarget[] = [];
   /**
@@ -91,15 +167,35 @@ abstract class App extends ETarget<{
     return this.target.at(-1) ?? (this as ETarget);
   }
 
+  /**
+   * Pushes an event target onto the target stack.
+   *
+   * Keyboard and other delegated events are sent to the current top target.
+   *
+   * @param target - Target to push.
+   * @returns The current app instance for method chaining.
+   */
   pushTarget(target: ETarget): this {
     this.target.push(target);
     return this;
   }
 
+  /**
+   * Pops and returns the current event target.
+   *
+   * @returns The removed target, or `undefined` when stack is empty.
+   */
   popTarget(): ETarget | undefined {
     return this.target.pop();
   }
 
+  /**
+   * Creates an application shell and wires global listeners.
+   *
+   * @param doc - Document used for DOM access and title updates.
+   * @param _title - Default application title.
+   * @param platformBridge - Optional platform bridge implementation.
+   */
   constructor(
     private doc: Document,
     private _title: string,
@@ -145,6 +241,9 @@ abstract class App extends ETarget<{
     window.addEventListener("popstate", () => this.ctarget.emit("historypop", {}));
   }
 
+  /**
+   * Handles mobile viewport scrolling adjustments for the app shell container.
+   */
   handlescrollmobile() {
     const visual = window.visualViewport;
     const ctr = this.contentEl;
@@ -179,8 +278,16 @@ abstract class App extends ETarget<{
     history.pushState({ time: new Date() }, "", "");
   }
 
+  /**
+   * Called after workspace initialization and DOM readiness.
+   */
   abstract onload(): void | Promise<void>;
 
+  /**
+   * Called before app unload.
+   *
+   * Return `true` to allow unload and workspace shutdown.
+   */
   abstract onunload(): boolean;
 
   /**
@@ -201,45 +308,111 @@ abstract class App extends ETarget<{
     return dataStr ? JSON.parse(dataStr) : {};
   }
 
+  /**
+   * Saves raw config content under a named key.
+   *
+   * @param name - Config namespace key.
+   * @param content - Raw serialized config content.
+   */
   async saveConfig(name: string, content: string) {
     await this.platformBridge.storage.setItem(`setting-${name}`, content);
   }
 
+  /**
+   * Loads raw config content by key.
+   *
+   * @param name - Config namespace key.
+   * @returns Serialized config string, or `{}` when no value exists.
+   */
   async loadConfig(name: string): Promise<string> {
     return (await this.platformBridge.storage.getItem(`setting-${name}`)) || "{}";
   }
 
+  /**
+   * Loads and parses a typed config object by key.
+   *
+   * @typeParam T - Config shape.
+   * @param name - Config namespace key.
+   * @returns Parsed config object or empty object cast to `T` when missing.
+   *
+   * @example
+   * ```ts
+   * type Settings = { enabled: boolean };
+   * const settings = await app.loadConfigObject<Settings>("my-plugin");
+   * ```
+   */
   async loadConfigObject<T>(name: string): Promise<T> {
     const configStr = await this.platformBridge.storage.getItem(`setting-${name}`);
     return configStr ? JSON.parse(configStr) : ({} as T);
   }
 
+  /**
+   * Saves a typed config object under a namespaced key.
+   *
+   * @typeParam T - Config shape.
+   * @param name - Config namespace key.
+   * @param content - Config object to serialize and persist.
+   */
   async saveConfigObject<T>(name: string, content: T) {
     await this.platformBridge.storage.setItem(`setting-${name}`, JSON.stringify(content));
   }
 
+  /**
+   * Reads a text file through the active platform bridge.
+   *
+   * @param path - File path to read.
+   * @returns File contents as text.
+   */
   async readTextFile(path: string): Promise<string> {
     return this.platformBridge.files.readTextFile(path);
   }
 
+  /**
+   * Writes text content through the active platform bridge.
+   *
+   * @param path - Destination file path.
+   * @param content - Text content to write.
+   */
   async writeTextFile(path: string, content: string): Promise<void> {
     await this.platformBridge.files.writeTextFile(path, content);
   }
 
+  /**
+   * Reads and parses JSON from a file path.
+   *
+   * @typeParam T - Expected JSON object shape.
+   * @param path - File path to read.
+   * @returns Parsed JSON value.
+   */
   async readJsonFile<T>(path: string): Promise<T> {
     return this.platformBridge.files.readJsonFile<T>(path);
   }
 
+  /**
+   * Serializes and writes JSON to a file path.
+   *
+   * @param path - Destination file path.
+   * @param data - JSON-serializable value to write.
+   */
   async writeJsonFile(path: string, data: unknown): Promise<void> {
     await this.platformBridge.files.writeJsonFile(path, data);
   }
 
+  /**
+   * Supplies the fallback workspace layout for invalid or absent saved layouts.
+   */
   abstract getDefaultWorkspaceLayout(): WorkspaceLayout;
 
+  /**
+   * Called when persisted workspace layout JSON cannot be parsed or validated.
+   *
+   * @param error - Underlying parse/validation error.
+   */
   onWorkspaceLayoutInvalid(error: unknown) {
     this.console.warn("Invalid workspace config JSON. Falling back to default layout.", error);
   }
 
+  /** Called when persisted workspace layout is explicitly rejected. */
   onWorkspaceLayoutRejected() {
     this.console.warn("Workspace layout rejected. Falling back to default layout.");
   }

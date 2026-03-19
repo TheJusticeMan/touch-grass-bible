@@ -1,5 +1,5 @@
 import { createElement, IconNode, X } from "lucide";
-import { UIComponent } from "./Components";
+import { UIComponent } from "./UIComponents";
 import type { NodeType, SplitAxis } from "./Workspace";
 
 export class WorkspaceTabButton extends UIComponent<"button"> {
