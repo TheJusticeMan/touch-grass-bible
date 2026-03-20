@@ -1,5 +1,5 @@
 import { ChevronLeft, Plus, X } from "lucide";
-import { LayoutNode, View } from "../../external/Workspace";
+import { LayoutNode, View, WorkspaceDialog } from "../../external/Workspace";
 import { myNotesCategoryID } from "../categoryIDs";
 import NotesPlugin from "./Notes";
 import "./NotesPanel.css";
@@ -11,7 +11,7 @@ import {
   RowComponent,
   TextArea,
 } from "src/external/UIComponents";
-import { ETarget, Openable } from "src/external/Event";
+import { ETarget } from "src/external/Event";
 
 export class Note extends ETarget<{ change: Note }> {
   private _name: string;
@@ -160,7 +160,7 @@ export class NotesPanel extends View {
       .forEach(note =>
         this.NotePreviews.push(
           new notePreview(this.content, note).on("click", () =>
-            new noteEditor(this.plugin, this.content, note).open().on("close", () => this.update()),
+            new noteEditor(this.plugin, note).open().on("close", () => this.update()),
           ),
         ),
       );
@@ -173,7 +173,7 @@ export class NotesPanel extends View {
           this.plugin.app.console.log("Add Note clicked");
           const newNote = new Note("New Note", "", new Date(), new Date());
           this.plugin.Vault.addNote(newNote);
-          new noteEditor(this.plugin, this.content, newNote).open().on("close", () => this.update());
+          new noteEditor(this.plugin, newNote).open().on("close", () => this.update());
         }),
     );
   }
@@ -293,7 +293,7 @@ class tagBadge extends UIComponent<"div"> {
 /**
  * Represents an editor overlay for editing a note within the TouchGrassBibleApp.
  *
- * This class extends {@link Openable} and manages the lifecycle of a note editor UI,
+ * This class manages the lifecycle of a workspace dialog-backed note editor UI,
  * including opening and closing the editor, and handling user input for note title and content.
  *
  * @remarks
@@ -306,25 +306,56 @@ class tagBadge extends UIComponent<"div"> {
  * editor.open();
  * ```
  *
- * @extends Openable<TouchGrassBibleApp, { open: void; close: void }>
- *
  * @param app - The main application instance.
- * @param parent - The parent HTMLElement to which the editor overlay will be appended.
  * @param note - The note to be edited.
  */
-class noteEditor extends Openable<{ open: void; close: void }> {
-  private contentComponent!: UIComponent<"div">;
+class noteEditor extends ETarget<{ open: void; close: void }> {
+  private dialog: WorkspaceDialog | null = null;
+
   constructor(
     private plugin: NotesPlugin,
-    public parent: HTMLElement,
     public note: Note,
   ) {
-    super(plugin.app);
+    super();
   }
-  onopen(): void {
-    this.contentComponent = new UIComponent(this.parent, "div").addClass("editor-overlay");
-    const contentEl = this.contentComponent.createChild("div", { cls: "editor-content" });
-    const header = new RowComponent(contentEl).addClass("editor-header");
+
+  open(): this {
+    if (this.dialog?.isOpen) {
+      return this;
+    }
+
+    this.dialog = this.plugin.workspace.openDialog({
+      id: `note-editor-${Date.now()}`,
+      title: "",
+      modal: false,
+      closeOnEscape: true,
+      closeOnBackdrop: false,
+      showCloseButton: false,
+      className: "note-editor-dialog",
+      ariaLabel: "Note editor",
+      width: "100vw",
+      height: "100dvh",
+      render: (contentEl: HTMLDivElement) => this.render(contentEl),
+      onClose: () => {
+        this.dialog = null;
+        this.emit("close", undefined);
+      },
+    });
+
+    this.emit("open", undefined);
+    return this;
+  }
+
+  close(): this {
+    this.dialog?.close();
+    return this;
+  }
+
+  private render(contentEl: HTMLDivElement): void {
+    contentEl.empty();
+    const overlay = contentEl.createEl("div", { cls: "editor-overlay" });
+    const content = overlay.createEl("div", { cls: "editor-content" });
+    const header = new RowComponent(content).addClass("editor-header");
     new Button(header.element)
       .setIcon(ChevronLeft)
       .addClass("editor-btn")
@@ -338,15 +369,12 @@ class noteEditor extends Openable<{ open: void; close: void }> {
         this.note.name = namePart.trim();
         this.plugin.saveSettings();
       });
-    new TextArea(contentEl)
+    new TextArea(content)
       .addClass("note-editor-textarea")
       .setValue(this.note.content)
       .on("input", (value: string) => {
         this.note.content = value;
         this.plugin.saveSettings();
       });
-  }
-  onclose(): void {
-    this.contentComponent.remove();
   }
 }

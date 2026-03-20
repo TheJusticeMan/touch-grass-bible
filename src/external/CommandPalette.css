@@ -1,28 +1,23 @@
 /* CommandPalette.css */
 
 .command-palette {
-  position: fixed;
-  top: 1em;
-  left: 50%;
-  transform: translateX(-50%);
+  position: relative;
   width: calc(100% - 2em);
   max-width: 72rem;
-  height: calc(100% - 2em);
+  height: min(46rem, calc(100dvh - 2em));
   background: rgb(0 0 0 / 0.5);
   border-radius: var(--border-radius-large);
   box-shadow: var(--shadow-glow, 0 0 16px -8px #fff);
   backdrop-filter: blur(8px);
   font-family: var(--font-sans, system-ui, sans-serif);
   border: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
-  z-index: var(--z-command-palette, 800);
 }
 
 @media (max-width: 600px) {
   .command-palette {
-    left: 1em;
-    transform: none;
     max-width: none;
-    z-index: calc(var(--z-command-palette, 800) + 100);
+    width: calc(100% - 1em);
+    height: calc(100dvh - 1em);
   }
 }
 

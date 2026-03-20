@@ -1,5 +1,3 @@
-import { App } from "./App";
-
 export class Chainable {
   next(callback: (a: this) => void): this {
     callback(this); // Use setTimeout to ensure the callback is executed in the next event loop cycle
@@ -227,40 +225,6 @@ export class touchDragger extends ETarget<{
   }
 }
 
-export abstract class Openable<E extends Record<string, unknown>> extends ETarget<E> {
-  private _isOpen = false;
-  constructor(private appInstance: App) {
-    super();
-    this.on("EscapeKeyDown", () => this.close());
-  }
-
-  get isOpen(): boolean {
-    return this._isOpen;
-  }
-
-  open(): this {
-    if (!this._isOpen) {
-      this._isOpen = true;
-      this.appInstance.pushTarget(this as ETarget);
-      this.onopen();
-      this.emit("open");
-    }
-    return this;
-  }
-
-  close(): this {
-    if (this._isOpen) {
-      this._isOpen = false;
-      this.appInstance.popTarget();
-      this.onclose();
-      this.emit("close");
-    }
-    return this;
-  }
-
-  abstract onopen(): void;
-  abstract onclose(): void;
-}
 export function pdsp(cb: (e: Event) => void): (e: Event) => void {
   return (e: Event) => {
     e.preventDefault();

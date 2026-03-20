@@ -151,6 +151,25 @@
   align-items: center;
 }
 
+.workspace-dialog.note-editor-dialog {
+  width: 100vw;
+  max-height: 100dvh;
+  height: 100dvh;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.workspace-dialog.note-editor-dialog .workspace-dialog-header {
+  display: none;
+}
+
+.workspace-dialog.note-editor-dialog .workspace-dialog-content {
+  padding: 0;
+  overflow: hidden;
+}
+
 .note-editor-title {
   width: 80%;
   max-width: 600px;

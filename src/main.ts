@@ -89,7 +89,7 @@ export default class TouchGrassBibleApp extends App {
   }
 
   async onload() {
-    this.on("ArrowRightKeyDown", () => this.workspace.activateView("navigation-panel"));
+    this.workspace.on("ArrowRightKeyDown", () => this.workspace.activateView("navigation-panel"));
 
     await this.loadsettings(DEFAULT_SETTINGS);
     this.commandPalette.setCategoryOrder(this.settings.categoryOrder || DEFAULT_CATEGORY_ORDER);
@@ -117,7 +117,7 @@ export default class TouchGrassBibleApp extends App {
     this.verseState.set(VerseRef.RandomVerse);
     this.console.enabled = this.settings.enableLogging;
     this.console.log(info.name, info.version, "loaded");
-    this.on("Ctrl+EnterKeyDown", () => !this.commandPalette.isOpen && this.openCommandPalette());
+    this.workspace.on("Ctrl+EnterKeyDown", () => !this.commandPalette.isOpen && this.openCommandPalette());
 
     this.fab = this.contentEl.createEl("button", {
       cls: "command-palette-fab",

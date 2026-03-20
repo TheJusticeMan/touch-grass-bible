@@ -118,7 +118,7 @@ abstract class App extends ETarget<{
   readonly platformBridge: PlatformBridge;
 
   /** Shared command palette instance used across the app shell. */
-  commandPalette: UnifiedCommandPalette = new UnifiedCommandPalette(this);
+  commandPalette!: UnifiedCommandPalette;
 
   private _commands: Map<string, AppCommand> = new Map();
 
@@ -158,37 +158,6 @@ abstract class App extends ETarget<{
     return Array.from(this._commands.values());
   }
 
-  private target: ETarget[] = [];
-  /**
-   * Returns the current event target for keyboard and command events.
-   * Falls back to the app instance if the target stack is empty.
-   */
-  get ctarget(): ETarget {
-    return this.target.at(-1) ?? (this as ETarget);
-  }
-
-  /**
-   * Pushes an event target onto the target stack.
-   *
-   * Keyboard and other delegated events are sent to the current top target.
-   *
-   * @param target - Target to push.
-   * @returns The current app instance for method chaining.
-   */
-  pushTarget(target: ETarget): this {
-    this.target.push(target);
-    return this;
-  }
-
-  /**
-   * Pops and returns the current event target.
-   *
-   * @returns The removed target, or `undefined` when stack is empty.
-   */
-  popTarget(): ETarget | undefined {
-    return this.target.pop();
-  }
-
   /**
    * Creates an application shell and wires global listeners.
    *
@@ -203,12 +172,12 @@ abstract class App extends ETarget<{
   ) {
     super();
     this.platformBridge = platformBridge;
-    this.target.push(this as ETarget); // Default to the app itself for keyboard events
     this.console = new BrowserConsole(true, `${this._title || "App"}:`);
     this.console.header("color:#f0f; font-size:40px; font-weight:bold;");
     this.contentEl = this.doc.body.createEl("div", { cls: "app-shell-element" });
     this.workspace = new Workspace(this);
-    new touchDragger(this.contentEl).onany((name, e) => this.ctarget.emit(name, e));
+    this.commandPalette = new UnifiedCommandPalette(this);
+    new touchDragger(this.contentEl).onany((name, e) => this.workspace.emit(name, e));
 
     this.title = this._title;
 
@@ -221,24 +190,12 @@ abstract class App extends ETarget<{
       this.console.log("Waiting for DOM to load...");
       document.addEventListener("DOMContentLoaded", this.load.bind(this));
     }
-    document.addEventListener("keydown", e => {
-      const key =
-        (e.metaKey ? "Meta+" : "") + // Meta is the command key on macOS, Windows key on Windows, and Super key on Linux
-        (e.ctrlKey ? "Ctrl+" : "") +
-        (e.altKey ? "Alt+" : "") +
-        (e.shiftKey ? "Shift+" : "") +
-        e.key;
-      //if (this.ctarget !== this) e.preventDefault(); // Prevent default browser actions for key combinations
-      const { ctarget } = this;
-      ctarget.emit("keydown", { key, event: e });
-      ctarget.emit(`${key}KeyDown`, { key, event: e });
-    });
     this.handlescrollmobile();
 
     // Handle page unload attempts
     window.addEventListener("beforeunload", () => this.unload());
     // Handle browser history navigation
-    window.addEventListener("popstate", () => this.ctarget.emit("historypop", {}));
+    window.addEventListener("popstate", () => this.workspace.emit("historypop", {}));
   }
 
   /**

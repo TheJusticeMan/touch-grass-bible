@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
 import { describe, expect, test } from "vitest";
-import { View, Workspace } from "./Workspace";
+import { UnifiedCommandPalette } from "./CommandPalette";
+import { View, Workspace, WorkspaceDialog } from "./Workspace";
 
 function installWorkspaceDomPolyfills(): void {
   const prototype = HTMLElement.prototype as unknown as Record<string, unknown>;
@@ -47,10 +48,31 @@ function installWorkspaceDomPolyfills(): void {
     });
   }
 
+  if (typeof prototype.addClass !== "function") {
+    Object.defineProperty(prototype, "addClass", {
+      configurable: true,
+      value: function addClass(this: HTMLElement, ...classes: string[]): HTMLElement {
+        if (classes.length > 0) {
+          this.classList.add(...classes);
+        }
+        return this;
+      },
+    });
+  }
+
   if (typeof prototype.scrollIntoView !== "function") {
     Object.defineProperty(prototype, "scrollIntoView", {
       configurable: true,
       value: function scrollIntoView(): void {
+        // no-op for tests
+      },
+    });
+  }
+
+  if (typeof prototype.scroll !== "function") {
+    Object.defineProperty(prototype, "scroll", {
+      configurable: true,
+      value: function scroll(): void {
         // no-op for tests
       },
     });
@@ -324,5 +346,120 @@ describe("Workspace drag-drop and split behavior", () => {
     const replaced = root.childPanels[1]?.panel;
     expect(replaced).toBe(onlyChild);
     expect(replaced?.isPersistent()).toBe(true);
+  });
+});
+
+describe("Workspace dialog manager", () => {
+  const createWorkspaceWithHost = (): Workspace => {
+    const host: ConstructorParameters<typeof Workspace>[0] = {
+      contentEl: document.body,
+      loadConfig: async () => "",
+      saveConfig: async () => {},
+      getDefaultWorkspaceLayout: () => ({
+        version: 2,
+        rootPanel: {
+          id: "root",
+          splitAxis: "row",
+          mode: "SplitGroup",
+          children: [],
+        },
+      }),
+      onWorkspaceLayoutInvalid: () => {},
+      onWorkspaceLayoutRejected: () => {},
+    };
+    return new Workspace(host);
+  };
+
+  test("openDialog returns a WorkspaceDialog instance", () => {
+    const workspace = createWorkspaceWithHost();
+    const dialog = workspace.openDialog({ title: "Test dialog" });
+
+    expect(dialog).toBeInstanceOf(WorkspaceDialog);
+    expect(dialog.isOpen).toBe(true);
+    expect(workspace.isDialogOpen(dialog.id)).toBe(true);
+
+    dialog.close();
+  });
+
+  test("closeDialog removes an open dialog", () => {
+    const workspace = createWorkspaceWithHost();
+    const dialog = workspace.openDialog({ title: "Closable dialog" });
+
+    expect(workspace.listOpenDialogs()).toContain(dialog.id);
+
+    const closed = workspace.closeDialog(dialog.id);
+    expect(closed).toBe(true);
+    expect(dialog.isOpen).toBe(false);
+    expect(workspace.isDialogOpen(dialog.id)).toBe(false);
+    expect(workspace.listOpenDialogs()).not.toContain(dialog.id);
+  });
+
+  test("handles keyboard events in workspace and closes top dialog on Escape", async () => {
+    const workspace = createWorkspaceWithHost();
+    await workspace.initialize();
+    const seen: string[] = [];
+
+    workspace.on("Ctrl+EnterKeyDown", () => seen.push("ctrl-enter"));
+    const dialog = workspace.openDialog({ title: "Esc dialog", closeOnEscape: true });
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        ctrlKey: true,
+      }),
+    );
+    expect(seen).toEqual(["ctrl-enter"]);
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(workspace.isDialogOpen(dialog.id)).toBe(false);
+
+    workspace.shutdown();
+  });
+
+  test("Escape closes only top dialog when multiple dialogs are stacked", async () => {
+    const workspace = createWorkspaceWithHost();
+    await workspace.initialize();
+
+    const bottom = workspace.openDialog({ title: "Bottom", closeOnEscape: true });
+    const top = workspace.openDialog({ title: "Top", closeOnEscape: true });
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(workspace.isDialogOpen(top.id)).toBe(false);
+    expect(workspace.isDialogOpen(bottom.id)).toBe(true);
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(workspace.isDialogOpen(bottom.id)).toBe(false);
+
+    workspace.shutdown();
+  });
+
+  test("routes keydown to command palette via workspace only while open", async () => {
+    const workspace = createWorkspaceWithHost();
+    await workspace.initialize();
+
+    const appStub = {
+      workspace,
+      contentEl: document.body,
+      historyPush: () => {},
+    };
+
+    const palette = new UnifiedCommandPalette(appStub as never);
+    const seen: string[] = [];
+    (palette as unknown as { handleKey: (e: { key: string }) => void }).handleKey = e => {
+      seen.push(e.key);
+    };
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+    expect(seen).toEqual([]);
+
+    palette.open();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+    expect(seen).toEqual(["ArrowDown"]);
+
+    palette.close();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" }));
+    expect(seen).toEqual(["ArrowDown"]);
+
+    workspace.shutdown();
   });
 });

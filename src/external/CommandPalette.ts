@@ -2,8 +2,8 @@ import levenshtein from "js-levenshtein";
 import { ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, X } from "lucide";
 import { App } from "./App";
 import "./CommandPalette.css";
-import { IconActionComponent, inputMode, Item, TextInput, UIComponent } from "./UIComponents";
-import { ETarget, Openable } from "./Event";
+import { IconActionComponent, inputMode, Item, TextInput } from "./UIComponents";
+import { WorkspaceDialog } from "./Workspace";
 import { PaletteState, PaletteStateController } from "./PaletteStateController";
 
 import { escapeRegExp } from "./escapeRegExp";
@@ -97,7 +97,7 @@ export type CategoryLoaderFunc<T> = (commandPalette: UnifiedCommandPalette) => C
  *   state = new MyCommandPaletteState();
  * }
  */
-export class UnifiedCommandPalette extends Openable<{
+export class UnifiedCommandPalette extends WorkspaceDialog<{
   open: void;
   display: CommandPaletteState;
   close: void;
@@ -122,12 +122,10 @@ export class UnifiedCommandPalette extends Openable<{
   }
   private categories: CategoryLoader<unknown>[] = [];
   private hiddenCategories: CategoryLoader<unknown>[] = []; // Hidden categories
-  private containerEl: HTMLElement | null = null;
-  private containerComponent: UIComponent<"div"> | null = null;
 
-  private paletteEl!: HTMLElement;
   private searchInput?: TextInput; // Search input element
-  private contentEl!: HTMLElement;
+  private contentMainEl!: HTMLElement;
+  private touchHideKeyboardBound = false;
 
   private commandItems: CommandItem<unknown>[] = [];
   private selectedIndex = -1;
@@ -143,25 +141,63 @@ export class UnifiedCommandPalette extends Openable<{
   paletteContentContainer!: HTMLDivElement;
 
   constructor(private app: App) {
-    super(app);
+    super(
+      "command-palette",
+      {
+        title: "",
+        modal: true,
+        closeOnEscape: true,
+        closeOnBackdrop: true,
+        showCloseButton: false,
+        className: "command-palette",
+        ariaLabel: "Command palette",
+      },
+      () => {
+        this.close();
+      },
+    );
+    this.dialogEl.querySelector(".workspace-dialog-header")?.remove();
     this.stateController = new PaletteStateController<CommandPaletteState>(
       () => this.state,
       state => (this.state = state),
     );
     this.addHiddenPalette(() => new CategoryNavigator(this), "navigator");
     this.addHiddenPalette(() => new PromptCategory(this), "prompt");
-    this.on("keydown", this.handleKey);
-    this.on("historypop", this.handleBack);
-    this.on("dragX", e => {
+    this.app.workspace.on("keydown", this.handleWorkspaceKeyDown);
+    this.app.workspace.on("historypop", this.handleBack);
+    this.app.workspace.on("dragX", e => {
       if (e.deltaX > 0) this.display({ topCategory: "navigator" });
     });
-    this.on("draggingX", e => {
+    this.app.workspace.on("draggingX", e => {
       if (e.deltaX > 0)
-        this.contentEl.style.transform = `scale(${1 - Math.min(Math.abs(e.deltaX) / 1000, 0.1)})`;
+        this.contentMainEl.style.transform = `scale(${1 - Math.min(Math.abs(e.deltaX) / 1000, 0.1)})`;
     });
-    this.on("dragXcancel", () => {
-      this.contentEl.style.transform = "";
+    this.app.workspace.on("dragXcancel", () => {
+      this.contentMainEl.style.transform = "";
     });
+  }
+
+  open(): this {
+    if (this.isOpen) {
+      return this;
+    }
+    return this.display();
+  }
+
+  override close(): this {
+    if (!this.isOpen) {
+      return this;
+    }
+    this.resetContent();
+    this.state = this.state.update({
+      query: "",
+      maxResults: 100,
+      topCategory: "",
+    });
+    this.stateController.clearContexts();
+    this.touchHideKeyboardBound = false;
+    this.destroy();
+    return this;
   }
 
   /**
@@ -342,18 +378,6 @@ export class UnifiedCommandPalette extends Openable<{
   }
 
   /**
-   * Lifecycle hook invoked when the palette opens.
-   *
-   * Ensures this palette is the current event target, clears context history,
-   * and renders the initial display.
-   */
-  onopen() {
-    if (this.app.ctarget !== this) this.app.pushTarget(this as ETarget);
-    this.stateController.clearContexts();
-    this.display();
-  }
-
-  /**
    * Opens the palette directly in a specific category.
    *
    * @param category - Category id to show as top category.
@@ -382,26 +406,25 @@ export class UnifiedCommandPalette extends Openable<{
    * @param shouldSaveHistory - When true, pushes app history for back navigation.
    */
   display(context: Partial<CommandPaletteState> = {}, shouldSaveHistory = true) {
-    if (this.app.ctarget !== this) this.app.pushTarget(this as ETarget);
-    this.emit("display", this.state);
+    if (!this.isOpen) {
+      this.stateController.clearContexts();
+      this.mount(this.app.workspace.ensureDialogLayer());
+    }
     this.update(context);
+    this.emit("display", this.state);
     if (shouldSaveHistory) this.saveStateHistory();
     this.stateController.pushCurrentContext();
     this.inputMode = "search";
-    this.checkclose();
+    this.resetContent();
 
     // Trigger data fetching for categories
     this.categories.forEach(cat => cat.getPalette(this).tryTrigger(this.state));
     this.hiddenCategories.forEach(cat => cat.getPalette(this).tryTrigger(this.state));
 
-    const container = new UIComponent(this.app.contentEl, "div").addClass("command-palette");
-    this.containerComponent = container;
-    this.containerEl = container.element;
     this.handleMobileResize();
-    this.hideKeyboardOnScroll(container);
-
-    this.paletteEl = container.createChild("div", { cls: "palette" });
-    this.headerEl = this.paletteEl.createEl("div", { cls: "palette-header" });
+    this.hideKeyboardOnScroll(this.dialogEl);
+    this.contentEl.addClass("palette");
+    this.headerEl = this.contentEl.createEl("div", { cls: "palette-header" });
 
     new IconActionComponent(this.headerEl)
       .setAction(ChevronLeft, "Back to previous context")
@@ -431,7 +454,7 @@ export class UnifiedCommandPalette extends Openable<{
       this.close();
     });
 
-    this.searchInput = new TextInput(this.paletteEl)
+    this.searchInput = new TextInput(this.contentEl)
       .addClass("palette-search")
       .setPlaceholder(
         `Search ${this.state.topCategory ? this.topCategory?.getPalette(this).title : "all"}...`,
@@ -444,21 +467,26 @@ export class UnifiedCommandPalette extends Openable<{
         this.render();
       });
 
-    this.paletteContentContainer = this.paletteEl.createEl("div", { cls: "palette-content" }, el => {
+    this.paletteContentContainer = this.contentEl.createEl("div", { cls: "palette-content" }, el => {
       this.contentOverview = el.createEl("div", {
         cls: "palette-content-over",
       });
-      this.contentEl = el.createEl("div", { cls: "palette-content-main" });
+      this.contentMainEl = el.createEl("div", { cls: "palette-content-main" });
       el.classList.toggle("expanded", this.state.expanded);
     });
 
     this.state.query = ""; //  Reset query on open
     this.render(); // initial load
     this.searchInput.element.focus();
+    return this;
   }
 
-  hideKeyboardOnScroll(container: UIComponent<"div">) {
-    container.listen("touchmove", () => this.searchInput?.element.blur(), { passive: true });
+  hideKeyboardOnScroll(container: HTMLElement) {
+    if (this.touchHideKeyboardBound) {
+      return;
+    }
+    this.touchHideKeyboardBound = true;
+    container.addEventListener("touchmove", () => this.searchInput?.element.blur(), { passive: true });
   }
 
   private handleScroll = () => {
@@ -467,7 +495,7 @@ export class UnifiedCommandPalette extends Openable<{
         const currentselection = this.selectedIndex;
         this.update({ maxResults: 1000 }).render().selectIndex(currentselection, true); // Restore selection after rendering
         if (this.commandItems.length > this.state.maxResults)
-          new CommandItem(this.contentEl, null, this.topCategory!.getPalette(this))
+          new CommandItem(this.contentMainEl, null, this.topCategory!.getPalette(this))
             .setTitle("Are you kidding me?")
             .setDescription("Seriously, you want to load more results?") // Just a joke;
             .setHidden(false)
@@ -481,7 +509,7 @@ export class UnifiedCommandPalette extends Openable<{
   private handleMobileResize = (): void => {
     // For mobile keyboard handling
     const visual = window.visualViewport;
-    const ctr = this.containerEl;
+    const ctr = this.dialogEl;
     if (visual && ctr) {
       const viewportHeight = visual.height;
       ctr.style.height = `calc(${viewportHeight}px - 2em)`;
@@ -514,7 +542,17 @@ export class UnifiedCommandPalette extends Openable<{
         this.display(previous, false); // Open previous context
         break;
       }
+      case "Escape":
+        this.close();
+        break;
     }
+  };
+
+  private handleWorkspaceKeyDown = (e: { key: string }) => {
+    if (!this.isOpen) {
+      return;
+    }
+    this.handleKey(e);
   };
 
   private ActivateContextFromCommand(command: CommandItem<unknown>) {
@@ -545,46 +583,21 @@ export class UnifiedCommandPalette extends Openable<{
     this.render();
   }
 
-  private checkclose() {
-    if (this.containerComponent) {
-      this.containerComponent.remove();
-      this.containerComponent = null;
-      this.containerEl = null;
-    }
-  }
-
-  /**
-   * Lifecycle hook invoked when the palette closes.
-   *
-   * Clears mounted elements, restores default state values, and resets history
-   * context tracking.
-   */
-  onclose() {
-    if (this.app.ctarget === this) this.app.popTarget();
-    if (this.containerComponent) {
-      this.containerComponent.remove();
-      this.containerComponent = null;
-      this.containerEl = null;
-    }
-    this.state = this.state.update({
-      query: "",
-      maxResults: 100,
-      topCategory: "",
-    });
-    this.stateController.clearContexts();
+  private resetContent() {
+    this.contentEl.empty();
   }
 
   // Filter and show commands based on query
   private render() {
-    if (!this.containerEl) return this;
+    if (!this.isOpen) return this;
 
-    const { contentEl, contentOverview, state } = this;
-    contentEl.empty();
+    const { contentMainEl, contentOverview, state } = this;
+    contentMainEl.empty();
     contentOverview.empty();
-    contentEl.scroll(0, 0); // Scroll to top
+    contentMainEl.scroll(0, 0); // Scroll to top
     contentOverview.scroll(0, 0); // Scroll to top
-    contentEl.removeEventListener("scroll", this.handleScroll);
-    contentEl.addEventListener("scroll", this.handleScroll, {
+    contentMainEl.removeEventListener("scroll", this.handleScroll);
+    contentMainEl.addEventListener("scroll", this.handleScroll, {
       passive: true,
       once: true,
     });
@@ -627,7 +640,7 @@ export class UnifiedCommandPalette extends Openable<{
         const commands = cat.trygetCommands(state.query);
         const extras = cat.extraCMD?.trygetCommands(state.query) || [];
         if (commands.length === 0 && extras.length === 0 && state.topCategory !== id) return;
-        const catEl = contentEl.createEl("div", { cls: "category" });
+        const catEl = contentMainEl.createEl("div", { cls: "category" });
         catEl.createEl("div", { text: cat.title, cls: "category-title" }, el =>
           el.addEventListener("click", e => {
             e.stopPropagation();

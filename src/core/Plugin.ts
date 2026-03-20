@@ -40,6 +40,7 @@ type PluginWorkspaceApi = {
   open(viewType: string, panel: LayoutNode, options?: Parameters<Workspace["openView"]>[2]): View | null;
   activate(viewType: string): boolean;
   getActiveViewOfType(viewType: string): View | null;
+  openDialog(options?: Parameters<Workspace["openDialog"]>[0]): ReturnType<Workspace["openDialog"]>;
 };
 
 type PluginFilesApi = {
@@ -316,6 +317,7 @@ export default class Plugin extends Component {
       open: (viewType, panel, options) => app.workspace.openView(viewType, panel, options),
       activate: (viewType: string) => app.workspace.activateView(viewType),
       getActiveViewOfType: (viewType: string) => app.workspace.getActiveViewOfType(viewType),
+      openDialog: options => app.workspace.openDialog(options),
     };
     this.files = {
       loadJSON: <T>(url: string) => app.loadJSON<T>(url),
