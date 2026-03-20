@@ -5,6 +5,8 @@ import { View, WorkspaceLayout } from "./external/Workspace";
 import info from "./info.json";
 import "./main.css";
 import { InternalPlugins, type IconActionItem } from "./core/Plugin";
+import Plugin, { type PluginMetadata } from "./core/Plugin";
+import { ExternalPlugins } from "./core/ExternalPlugins";
 import AIPlugin from "./plugins/AI";
 import BookmarkPlugin from "./plugins/Bookmarks";
 import GestureCommandsPlugin from "./plugins/GestureCommands";
@@ -34,13 +36,19 @@ function deepMerge<T extends object>(defaults: T, saved: Partial<T>): T {
   const result = { ...defaults } as T;
   for (const key in saved) {
     const k = key as keyof T;
+    // eslint-disable-next-line security/detect-object-injection
     if (isPlainObject(saved[k])) {
+      // eslint-disable-next-line security/detect-object-injection
       if (isPlainObject(defaults[k])) {
+        // eslint-disable-next-line security/detect-object-injection
         result[k] = deepMerge(defaults[k] as object, saved[k] as object) as T[keyof T];
       } else {
+        // eslint-disable-next-line security/detect-object-injection
         result[k] = saved[k] as T[keyof T];
       }
+      // eslint-disable-next-line security/detect-object-injection
     } else if (saved[k] !== undefined) {
+      // eslint-disable-next-line security/detect-object-injection
       result[k] = saved[k] as T[keyof T];
     }
   }
@@ -70,6 +78,7 @@ function deepMerge<T extends object>(defaults: T, saved: Partial<T>): T {
 export default class TouchGrassBibleApp extends App {
   settings: TGAppSettings = DEFAULT_SETTINGS;
   plugins = new InternalPlugins(this);
+  externalPlugins: ExternalPlugins | null = null;
   private verseActions: Map<string, IconActionItem> = new Map();
   firstLoad = true;
   saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -241,6 +250,22 @@ export default class TouchGrassBibleApp extends App {
       },
     );
     this.plugins.load();
+
+    if (__ENABLE_EXTERNAL_PLUGINS__) {
+      this.externalPlugins = new ExternalPlugins(this);
+      window.TouchGrassAPI = {
+        BasePlugin: Plugin,
+        registerPlugin: (
+          manifest: PluginMetadata,
+          pluginClass: new (app: TouchGrassBibleApp, manifest: PluginMetadata) => Plugin,
+        ) => {
+          window.dispatchEvent(new CustomEvent("tg-plugin-loaded", { detail: { manifest, pluginClass } }));
+        },
+      };
+      await this.externalPlugins.load();
+      await this.externalPlugins.loadAll();
+    }
+
     document.getElementById("loadingScreen")?.remove();
   }
 
