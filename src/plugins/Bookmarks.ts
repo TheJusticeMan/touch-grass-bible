@@ -43,7 +43,7 @@ export default class BookmarkPlugin extends Plugin {
       this.app.saveSettings();
     }
 
-    this.console.log("Loaded bookmarks from settings:", this.settings.Bookmarks);
+    //this.console.log("Loaded bookmarks from settings:", this.settings.Bookmarks);
     this.Bookmarks = new BibleTopics(this.settings.Bookmarks);
 
     this.registerStateChange(this.app.verseState, verse => {

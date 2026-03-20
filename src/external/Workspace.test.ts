@@ -445,9 +445,9 @@ describe("Workspace dialog manager", () => {
 
     const palette = new UnifiedCommandPalette(appStub as never);
     const seen: string[] = [];
-    (palette as unknown as { handleKey: (e: { key: string }) => void }).handleKey = e => {
+    palette.on("keydown", e => {
       seen.push(e.key);
-    };
+    });
 
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
     expect(seen).toEqual([]);
@@ -459,6 +459,63 @@ describe("Workspace dialog manager", () => {
     palette.close();
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" }));
     expect(seen).toEqual(["ArrowDown"]);
+
+    workspace.shutdown();
+  });
+
+  test("rebinds command palette workspace listeners cleanly across reopen cycles", async () => {
+    const workspace = createWorkspaceWithHost();
+    await workspace.initialize();
+
+    const appStub = {
+      workspace,
+      contentEl: document.body,
+      historyPush: () => {},
+    };
+
+    const palette = new UnifiedCommandPalette(appStub as never);
+    const seen: string[] = [];
+    palette.on("keydown", e => {
+      seen.push(e.key);
+    });
+
+    palette.open();
+    palette.close();
+    palette.open();
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+    expect(seen).toEqual(["ArrowDown"]);
+
+    palette.close();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" }));
+    expect(seen).toEqual(["ArrowDown"]);
+
+    workspace.shutdown();
+  });
+
+  test("prompt interaction does not push transient history entries", async () => {
+    const workspace = createWorkspaceWithHost();
+    await workspace.initialize();
+
+    let historyPushCount = 0;
+    const appStub = {
+      workspace,
+      contentEl: document.body,
+      historyPush: () => {
+        historyPushCount += 1;
+      },
+    };
+
+    const palette = new UnifiedCommandPalette(appStub as never);
+    const promptPromise = palette.prompt("Type something");
+
+    expect(palette.isOpen).toBe(true);
+    expect(palette.state.topCategory).toBe("prompt");
+    expect(historyPushCount).toBe(0);
+
+    palette.close();
+    await expect(promptPromise).resolves.toBeNull();
+    expect(historyPushCount).toBe(0);
 
     workspace.shutdown();
   });

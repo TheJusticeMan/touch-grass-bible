@@ -9,7 +9,9 @@ export class SettingsClass<SettingsType extends { [key: string]: unknown }> exte
   isemiting = false;
 
   private afterset(key: keyof SettingsType, value: SettingsType[keyof SettingsType]): void {
-    this.console.log(`Property '${String(key)}' set to`, value);
+    void key;
+    void value;
+    /* this.console.log(`Property '${String(key)}' set to`, value); */
   }
 
   public get settings(): { [K in keyof SettingsType]: SettingsType[K] } {

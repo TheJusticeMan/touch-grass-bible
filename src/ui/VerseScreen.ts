@@ -201,7 +201,6 @@ export class VerseScreen extends View {
 
       this.requestStateSave();
     });
-    this.app.console.log("VerseScreen loaded");
 
     this.chapterContainer = this.content;
     this.content.addEventListener("scroll", this.handleScroll, { passive: true });

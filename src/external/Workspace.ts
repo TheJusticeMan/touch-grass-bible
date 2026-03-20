@@ -2160,8 +2160,8 @@ monkeypatchAllWorkspaceMethods([
   ["WorkspacePanelContainer", WorkspacePanelContainer],
   ["WorkspacePanelTabs", WorkspacePanelTabs],
   ["WorkspacePanelContent", WorkspacePanelContent], */
-  ["Workspace", Workspace],
+  /* ["Workspace", Workspace],
   ["Panel", LayoutNode],
-  ["View", View],
+  ["View", View], */
   /* ["EmptyView", EmptyView], */
 ]);

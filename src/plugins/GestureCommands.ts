@@ -397,7 +397,6 @@ export default class GestureCommandsPlugin extends Plugin {
     );
 
     this.registerUnload(() => this.recognizer?.destroy());
-    this.console.log("Gesture commands loaded.");
   }
 
   async saveSettings(): Promise<void> {

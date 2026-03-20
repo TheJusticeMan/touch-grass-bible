@@ -141,7 +141,7 @@ export class NotesPanel extends View {
 
   private saveNotesToSettings() {
     this.plugin.settings.ExtraNotes = this.plugin.Vault.getAllNotes().map(n => n.json);
-    this.plugin.app.console.log("Saving notes to settings:", this.plugin.settings.ExtraNotes);
+    //this.plugin.app.console.log("Saving notes to settings:", this.plugin.settings.ExtraNotes);
     this.plugin.saveSettings();
   }
 

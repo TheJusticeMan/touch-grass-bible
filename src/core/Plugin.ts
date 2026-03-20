@@ -115,12 +115,12 @@ export abstract class Component {
    * @returns The current instance for fluent chaining.
    */
   async load() {
-    if (this instanceof Plugin) this.console.log("Loading plugin...");
+    //if (this instanceof Plugin) this.console.log("Loading plugin...");
     if (this.loaded) return this; // Prevent double load
     await this.onload();
     this.loaded = true;
     await Promise.all(this.children.map(child => child.load()));
-    if (this instanceof Plugin) this.console.log("Plugin loaded.");
+    //if (this instanceof Plugin) this.console.log("Plugin loaded.");
     return this;
   }
 
