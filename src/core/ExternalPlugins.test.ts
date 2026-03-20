@@ -125,10 +125,10 @@ describe("ExternalPlugins", () => {
   });
 
   // -------------------------------------------------------------------------
-  // tg-register-plugin event handling
+  // tg-plugin-loaded event handling
   // -------------------------------------------------------------------------
 
-  describe("handleRegistration (tg-register-plugin)", () => {
+  describe("handleRegistration (tg-plugin-loaded)", () => {
     test("ignores event when plugin id is already registered", () => {
       const manifest = { id: "dup", name: "Dup", description: "", version: "1" };
       const PluginClass = vi.fn();
@@ -137,7 +137,7 @@ describe("ExternalPlugins", () => {
       (ext.plugins as Map<string, unknown>).set(manifest.id, {});
 
       window.dispatchEvent(
-        new CustomEvent("tg-register-plugin", { detail: { manifest, pluginClass: PluginClass } }),
+        new CustomEvent("tg-plugin-loaded", { detail: { manifest, pluginClass: PluginClass } }),
       );
 
       // warn logged once; constructor never called since id was pre-registered
@@ -152,7 +152,7 @@ describe("ExternalPlugins", () => {
       });
 
       window.dispatchEvent(
-        new CustomEvent("tg-register-plugin", {
+        new CustomEvent("tg-plugin-loaded", {
           detail: { manifest, pluginClass: BadPlugin },
         }),
       );
@@ -166,13 +166,13 @@ describe("ExternalPlugins", () => {
   // -------------------------------------------------------------------------
 
   describe("lifecycle", () => {
-    test("unload removes the tg-register-plugin event listener", async () => {
+    test("unload removes the tg-plugin-loaded event listener", async () => {
       await ext.unload();
 
       const manifest = { id: "after-unload", name: "X", description: "", version: "1" };
       const PluginClass = vi.fn();
       window.dispatchEvent(
-        new CustomEvent("tg-register-plugin", {
+        new CustomEvent("tg-plugin-loaded", {
           detail: { manifest, pluginClass: PluginClass },
         }),
       );

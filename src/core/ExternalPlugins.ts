@@ -17,7 +17,7 @@ const PLUGIN_INDEX = `${PLUGINS_DIR}/index.json`;
  *
  * @remarks
  * This class is only instantiated when `__ENABLE_EXTERNAL_PLUGINS__` is
- * `true` at build time. It listens for the `tg-register-plugin` custom event
+ * `true` at build time. It listens for the `tg-plugin-loaded` custom event
  * dispatched by `window.TouchGrassAPI.registerPlugin`.
  *
  * @example
@@ -37,18 +37,18 @@ export class ExternalPlugins extends Component {
 
   async onload(): Promise<void> {
     if (typeof window !== "undefined") {
-      window.addEventListener("tg-register-plugin", this.handleRegistration);
+      window.addEventListener("tg-plugin-loaded", this.handleRegistration);
     }
   }
 
   async onunload(): Promise<void> {
     if (typeof window !== "undefined") {
-      window.removeEventListener("tg-register-plugin", this.handleRegistration);
+      window.removeEventListener("tg-plugin-loaded", this.handleRegistration);
     }
   }
 
   /**
-   * Handles a `tg-register-plugin` event dispatched by external plugin code.
+   * Handles a `tg-plugin-loaded` event dispatched by external plugin code.
    *
    * Creates a plugin instance, tracks it by manifest id, and starts its
    * lifecycle via `addChild`.
@@ -131,7 +131,7 @@ export class ExternalPlugins extends Component {
       try {
         const path = `${PLUGINS_DIR}/${filename}`;
         const jsCode = await this.host.readTextFile(path);
-        await this.evalPlugin(jsCode, filename);
+        await this.evaluatePluginCode(jsCode, filename);
       } catch (e) {
         this.host.console.error(`[ExternalPlugins] Failed to load plugin "${filename}":`, e);
       }
@@ -158,11 +158,12 @@ export class ExternalPlugins extends Component {
    * @param jsCode - Raw JavaScript plugin source.
    * @param filename - Filename used for diagnostic logging only.
    */
-  private async evalPlugin(jsCode: string, filename: string): Promise<void> {
+  private async evaluatePluginCode(jsCode: string, filename: string): Promise<void> {
     const blob = new Blob([jsCode], { type: "application/javascript" });
     const url = URL.createObjectURL(blob);
     try {
-      await import(/* webpackIgnore: true */ url);
+      // eslint-disable-next-line security/detect-non-literal-require
+      await import(/* @vite-ignore */ url);
       this.host.console.log(`[ExternalPlugins] Evaluated plugin: ${filename}`);
     } finally {
       URL.revokeObjectURL(url);

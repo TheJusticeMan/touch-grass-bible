@@ -248,13 +248,13 @@ export default class TouchGrassBibleApp extends App {
     if (__ENABLE_EXTERNAL_PLUGINS__) {
       this.externalPlugins = new ExternalPlugins(this);
       window.TouchGrassAPI = {
-        Plugin,
+        BasePlugin: Plugin,
         registerPlugin: (
           manifest: PluginMetadata,
           pluginClass: new (app: TouchGrassBibleApp, manifest: PluginMetadata) => Plugin,
         ) => {
           window.dispatchEvent(
-            new CustomEvent("tg-register-plugin", { detail: { manifest, pluginClass } }),
+            new CustomEvent("tg-plugin-loaded", { detail: { manifest, pluginClass } }),
           );
         },
       };

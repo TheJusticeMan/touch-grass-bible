@@ -17,11 +17,11 @@ declare global {
      */
     TouchGrassAPI?: {
       /** Base class external plugins must extend. */
-      Plugin: typeof Plugin;
+      BasePlugin: typeof Plugin;
       /**
        * Registers an external plugin with the application.
        *
-       * Dispatches a `tg-register-plugin` custom event that
+       * Dispatches a `tg-plugin-loaded` custom event that
        * `ExternalPlugins` listens for.
        *
        * @param manifest - Plugin metadata.
