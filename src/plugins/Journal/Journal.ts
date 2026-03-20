@@ -93,7 +93,7 @@ class JournalCategory extends CommandCategory<string> {
   }
 
   onTrigger(_state: CommandPaletteState): void {
-    // no-op
+    void _state;
   }
 
   getCommands(query: string): string[] {

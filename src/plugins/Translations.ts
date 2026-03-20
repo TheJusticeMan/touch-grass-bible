@@ -39,6 +39,7 @@ class translationCategory extends CommandCategory<string> {
   }
 
   onTrigger(_state: CommandPaletteState): void {
+    void _state;
     this.translations = Object.keys(VerseRef.bibleTranslations);
   }
 

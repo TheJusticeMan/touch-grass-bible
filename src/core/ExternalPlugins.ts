@@ -62,9 +62,7 @@ export class ExternalPlugins extends Component {
     ).detail;
 
     if (this.plugins.has(manifest.id)) {
-      this.host.console.warn(
-        `[ExternalPlugins] Plugin "${manifest.id}" is already registered. Skipping.`,
-      );
+      this.host.console.warn(`[ExternalPlugins] Plugin "${manifest.id}" is already registered. Skipping.`);
       return;
     }
 
@@ -79,10 +77,7 @@ export class ExternalPlugins extends Component {
       });
       this.host.console.log(`[ExternalPlugins] Registered plugin: ${manifest.id}`);
     } catch (e) {
-      this.host.console.error(
-        `[ExternalPlugins] Failed to instantiate plugin "${manifest.id}":`,
-        e,
-      );
+      this.host.console.error(`[ExternalPlugins] Failed to instantiate plugin "${manifest.id}":`, e);
     }
   };
 
@@ -162,7 +157,6 @@ export class ExternalPlugins extends Component {
     const blob = new Blob([jsCode], { type: "application/javascript" });
     const url = URL.createObjectURL(blob);
     try {
-      // eslint-disable-next-line security/detect-non-literal-require
       await import(/* @vite-ignore */ url);
       this.host.console.log(`[ExternalPlugins] Evaluated plugin: ${filename}`);
     } finally {

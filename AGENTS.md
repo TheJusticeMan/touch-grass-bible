@@ -22,7 +22,7 @@ This file contains instructions for agentic coding assistants working on the Tou
 
 ### Lint Commands
 
-- **Lint**: `npm run lint` - Runs ESLint on src/\*.ts files.
+- **Lint**: `npm run lint` - Runs ESLint on all TypeScript files under `src/`.
 - **Format**: `npm run format` - Formats TypeScript and Markdown files with Prettier.
 
 ### Test Commands

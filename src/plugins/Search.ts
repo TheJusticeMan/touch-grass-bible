@@ -29,6 +29,7 @@ class BibleSearchCategory extends CommandCategory<VerseRef> {
   }
 
   onTrigger(_state: CommandPaletteState): void {
+    void _state;
     this.bible = VerseRef.bible;
   }
 
@@ -67,6 +68,7 @@ class BibleSearchCategory extends CommandCategory<VerseRef> {
   }
 
   executeCommand(_command: VerseRef): void {
+    void _command;
     this.commandPalette.close();
   }
 }

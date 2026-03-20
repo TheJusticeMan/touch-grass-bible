@@ -15,6 +15,7 @@ export default [
       "no-implied-eval": "error",
       "no-new-func": "error",
       "dot-notation": "error",
+      "security/detect-object-injection": "off",
     },
   },
   {

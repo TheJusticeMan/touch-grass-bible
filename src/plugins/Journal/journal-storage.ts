@@ -44,7 +44,7 @@ export class JournalStorage {
         return { dates: [] };
       }
       return { dates: parsed.dates.filter(Boolean).sort() };
-    } catch (_error) {
+    } catch {
       return { dates: [] };
     }
   }
@@ -69,7 +69,7 @@ export class JournalStorage {
         date: dateKey,
         entries: Array.isArray(day?.entries) ? day.entries : [],
       };
-    } catch (_error) {
+    } catch {
       return null;
     }
   }

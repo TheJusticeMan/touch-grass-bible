@@ -28,6 +28,7 @@ class SettingsCategory extends CommandCategory<string> {
   }
 
   onTrigger(_state: CommandPaletteState): void {
+    void _state;
     new toggleCMD(this.defaultCMD)
       .setValue(this.plugin.app.settings.enableLogging)
       .setName("Debug console")
@@ -62,8 +63,8 @@ class SettingsCategory extends CommandCategory<string> {
       .setName("Reset settings")
       .setDescription("Reset settings to default values")
       .on("_click", () => {
-        this.plugin
-          .palette.confirm("Are you sure you want to delete all your data including bookmarks?")
+        this.plugin.palette
+          .confirm("Are you sure you want to delete all your data including bookmarks?")
           .then(confirmed => {
             if (!confirmed) return;
             this.plugin.app.settings = { ...DEFAULT_SETTINGS };
@@ -93,12 +94,17 @@ class SettingsCategory extends CommandCategory<string> {
   }
 
   getCommands(_query: string): string[] {
+    void _query;
     return [];
   }
 
   renderCommand(_command: string, _Item: CommandItem<string>): Partial<CommandPaletteState> {
+    void _command;
+    void _Item;
     return { topCategory: SettingsCategoryID };
   }
 
-  executeCommand(_command: string): void {}
+  executeCommand(_command: string): void {
+    void _command;
+  }
 }

@@ -837,6 +837,8 @@ export abstract class CommandCategory<T> {
   setUp(state: CommandPaletteState): this {
     this.highlighter = new Highlighter([
       {
+        // The query is escaped before constructing the regex, so this remains literal-safe.
+        // eslint-disable-next-line security/detect-non-literal-regexp
         regEXP: new RegExp(`(${escapeRegExp(state.query) || "this will never match"})`, "ig"),
         cls: "highlighted-query",
       },

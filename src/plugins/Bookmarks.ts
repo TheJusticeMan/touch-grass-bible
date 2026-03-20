@@ -249,6 +249,7 @@ class BookmarkCategory extends CommandCategory<string> {
   }
 
   onTrigger(_state: CommandPaletteState): void {
+    void _state;
     const tag = this.plugin.tag.get();
     const verse = this.plugin.app.verseState.get();
     new CMD(this.defaultCMD)
@@ -332,6 +333,7 @@ class BookmarkCategory extends CommandCategory<string> {
   }
 
   executeCommand(_command: VerseRef | string): void {
+    void _command;
     this.commandPalette.display();
   }
 }

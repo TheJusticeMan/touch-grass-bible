@@ -89,6 +89,7 @@ class myNotesCategory extends CommandCategory<VerseRef> {
   }
 
   onTrigger(_state: CommandPaletteState): void {
+    void _state;
     this.notes = Array.from(this.plugin.myNotes.keys())
 
       .sort((a, b) => a.toString().localeCompare(b.toString()));
@@ -110,6 +111,7 @@ class myNotesCategory extends CommandCategory<VerseRef> {
   }
 
   executeCommand(_command: VerseRef): void {
+    void _command;
     this.commandPalette.close();
   }
 }

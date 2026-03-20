@@ -36,19 +36,13 @@ function deepMerge<T extends object>(defaults: T, saved: Partial<T>): T {
   const result = { ...defaults } as T;
   for (const key in saved) {
     const k = key as keyof T;
-    // eslint-disable-next-line security/detect-object-injection
     if (isPlainObject(saved[k])) {
-      // eslint-disable-next-line security/detect-object-injection
       if (isPlainObject(defaults[k])) {
-        // eslint-disable-next-line security/detect-object-injection
         result[k] = deepMerge(defaults[k] as object, saved[k] as object) as T[keyof T];
       } else {
-        // eslint-disable-next-line security/detect-object-injection
         result[k] = saved[k] as T[keyof T];
       }
-      // eslint-disable-next-line security/detect-object-injection
     } else if (saved[k] !== undefined) {
-      // eslint-disable-next-line security/detect-object-injection
       result[k] = saved[k] as T[keyof T];
     }
   }

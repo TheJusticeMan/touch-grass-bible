@@ -1803,13 +1803,9 @@ export class View extends ETarget<ViewEvents> {
     this._icon = icon;
   }
 
-  getViewState(): unknown {
-    return undefined;
-  }
+  getViewState: () => unknown = () => undefined;
 
-  setViewState(_state: unknown): void {
-    // Intended for subclasses
-  }
+  setViewState: (_state: unknown) => void = () => {};
 
   initializeState(state: unknown): void {
     if (state === undefined) return;

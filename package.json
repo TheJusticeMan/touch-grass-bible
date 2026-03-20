@@ -40,7 +40,7 @@
     "build:web": "mkdir -p ./dist && npm run build:bundle:web && cp src/web/* dist",
     "build:web:secure": "mkdir -p ./dist && npm run getdatafiles && ENABLE_EXTERNAL_PLUGINS=false APP_TARGET=web node esbuild.config.mjs production && cp src/web/{favicon.ico,icon-192.png,icon-512.png,manifest.json,service-worker.js} dist/",
     "build:web:extensible": "mkdir -p ./dist && npm run getdatafiles && ENABLE_EXTERNAL_PLUGINS=true APP_TARGET=web node esbuild.config.mjs production && cp src/web/{favicon.ico,icon-192.png,icon-512.png,manifest.json,service-worker.js} dist/",
-    "lint": "eslint src/*.ts",
+    "lint": "eslint \"src/**/*.ts\"",
     "knip": "knip",
     "clean": "rm -rf ./dist/* ./dist/",
     "ai": "bash -lc 'if ! command -v ollama >/dev/null 2>&1; then echo \"Ollama CLI not found; skipping ai script.\"; exit 0; fi; node ./processing/filetochat.mjs || { echo \"AI processing skipped (requires reachable Ollama models).\"; exit 0; }'",

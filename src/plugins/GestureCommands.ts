@@ -346,9 +346,12 @@ class GestureCommandsCategory extends CommandCategory<GestureCommand> {
     this.plugin = plugin;
   }
 
-  onTrigger(_state: CommandPaletteState): void {}
+  onTrigger(_state: CommandPaletteState): void {
+    void _state;
+  }
 
   getCommands(_query: string): GestureCommand[] {
+    void _query;
     return this.plugin.settings.gestureCommands;
   }
 
@@ -358,6 +361,7 @@ class GestureCommandsCategory extends CommandCategory<GestureCommand> {
   }
 
   executeCommand(_command: GestureCommand): void {
+    void _command;
     this.commandPalette.close();
   }
 }
