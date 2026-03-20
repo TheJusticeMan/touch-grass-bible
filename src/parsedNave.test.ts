@@ -11,6 +11,7 @@ import { describe, expect, test } from "vitest";
 }; */
 
 const allowedKeys = ["relatedTopics", "subtopics", "title", "verses"];
+// eslint-disable-next-line security/detect-unsafe-regex
 const verseReferencePattern = /^[1-3]?[A-Za-z]+(?:\.\d+){0,2}(?:-[1-3]?[A-Za-z]+(?:\.\d+){0,2})?$/;
 
 function getParsedNaveFilePath(): string {
@@ -56,6 +57,7 @@ function validateTopic(topic: unknown, pathLabel: string): void {
 describe("parsed-nave.json", () => {
   test("matches the expected recursive topic format", () => {
     const filePath = getParsedNaveFilePath();
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     const rawJson = fs.readFileSync(filePath, "utf8");
     const parsed = JSON.parse(rawJson) as unknown;
 
