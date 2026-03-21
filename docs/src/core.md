@@ -54,7 +54,7 @@ This page covers the root-level `src/` files that define the app shell, Bible do
 ## `src/main.css`
 
 - Purpose: global app styling and reading layout CSS
-- Key selectors: `body`, `.content .verse`, `.content .chapter`, `.command-palette-fab`
+- Key selectors: `body`, `.content .verse`, `.content .chapter`
 - Defines theme variables, spacing, reading width, and shared UI tokens.
 - Styles chapter and verse typography, numbering, spacing, and hover states.
 - Styles the floating `CMD` button created in `src/main.ts`.

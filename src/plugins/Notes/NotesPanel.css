@@ -49,50 +49,6 @@
   word-wrap: break-word;
 }
 
-.corner-button {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  z-index: var(--z-floating-action, 20);
-}
-
-.corner-button button {
-  background: var(--color-surface-strong, rgb(255 255 255 / 0.12));
-  border: none;
-  border-radius: 50%;
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    transform 0.2s ease;
-}
-
-.corner-button button:hover {
-  background: var(--color-surface-strong, rgb(255 255 255 / 0.2));
-  transform: scale(1.05);
-}
-
-.corner-button button:active {
-  transform: scale(0.95);
-}
-
-.corner-button button:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.corner-button button svg {
-  width: 20px;
-  height: 20px;
-  stroke: white;
-  stroke-width: 2;
-}
-
 @media (max-width: 768px) {
   .notes-panel {
     padding: 12px;
@@ -102,16 +58,6 @@
   .note-preview {
     padding: 14px;
     margin-bottom: 10px;
-  }
-
-  .corner-button {
-    bottom: 16px;
-    right: 16px;
-  }
-
-  .corner-button button {
-    width: 44px;
-    height: 44px;
   }
 }
 

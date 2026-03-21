@@ -164,7 +164,7 @@ export class NotesPanel extends View {
           ),
         ),
       );
-    // Create the bottom corner plus button
+    /* // Create the bottom corner plus button
     this.content.createEl("div", { cls: "corner-button" }, el =>
       new Button(el)
         .setIcon(Plus)
@@ -175,7 +175,7 @@ export class NotesPanel extends View {
           this.plugin.Vault.addNote(newNote);
           new noteEditor(this.plugin, newNote).open().on("close", () => this.update());
         }),
-    );
+    ); */
   }
 }
 

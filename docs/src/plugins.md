@@ -81,7 +81,7 @@ This page covers the feature layer under `src/plugins/`, where most user-facing 
 ## `src/plugins/Notes/NotesPanel.css`
 
 - Purpose: notes panel styling
-- Key selectors: `.notes-panel`, `.note-preview`, `.corner-button`, `.editor-overlay`, `.note-editor-textarea`, `.tag-badge`
+- Key selectors: `.notes-panel`, `.note-preview`, `.editor-overlay`, `.note-editor-textarea`, `.tag-badge`
 - Styles note cards, the floating add button, tag badges, and the full-screen editor overlay.
 - Supports the UI defined in `src/plugins/Notes/NotesPanel.ts`.
 

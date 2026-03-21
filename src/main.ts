@@ -9,7 +9,7 @@ import Plugin, { type PluginMetadata } from "./core/Plugin";
 import { ExternalPlugins } from "./core/ExternalPlugins";
 import AIPlugin from "./plugins/AI";
 import BookmarkPlugin from "./plugins/Bookmarks";
-import GestureCommandsPlugin from "./plugins/GestureCommands";
+import GesturePlugin from "./plugins/GestureCommands/GestureCommands";
 import JournalPlugin from "./plugins/Journal";
 import NavesTopicalBiblePlugin from "./plugins/NavesTopicalBible/NavesTopicalBible";
 import NotesPlugin from "./plugins/Notes/Notes";
@@ -77,7 +77,6 @@ export default class TouchGrassBibleApp extends App {
   firstLoad = true;
   saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private fallbackVerseState = this.commandPalette.useState(new VerseRef("GENESIS", 1, 1));
-  fab: HTMLButtonElement | null = null;
 
   get verseState(): PaletteState<VerseRef> {
     const activeVerseScreen = this.workspace.getActiveViewOfType("verse-screen");
@@ -118,18 +117,6 @@ export default class TouchGrassBibleApp extends App {
     this.console.enabled = this.settings.enableLogging;
     this.console.log(info.name, info.version, "loaded");
     this.workspace.on("Ctrl+EnterKeyDown", () => !this.commandPalette.isOpen && this.openCommandPalette());
-
-    this.fab = this.contentEl.createEl("button", {
-      cls: "command-palette-fab",
-      text: "CMD",
-      attr: {
-        type: "button",
-        "aria-label": "Open command palette",
-      },
-    });
-    this.fab.addEventListener("click", () => this.openCommandPalette());
-    this.commandPalette.on("open", () => this.fab?.classList.add("is-hidden"));
-    this.commandPalette.on("close", () => this.fab?.classList.remove("is-hidden"));
 
     this.console.log(new Date().getTime() - processstart, "ms startup time");
     this.console.log("Touch Grass Bible is ready!");
@@ -234,7 +221,7 @@ export default class TouchGrassBibleApp extends App {
         },
       },
       {
-        pluginClass: GestureCommandsPlugin,
+        pluginClass: GesturePlugin,
         manifest: {
           id: "gesture-commands",
           name: "Gesture Commands",

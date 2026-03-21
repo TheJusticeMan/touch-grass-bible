@@ -2,14 +2,15 @@ import levenshtein from "js-levenshtein";
 import { ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, X } from "lucide";
 import { App } from "./App";
 import "./CommandPalette.css";
-import { IconActionComponent, inputMode, Item, TextInput, UIComponent } from "./UIComponents";
 import { ETarget } from "./Event";
-import { WorkspaceDialog } from "./Workspace";
 import { PaletteState, PaletteStateController } from "./PaletteStateController";
+import { IconActionComponent, inputMode, Item, TextInput, UIComponent } from "./UIComponents";
+import { WorkspaceDialog } from "./Workspace";
 
+import { CMD } from "./Comands";
+import { Commands } from "./Commands";
 import { escapeRegExp } from "./escapeRegExp";
 import { Highlighter } from "./highlighter";
-import { CMD } from "./Comands";
 import { BrowserConsole } from "./MyBrowserConsole";
 
 /**
@@ -129,6 +130,7 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
   private stateController: PaletteStateController<CommandPaletteState>;
   private maxResults: number = 100; // Maximum results to show
   private categoryOrder: string[] = [];
+  commands: Commands = new Commands();
 
   inputMode: inputMode = "search"; // Default input type
   columns: boolean = true; // Whether to display in columns

@@ -8,24 +8,6 @@ import { UnifiedCommandPalette } from "./CommandPalette";
 export { App, AppState };
 
 /**
- * Represents a command that can be registered with the application
- * and triggered by name, keyboard shortcut, or gesture.
- */
-export interface AppCommand {
-  /** Stable command id used for registration and lookup. */
-  id: string;
-
-  /** Human-readable command name shown in UI surfaces. */
-  name: string;
-
-  /** Optional command description for tooltips and command palette details. */
-  description?: string;
-
-  /** Callback executed when the command is triggered. */
-  callback: () => void;
-}
-
-/**
  * Immutable-like application state snapshot used for history entries.
  */
 class AppState {
@@ -119,44 +101,6 @@ abstract class App extends ETarget<{
 
   /** Shared command palette instance used across the app shell. */
   commandPalette!: UnifiedCommandPalette;
-
-  private _commands: Map<string, AppCommand> = new Map();
-
-  /**
-   * Registers a command with the application.
-   * @param command - The command to register.
-   * @returns The current instance for method chaining.
-   */
-  addCommand(command: AppCommand): this {
-    this._commands.set(command.id, command);
-    return this;
-  }
-
-  /**
-   * Removes a previously registered command.
-   * @param commandId - The id of the command to remove.
-   * @returns The current instance for method chaining.
-   */
-  removeCommand(commandId: string): this {
-    this._commands.delete(commandId);
-    return this;
-  }
-
-  /**
-   * Retrieves a registered command by its id.
-   * @param commandId - The id of the command to retrieve.
-   * @returns The command, or undefined if not found.
-   */
-  getCommand(commandId: string): AppCommand | undefined {
-    return this._commands.get(commandId);
-  }
-
-  /**
-   * Returns all registered commands.
-   */
-  getCommands(): AppCommand[] {
-    return Array.from(this._commands.values());
-  }
 
   /**
    * Creates an application shell and wires global listeners.

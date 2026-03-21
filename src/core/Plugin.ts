@@ -1,20 +1,20 @@
-import { IconNode } from "lucide";
-import { CommandPaletteState, CategoryLoaderFunc, UnifiedCommandPalette } from "../external/CommandPalette";
+import { IconNode, Terminal } from "lucide";
+import { Command } from "src/external/Commands";
 import { TGAppSettings } from "../config/TGAppSettings";
-import { LayoutNode, View, Workspace } from "../external/Workspace";
-import TouchGrassBibleApp from "../main";
+import { CategoryLoaderFunc, CommandPaletteState, UnifiedCommandPalette } from "../external/CommandPalette";
 import { BrowserConsole } from "../external/MyBrowserConsole";
 import { PaletteState } from "../external/PaletteStateController";
+import { LayoutNode, View, Workspace } from "../external/Workspace";
+import TouchGrassBibleApp from "../main";
 import { VerseInfoComponent } from "../ui/VerseScreen";
-import { AppCommand } from "../external/App";
 
 type VerseStateValue = TouchGrassBibleApp["verseState"] extends PaletteState<infer T> ? T : never;
 
 type PluginAppApi = {
   readonly console: BrowserConsole;
-  readonly fab: HTMLButtonElement | null;
   readonly verseState: PaletteState<VerseStateValue>;
   settings: TGAppSettings;
+  contentEl: HTMLElement;
   openCommandPalette(state?: Partial<CommandPaletteState>): void;
   saveSettings(): void;
   saveSettingsAfterDelay(delay?: number): void;
@@ -27,11 +27,6 @@ type PluginPaletteApi = {
   prompt(text: string): Promise<string | null>;
   confirm(text: string): Promise<boolean>;
   setCategoryOrder(order: string[]): void;
-};
-
-type PluginCommandsApi = {
-  get(commandId: string): AppCommand | undefined;
-  list(): AppCommand[];
 };
 
 type PluginWorkspaceApi = {
@@ -253,8 +248,6 @@ export default class Plugin extends Component {
   readonly app: PluginAppApi;
   /** Command palette capabilities and state helpers. */
   readonly palette: PluginPaletteApi;
-  /** Read-only command registry access for plugins. */
-  readonly commands: PluginCommandsApi;
   /** Workspace navigation and view activation helpers. */
   readonly workspace: PluginWorkspaceApi;
   /** File and data loading helpers backed by the host app. */
@@ -277,9 +270,6 @@ export default class Plugin extends Component {
       get console() {
         return app.console;
       },
-      get fab() {
-        return app.fab;
-      },
       get verseState() {
         return app.verseState;
       },
@@ -292,6 +282,9 @@ export default class Plugin extends Component {
       openCommandPalette: (state: Partial<CommandPaletteState> = {}) => app.openCommandPalette(state),
       saveSettings: () => app.saveSettings(),
       saveSettingsAfterDelay: (delay?: number) => app.saveSettingsAfterDelay(delay),
+      get contentEl() {
+        return app.contentEl;
+      },
     };
     this.palette = {
       get instance() {
@@ -302,10 +295,6 @@ export default class Plugin extends Component {
       prompt: (text: string) => app.commandPalette.prompt(text),
       confirm: (text: string) => app.commandPalette.confirm(text),
       setCategoryOrder: (order: string[]) => app.commandPalette.setCategoryOrder(order),
-    };
-    this.commands = {
-      get: (commandId: string) => app.getCommand(commandId),
-      list: () => app.getCommands(),
     };
     this.workspace = {
       get activePanel() {
@@ -378,9 +367,15 @@ export default class Plugin extends Component {
     this.registerCommand({
       id: `open-palette-${id}`,
       name: palette ? `Open: ${palette.name}` : `Open: ${id}`,
-      description: palette?.description,
+      icon: Terminal,
+      description: palette?.description || `Open the ${id} category in the command palette`,
       callback: () => this.app.openCommandPalette({ topCategory: id }),
     });
+  }
+
+  registerHiddenPalette(load: CategoryLoaderFunc<unknown>, id: string) {
+    this.palette.instance.addHiddenPalette(load, id);
+    this.registerUnload(() => this.palette.instance.removeHiddenPalette(load, id));
   }
 
   /**
@@ -389,9 +384,9 @@ export default class Plugin extends Component {
    * @param command - The command to register.
    * @returns The current instance for method chaining.
    */
-  registerCommand(command: AppCommand): this {
-    this.host.addCommand(command);
-    this.registerUnload(() => this.host.removeCommand(command.id));
+  registerCommand(command: Command): this {
+    this.host.commandPalette.commands.addCommand(command);
+    this.registerUnload(() => this.host.commandPalette.commands.removeCommand(command.id));
     return this;
   }
 

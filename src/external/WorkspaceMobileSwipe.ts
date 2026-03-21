@@ -1,3 +1,5 @@
+import { Offset } from "./Offset";
+
 type SwipeState = "leftopen" | "rightopen" | "none";
 
 const DEADZONE_THRESHOLD = 20;
@@ -181,30 +183,4 @@ export class GlobalSwipeHandler {
     this.endGesture(MOUSE_SCALE_FACTOR);
     // Handle mouse up
   };
-}
-
-class Offset {
-  x: number;
-  y: number;
-  constructor(x: number, y: number) {
-    this.x = x;
-    this.y = y;
-  }
-  add(other: Offset) {
-    return new Offset(this.x + other.x, this.y + other.y);
-  }
-  subtract(other: Offset) {
-    return new Offset(this.x - other.x, this.y - other.y);
-  }
-  scale(factor: number) {
-    return new Offset(this.x * factor, this.y * factor);
-  }
-  distanceTo(other: Offset) {
-    const dx = this.x - other.x;
-    const dy = this.y - other.y;
-    return Math.sqrt(dx * dx + dy * dy);
-  }
-  get ratio() {
-    return Math.abs(this.x / this.y);
-  }
 }

@@ -7,6 +7,7 @@ import {
 import Plugin from "../core/Plugin";
 import { VerseRef, bibleData } from "../models/VerseRef";
 import { BibleSearchCategoryID, GoToVerseCategoryID, TSKCrossRefCategoryID } from "./categoryIDs";
+import { BibleMatch, parseGoToVerseQuery } from "./searchParser.ts";
 
 export default class BibleSearchPlugin extends Plugin {
   async onload(): Promise<void> {
@@ -73,12 +74,6 @@ class BibleSearchCategory extends CommandCategory<VerseRef> {
   }
 }
 
-type BibleMatch = {
-  book: string;
-  chapter?: number;
-  verse?: number;
-};
-
 /**
  * Command category that allows users to navigate to specific Bible verses through a command palette.
  *
@@ -106,86 +101,7 @@ class GoToVerseCategory extends CommandCategory<BibleMatch> {
   }
   onTrigger(): void {}
   getCommands(query: string): BibleMatch[] {
-    const eat = (q: string, list: string[]) => {
-      const lowerQ = q.toLowerCase().trim();
-
-      // Pre-calculate matches to find the global maxMatchLen for this query
-      const matches = list.map(item => {
-        const lowerItem = item.toLowerCase();
-        let matchLen = 0;
-        while (
-          matchLen < lowerQ.length &&
-          matchLen < lowerItem.length &&
-          lowerQ[matchLen] === lowerItem[matchLen]
-        ) {
-          matchLen++;
-        }
-        return { item, lowerItem, matchLen };
-      });
-
-      const maxMatchLen = Math.max(0, ...matches.map(m => m.matchLen));
-
-      // Only return if we actually matched something substantial
-      if (maxMatchLen === 0) return [];
-
-      return matches
-        .filter(m => m.matchLen === maxMatchLen)
-        .map(m => ({
-          item: m.item,
-          remaining: lowerQ.slice(m.matchLen).trim(),
-        }));
-    };
-
-    const bestBookMatches = eat(query, VerseRef.booksOfTheBible);
-
-    // We only proceed with specific number parsing if we have a clear book match
-    if (bestBookMatches.length === 1) {
-      const { item: book, remaining } = bestBookMatches[0];
-
-      // 1. Try to "eat" the Chapter
-      // We need a list of strings representing possible chapters (1-150)
-      const chapterList = Array.from({ length: VerseRef.bible[book].length - 1 }, (_, i) =>
-        (i + 1).toString(),
-      );
-      console.log(`Trying to match chapter from: "${remaining}" against ${chapterList} chapters`);
-      const chapterMatches = eat(remaining, chapterList);
-
-      let chapter: number | undefined;
-
-      if (chapterMatches.length === 1) {
-        const { item: chItem, remaining: verseRemaining } = chapterMatches[0];
-        chapter = parseInt(chItem, 10);
-
-        // 2. Try to "eat" the Verse from what's left
-        const verseList = Array.from({ length: VerseRef.bible[book][chapter].length - 1 }, (_, i) =>
-          (i + 1).toString(),
-        );
-        const verseMatches = eat(verseRemaining, verseList);
-
-        this.console.log(
-          `Trying to match verse from: "${verseRemaining}" against ${verseList.length} verses in chapter ${chapter} of ${book}`,
-        );
-
-        if (!verseMatches.length) return verseList.map(v => ({ book, chapter, verse: parseInt(v, 10) }));
-
-        return verseMatches.map(({ item }) => ({
-          book,
-          chapter,
-          verse: parseInt(item, 10),
-        }));
-      }
-
-      if (!chapterMatches.length) return chapterList.map(ch => ({ book, chapter: parseInt(ch, 10) }));
-
-      return chapterMatches.map(({ item }) => ({
-        book,
-        chapter: parseInt(item, 10),
-      }));
-    } else {
-      return bestBookMatches.map(m => ({
-        book: m.item,
-      }));
-    }
+    return parseGoToVerseQuery(query, VerseRef.booksOfTheBible, VerseRef.bible);
   }
   renderCommand(
     command: BibleMatch,
