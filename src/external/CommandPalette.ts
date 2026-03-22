@@ -397,6 +397,7 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
   display(context: Partial<CommandPaletteState> = {}, shouldSaveHistory = true) {
     if (!this.isOpen) {
       this.stateController.clearContexts();
+      this.update({ query: "", maxResults: this.maxResults });
     }
     this.update(context);
     this.emit("display", this.state);
@@ -428,6 +429,26 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
     this.state.query = value;
     this.state.maxResults = this.maxResults;
     this.dialog?.setValue(value, select);
+  }
+
+  /**
+   * Re-renders palette content without rebuilding the dialog shell.
+   *
+   * Useful for async categories that need to update command results frequently
+   * while preserving the current input element and query text.
+   *
+   * @param context - Optional partial state updates to apply before refresh.
+   * @returns The current palette instance for method chaining.
+   */
+  refresh(context: Partial<CommandPaletteState> = {}): this {
+    if (!this.isOpen) {
+      return this.display(context, false);
+    }
+    this.update(context);
+    this.emit("display", this.state);
+    this.triggerCategoryData();
+    this.dialog?.setValue(this.state.query);
+    return this;
   }
 
   /**
@@ -629,11 +650,12 @@ class CommandPaletteDialog extends WorkspaceDialog {
         this.render();
       });
 
+    this.searchInput.setValue(this.palette.state.query);
+
     this.contentComponent = new CommandPaletteContent(this.contentEl, this.palette.state.expanded);
     this.contentOverview = this.contentComponent.overviewEl;
     this.contentMainEl = this.contentComponent.mainEl;
 
-    this.palette.state.query = "";
     this.render();
     this.searchInput.element.focus();
     return this;
@@ -760,6 +782,7 @@ class CommandPaletteDialog extends WorkspaceDialog {
 
   private activateContextFromCommand(command: CommandItem<unknown> | undefined): void {
     if (command?.contextMenuAllowed) {
+      this.palette.state.query = "";
       this.palette.display(command.toState(this.palette.state));
     }
   }
@@ -1127,6 +1150,7 @@ export abstract class CommandCategory<T> {
    * @returns The current category instance for method chaining.
    */
   tryexecute(command: T, toState: (state: CommandPaletteState) => CommandPaletteState): this {
+    this.commandPalette.state.query = "";
     this.commandPalette.state = toState(this.commandPalette.state);
     try {
       this.executeCommand(command);

@@ -7,6 +7,7 @@ export const DEFAULT_CATEGORY_ORDER: string[] = [
   "go-to-verse",
   "topics",
   "bible-search",
+  "ai-embedding-search",
   "translations",
   "my-notes",
   "journal",

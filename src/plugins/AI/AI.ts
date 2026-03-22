@@ -1,7 +1,9 @@
 import { BrainCircuit } from "lucide";
-import { AIchat } from "../services/AIchat";
-import Plugin from "../core/Plugin";
-import { AICategoryID, SettingsCategoryID } from "./categoryIDs";
+import { AIchat } from "./AIchat";
+import { AIEmbeddingSearchCategory } from "./AIEmbeddingSearch";
+import { AIEmbeddingSearchDB } from "./AIEmbeddingSearchDB";
+import Plugin from "../../core/Plugin";
+import { AICategoryID, AIEmbeddingSearchCategoryID, SettingsCategoryID } from "../categoryIDs";
 import { CMD } from "src/external/Comands";
 import {
   CommandCategory,
@@ -23,10 +25,25 @@ const defaultAISettings: AIPluginSettings = {
 export default class AIPlugin extends Plugin {
   chat: AIchat = new AIchat();
   settings: AIPluginSettings = { ...defaultAISettings };
+  private embeddingSearchDB: AIEmbeddingSearchDB = new AIEmbeddingSearchDB();
 
   async onload() {
     this.settings = await this.loadSettings(defaultAISettings);
     this.registerPalette(() => new AICommandPalette(this.palette.instance, this), AICategoryID);
+    // Initialize in background without blocking plugin load
+    //requestIdleCallback(() => {
+    this.embeddingSearchDB
+      .initialize()
+      .then(() => {
+        this.registerPalette(
+          palette => new AIEmbeddingSearchCategory(palette, this, this.embeddingSearchDB),
+          AIEmbeddingSearchCategoryID,
+        );
+      })
+      .catch(err => {
+        this.app.console.error(`Error loading embedding search database`, err);
+      });
+    //});
 
     this.addVerseAction({
       id: "ai-ask",
@@ -71,6 +88,7 @@ class AICommandPalette extends CommandCategory<string> {
   readonly name = "AI Bible Assistant";
   readonly description = "Ask the AI assistant questions about Bible verses and theology.";
   private responses: { question: string; answer: string }[] = [];
+  private inFlightResponse: { question: string; answer: string; error?: string } | null = null;
 
   constructor(
     public commandPalette: UnifiedCommandPalette,
@@ -99,6 +117,25 @@ class AICommandPalette extends CommandCategory<string> {
           this.commandPalette.display({ topCategory: AICategoryID });
         });
       });
+
+    new CMD(this.defaultCMD)
+      .setName("Open semantic embedding search")
+      .setDescription("Search semantically similar verses using precomputed embeddings + Orama")
+      .on("_click", () => this.commandPalette.display({ topCategory: AIEmbeddingSearchCategoryID }));
+
+    if (this.inFlightResponse) {
+      const { question, answer, error } = this.inFlightResponse;
+      new CMD(this.defaultCMD)
+        .setName(error ? "AI error" : "AI: thinking…")
+        .setDescription(error ? error : answer || `Working on: ${question}`);
+    }
+
+    if (this.responses.length > 0) {
+      const latest = this.responses[this.responses.length - 1];
+      new CMD(this.defaultCMD)
+        .setName("Latest AI response")
+        .setDescription(latest.answer || `No content returned for: ${latest.question}`);
+    }
   }
 
   getCommands(query: string): string[] {
@@ -126,25 +163,35 @@ class AICommandPalette extends CommandCategory<string> {
       ? `[Current verse: ${verse.toString()} — "${verse.vTXT}"]\n\n${command}`
       : command;
 
-    const resultCmd = new CMD(this.defaultCMD).setName("AI: thinking…").setDescription("");
-    let accumulated = "";
+    this.inFlightResponse = { question: command, answer: "" };
+    this.commandPalette.display({ topCategory: AICategoryID });
+
     this.plugin.chat
       .request(contextPrompt, delta => {
         if (delta.content) {
-          accumulated += delta.content;
-          resultCmd.setDescription(accumulated);
-          this.commandPalette.display();
+          if (!this.inFlightResponse || this.inFlightResponse.question !== command) {
+            this.inFlightResponse = { question: command, answer: "" };
+          }
+          this.inFlightResponse.answer += delta.content;
+          this.commandPalette.display({ topCategory: AICategoryID });
         }
         return true;
       })
       .then(() => {
-        this.responses.push({ question: command, answer: accumulated });
-        resultCmd.setName("AI response:");
-        this.commandPalette.display();
+        if (this.inFlightResponse && this.inFlightResponse.question === command) {
+          this.responses.push({ question: command, answer: this.inFlightResponse.answer });
+          this.inFlightResponse = null;
+        }
+        this.commandPalette.display({ topCategory: AICategoryID });
       })
       .catch(err => {
-        resultCmd.setName("AI error").setDescription(err instanceof Error ? err.message : String(err));
-        this.commandPalette.display();
+        const message = err instanceof Error ? err.message : String(err);
+        if (!this.inFlightResponse || this.inFlightResponse.question !== command) {
+          this.inFlightResponse = { question: command, answer: "", error: message };
+        } else {
+          this.inFlightResponse.error = message;
+        }
+        this.commandPalette.display({ topCategory: AICategoryID });
       });
   }
 }

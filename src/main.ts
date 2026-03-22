@@ -7,7 +7,7 @@ import "./main.css";
 import { InternalPlugins, type IconActionItem } from "./core/Plugin";
 import Plugin, { type PluginMetadata } from "./core/Plugin";
 import { ExternalPlugins } from "./core/ExternalPlugins";
-import AIPlugin from "./plugins/AI";
+import AIPlugin from "./plugins/AI/AI";
 import BookmarkPlugin from "./plugins/Bookmarks";
 import GesturePlugin from "./plugins/GestureCommands/GestureCommands";
 import JournalPlugin from "./plugins/Journal";

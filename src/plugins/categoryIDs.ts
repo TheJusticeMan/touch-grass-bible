@@ -1,4 +1,5 @@
 export const AICategoryID = "ai";
+export const AIEmbeddingSearchCategoryID = "ai-embedding-search";
 export const BibleSearchCategoryID = "bible-search";
 export const BookmarkCategoryID = "bookmarks";
 export const GoToVerseCategoryID = "go-to-verse";

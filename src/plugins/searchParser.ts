@@ -42,10 +42,7 @@ export function parseGoToVerseQuery(
 
     return matches
       .filter(m => m.matchLen === maxMatchLen)
-      .map(m => ({
-        item: m.item,
-        remaining: normalizeQuerySegment(normalizedQ.slice(m.matchLen)),
-      }))
+      .map(m => ({ item: m.item, remaining: normalizeQuerySegment(normalizedQ.slice(m.matchLen)) }))
       .filter(m => m.remaining.length === 0 || !/^[a-z]/.test(m.remaining));
   };
 
@@ -69,22 +66,13 @@ export function parseGoToVerseQuery(
 
       if (!verseMatches.length) return verseList.map(v => ({ book, chapter, verse: parseInt(v, 10) }));
 
-      return verseMatches.map(({ item }) => ({
-        book,
-        chapter,
-        verse: parseInt(item, 10),
-      }));
+      return verseMatches.map(({ item }) => ({ book, chapter, verse: parseInt(item, 10) }));
     }
 
     if (!chapterMatches.length) return chapterList.map(ch => ({ book, chapter: parseInt(ch, 10) }));
 
-    return chapterMatches.map(({ item }) => ({
-      book,
-      chapter: parseInt(item, 10),
-    }));
+    return chapterMatches.map(({ item }) => ({ book, chapter: parseInt(item, 10) }));
   }
 
-  return bestBookMatches.map(m => ({
-    book: m.item,
-  }));
+  return bestBookMatches.map(m => ({ book: m.item }));
 }
