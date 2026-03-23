@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["main.ts", "testView.ts"],
+  "sourcesContent": ["import Plugin from \"src/core/Plugin\";\nimport { TestView } from \"./testView\";\n\nexport const manifest = {\n  id: \"simple-plugin-example\",\n  name: \"Simple Plugin Example\",\n  description: `Example external plugin using host API`,\n  version: \"1.0.0\",\n};\n\nexport default class SimplePlugin extends Plugin {\n   async onload(): Promise<void> {\n        this.registerView(\"test-view\", (leaf) => new TestView(leaf));\n        \n    }\n}\n", "import { View } from \"src/external/Workspace\";\n\nexport class TestView extends View {}\n"],
+  "mappings": ";AAAA,OAAO,YAAY;;;ACAnB,SAAS,YAAY;AAEd,IAAM,WAAN,cAAuB,KAAK;AAAC;;;ADC7B,IAAM,WAAW;AAAA,EACtB,IAAI;AAAA,EACJ,MAAM;AAAA,EACN,aAAa;AAAA,EACb,SAAS;AACX;AAEA,IAAqB,eAArB,cAA0C,OAAO;AAAA,EAC9C,MAAM,SAAwB;AACzB,SAAK,aAAa,aAAa,CAAC,SAAS,IAAI,SAAS,IAAI,CAAC;AAAA,EAE/D;AACJ;",
+  "names": []
+}

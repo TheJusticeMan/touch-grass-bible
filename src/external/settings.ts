@@ -16,9 +16,7 @@ export class SettingsClass<SettingsType extends { [key: string]: unknown }> exte
 
   public get settings(): { [K in keyof SettingsType]: SettingsType[K] } {
     const handler: ProxyHandler<SettingsType> = {
-      get: (target, prop, receiver) => {
-        return Reflect.get(target, prop, receiver);
-      },
+      get: (target, prop, receiver) => Reflect.get(target, prop, receiver),
       set: (target, prop, value, receiver) => {
         const result = Reflect.set(target, prop, value, receiver);
         this.afterset(prop as keyof SettingsType, value);

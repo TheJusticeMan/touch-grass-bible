@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { ExternalPlugins } from "./ExternalPlugins";
+import { HOST_MODULE_ID } from "./ExternalHostApi";
+import Plugin from "./Plugin";
 
 // ---------------------------------------------------------------------------
 // Minimal stubs
@@ -121,63 +123,71 @@ describe("ExternalPlugins", () => {
 
       expect(app.console.error).toHaveBeenCalledOnce();
     });
-  });
 
-  // -------------------------------------------------------------------------
-  // tg-plugin-loaded event handling
-  // -------------------------------------------------------------------------
+    test("registers plugin from module exports", async () => {
+      vi.mocked(app.files.readTextFile)
+        .mockResolvedValueOnce('["good.js"]')
+        .mockResolvedValueOnce("// plugin js source");
 
-  describe("handleRegistration (tg-plugin-loaded)", () => {
-    test("ignores event when plugin id is already registered", () => {
-      const manifest = { id: "dup", name: "Dup", description: "", version: "1" };
-      const PluginClass = vi.fn();
+      class GoodPlugin extends Plugin {}
 
-      // Pre-populate the map so the first registration is already "done"
-      (ext.plugins as Map<string, unknown>).set(manifest.id, {});
-
-      window.dispatchEvent(
-        new CustomEvent("tg-plugin-loaded", { detail: { manifest, pluginClass: PluginClass } }),
-      );
-
-      // warn logged once; constructor never called since id was pre-registered
-      expect(app.console.warn).toHaveBeenCalledOnce();
-      expect(PluginClass).not.toHaveBeenCalled();
-    });
-
-    test("logs error when pluginClass constructor throws", () => {
-      const manifest = { id: "err-plugin", name: "Err", description: "", version: "1" };
-      const BadPlugin = vi.fn(() => {
-        throw new Error("constructor failed");
+      vi.spyOn(
+        ext as unknown as { evaluatePluginCode: (jsCode: string, filename: string) => Promise<unknown> },
+        "evaluatePluginCode",
+      ).mockResolvedValue({
+        manifest: {
+          id: "good-plugin",
+          name: "Good Plugin",
+          description: "Works",
+          version: "1.0.0",
+        },
+        default: GoodPlugin,
       });
 
-      window.dispatchEvent(
-        new CustomEvent("tg-plugin-loaded", {
-          detail: { manifest, pluginClass: BadPlugin },
-        }),
-      );
+      await ext.loadAll();
+
+      expect(ext.plugins.has("good-plugin")).toBe(true);
+      expect(app.console.error).not.toHaveBeenCalled();
+    });
+
+    test("logs error when plugin module is missing manifest export", async () => {
+      vi.mocked(app.files.readTextFile)
+        .mockResolvedValueOnce('["missing-manifest.js"]')
+        .mockResolvedValueOnce("// plugin js source");
+
+      vi.spyOn(
+        ext as unknown as { evaluatePluginCode: (jsCode: string, filename: string) => Promise<unknown> },
+        "evaluatePluginCode",
+      ).mockResolvedValue({
+        default: class MissingManifestPlugin {},
+      });
+
+      await ext.loadAll();
 
       expect(app.console.error).toHaveBeenCalled();
+      expect(ext.plugins.size).toBe(0);
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Lifecycle
-  // -------------------------------------------------------------------------
+  describe("rewriteExternalImportSpecifiers", () => {
+    test("rewrites host API module import", () => {
+      const jsCode = [
+        `import { Plugin } from "${HOST_MODULE_ID}";`,
+        "export default class X extends Plugin {}",
+      ].join("\n");
 
-  describe("lifecycle", () => {
-    test("unload removes the tg-plugin-loaded event listener", async () => {
-      await ext.unload();
+      const rewritten = (
+        ext as unknown as {
+          rewriteExternalImportSpecifiers: (source: string) => { code: string; generatedUrls: string[] };
+        }
+      ).rewriteExternalImportSpecifiers(jsCode);
 
-      const manifest = { id: "after-unload", name: "X", description: "", version: "1" };
-      const PluginClass = vi.fn();
-      window.dispatchEvent(
-        new CustomEvent("tg-plugin-loaded", {
-          detail: { manifest, pluginClass: PluginClass },
-        }),
-      );
+      expect(rewritten.generatedUrls.length).toBe(1);
+      expect(rewritten.generatedUrls[0].startsWith("blob:")).toBe(true);
+      expect(rewritten.code).toContain(rewritten.generatedUrls[0]);
+      expect(rewritten.code).not.toContain(`"${HOST_MODULE_ID}"`);
 
-      // Plugin should NOT be registered (listener was removed on unload)
-      expect(ext.plugins.has("after-unload")).toBe(false);
+      rewritten.generatedUrls.forEach(url => URL.revokeObjectURL(url));
     });
   });
 });

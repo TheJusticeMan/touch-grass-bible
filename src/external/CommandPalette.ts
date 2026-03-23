@@ -1177,13 +1177,12 @@ export abstract class CommandCategory<T> {
 
     return criteria
       .map(cb =>
-        array.filter((item, index) => {
-          return (
+        array.filter(
+          (item, index) =>
             !matchedIndices.has(index) &&
             cb(item).toLowerCase().includes(lowerQuery) &&
-            (matchedIndices.add(index), true) // Add index to matched set
-          );
-        }),
+            (matchedIndices.add(index), true), // Add index to matched set
+        ),
       )
       .flat();
   }

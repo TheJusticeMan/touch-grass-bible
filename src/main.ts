@@ -1,7 +1,7 @@
 export const processstart = new Date().getTime();
 import { DEFAULT_CATEGORY_ORDER, DEFAULT_SETTINGS, TGAppSettings } from "./config/TGAppSettings";
 import { ExternalPlugins } from "./core/ExternalPlugins";
-import Plugin, { InternalPlugins, type IconActionItem, type PluginMetadata } from "./core/Plugin";
+import { InternalPlugins, type IconActionItem } from "./core/Plugin";
 import { App } from "./external/App";
 import "./external/MyHTML";
 import { WorkspaceLayout } from "./external/Workspace";
@@ -232,15 +232,6 @@ export default class TouchGrassBibleApp extends App {
 
     if (__ENABLE_EXTERNAL_PLUGINS__) {
       this.externalPlugins = new ExternalPlugins(this);
-      window.TouchGrassAPI = {
-        BasePlugin: Plugin,
-        registerPlugin: (
-          manifest: PluginMetadata,
-          pluginClass: new (app: TouchGrassBibleApp, manifest: PluginMetadata) => Plugin,
-        ) => {
-          window.dispatchEvent(new CustomEvent("tg-plugin-loaded", { detail: { manifest, pluginClass } }));
-        },
-      };
       await this.externalPlugins.load();
       await this.externalPlugins.loadAll();
     }

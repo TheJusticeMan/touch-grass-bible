@@ -379,6 +379,31 @@ export class Files {
   }
 
   /**
+   * Uploads a text file and returns its raw content without JSON parsing
+   * @param accept - File type filter (e.g., ".js", ".txt")
+   * @param onFileContent - Callback with the raw file content
+   * @param onError - Optional callback for error handling
+   * @param onWarn - Optional callback for warnings
+   */
+  async uploadTextFile(
+    accept: string,
+    onFileContent: (content: string) => void,
+    onError?: (error: unknown) => void,
+    onWarn?: (message: string) => void,
+  ): Promise<void> {
+    try {
+      const fileContent = await this.platformBridge.files.pickFileText(accept);
+      if (fileContent === null) {
+        if (onWarn) onWarn("No file selected for upload.");
+        return;
+      }
+      onFileContent(fileContent);
+    } catch (error) {
+      if (onError) onError(error);
+    }
+  }
+
+  /**
    * Downloads a JSON file with the given filename and data
    * @param filename - The name of the file to download
    * @param data - The data to include in the file

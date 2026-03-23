@@ -462,7 +462,7 @@ class LayoutTreeService {
  * This is not specific to my bible app, but a general workspace manager for any application with multiple views.
  * It provides a flexible and extensible framework for managing complex UI layouts and interactions.
  *
- * Ideas from Obsidian's workspace management, but adapted for a more general use case.
+ * Ideas from modern workspace management, adapted for a general use case.
  */
 export class Workspace extends ETarget<WorkspaceEvents> {
   private RegisteredViews: Map<string, ViewFactory> = new Map();

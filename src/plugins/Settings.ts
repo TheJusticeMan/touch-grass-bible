@@ -74,6 +74,55 @@ class SettingsCategory extends CommandCategory<string> {
             this.commandPalette.display({ topCategory: "" });
           });
       });
+
+    // Plugin management section
+    if (this.plugin.app.externalPlugins) {
+      new CMD(this.defaultCMD)
+        .setName("Install plugin")
+        .setDescription("Upload a JavaScript plugin file (.js)")
+        .on("_click", () => {
+          this.plugin.app.files.uploadTextFile(
+            ".js",
+            jsCode => {
+              // Generate filename from timestamp or ask user
+              const filename = `plugin-${Date.now()}.js`;
+              void this.plugin.app.externalPlugins!.installPlugin(jsCode, filename).then(() => {
+                this.plugin.app.console.log(`Plugin installed: ${filename}`);
+                // Reload plugins to get the newly installed one
+                void this.plugin.app.externalPlugins!.loadAll();
+              });
+            },
+            error => this.plugin.app.console.error("Failed to upload plugin:", error),
+            message => this.plugin.app.console.warn(message),
+          );
+        });
+
+      new CMD(this.defaultCMD)
+        .setName("Manage plugins")
+        .setDescription("View and manage installed plugins")
+        .on("_click", async () => {
+          const installedPlugins = await this.plugin.app.externalPlugins!.getInstalledPlugins();
+          if (installedPlugins.length === 0) {
+            this.plugin.app.console.log("No plugins installed");
+            return;
+          }
+
+          for (const filename of installedPlugins) {
+            new CMD(this.defaultCMD)
+              .setName(`Uninstall: ${filename}`)
+              .setDescription("Remove this plugin")
+              .on("_click", () => {
+                this.plugin.app.commandPalette.confirm(`Uninstall plugin: ${filename}?`).then(confirmed => {
+                  if (!confirmed) return;
+                  void this.plugin.app.externalPlugins!.uninstallPlugin(filename).then(() => {
+                    this.plugin.app.console.log(`Plugin uninstalled: ${filename}`);
+                  });
+                });
+              });
+          }
+        });
+    }
+
     new CMD(this.defaultCMD)
       .setName("Keyboard shortcuts")
       .setDescription(

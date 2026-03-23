@@ -11,6 +11,7 @@ export default [
   pluginSecurity.configs.recommended,
   {
     rules: {
+      "arrow-body-style": ["error", "as-needed"],
       "no-eval": "error",
       "no-implied-eval": "error",
       "no-new-func": "error",
