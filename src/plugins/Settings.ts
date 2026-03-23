@@ -12,7 +12,7 @@ import { SettingsCategoryID } from "./categoryIDs";
 
 export default class SettingsPlugin extends Plugin {
   async onload(): Promise<void> {
-    this.registerPalette(() => new SettingsCategory(this.palette.instance, this), SettingsCategoryID);
+    this.registerPalette(() => new SettingsCategory(this.app.commandPalette, this), SettingsCategoryID);
   }
 }
 
@@ -42,13 +42,13 @@ class SettingsCategory extends CommandCategory<string> {
       .setDescription("Download your current settings as a JSON file")
       .on("_click", () => {
         this.plugin.app.saveSettings();
-        this.plugin.files.download("TouchGrassBibleSettings.json", this.plugin.app.settings);
+        this.plugin.app.files.downloadFile("TouchGrassBibleSettings.json", this.plugin.app.settings);
       });
     new CMD(this.defaultCMD)
       .setName("Upload settings")
       .setDescription("Upload a JSON file to update your settings")
       .on("_click", () => {
-        this.plugin.files.upload(
+        this.plugin.app.files.uploadFile(
           ".json",
           newSettings => {
             this.plugin.app.settings = Object.assign({}, DEFAULT_SETTINGS, newSettings as object);
@@ -63,7 +63,7 @@ class SettingsCategory extends CommandCategory<string> {
       .setName("Reset settings")
       .setDescription("Reset settings to default values")
       .on("_click", () => {
-        this.plugin.palette
+        this.plugin.app.commandPalette
           .confirm("Are you sure you want to delete all your data including bookmarks?")
           .then(confirmed => {
             if (!confirmed) return;

@@ -37,13 +37,13 @@ export default class GesturePlugin extends Plugin {
       this.settings.commandGestures,
       line => {
         this.lastLine = line;
-        this.palette.instance.opencategory(GestureAddCommandsCategoryID);
+        this.app.commandPalette.opencategory(GestureAddCommandsCategoryID);
       },
-      ({ id }) => this.palette.instance.commands.executeCommand(id),
+      ({ id }) => this.app.commandPalette.commands.executeCommand(id),
     );
 
     this.registerHiddenPalette(
-      () => new AddGesture(this.palette.instance, this),
+      () => new AddGesture(this.app.commandPalette, this),
       GestureAddCommandsCategoryID,
     );
   }

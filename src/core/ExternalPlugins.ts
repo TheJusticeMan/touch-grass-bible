@@ -91,12 +91,12 @@ export class ExternalPlugins extends Component {
   async installPlugin(jsCode: string, filename: string): Promise<void> {
     try {
       const path = `${PLUGINS_DIR}/${filename}`;
-      await this.host.writeTextFile(path, jsCode);
+      await this.host.files.writeTextFile(path, jsCode);
 
       const index = await this.readIndex();
       if (!index.includes(filename)) {
         index.push(filename);
-        await this.host.writeTextFile(PLUGIN_INDEX, JSON.stringify(index));
+        await this.host.files.writeTextFile(PLUGIN_INDEX, JSON.stringify(index));
       }
 
       this.host.console.log(`[ExternalPlugins] Installed plugin: ${filename}`);
@@ -125,7 +125,7 @@ export class ExternalPlugins extends Component {
     for (const filename of filenames) {
       try {
         const path = `${PLUGINS_DIR}/${filename}`;
-        const jsCode = await this.host.readTextFile(path);
+        const jsCode = await this.host.files.readTextFile(path);
         await this.evaluatePluginCode(jsCode, filename);
       } catch (e) {
         this.host.console.error(`[ExternalPlugins] Failed to load plugin "${filename}":`, e);
@@ -140,7 +140,7 @@ export class ExternalPlugins extends Component {
    */
   private async readIndex(): Promise<string[]> {
     try {
-      const content = await this.host.readTextFile(PLUGIN_INDEX);
+      const content = await this.host.files.readTextFile(PLUGIN_INDEX);
       return JSON.parse(content) as string[];
     } catch {
       return [];

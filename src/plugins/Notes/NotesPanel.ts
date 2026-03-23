@@ -324,7 +324,7 @@ class noteEditor extends ETarget<{ open: void; close: void }> {
       return this;
     }
 
-    this.dialog = this.plugin.workspace.openDialog({
+    this.dialog = this.plugin.app.workspace.openDialog({
       id: `note-editor-${Date.now()}`,
       title: "",
       modal: false,

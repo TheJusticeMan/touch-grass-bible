@@ -16,16 +16,16 @@ import { VerseInfoComponent } from "src/ui/VerseScreen";
 
 export default class TopicalBiblePlugin extends Plugin {
   topics: BibleTopics = new BibleTopics({}); // Initialize with empty topics
-  topic = this.palette.useState(""); // State to track the currently selected topic
+  topic = this.app.commandPalette.useState(""); // State to track the currently selected topic
 
   async onload(): Promise<void> {
     try {
-      this.topics = new BibleTopics(await this.files.loadJSON<BibleTopicsType>("topics.json"));
+      this.topics = new BibleTopics(await this.app.files.loadJSON<BibleTopicsType>("topics.json"));
     } catch (e) {
       this.console.error("Failed to load topics.json. Topical Bible will be unavailable.", e);
     }
 
-    this.registerPalette(() => new topicListCategory(this.palette.instance, this), TopicListCategoryID);
+    this.registerPalette(() => new topicListCategory(this.app.commandPalette, this), TopicListCategoryID);
 
     this.addVerseAction({
       id: "topic",

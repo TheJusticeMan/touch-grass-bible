@@ -15,6 +15,7 @@ import { DragDropController, type PanelDropEdge } from "./WorkspaceDragDrop";
 import { WorkspaceLayoutModel } from "./WorkspaceLayoutModel";
 import { GlobalSwipeHandler } from "./WorkspaceMobileSwipe";
 import { monkeypatchAllWorkspaceMethods } from "./WorkspaceTrace";
+import { Files } from "./App";
 
 const WORKSPACE_CONFIG_NAME = "workspace";
 const AUTO_SAVE_DELAY_MS = 500;
@@ -106,8 +107,7 @@ type WorkspaceDialogEvents = {
 
 export type WorkspaceHost = {
   contentEl: HTMLElement;
-  loadConfig(name: string): Promise<string>;
-  saveConfig(name: string, content: string): Promise<void>;
+  files: Files;
   getDefaultWorkspaceLayout(): WorkspaceLayout;
   onWorkspaceLayoutInvalid(error: unknown): void;
   onWorkspaceLayoutRejected(): void;
@@ -583,7 +583,7 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     }
 
     this.initializingPromise = (async () => {
-      const rawLayout = await this.app!.loadConfig(WORKSPACE_CONFIG_NAME);
+      const rawLayout = await this.app!.files.loadConfig(WORKSPACE_CONFIG_NAME);
       const restored = this.restoreLayoutFromString(rawLayout, this.app!.getDefaultWorkspaceLayout(), {
         onInvalidJSON: error => this.app?.onWorkspaceLayoutInvalid(error),
         onRejectedLayout: () => this.app?.onWorkspaceLayoutRejected(),
@@ -605,7 +605,7 @@ export class Workspace extends ETarget<WorkspaceEvents> {
       return;
     }
     const serializedLayout = this.serializeLayout();
-    await this.app.saveConfig(WORKSPACE_CONFIG_NAME, JSON.stringify(serializedLayout));
+    await this.app.files.saveConfig(WORKSPACE_CONFIG_NAME, JSON.stringify(serializedLayout));
   }
 
   saveAfterDelay(delay: number = AUTO_SAVE_DELAY_MS) {

@@ -47,7 +47,7 @@ export default class NotesPlugin extends Plugin {
     }
     this.Vault.loadNotes(this.settings.ExtraNotes.map(nj => Note.fromJSON(nj)));
 
-    this.registerPalette(() => new myNotesCategory(this.palette.instance, this), myNotesCategoryID);
+    this.registerPalette(() => new myNotesCategory(this.app.commandPalette, this), myNotesCategoryID);
     this.registerView("notes-panel", panel => {
       return new NotesPanel(panel, this);
     });

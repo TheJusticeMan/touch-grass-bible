@@ -353,8 +353,10 @@ describe("Workspace dialog manager", () => {
   const createWorkspaceWithHost = (): Workspace => {
     const host: ConstructorParameters<typeof Workspace>[0] = {
       contentEl: document.body,
-      loadConfig: async () => "",
-      saveConfig: async () => {},
+      files: {
+        loadConfig: async () => "",
+        saveConfig: async () => {},
+      } as unknown as NonNullable<ConstructorParameters<typeof Workspace>[0]>["files"],
       getDefaultWorkspaceLayout: () => ({
         version: 2,
         rootPanel: {

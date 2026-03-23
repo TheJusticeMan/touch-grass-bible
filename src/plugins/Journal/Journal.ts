@@ -37,7 +37,7 @@ export default class JournalPlugin extends Plugin {
       return view;
     });
 
-    this.registerPalette(() => new JournalCategory(this.palette.instance, this), JournalCategoryID);
+    this.registerPalette(() => new JournalCategory(this.app.commandPalette, this), JournalCategoryID);
 
     this.addVerseAction({
       id: "journal-log-verse",
@@ -53,15 +53,15 @@ export default class JournalPlugin extends Plugin {
   }
 
   openJournal(): void {
-    const activated = this.workspace.activate(JournalViewID);
+    const activated = this.app.workspace.activateView(JournalViewID);
     if (!activated) {
-      const activePanel = this.workspace.activePanel;
+      const activePanel = this.app.workspace.activePanel;
       const targetPanel =
         activePanel?.getMode() === "TabGroup"
           ? activePanel
-          : (this.workspace.rootPanel.childPanels.at(-1)?.panel ?? null);
+          : (this.app.workspace.rootPanel.childPanels.at(-1)?.panel ?? null);
       if (targetPanel) {
-        this.workspace.open(JournalViewID, targetPanel, {
+        this.app.workspace.openView(JournalViewID, targetPanel, {
           title: "Journal",
           activate: true,
         });

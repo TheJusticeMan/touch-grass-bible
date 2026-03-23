@@ -11,8 +11,8 @@ import { BibleMatch, parseGoToVerseQuery } from "./searchParser.ts";
 
 export default class BibleSearchPlugin extends Plugin {
   async onload(): Promise<void> {
-    this.registerPalette(() => new BibleSearchCategory(this.palette.instance, this), BibleSearchCategoryID);
-    this.registerPalette(() => new GoToVerseCategory(this.palette.instance, this), GoToVerseCategoryID);
+    this.registerPalette(() => new BibleSearchCategory(this.app.commandPalette, this), BibleSearchCategoryID);
+    this.registerPalette(() => new GoToVerseCategory(this.app.commandPalette, this), GoToVerseCategoryID);
   }
 }
 

@@ -31,7 +31,7 @@ const defaultBookmarks: BookmarkSettings = {
 };
 
 export default class BookmarkPlugin extends Plugin {
-  tag = this.palette.useState("Start Up Verses"); // State to track the currently selected bookmark tag
+  tag = this.app.commandPalette.useState("Start Up Verses"); // State to track the currently selected bookmark tag
   settings: BookmarkSettings = defaultBookmarks;
   Bookmarks = new BibleTopics({});
 
@@ -57,8 +57,8 @@ export default class BookmarkPlugin extends Plugin {
       if (el) el.scrollIntoView({ behavior: "smooth" });
     }
 
-    this.registerPalette(() => new VerseListCategory(this.palette.instance, this), VerseListCategoryID);
-    this.registerPalette(() => new BookmarkCategory(this.palette.instance, this), BookmarkCategoryID);
+    this.registerPalette(() => new VerseListCategory(this.app.commandPalette, this), VerseListCategoryID);
+    this.registerPalette(() => new BookmarkCategory(this.app.commandPalette, this), BookmarkCategoryID);
 
     this.addVerseAction({
       id: "bookmark",
@@ -277,7 +277,7 @@ class BookmarkCategory extends CommandCategory<string> {
       .setDescription("Save the current verse to a bookmark tag")
       .on("_click", () => {
         this.console.log("Prompting for new bookmark tag for", verse.toString());
-        this.plugin.palette.prompt("Enter new bookmark tag").then(st => {
+        this.plugin.app.commandPalette.prompt("Enter new bookmark tag").then(st => {
           this.console.log("Adding bookmark", verse.toString(), "to tag", st);
           if (!st) return;
           this.console.log("Adding bookmark", verse.toString(), "to tag", st);

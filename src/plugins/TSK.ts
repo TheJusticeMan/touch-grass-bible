@@ -16,13 +16,13 @@ export default class TSK extends Plugin {
   crossRefs: { [OSIS: string]: [OSIS, number][] } = {};
   async onload(): Promise<void> {
     try {
-      this.crossRefs = await this.files.loadJSON<{
+      this.crossRefs = await this.app.files.loadJSON<{
         [OSIS: string]: [OSIS, number][];
       }>("crossrefs.json");
     } catch (e) {
       this.console.error("Failed to load crossrefs.json. Cross references will be unavailable.", e);
     }
-    this.registerPalette(() => new CrossRefCategory(this.palette.instance, this), TSKCrossRefCategoryID);
+    this.registerPalette(() => new CrossRefCategory(this.app.commandPalette, this), TSKCrossRefCategoryID);
 
     this.addVerseAction({
       id: "cross-ref",

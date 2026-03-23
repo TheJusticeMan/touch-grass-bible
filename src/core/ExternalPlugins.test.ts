@@ -13,8 +13,10 @@ function makeApp(overrides: Record<string, unknown> = {}) {
       warn: vi.fn(),
       error: vi.fn(),
     },
-    readTextFile: vi.fn<[string], Promise<string>>(),
-    writeTextFile: vi.fn<[string, string], Promise<void>>(),
+    files: {
+      readTextFile: vi.fn(),
+      writeTextFile: vi.fn(),
+    },
     ...overrides,
   } as unknown as import("../main").default;
 }
@@ -43,25 +45,22 @@ describe("ExternalPlugins", () => {
 
   describe("installPlugin", () => {
     test("writes plugin source to plugins/<filename>", async () => {
-      vi.mocked(app.readTextFile).mockResolvedValue("[]");
-      vi.mocked(app.writeTextFile).mockResolvedValue(undefined);
+      vi.mocked(app.files.readTextFile).mockResolvedValue("[]");
+      vi.mocked(app.files.writeTextFile).mockResolvedValue(undefined);
 
       await ext.installPlugin('console.log("hello")', "my-plugin.js");
 
-      expect(app.writeTextFile).toHaveBeenCalledWith(
-        "plugins/my-plugin.js",
-        'console.log("hello")',
-      );
+      expect(app.files.writeTextFile).toHaveBeenCalledWith("plugins/my-plugin.js", 'console.log("hello")');
     });
 
     test("adds filename to index when it is new", async () => {
-      vi.mocked(app.readTextFile).mockResolvedValue("[]");
-      vi.mocked(app.writeTextFile).mockResolvedValue(undefined);
+      vi.mocked(app.files.readTextFile).mockResolvedValue("[]");
+      vi.mocked(app.files.writeTextFile).mockResolvedValue(undefined);
 
       await ext.installPlugin("// code", "new-plugin.js");
 
       const indexCalls = vi
-        .mocked(app.writeTextFile)
+        .mocked(app.files.writeTextFile)
         .mock.calls.filter(([path]) => path === "plugins/index.json");
 
       expect(indexCalls).toHaveLength(1);
@@ -69,21 +68,21 @@ describe("ExternalPlugins", () => {
     });
 
     test("does not duplicate filename in index", async () => {
-      vi.mocked(app.readTextFile).mockResolvedValue('["existing.js"]');
-      vi.mocked(app.writeTextFile).mockResolvedValue(undefined);
+      vi.mocked(app.files.readTextFile).mockResolvedValue('["existing.js"]');
+      vi.mocked(app.files.writeTextFile).mockResolvedValue(undefined);
 
       await ext.installPlugin("// code", "existing.js");
 
       const indexCalls = vi
-        .mocked(app.writeTextFile)
+        .mocked(app.files.writeTextFile)
         .mock.calls.filter(([path]) => path === "plugins/index.json");
 
       expect(indexCalls).toHaveLength(0);
     });
 
     test("logs an error when writeTextFile rejects", async () => {
-      vi.mocked(app.readTextFile).mockResolvedValue("[]");
-      vi.mocked(app.writeTextFile).mockRejectedValue(new Error("disk full"));
+      vi.mocked(app.files.readTextFile).mockResolvedValue("[]");
+      vi.mocked(app.files.writeTextFile).mockRejectedValue(new Error("disk full"));
 
       await ext.installPlugin("// code", "broken.js");
 
@@ -97,7 +96,7 @@ describe("ExternalPlugins", () => {
 
   describe("loadAll", () => {
     test("does nothing and logs no error when index is empty", async () => {
-      vi.mocked(app.readTextFile).mockResolvedValue("[]");
+      vi.mocked(app.files.readTextFile).mockResolvedValue("[]");
 
       await ext.loadAll();
 
@@ -105,7 +104,7 @@ describe("ExternalPlugins", () => {
     });
 
     test("does nothing when index read fails (treated as empty)", async () => {
-      vi.mocked(app.readTextFile).mockRejectedValue(new Error("not found"));
+      vi.mocked(app.files.readTextFile).mockRejectedValue(new Error("not found"));
 
       await ext.loadAll();
 
@@ -114,7 +113,7 @@ describe("ExternalPlugins", () => {
     });
 
     test("logs error for each plugin file that fails to load", async () => {
-      vi.mocked(app.readTextFile)
+      vi.mocked(app.files.readTextFile)
         .mockResolvedValueOnce('["bad.js"]') // index read
         .mockRejectedValueOnce(new Error("read error")); // plugin file read
 

@@ -96,7 +96,7 @@ export default class TouchGrassBibleApp extends App {
     // Load all JSON files in parallel for faster startup
     let translations: { [translation: string]: bibleData } = {};
     try {
-      translations = await this.loadJSON<{ [translation: string]: bibleData }>("translations.json");
+      translations = await this.files.loadJSON<{ [translation: string]: bibleData }>("translations.json");
     } catch (e) {
       this.console.error("Failed to load translations.json. App may not function correctly.", e);
     }
@@ -289,11 +289,11 @@ export default class TouchGrassBibleApp extends App {
   }
 
   async loadsettings(DEFAULT_SETTINGS: TGAppSettings) {
-    this.settings = deepMerge(DEFAULT_SETTINGS, (await this.loadData()) as Partial<TGAppSettings>);
+    this.settings = deepMerge(DEFAULT_SETTINGS, (await this.files.loadData()) as Partial<TGAppSettings>);
   }
 
   saveSettings() {
-    this.saveData(this.settings as Partial<TGAppSettings>);
+    this.files.saveData(this.settings as Partial<TGAppSettings>);
   }
 
   saveSettingsAfterDelay(delay: number = 5000) {

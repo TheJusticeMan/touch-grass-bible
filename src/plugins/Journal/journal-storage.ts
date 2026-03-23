@@ -39,7 +39,7 @@ export class JournalStorage {
 
   async readIndex(): Promise<JournalIndex> {
     try {
-      const parsed = await this.plugin.files.readJson<JournalIndex>(JOURNAL_INDEX_PATH);
+      const parsed = await this.plugin.app.files.readJson<JournalIndex>(JOURNAL_INDEX_PATH);
       if (!Array.isArray(parsed?.dates)) {
         return { dates: [] };
       }
@@ -51,7 +51,7 @@ export class JournalStorage {
 
   async writeIndex(index: JournalIndex): Promise<void> {
     const normalized = Array.from(new Set(index.dates.filter(Boolean))).sort();
-    await this.plugin.files.writeJson(JOURNAL_INDEX_PATH, { dates: normalized });
+    await this.plugin.app.files.writeJson(JOURNAL_INDEX_PATH, { dates: normalized });
   }
 
   async ensureDayInIndex(dateKey: string): Promise<void> {
@@ -64,7 +64,7 @@ export class JournalStorage {
 
   async readDay(dateKey: string): Promise<JournalDay | null> {
     try {
-      const day = await this.plugin.files.readJson<JournalDay>(this.getDayPath(dateKey));
+      const day = await this.plugin.app.files.readJson<JournalDay>(this.getDayPath(dateKey));
       return {
         date: dateKey,
         entries: Array.isArray(day?.entries) ? day.entries : [],
@@ -75,7 +75,7 @@ export class JournalStorage {
   }
 
   async writeDay(day: JournalDay): Promise<void> {
-    await this.plugin.files.writeJson(this.getDayPath(day.date), day);
+    await this.plugin.app.files.writeJson(this.getDayPath(day.date), day);
     await this.ensureDayInIndex(day.date);
   }
 

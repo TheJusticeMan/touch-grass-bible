@@ -102,6 +102,8 @@ abstract class App extends ETarget<{
   /** Shared command palette instance used across the app shell. */
   commandPalette!: UnifiedCommandPalette;
 
+  files: Files;
+
   /**
    * Creates an application shell and wires global listeners.
    *
@@ -120,6 +122,7 @@ abstract class App extends ETarget<{
     this.console.header("color:#f0f; font-size:40px; font-weight:bold;");
     this.contentEl = this.doc.body.createEl("div", { cls: "app-shell-element" });
     this.workspace = new Workspace(this);
+    this.files = new Files(this.platformBridge);
     this.commandPalette = new UnifiedCommandPalette(this);
     new touchDragger(this.contentEl).onany((name, e) => this.workspace.emit(name, e));
 
@@ -190,6 +193,48 @@ abstract class App extends ETarget<{
    * Return `true` to allow unload and workspace shutdown.
    */
   abstract onunload(): boolean;
+
+  /**
+   * Supplies the fallback workspace layout for invalid or absent saved layouts.
+   */
+  abstract getDefaultWorkspaceLayout(): WorkspaceLayout;
+
+  /**
+   * Called when persisted workspace layout JSON cannot be parsed or validated.
+   *
+   * @param error - Underlying parse/validation error.
+   */
+  onWorkspaceLayoutInvalid(error: unknown) {
+    this.console.warn("Invalid workspace config JSON. Falling back to default layout.", error);
+  }
+
+  /** Called when persisted workspace layout is explicitly rejected. */
+  onWorkspaceLayoutRejected() {
+    this.console.warn("Workspace layout rejected. Falling back to default layout.");
+  }
+
+  /**
+   * Getter for app title
+   * @returns The current title of the app
+   */
+  get title(): string {
+    return this.doc.title;
+  }
+
+  /**
+   * Setter for app title
+   * empty string will reset to default title
+   * @param value - The new title for the app
+   */
+  set title(value: string) {
+    this.doc.title = value || this._title;
+  }
+}
+
+export class Files {
+  console = new BrowserConsole(true, `Files:`);
+
+  constructor(public platformBridge: PlatformBridge) {}
 
   /**
    * Saves the provided data object to the current platform storage under the key "app-data".
@@ -285,7 +330,7 @@ abstract class App extends ETarget<{
    * @param path - File path to read.
    * @returns Parsed JSON value.
    */
-  async readJsonFile<T>(path: string): Promise<T> {
+  async readJson<T>(path: string): Promise<T> {
     return this.platformBridge.files.readJsonFile<T>(path);
   }
 
@@ -295,44 +340,8 @@ abstract class App extends ETarget<{
    * @param path - Destination file path.
    * @param data - JSON-serializable value to write.
    */
-  async writeJsonFile(path: string, data: unknown): Promise<void> {
+  async writeJson(path: string, data: unknown): Promise<void> {
     await this.platformBridge.files.writeJsonFile(path, data);
-  }
-
-  /**
-   * Supplies the fallback workspace layout for invalid or absent saved layouts.
-   */
-  abstract getDefaultWorkspaceLayout(): WorkspaceLayout;
-
-  /**
-   * Called when persisted workspace layout JSON cannot be parsed or validated.
-   *
-   * @param error - Underlying parse/validation error.
-   */
-  onWorkspaceLayoutInvalid(error: unknown) {
-    this.console.warn("Invalid workspace config JSON. Falling back to default layout.", error);
-  }
-
-  /** Called when persisted workspace layout is explicitly rejected. */
-  onWorkspaceLayoutRejected() {
-    this.console.warn("Workspace layout rejected. Falling back to default layout.");
-  }
-
-  /**
-   * Getter for app title
-   * @returns The current title of the app
-   */
-  get title(): string {
-    return this.doc.title;
-  }
-
-  /**
-   * Setter for app title
-   * empty string will reset to default title
-   * @param value - The new title for the app
-   */
-  set title(value: string) {
-    this.doc.title = value || this._title;
   }
 
   /**
