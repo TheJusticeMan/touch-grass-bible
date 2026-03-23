@@ -56,7 +56,8 @@ export class ExternalPlugins extends Component {
 
     this.ensureExternalModuleRegistry();
     this.registerExternalModule("src/core/Plugin", pluginCompatModule);
-    this.registerExternalModule(HOST_MODULE_ID, createExternalHostApi(this.host));
+    const hostApi = createExternalHostApi(this.host);
+    this.registerExternalModule(HOST_MODULE_ID, hostApi);
   }
 
   private registerPlugin(manifest: PluginMetadata, pluginClass: ExternalPluginClass): void {

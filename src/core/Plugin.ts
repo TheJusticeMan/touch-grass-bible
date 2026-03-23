@@ -2,7 +2,7 @@ import { IconNode, Terminal } from "lucide";
 import { Command } from "src/external/Commands";
 import { CategoryLoaderFunc } from "../external/CommandPalette";
 import { BrowserConsole } from "../external/MyBrowserConsole";
-import { LayoutNode, View } from "../external/Workspace";
+import { LayoutNode, View } from "../external/Workspace/Workspace";
 import TouchGrassBibleApp from "../main";
 import { VerseInfoComponent } from "../ui/VerseScreen";
 

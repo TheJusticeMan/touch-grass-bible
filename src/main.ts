@@ -4,7 +4,7 @@ import { ExternalPlugins } from "./core/ExternalPlugins";
 import { InternalPlugins, type IconActionItem } from "./core/Plugin";
 import { App } from "./external/App";
 import "./external/MyHTML";
-import { WorkspaceLayout } from "./external/Workspace";
+import { WorkspaceLayout } from "./external/Workspace/Workspace";
 import info from "./info.json";
 import "./main.css";
 import AIPlugin from "./plugins/AI/AI";
@@ -25,27 +25,7 @@ import type { PaletteState } from "./external/PaletteStateController";
 import { bibleData, VerseRef } from "./models/VerseRef";
 import SharePlugin from "./plugins/Share";
 import { VerseScreen } from "./ui/VerseScreen";
-
-function isPlainObject(value: unknown): value is object {
-  return value !== null && value !== undefined && typeof value === "object" && !Array.isArray(value);
-}
-
-function deepMerge<T extends object>(defaults: T, saved: Partial<T>): T {
-  const result = { ...defaults } as T;
-  for (const key in saved) {
-    const k = key as keyof T;
-    if (isPlainObject(saved[k])) {
-      if (isPlainObject(defaults[k])) {
-        result[k] = deepMerge(defaults[k] as object, saved[k] as object) as T[keyof T];
-      } else {
-        result[k] = saved[k] as T[keyof T];
-      }
-    } else if (saved[k] !== undefined) {
-      result[k] = saved[k] as T[keyof T];
-    }
-  }
-  return result;
-}
+import { deepMerge } from "./deepMerge";
 
 /**
  * Main application class for the Touch Grass Bible app.

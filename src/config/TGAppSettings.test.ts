@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { DEFAULT_SETTINGS } from "./config/TGAppSettings";
+import { DEFAULT_SETTINGS } from "./TGAppSettings";
 
 describe("TGAppSettings", () => {
   test("DEFAULT_SETTINGS style has Font as Fontserif", () => {

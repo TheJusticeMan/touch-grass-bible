@@ -1,8 +1,8 @@
 // Workspace.ts
 
 import { Copy, IconNode, Minimize, Plus, X } from "lucide";
-import { Button, UIComponent } from "./UIComponents";
-import { ETarget } from "./Event";
+import { Button, UIComponent } from "../UIComponents";
+import { ETarget } from "../Event";
 import "./Workspace.css";
 import {
   WorkspacePanelContainer,
@@ -15,7 +15,7 @@ import { DragDropController, type PanelDropEdge } from "./WorkspaceDragDrop";
 import { WorkspaceLayoutModel } from "./WorkspaceLayoutModel";
 import { GlobalSwipeHandler } from "./WorkspaceMobileSwipe";
 import { monkeypatchAllWorkspaceMethods } from "./WorkspaceTrace";
-import { Files } from "./App";
+import { Files } from "../App";
 
 const WORKSPACE_CONFIG_NAME = "workspace";
 const AUTO_SAVE_DELAY_MS = 500;

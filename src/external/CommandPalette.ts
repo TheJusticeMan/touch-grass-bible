@@ -5,7 +5,7 @@ import "./CommandPalette.css";
 import { ETarget } from "./Event";
 import { PaletteState, PaletteStateController } from "./PaletteStateController";
 import { IconActionComponent, inputMode, Item, TextInput, UIComponent } from "./UIComponents";
-import { WorkspaceDialog } from "./Workspace";
+import { WorkspaceDialog } from "./Workspace/Workspace";
 
 import { CMD } from "./Comands";
 import { Commands } from "./Commands";

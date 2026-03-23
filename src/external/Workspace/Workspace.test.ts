@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, test } from "vitest";
-import { UnifiedCommandPalette } from "./CommandPalette";
+import { UnifiedCommandPalette } from "../CommandPalette";
 import { View, Workspace, WorkspaceDialog } from "./Workspace";
 
 function installWorkspaceDomPolyfills(): void {

@@ -11,7 +11,7 @@ await esbuild.build({
   entryPoints: [resolve(__dirname, "main.ts")],
   outfile: resolve(__dirname, "main.js"),
   bundle: true,
-  external: ["src/*"],
+  external: ["src/*", "@touch-grass-bible", "@touch-grass-bible/host"],
   format: "esm",
   platform: "browser",
   target: "es2020",

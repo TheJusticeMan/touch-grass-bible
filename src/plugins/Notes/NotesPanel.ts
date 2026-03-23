@@ -1,5 +1,5 @@
 import { ChevronLeft, Plus, X } from "lucide";
-import { LayoutNode, View, WorkspaceDialog } from "../../external/Workspace";
+import { LayoutNode, View, WorkspaceDialog } from "../../external/Workspace/Workspace";
 import { myNotesCategoryID } from "../categoryIDs";
 import NotesPlugin from "./Notes";
 import "./NotesPanel.css";

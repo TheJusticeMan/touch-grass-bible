@@ -1,11 +1,12 @@
 import { DEFAULT_CATEGORY_ORDER, DEFAULT_SETTINGS } from "../config/TGAppSettings";
 import { CommandPaletteState } from "../external/CommandPalette";
 import { BrowserConsole } from "../external/MyBrowserConsole";
+import { LayoutNode, View } from "../external/Workspace/Workspace";
 import TouchGrassBibleApp from "../main";
 import { VerseRef } from "../models/VerseRef";
 import Plugin, { Component } from "./Plugin";
 
-export const HOST_MODULE_ID = "@touch-grass-bible/host" as const;
+export const HOST_MODULE_ID = "@touch-grass-bible" as const;
 export const HOST_API_VERSION = "1.0.0" as const;
 
 export type ExternalHostApi = {
@@ -18,6 +19,8 @@ export type ExternalHostApi = {
   readonly VerseRef: typeof VerseRef;
   readonly CommandPaletteState: typeof CommandPaletteState;
   readonly BrowserConsole: typeof BrowserConsole;
+  readonly View: typeof View;
+  readonly LayoutNode: typeof LayoutNode;
   readonly DEFAULT_SETTINGS: typeof DEFAULT_SETTINGS;
   readonly DEFAULT_CATEGORY_ORDER: typeof DEFAULT_CATEGORY_ORDER;
 };
@@ -33,6 +36,8 @@ export function createExternalHostApi(app: TouchGrassBibleApp): ExternalHostApi 
     VerseRef,
     CommandPaletteState,
     BrowserConsole,
+    View,
+    LayoutNode,
     DEFAULT_SETTINGS,
     DEFAULT_CATEGORY_ORDER,
   };

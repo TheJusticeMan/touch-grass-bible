@@ -1,5 +1,5 @@
 import apocalypseThrottle from "apocalypse-throttle";
-import { LayoutNode, View } from "../external/Workspace";
+import { LayoutNode, View } from "../external/Workspace/Workspace";
 import type { PaletteState } from "../external/PaletteStateController";
 import TouchGrassBibleApp from "../main";
 import { BookScroll, ChapterScroll } from "./Scroll";

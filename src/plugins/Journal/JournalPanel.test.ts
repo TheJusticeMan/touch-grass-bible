@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import type { LayoutNode } from "../../external/Workspace";
+import type { LayoutNode } from "../../external/Workspace/Workspace";
 import type { JournalDay, JournalEntry, JournalStorage } from "./journal-storage";
 import { EditableJournalEntry, JournalPanel } from "./JournalPanel";
 import { VerseRef } from "../../models/VerseRef";

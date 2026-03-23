@@ -1,5 +1,5 @@
 import { Item } from "../external/UIComponents";
-import { LayoutNode, View } from "../external/Workspace";
+import { LayoutNode, View } from "../external/Workspace/Workspace";
 import TouchGrassBibleApp from "../main";
 import { BookmarkCategoryID, BibleSearchCategoryID, myNotesCategoryID } from "../plugins/categoryIDs";
 

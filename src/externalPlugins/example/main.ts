@@ -1,4 +1,4 @@
-import Plugin from "src/core/Plugin";
+import { Plugin } from "@touch-grass-bible";
 import { TestView } from "./testView";
 
 export const manifest = {
