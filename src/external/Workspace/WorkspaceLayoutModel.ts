@@ -1,13 +1,13 @@
 import type { NodeType, SerializedPanel, WorkspaceLayout } from "./Workspace";
 
-export type LayoutNode = LayoutGroupNode | LayoutViewNode;
+export type LayoutNodeType = LayoutGroupNode | LayoutViewNode;
 
 export type LayoutGroupNode = {
   id: string;
   mode: "SplitGroup";
   splitDirection: "row" | "column";
   persistent?: boolean;
-  children: Array<{ size: number; panel: LayoutNode }>;
+  children: Array<{ size: number; panel: LayoutNodeType }>;
 };
 
 export type LayoutViewNode = {
