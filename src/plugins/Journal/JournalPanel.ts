@@ -1,7 +1,7 @@
-import { StackComponent, RowComponent, UIComponent } from "src/external/UIComponents";
+import { UIComponent } from "src/external/UIComponents";
+import { VerseRef } from "src/models/VerseRef";
 import { LayoutNode, View } from "../../external/Workspace";
 import type { JournalDay, JournalEntry, JournalStorage } from "./journal-storage";
-import { VerseRef } from "src/models/VerseRef";
 import "./JournalPanel.css";
 
 const LOAD_OLDER_THRESHOLD_PX = 120;
@@ -301,12 +301,8 @@ export class JournalPanel extends View {
   private renderShell(): void {
     this.containerEl.empty();
 
-    const root = new StackComponent(this.containerEl).addClass("journal-root").setGap(0);
-
-    const header = new RowComponent(root.element).addClass("journal-header").setJustify("between");
-    header.createChild("h3", { text: "Journal" });
-
-    this.streamEl = root.element.createEl("div", { cls: "journal-stream" });
+    this.streamEl = this.containerEl;
+    this.streamEl.addClass("journal-stream");
     this.streamEl.addEventListener("scroll", this.onStreamScroll);
   }
 

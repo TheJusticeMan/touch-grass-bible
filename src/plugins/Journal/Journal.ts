@@ -8,6 +8,7 @@ import {
 import Plugin from "../../core/Plugin";
 import { JournalPanel } from "./JournalPanel";
 import { JournalStorage } from "./journal-storage";
+import { Plus } from "lucide";
 
 const JournalCategoryID = "journal";
 const JournalViewID = "journal-panel";
@@ -24,7 +25,7 @@ export default class JournalPlugin extends Plugin {
   settings: JournalSettings = defaultJournalSettings;
   storage: JournalStorage = new JournalStorage(this);
   private panelInstances = new Set<JournalPanel>();
-  private lastVerseLog = "";
+  private lastVerseLog = new VerseRef("", 0, 0);
 
   async onload(): Promise<void> {
     this.settings = await this.loadSettings(defaultJournalSettings);
@@ -38,8 +39,12 @@ export default class JournalPlugin extends Plugin {
 
     this.registerPalette(() => new JournalCategory(this.palette.instance, this), JournalCategoryID);
 
-    this.registerStateChange(this.app.verseState, verse => {
-      void this.handleVerseChange(verse);
+    this.addVerseAction({
+      id: "journal-log-verse",
+      name: "Log Verse to Journal",
+      description: "Automatically log verses you read to your journal.",
+      icon: Plus,
+      onTrigger: verseInfo => void this.handleVerseChange(verseInfo.verse),
     });
   }
 
@@ -65,7 +70,7 @@ export default class JournalPlugin extends Plugin {
   }
 
   private async handleVerseChange(verse: VerseRef): Promise<void> {
-    const verseLabel = verse.toString();
+    const verseLabel = verse;
     if (verseLabel === this.lastVerseLog) {
       return;
     }
@@ -73,9 +78,7 @@ export default class JournalPlugin extends Plugin {
 
     const entry = await this.storage.appendVerseRef(verse);
     const dayKey = this.storage.todayKey();
-    this.panelInstances.forEach(panel => {
-      void panel.addLiveEntry(entry, dayKey);
-    });
+    this.panelInstances.forEach(panel => void panel.addLiveEntry(entry, dayKey));
   }
 }
 

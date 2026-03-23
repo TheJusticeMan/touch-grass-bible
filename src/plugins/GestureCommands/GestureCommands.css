@@ -1,9 +1,24 @@
+:root {
+  --distance-from-edge: 1.5em;
+}
+
 .gesture-button {
   position: fixed;
-  bottom: 3em;
-  right: 3em;
+  bottom: var(--distance-from-edge);
+  right: var(--distance-from-edge);
   z-index: var(--z-floating-action, 20);
-  transform: scale(2);
+  border: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
+  box-shadow: var(--shadow-glow, 0 0 16px -8px #fff);
+}
+
+.gesture-button::after {
+  content: "";
+  position: absolute;
+  /* Expand the hit area by the distance from edge in every direction */
+  top: calc(-1 * var(--distance-from-edge));
+  bottom: calc(-1 * var(--distance-from-edge));
+  left: calc(-1 * var(--distance-from-edge));
+  right: calc(-1 * var(--distance-from-edge));
 }
 
 .mobile-fab-dragline {
