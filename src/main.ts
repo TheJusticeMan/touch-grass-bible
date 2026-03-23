@@ -1,12 +1,12 @@
 export const processstart = new Date().getTime();
+import { DEFAULT_CATEGORY_ORDER, DEFAULT_SETTINGS, TGAppSettings } from "./config/TGAppSettings";
+import { ExternalPlugins } from "./core/ExternalPlugins";
+import Plugin, { InternalPlugins, type IconActionItem, type PluginMetadata } from "./core/Plugin";
 import { App } from "./external/App";
 import "./external/MyHTML";
-import { View, WorkspaceLayout } from "./external/Workspace";
+import { WorkspaceLayout } from "./external/Workspace";
 import info from "./info.json";
 import "./main.css";
-import { InternalPlugins, type IconActionItem } from "./core/Plugin";
-import Plugin, { type PluginMetadata } from "./core/Plugin";
-import { ExternalPlugins } from "./core/ExternalPlugins";
 import AIPlugin from "./plugins/AI/AI";
 import BookmarkPlugin from "./plugins/Bookmarks";
 import GesturePlugin from "./plugins/GestureCommands/GestureCommands";
@@ -18,14 +18,12 @@ import SettingsPlugin from "./plugins/Settings";
 import TopicalBiblePlugin from "./plugins/TopicalBible";
 import TranslationsPlugin from "./plugins/Translations";
 import TSK from "./plugins/TSK";
-import { NavigationPanel } from "./ui/sidepanels";
-import { DEFAULT_CATEGORY_ORDER, DEFAULT_SETTINGS, TGAppSettings } from "./config/TGAppSettings";
 
 import type { PlatformBridge } from "@platform";
 import { CommandPaletteState } from "./external/CommandPalette";
 import type { PaletteState } from "./external/PaletteStateController";
-import SharePlugin from "./plugins/Share";
 import { bibleData, VerseRef } from "./models/VerseRef";
+import SharePlugin from "./plugins/Share";
 import { VerseScreen } from "./ui/VerseScreen";
 
 function isPlainObject(value: unknown): value is object {
@@ -315,18 +313,6 @@ export default class TouchGrassBibleApp extends App {
 
   private registerWorkspaceViews() {
     this.workspace.registerView("verse-screen", panel => new VerseScreen(panel, this));
-
-    this.workspace.registerView("reading-tools", panel => {
-      const view = new View(panel);
-      view.containerEl.classList.add("workspace-static-view");
-      view.containerEl.createEl("h3", { text: "Reading Tools" });
-      view.containerEl.createEl("p", {
-        text: "Use Ctrl+Enter to open the command palette, then search books, verses, notes, and references.",
-      });
-      return view;
-    });
-
-    this.workspace.registerView("navigation-panel", panel => new NavigationPanel(panel, this));
   }
 
   private ensureMainScreenTab() {
@@ -355,7 +341,7 @@ export default class TouchGrassBibleApp extends App {
               splitAxis: "row",
               persistent: true,
               visibleViewIndex: 0,
-              views: [{ viewType: "navigation-panel", title: "Navigate" }],
+              views: [{ viewType: "journal-panel", title: "Journal" }],
             },
           },
           {
@@ -366,10 +352,7 @@ export default class TouchGrassBibleApp extends App {
               splitAxis: "row",
               persistent: true,
               visibleViewIndex: 0,
-              views: [
-                { viewType: "verse-screen", title: "Scripture" },
-                { viewType: "reading-tools", title: "Tools" },
-              ],
+              views: [{ viewType: "verse-screen", title: "Scripture" }],
             },
           },
           {

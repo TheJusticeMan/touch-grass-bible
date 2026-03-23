@@ -118,7 +118,7 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
 
     item
       .setTitle(command.hit.verse.toString())
-      .setDescription(`[${(command.hit.score * 100).toFixed(1)}%] ${command.hit.text}`)
+      .setDescription(`${command.hit.text} ${(command.hit.score * 100).toFixed(1)}%`)
       .addctx();
     return { topCategory: TSKCrossRefCategoryID };
   }

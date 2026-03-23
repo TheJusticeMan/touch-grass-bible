@@ -1,7 +1,15 @@
-import { StackComponent, RowComponent, Button } from "src/external/UIComponents";
+import { StackComponent, RowComponent, UIComponent } from "src/external/UIComponents";
 import { LayoutNode, View } from "../../external/Workspace";
 import type { JournalDay, JournalEntry, JournalStorage } from "./journal-storage";
+import { VerseRef } from "src/models/VerseRef";
 import "./JournalPanel.css";
+
+const LOAD_OLDER_THRESHOLD_PX = 120;
+
+type EditableJournalEntryOptions = {
+  onDelete?: (entry: JournalEntry) => void;
+  onDraftFocus?: (entry: JournalEntry) => Promise<JournalEntry | null>;
+};
 
 type JournalPanelPlugin = {
   settings: {
@@ -10,6 +18,210 @@ type JournalPanelPlugin = {
   storage: JournalStorage;
   saveSettings: () => Promise<void>;
 };
+
+/**
+ * An editable journal entry component that extends UIComponent.
+ * Renders a single journal entry with inline editing capabilities.
+ * Supports save on blur and revert on Escape.
+ */
+class EditableJournalEntry extends UIComponent<"article"> {
+  private contentEl!: UIComponent<"div">;
+  private timeEl!: UIComponent<"div">;
+  private lastSavedValue: string;
+  private isHandlingDraftFocus = false;
+
+  constructor(
+    parent: HTMLElement,
+    private dayKey: string,
+    private entry: JournalEntry,
+    private storage: JournalStorage,
+    private options: EditableJournalEntryOptions = {},
+  ) {
+    super(parent, "article");
+    this.lastSavedValue = entry.content;
+    this.setupElement();
+  }
+
+  private setupElement(): void {
+    this.addClass("journal-entry", "is-text");
+
+    this.contentEl = new UIComponent(this.element, "div")
+      .addClass("journal-entry-content", "journal-entry-editor")
+      .setAttr("contenteditable", "true")
+      .setAttr("role", "textbox")
+      .setAria({
+        multiline: true,
+        label: "Journal entry",
+      })
+      .setText(this.entry.content);
+
+    this.contentEl.listen("focus", () => {
+      void this.handleFocus();
+    });
+
+    this.contentEl.listen("blur", () => {
+      void this.saveEdit();
+    });
+
+    this.contentEl.listen("keydown", event => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        event.preventDefault();
+        this.contentEl.element.blur();
+        return;
+      }
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        this.contentEl.element.textContent = this.lastSavedValue;
+        this.contentEl.element.blur();
+      }
+    });
+
+    this.timeEl = new UIComponent(this.element, "div").addClass("journal-entry-time");
+    this.renderTimestamp();
+  }
+
+  applySavedEntry(saved: JournalEntry): void {
+    this.entry.id = saved.id;
+    this.entry.timestamp = saved.timestamp;
+    this.entry.content = saved.content;
+    this.lastSavedValue = saved.content;
+    this.renderTimestamp();
+  }
+
+  private async handleFocus(): Promise<void> {
+    if (this.entry.id || !this.options.onDraftFocus || this.isHandlingDraftFocus) {
+      return;
+    }
+
+    this.isHandlingDraftFocus = true;
+    try {
+      const saved = await this.options.onDraftFocus(this.entry);
+      if (saved) {
+        this.applySavedEntry(saved);
+      }
+    } finally {
+      this.isHandlingDraftFocus = false;
+    }
+  }
+
+  private renderTimestamp(): void {
+    const hasTimestamp = this.entry.timestamp > 0;
+    this.timeEl.setHidden(!hasTimestamp);
+    this.timeEl.setText(hasTimestamp ? formatEntryTime(this.entry.timestamp) : "");
+  }
+
+  private async saveEdit(): Promise<void> {
+    const nextValue = (this.contentEl.element.textContent ?? "").trim();
+    const lastSavedTrimmed = this.lastSavedValue.trim();
+
+    if (await this.deleteEmptyPersistedEntry(nextValue)) {
+      return;
+    }
+
+    if (nextValue === lastSavedTrimmed) {
+      return;
+    }
+
+    if (nextValue === "") {
+      this.restoreLastSavedValue();
+      return;
+    }
+
+    const saved = this.entry.id
+      ? await this.updatePersistedEntry(nextValue)
+      : await this.createDraftEntry(nextValue);
+
+    if (!saved) {
+      this.restoreLastSavedValue();
+      return;
+    }
+
+    this.applySavedEntry(saved);
+    this.contentEl.element.textContent = saved.content;
+  }
+
+  private async deleteEmptyPersistedEntry(nextValue: string): Promise<boolean> {
+    if (nextValue !== "" || !this.entry.id) {
+      return false;
+    }
+
+    const deleted = await this.storage.deleteEntry(this.dayKey, this.entry.id);
+    if (!deleted) {
+      this.restoreLastSavedValue();
+      return true;
+    }
+
+    this.options.onDelete?.(this.entry);
+    this.element.remove();
+    return true;
+  }
+
+  private async createDraftEntry(nextValue: string): Promise<JournalEntry | null> {
+    return this.storage.appendEntry(
+      {
+        type: "entry",
+        content: nextValue,
+        timestamp: this.entry.timestamp > 0 ? this.entry.timestamp : undefined,
+      },
+      this.dayKey,
+    );
+  }
+
+  private async updatePersistedEntry(nextValue: string): Promise<JournalEntry | null> {
+    return this.storage.updateEntry(this.dayKey, this.entry.id, nextValue);
+  }
+
+  private restoreLastSavedValue(): void {
+    this.contentEl.element.textContent = this.lastSavedValue;
+  }
+}
+
+/**
+ * A read-only journal entry component for verse references.
+ * Displays the verse reference and its text content.
+ */
+class VerseRefEntry extends UIComponent<"article"> {
+  constructor(
+    parent: HTMLElement,
+    private entry: JournalEntry,
+  ) {
+    super(parent, "article");
+    this.setupElement();
+  }
+
+  private setupElement(): void {
+    this.addClass("journal-entry", "is-verse-ref");
+
+    let verseRef: VerseRef;
+    try {
+      // Parse the verse reference from OSIS format stored content
+      verseRef = VerseRef.fromOSIS(this.entry.content);
+    } catch {
+      // If parsing fails, show error and return
+      new UIComponent(this.element, "div")
+        .addClass("journal-verse-ref", "error")
+        .setText(`Invalid verse reference: ${this.entry.content}`);
+      new UIComponent(this.element, "div")
+        .addClass("journal-entry-time")
+        .setText(formatEntryTime(this.entry.timestamp));
+      return;
+    }
+
+    // Display the verse reference in human-readable format
+    new UIComponent(this.element, "div").addClass("journal-verse-ref").setText(verseRef.toString());
+
+    // Display the verse text
+    const verseText = verseRef.vTXT;
+    if (verseText) {
+      new UIComponent(this.element, "div").addClass("journal-verse-text").setText(verseText);
+    }
+
+    new UIComponent(this.element, "div")
+      .addClass("journal-entry-time")
+      .setText(formatEntryTime(this.entry.timestamp));
+  }
+}
 
 function formatDayHeader(dateKey: string): string {
   const [year, month, day] = dateKey.split("-").map(Number);
@@ -33,10 +245,15 @@ function formatEntryTime(timestamp: number): string {
 export class JournalPanel extends View {
   private loadedDays: JournalDay[] = [];
   private isLoadingOlder = false;
+  private isCreatingDraft = false;
   private streamEl!: HTMLDivElement;
-  private composerInput!: HTMLTextAreaElement;
-  private appendOnlyToggle!: HTMLInputElement;
-  private statusEl!: HTMLDivElement;
+  private todayDraftEntry: JournalEntry | null = null;
+  private todayDraftComponent: EditableJournalEntry | null = null;
+  private readonly onStreamScroll = (): void => {
+    if (this.streamEl.scrollTop < LOAD_OLDER_THRESHOLD_PX) {
+      void this.loadOlderDay();
+    }
+  };
 
   constructor(
     panel: LayoutNode,
@@ -51,26 +268,34 @@ export class JournalPanel extends View {
     this.scrollToBottom(false);
   }
 
+  onDetach(): void {
+    this.streamEl?.removeEventListener("scroll", this.onStreamScroll);
+    this.todayDraftEntry = null;
+    this.todayDraftComponent = null;
+  }
+
   onActivate(): void {
-    this.syncAppendOnlyFromSettings();
+    // Panel activation logic
   }
 
   async addLiveEntry(entry: JournalEntry, dayKey: string): Promise<void> {
-    const existing = this.loadedDays.find(day => day.date === dayKey);
+    const existing = this.findLoadedDay(dayKey);
     if (existing) {
       existing.entries.push(entry);
-      this.renderStream();
+      this.insertRenderedEntry(dayKey, entry);
       this.scrollToBottom(true);
       return;
     }
 
-    if (dayKey === this.plugin.storage.todayKey()) {
-      const today = await this.plugin.storage.getOrCreateDay(dayKey);
-      this.loadedDays.push(today);
-      this.loadedDays.sort((a, b) => a.date.localeCompare(b.date));
-      this.renderStream();
-      this.scrollToBottom(true);
+    if (!this.isToday(dayKey)) {
+      return;
     }
+
+    const today = await this.plugin.storage.getOrCreateDay(dayKey);
+    this.loadedDays.push(today);
+    this.loadedDays.sort((a, b) => a.date.localeCompare(b.date));
+    this.renderStream();
+    this.scrollToBottom(true);
   }
 
   private renderShell(): void {
@@ -81,59 +306,8 @@ export class JournalPanel extends View {
     const header = new RowComponent(root.element).addClass("journal-header").setJustify("between");
     header.createChild("h3", { text: "Journal" });
 
-    const controls = header.createChild("label", { cls: "journal-append-only" });
-    this.appendOnlyToggle = controls.createEl("input", {
-      attr: {
-        type: "checkbox",
-      },
-    });
-    controls.createEl("span", { text: "Append-only" });
-    this.appendOnlyToggle.checked = this.plugin.settings.appendOnly;
-    this.appendOnlyToggle.addEventListener("change", () => {
-      this.plugin.settings.appendOnly = this.appendOnlyToggle.checked;
-      void this.plugin.saveSettings();
-      this.syncAppendOnlyFromSettings();
-    });
-
-    this.statusEl = root.element.createEl("div", { cls: "journal-status" });
-
     this.streamEl = root.element.createEl("div", { cls: "journal-stream" });
-    this.streamEl.addEventListener("scroll", () => {
-      if (this.streamEl.scrollTop < 120) {
-        void this.loadOlderDay();
-      }
-    });
-
-    const composer = new StackComponent(root.element).addClass("journal-composer").setGap("0.5rem");
-    this.composerInput = composer.createChild("textarea", {
-      attr: {
-        rows: "3",
-        placeholder: "Write your thoughts here...",
-      },
-    });
-
-    new Button(composer.element).setButtonText("Append").on("click", () => {
-      void this.handleAppend();
-    });
-
-    this.composerInput.addEventListener("keydown", event => {
-      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
-        event.preventDefault();
-        void this.handleAppend();
-      }
-    });
-
-    this.syncAppendOnlyFromSettings();
-  }
-
-  private syncAppendOnlyFromSettings(): void {
-    if (!this.composerInput || !this.statusEl) return;
-    const appendOnly = this.plugin.settings.appendOnly;
-    this.appendOnlyToggle.checked = appendOnly;
-    this.statusEl.textContent = appendOnly
-      ? "Write-forward mode enabled. Previous entries are read-only."
-      : "Editing mode enabled. New text is still appended at the bottom.";
-    this.streamEl?.classList.toggle("append-only", appendOnly);
+    this.streamEl.addEventListener("scroll", this.onStreamScroll);
   }
 
   private async loadInitial(): Promise<void> {
@@ -147,21 +321,12 @@ export class JournalPanel extends View {
     if (this.isLoadingOlder || this.loadedDays.length === 0) {
       return;
     }
+
     this.isLoadingOlder = true;
 
     try {
-      const oldestLoaded = this.loadedDays[0]?.date;
-      if (!oldestLoaded) return;
-
-      const previousDayKey = await this.plugin.storage.getPreviousDayKey(oldestLoaded);
-      if (!previousDayKey) return;
-
-      const previous = await this.plugin.storage.readDay(previousDayKey);
+      const previous = await this.readPreviousDay();
       if (!previous) return;
-
-      if (this.loadedDays.some(day => day.date === previous.date)) {
-        return;
-      }
 
       const previousHeight = this.streamEl.scrollHeight;
       this.loadedDays.unshift(previous);
@@ -174,48 +339,161 @@ export class JournalPanel extends View {
   }
 
   private renderStream(): void {
-    this.streamEl.empty();
+    this.resetRenderedState();
 
     this.loadedDays.forEach(day => {
-      const dayGroup = this.streamEl.createEl("section", { cls: "journal-day" });
-      dayGroup.createEl("div", { cls: "journal-day-header", text: formatDayHeader(day.date) });
-
-      day.entries.forEach(entry => {
-        this.renderEntry(dayGroup, entry);
-      });
+      this.renderDay(day);
     });
   }
 
-  private renderEntry(parent: HTMLElement, entry: JournalEntry): void {
-    const row = parent.createEl("article", {
-      cls: `journal-entry ${entry.type === "verse-ref" ? "is-verse-ref" : "is-text"}`,
+  private resetRenderedState(): void {
+    this.streamEl.empty();
+    this.todayDraftEntry = null;
+    this.todayDraftComponent = null;
+  }
+
+  private renderDay(day: JournalDay): void {
+    const dayGroup = this.streamEl.createEl("section", { cls: "journal-day" });
+    dayGroup.dataset.dayKey = day.date;
+    dayGroup.createEl("div", { cls: "journal-day-header", text: formatDayHeader(day.date) });
+
+    day.entries.forEach(entry => {
+      this.renderEntry(dayGroup, day.date, entry);
     });
-    row.createEl("div", { cls: "journal-entry-time", text: formatEntryTime(entry.timestamp) });
+
+    if (this.isToday(day.date)) {
+      this.renderDraftEntry(dayGroup, day.date);
+    }
+  }
+
+  private renderEntry(
+    dayGroup: HTMLElement,
+    dayKey: string,
+    entry: JournalEntry,
+    beforeEl: HTMLElement | null = null,
+  ): void {
     if (entry.type === "verse-ref") {
-      const details = row.createEl("details", { cls: "journal-verse-collapse" });
-      details.createEl("summary", { text: `Reading: ${entry.content}` });
-      details.createEl("div", {
-        cls: "journal-entry-content",
-        text: "Verse reference captured from your reading history.",
-      });
-      return;
-    }
-    row.createEl("div", { cls: "journal-entry-content", text: entry.content });
-  }
-
-  private async handleAppend(): Promise<void> {
-    const value = this.composerInput.value.trim();
-    if (!value) {
+      const component = new VerseRefEntry(dayGroup, entry);
+      if (beforeEl) {
+        dayGroup.insertBefore(component.element, beforeEl);
+      }
       return;
     }
 
-    const saved = await this.plugin.storage.appendEntry({
-      type: "entry",
-      content: value,
+    const component = new EditableJournalEntry(dayGroup, dayKey, entry, this.plugin.storage, {
+      onDelete: deletedEntry => {
+        this.removeEntryFromLoadedDay(dayKey, deletedEntry);
+      },
     });
 
-    this.composerInput.value = "";
-    await this.addLiveEntry(saved, this.plugin.storage.todayKey());
+    if (beforeEl) {
+      dayGroup.insertBefore(component.element, beforeEl);
+    }
+  }
+
+  private renderDraftEntry(dayGroup: HTMLElement, dayKey: string): void {
+    const draftEntry = this.createDraftEntry();
+    this.todayDraftEntry = draftEntry;
+    this.todayDraftComponent = new EditableJournalEntry(dayGroup, dayKey, draftEntry, this.plugin.storage, {
+      onDelete: deletedEntry => {
+        this.removeEntryFromLoadedDay(dayKey, deletedEntry);
+      },
+      onDraftFocus: async () => this.materializeTodayDraft(dayKey, dayGroup),
+    });
+  }
+
+  private createDraftEntry(): JournalEntry {
+    return {
+      id: "",
+      timestamp: 0,
+      type: "entry",
+      content: "",
+    };
+  }
+
+  private async materializeTodayDraft(dayKey: string, dayGroup: HTMLElement): Promise<JournalEntry | null> {
+    const draftEntry = this.todayDraftEntry;
+    if (!draftEntry || draftEntry.id || this.isCreatingDraft) {
+      return null;
+    }
+
+    this.isCreatingDraft = true;
+    try {
+      const created = await this.plugin.storage.appendEntry(
+        {
+          type: "entry",
+          content: "",
+          timestamp: Date.now(),
+        },
+        dayKey,
+      );
+
+      if (!created) {
+        return null;
+      }
+
+      draftEntry.id = created.id;
+      draftEntry.timestamp = created.timestamp;
+      draftEntry.content = created.content;
+      this.findLoadedDay(dayKey)?.entries.push(draftEntry);
+
+      if (this.todayDraftEntry === draftEntry) {
+        this.todayDraftEntry = null;
+        this.todayDraftComponent = null;
+        this.renderDraftEntry(dayGroup, dayKey);
+      }
+
+      return draftEntry;
+    } finally {
+      this.isCreatingDraft = false;
+    }
+  }
+
+  private findLoadedDay(dayKey: string): JournalDay | undefined {
+    return this.loadedDays.find(day => day.date === dayKey);
+  }
+
+  private isToday(dayKey: string): boolean {
+    return dayKey === this.plugin.storage.todayKey();
+  }
+
+  private async readPreviousDay(): Promise<JournalDay | null> {
+    const oldestLoaded = this.loadedDays[0]?.date;
+    if (!oldestLoaded) {
+      return null;
+    }
+
+    const previousDayKey = await this.plugin.storage.getPreviousDayKey(oldestLoaded);
+    if (!previousDayKey) {
+      return null;
+    }
+
+    const previous = await this.plugin.storage.readDay(previousDayKey);
+    if (!previous || this.loadedDays.some(day => day.date === previous.date)) {
+      return null;
+    }
+
+    return previous;
+  }
+
+  private insertRenderedEntry(dayKey: string, entry: JournalEntry): void {
+    const dayGroup = this.streamEl.querySelector<HTMLElement>(`[data-day-key="${dayKey}"]`);
+    if (!dayGroup) {
+      this.renderStream();
+      return;
+    }
+
+    const beforeEl = this.isToday(dayKey) ? (this.todayDraftComponent?.element ?? null) : null;
+    this.renderEntry(dayGroup, dayKey, entry, beforeEl);
+  }
+
+  private removeEntryFromLoadedDay(dayKey: string, entry: JournalEntry): void {
+    const day = this.findLoadedDay(dayKey);
+    if (!day) {
+      return;
+    }
+
+    day.entries = day.entries.filter(candidate => candidate !== entry);
   }
 
   private scrollToBottom(smooth: boolean): void {
@@ -225,3 +503,5 @@ export class JournalPanel extends View {
     });
   }
 }
+
+export { EditableJournalEntry };

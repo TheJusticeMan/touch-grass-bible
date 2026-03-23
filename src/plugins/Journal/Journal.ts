@@ -32,9 +32,7 @@ export default class JournalPlugin extends Plugin {
     this.registerView(JournalViewID, panel => {
       const view = new JournalPanel(panel, this);
       this.panelInstances.add(view);
-      view.on("detach", () => {
-        this.panelInstances.delete(view);
-      });
+      view.on("detach", () => this.panelInstances.delete(view));
       return view;
     });
 

@@ -26,21 +26,6 @@
   font-size: 0.95rem;
 }
 
-.journal-append-only {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: var(--font-size-xs, 0.78rem);
-  color: var(--color-text-muted, rgb(255 255 255 / 0.62));
-}
-
-.journal-status {
-  font-size: var(--font-size-xs, 0.72rem);
-  color: var(--color-text-muted, rgb(255 255 255 / 0.62));
-  padding: 0.45rem 0.8rem;
-  border-bottom: 1px solid var(--color-surface, rgb(255 255 255 / 0.06));
-}
-
 .journal-stream {
   flex: 1;
   min-height: 0;
@@ -73,6 +58,9 @@
   border-radius: var(--border-radius-large);
   padding: 0.45rem 0.55rem;
   background: var(--color-surface, rgb(255 255 255 / 0.06));
+  display: flex;
+  flex-direction: column;
+  position: relative;
 }
 
 .journal-entry.is-verse-ref {
@@ -83,7 +71,27 @@
 .journal-entry-time {
   font-size: 0.68rem;
   color: var(--color-text-muted, rgb(255 255 255 / 0.62));
-  margin-bottom: 0.3rem;
+  position: absolute;
+  bottom: 0.35rem;
+  right: 0.55rem;
+}
+
+.journal-verse-ref {
+  font-size: 0.9rem;
+  color: var(--color-accent, #9ed0ff);
+  margin-bottom: 0.4rem;
+  font-weight: 500;
+}
+
+.journal-verse-text {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--color-text, rgb(255 255 255 / 0.94));
+  white-space: pre-wrap;
+  padding: 0.5rem;
+  background: rgb(0 0 0 / 0.2);
+  border-radius: 0.35rem;
+  border-left: 3px solid var(--color-accent, #9ed0ff);
 }
 
 .journal-entry-content {
@@ -91,45 +99,21 @@
   line-height: 1.45;
 }
 
-.journal-verse-collapse summary {
-  cursor: pointer;
-  color: var(--color-accent, #9ed0ff);
+.journal-entry-editor {
+  border: 1px dashed transparent;
+  border-radius: 0.35rem;
+  padding: 0.2rem 0.3rem;
+  min-height: 1.6rem;
+  cursor: text;
 }
 
-.journal-verse-collapse summary:focus-visible {
-  outline: 2px solid var(--color-accent, #9ed0ff);
-  outline-offset: 2px;
+.journal-entry-editor:focus {
+  outline: none;
+  border-color: var(--color-accent, #9ed0ff);
+  background: rgb(0 0 0 / 0.18);
 }
 
-.journal-verse-collapse[open] summary {
-  margin-bottom: 0.4rem;
-}
-
-.journal-composer {
-  border-top: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
-  background: rgb(0 0 0 / 0.75);
-  padding: 0.7rem;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2, 0.5rem);
-}
-
-.journal-composer textarea {
-  min-height: 5.5rem;
-  resize: vertical;
-  border: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
-  border-radius: var(--border-radius-large);
-  background: var(--color-surface, rgb(255 255 255 / 0.06));
-  color: var(--color-text, rgb(255 255 255 / 0.94));
-  padding: 0.65rem;
-  font: inherit;
-}
-
-.journal-composer textarea:focus-visible {
-  outline: 2px solid var(--color-accent, #9ed0ff);
-  outline-offset: 2px;
-}
-
-.journal-stream.append-only .journal-entry {
-  opacity: 0.92;
+.journal-entry-editor:empty::before {
+  content: "Empty entry";
+  color: var(--color-text-muted, rgb(255 255 255 / 0.45));
 }

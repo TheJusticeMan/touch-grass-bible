@@ -114,11 +114,43 @@ export class JournalStorage {
     return this.appendEntry(
       {
         type: "verse-ref",
-        content: verse.toString(),
+        content: verse.toOSIS(),
         timestamp,
       },
       this.todayKey(),
     );
+  }
+
+  async updateEntry(dateKey: string, entryId: string, content: string): Promise<JournalEntry | null> {
+    const day = await this.readDay(dateKey);
+    if (!day) {
+      return null;
+    }
+
+    const targetEntry = day.entries.find(entry => entry.id === entryId);
+    if (!targetEntry) {
+      return null;
+    }
+
+    targetEntry.content = content;
+    await this.writeDay(day);
+    return targetEntry;
+  }
+
+  async deleteEntry(dateKey: string, entryId: string): Promise<boolean> {
+    const day = await this.readDay(dateKey);
+    if (!day) {
+      return false;
+    }
+
+    const targetIndex = day.entries.findIndex(entry => entry.id === entryId);
+    if (targetIndex === -1) {
+      return false;
+    }
+
+    day.entries.splice(targetIndex, 1);
+    await this.writeDay(day);
+    return true;
   }
 
   async getPreviousDayKey(beforeDate: string): Promise<string | null> {
