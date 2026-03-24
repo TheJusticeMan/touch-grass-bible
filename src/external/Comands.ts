@@ -51,7 +51,7 @@ export class CMD<Events extends CMDEvents = CMDEvents> extends ETarget<Events> {
   }
 }
 
-export abstract class SettingCMD<T> extends CMD<{ change: T } & CMDEvents> {
+abstract class SettingCMD<T> extends CMD<{ change: T } & CMDEvents> {
   value: T;
   constructor(Category: CMDCategory, initialValue: T) {
     super(Category);

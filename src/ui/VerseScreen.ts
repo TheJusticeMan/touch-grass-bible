@@ -9,7 +9,7 @@ import { pdsp } from "../external/Event";
 import { Highlighter } from "../external/highlighter";
 import { VerseRef } from "../models/VerseRef";
 
-export const VerseHighlight: Highlighter = new Highlighter([
+const VerseHighlight: Highlighter = new Highlighter([
   { regEXP: /\[(.+?)\]/gi, elTag: "i" },
   { regEXP: /(LORD|God)/gi, elTag: "b" },
   { regEXP: /^(\d+)/gi, cls: "number" },
@@ -49,7 +49,7 @@ type VerseScreenState = {
  * @method scrollTo - Smoothly scrolls to the specified verse and marks it as active.
  * @method scrollToInstant - Instantly scrolls to the specified verse and marks it as active.
  */
-export class ChapterComponent extends UIComponent<"div"> {
+class ChapterComponent extends UIComponent<"div"> {
   verse: VerseRef;
   verses: HTMLDivElement[] = [];
   verseInfos: VerseInfoComponent[] = []; // New: Array of components instead of raw elements

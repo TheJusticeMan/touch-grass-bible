@@ -1,6 +1,6 @@
 import type { NodeType, SerializedPanel, WorkspaceLayout } from "./Workspace";
 
-export type LayoutNodeType = LayoutGroupNode | LayoutViewNode;
+type LayoutNodeType = LayoutGroupNode | LayoutViewNode;
 
 export type LayoutGroupNode = {
   id: string;

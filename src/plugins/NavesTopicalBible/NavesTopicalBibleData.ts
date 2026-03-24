@@ -140,7 +140,7 @@ export function buildNaveIndex(topics: NaveTopic[]): NaveIndex {
   };
 }
 
-export function parseNaveReference(reference: string): NaveReferenceRange | null {
+function parseNaveReference(reference: string): NaveReferenceRange | null {
   const [startText, endText] = reference.split("-");
   const startPart = parseReferencePart(startText);
   const endPart = parseReferencePart(endText ?? startText);

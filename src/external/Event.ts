@@ -1,11 +1,11 @@
-export class Chainable {
+class Chainable {
   next(callback: (a: this) => void): this {
     callback(this); // Use setTimeout to ensure the callback is executed in the next event loop cycle
     return this;
   }
 }
 
-export type HandlerInfo<E, K extends keyof E = keyof E> = {
+type HandlerInfo<E, K extends keyof E = keyof E> = {
   eventName: K;
   handler: (e: E[K]) => void;
 };

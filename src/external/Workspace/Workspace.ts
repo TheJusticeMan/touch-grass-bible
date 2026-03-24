@@ -51,7 +51,7 @@ type SerializedPanelChild = {
   panel: SerializedPanel;
 };
 
-export type DetachedTab = {
+type DetachedTab = {
   viewType: string;
   title: string;
   icon: IconNode | null;
@@ -84,7 +84,7 @@ type RestoreLayoutFromStringOptions = {
   onRejectedLayout?: () => void;
 };
 
-export type WorkspaceDialogOptions = {
+type WorkspaceDialogOptions = {
   id?: string;
   title?: string;
   modal?: boolean;

@@ -1,4 +1,4 @@
-export function isPlainObject(value: unknown): value is object {
+function isPlainObject(value: unknown): value is object {
   return value !== null && value !== undefined && typeof value === "object" && !Array.isArray(value);
 }
 

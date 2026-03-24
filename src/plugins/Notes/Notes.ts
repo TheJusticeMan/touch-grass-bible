@@ -114,7 +114,7 @@ class myNotesCategory extends CommandCategory<VerseRef> {
   }
 }
 
-export class OSISNotes {
+class OSISNotes {
   constructor(public myNotes: Map<OSIS, string>) {}
 
   get(verse: VerseRef): string {

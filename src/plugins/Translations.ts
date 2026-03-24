@@ -8,7 +8,7 @@ import Plugin from "../core/Plugin";
 import { VerseRef, translation } from "../models/VerseRef";
 import { TranslationsCategoryID } from "./categoryIDs";
 
-export const translationMetadata: {
+const translationMetadata: {
   [key: string]: { name: string; shortName: string };
 } = {
   KJV: { name: "King James Version", shortName: "KJV" },

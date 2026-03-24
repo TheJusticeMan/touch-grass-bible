@@ -5,33 +5,7 @@ import { BrowserConsole } from "./MyBrowserConsole";
 import { Workspace, WorkspaceLayout } from "./Workspace/Workspace";
 import { UnifiedCommandPalette } from "./CommandPalette";
 
-export { App, AppState };
-
-/**
- * Immutable-like application state snapshot used for history entries.
- */
-class AppState {
-  /**
-   * @param name - Optional descriptive name for this state snapshot.
-   * @param time - Timestamp associated with snapshot creation.
-   */
-  constructor(
-    public name: string = "",
-    public time: Date = new Date(),
-  ) {}
-
-  /**
-   * Returns a cloned state object with partial updates applied.
-   *
-   * @param partial - Partial state values to override.
-   * @returns New state instance with updated timestamp.
-   */
-  update(partial: Partial<AppState>): AppState {
-    return Object.assign(Object.create(this), this, partial, {
-      time: new Date(),
-    });
-  }
-}
+export { App };
 
 /**
  * Abstract base class representing the main application shell.
