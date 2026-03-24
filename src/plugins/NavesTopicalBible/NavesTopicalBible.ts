@@ -1,15 +1,16 @@
 import { GitCompare } from "lucide";
-import Plugin from "../../core/Plugin";
-import { Button } from "src/external/UIComponents";
+import { CMD } from "src/external/Comands";
 import {
   CommandCategory,
   CommandItem,
   CommandPaletteState,
   UnifiedCommandPalette,
 } from "src/external/CommandPalette";
-import { CMD } from "src/external/Comands";
-import { VerseInfoComponent } from "src/ui/VerseScreen";
+import { Button } from "src/external/UIComponents";
 import { VerseRef } from "src/models/VerseRef";
+import { VerseInfoComponent } from "src/ui/VerseScreen";
+import Plugin from "../../core/Plugin";
+import { NavesTopicListCategoryID, TSKCrossRefCategoryID } from "../categoryIDs";
 import {
   buildNaveIndex,
   findTopicsForVerse,
@@ -20,7 +21,6 @@ import {
   type NaveTopic,
   type NaveTopicNode,
 } from "./NavesTopicalBibleData";
-import { NavesTopicListCategoryID, TSKCrossRefCategoryID } from "../categoryIDs";
 
 type NaveCommand =
   | {

@@ -1,5 +1,5 @@
 import { CheckSquare, Square } from "lucide";
-import { CommandItem, CommandPaletteState, CMDCategory } from "./CommandPalette";
+import { CMDCategory, CommandItem, CommandPaletteState } from "./CommandPalette";
 import { ETarget } from "./Event";
 
 // Define base event types

@@ -1,12 +1,17 @@
 export const processstart = new Date().getTime();
+import type { PlatformBridge } from "@platform";
 import { DEFAULT_CATEGORY_ORDER, DEFAULT_SETTINGS, TGAppSettings } from "./config/TGAppSettings";
 import { ExternalPlugins } from "./core/ExternalPlugins";
 import { InternalPlugins, type IconActionItem } from "./core/Plugin";
+import { deepMerge } from "./deepMerge";
 import { App } from "./external/App";
+import { CommandPaletteState } from "./external/CommandPalette";
 import "./external/MyHTML";
+import type { PaletteState } from "./external/PaletteStateController";
 import { WorkspaceLayout } from "./external/Workspace";
 import info from "./info.json";
 import "./main.css";
+import { bibleData, VerseRef } from "./models/VerseRef";
 import {
   AIPlugin,
   BibleSearchPlugin,
@@ -21,13 +26,7 @@ import {
   TranslationsPlugin,
   TSKPlugin,
 } from "./plugins";
-
-import type { PlatformBridge } from "@platform";
-import { CommandPaletteState } from "./external/CommandPalette";
-import type { PaletteState } from "./external/PaletteStateController";
-import { bibleData, VerseRef } from "./models/VerseRef";
 import { VerseScreen } from "./ui/VerseScreen";
-import { deepMerge } from "./deepMerge";
 
 /**
  * Main application class for the Touch Grass Bible app.

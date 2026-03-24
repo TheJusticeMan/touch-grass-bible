@@ -1,13 +1,13 @@
-import { toggleCMD, CMD } from "src/external/Comands";
+import { CMD, toggleCMD } from "src/external/Comands";
 import {
   CommandCategory,
-  UnifiedCommandPalette,
-  CommandPaletteState,
   CommandItem,
+  CommandPaletteState,
+  UnifiedCommandPalette,
 } from "src/external/CommandPalette";
-import info from "../info.json";
-import Plugin from "../core/Plugin";
 import { DEFAULT_SETTINGS } from "../config/TGAppSettings";
+import Plugin from "../core/Plugin";
+import info from "../info.json";
 import { SettingsCategoryID } from "./categoryIDs";
 
 export default class SettingsPlugin extends Plugin {

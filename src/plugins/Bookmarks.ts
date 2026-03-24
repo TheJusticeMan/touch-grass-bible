@@ -1,17 +1,17 @@
 import { Bookmark, Plus, X } from "lucide";
-import Plugin from "../core/Plugin";
-import { BookmarkCategoryID, TSKCrossRefCategoryID, VerseListCategoryID } from "./categoryIDs";
-import { BibleTopics, BibleTopicsType } from "../models/BibleTopics";
 import { CMD } from "src/external/Comands";
 import {
   CommandCategory,
-  UnifiedCommandPalette,
   CommandItem,
   CommandPaletteState,
+  UnifiedCommandPalette,
 } from "src/external/CommandPalette";
 import { Button, IconButton, TextInput } from "src/external/UIComponents";
 import { VerseRef } from "src/models/VerseRef";
 import { VerseInfoComponent } from "src/ui/VerseScreen";
+import Plugin from "../core/Plugin";
+import { BibleTopics, BibleTopicsType } from "../models/BibleTopics";
+import { BookmarkCategoryID, TSKCrossRefCategoryID, VerseListCategoryID } from "./categoryIDs";
 
 interface BookmarkSettings {
   Bookmarks: BibleTopicsType;

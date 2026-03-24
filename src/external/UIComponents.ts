@@ -1,7 +1,7 @@
 import { CheckSquare, createElement, IconNode, Square } from "lucide";
+import { ETarget } from "./Event";
 import { Highlighter, HighlightType } from "./highlighter";
 import "./UIComponents.css";
-import { ETarget } from "./Event";
 
 type UIComponentInit = {
   detached?: boolean;

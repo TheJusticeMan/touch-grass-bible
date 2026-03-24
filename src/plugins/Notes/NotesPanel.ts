@@ -1,17 +1,17 @@
 import { ChevronLeft, Plus, X } from "lucide";
+import { ETarget } from "src/external/Event";
+import {
+  Button,
+  IconButton,
+  RowComponent,
+  TextArea,
+  TextInput,
+  UIComponent,
+} from "src/external/UIComponents";
 import { LayoutNode, View, WorkspaceDialog } from "../../external/Workspace/Workspace";
 import { myNotesCategoryID } from "../categoryIDs";
 import NotesPlugin from "./Notes";
 import "./NotesPanel.css";
-import {
-  TextInput,
-  Button,
-  UIComponent,
-  IconButton,
-  RowComponent,
-  TextArea,
-} from "src/external/UIComponents";
-import { ETarget } from "src/external/Event";
 
 export class Note extends ETarget<{ change: Note }> {
   private _name: string;

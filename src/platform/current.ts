@@ -1,7 +1,7 @@
 import { createPlatformBridge as createCapacitorPlatformBridge } from "./capacitor";
 import { createPlatformBridge as createElectronPlatformBridge } from "./electron";
-import { createPlatformBridge as createWebPlatformBridge } from "./web";
 import type { PlatformBridge, PlatformFileAdapter, PlatformStorageAdapter, PlatformTarget } from "./types";
+import { createPlatformBridge as createWebPlatformBridge } from "./web";
 
 declare const __TG_PLATFORM_TARGET__: PlatformTarget | undefined;
 

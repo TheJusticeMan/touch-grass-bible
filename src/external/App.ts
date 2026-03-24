@@ -1,9 +1,9 @@
 import { createPlatformBridge, type PlatformBridge } from "@platform";
 import "./App.css";
+import { UnifiedCommandPalette } from "./CommandPalette";
 import { ETarget, touchDragger } from "./Event";
 import { BrowserConsole } from "./MyBrowserConsole";
 import { Workspace, WorkspaceLayout } from "./Workspace/Workspace";
-import { UnifiedCommandPalette } from "./CommandPalette";
 
 export { App };
 

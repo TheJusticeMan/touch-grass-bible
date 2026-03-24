@@ -1,18 +1,18 @@
 import { BrainCircuit } from "lucide";
-import { AIchat } from "./AIchat";
-import { AIEmbeddingSearchCategory } from "./AIEmbeddingSearch";
-import { AIEmbeddingSearchDB } from "./AIEmbeddingSearchDB";
-import Plugin from "../../core/Plugin";
-import { AICategoryID, AIEmbeddingSearchCategoryID, SettingsCategoryID } from "../categoryIDs";
 import { CMD } from "src/external/Comands";
 import {
   CommandCategory,
-  UnifiedCommandPalette,
   CommandItem,
   CommandPaletteState,
+  UnifiedCommandPalette,
 } from "src/external/CommandPalette";
 import { Button } from "src/external/UIComponents";
 import { VerseInfoComponent } from "src/ui/VerseScreen";
+import Plugin from "../../core/Plugin";
+import { AICategoryID, AIEmbeddingSearchCategoryID, SettingsCategoryID } from "../categoryIDs";
+import { AIchat } from "./AIchat";
+import { AIEmbeddingSearchCategory } from "./AIEmbeddingSearch";
+import { AIEmbeddingSearchDB } from "./AIEmbeddingSearchDB";
 
 interface AIPluginSettings {
   aiApiKey: string;

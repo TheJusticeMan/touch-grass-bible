@@ -1,6 +1,6 @@
 import { Share } from "lucide";
-import Plugin from "../core/Plugin";
 import { Button } from "src/external/UIComponents";
+import Plugin from "../core/Plugin";
 
 export default class SharePlugin extends Plugin {
   async onload() {

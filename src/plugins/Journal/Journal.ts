@@ -1,14 +1,14 @@
-import { VerseRef } from "src/models/VerseRef";
+import { Plus } from "lucide";
 import {
   CommandCategory,
-  UnifiedCommandPalette,
-  CommandPaletteState,
   CommandItem,
+  CommandPaletteState,
+  UnifiedCommandPalette,
 } from "src/external/CommandPalette";
+import { VerseRef } from "src/models/VerseRef";
 import Plugin from "../../core/Plugin";
 import { JournalPanel } from "./JournalPanel";
 import { JournalStorage } from "./journal-storage";
-import { Plus } from "lucide";
 
 const JournalCategoryID = "journal";
 const JournalViewID = "journal-panel";
