@@ -4,26 +4,28 @@ import { ExternalPlugins } from "./core/ExternalPlugins";
 import { InternalPlugins, type IconActionItem } from "./core/Plugin";
 import { App } from "./external/App";
 import "./external/MyHTML";
-import { WorkspaceLayout } from "./external/Workspace/Workspace";
+import { WorkspaceLayout } from "./external/Workspace";
 import info from "./info.json";
 import "./main.css";
-import AIPlugin from "./plugins/AI";
-import BookmarkPlugin from "./plugins/Bookmarks";
-import GesturePlugin from "./plugins/GestureCommands";
-import JournalPlugin from "./plugins/Journal";
-import NavesTopicalBiblePlugin from "./plugins/NavesTopicalBible";
-import NotesPlugin from "./plugins/Notes";
-import BibleSearchPlugin from "./plugins/Search";
-import SettingsPlugin from "./plugins/Settings";
-import TopicalBiblePlugin from "./plugins/TopicalBible";
-import TranslationsPlugin from "./plugins/Translations";
-import TSK from "./plugins/TSK";
+import {
+  AIPlugin,
+  BibleSearchPlugin,
+  BookmarkPlugin,
+  GesturePlugin,
+  JournalPlugin,
+  NavesTopicalBiblePlugin,
+  NotesPlugin,
+  SettingsPlugin,
+  SharePlugin,
+  TopicalBiblePlugin,
+  TranslationsPlugin,
+  TSKPlugin,
+} from "./plugins";
 
 import type { PlatformBridge } from "@platform";
 import { CommandPaletteState } from "./external/CommandPalette";
 import type { PaletteState } from "./external/PaletteStateController";
 import { bibleData, VerseRef } from "./models/VerseRef";
-import SharePlugin from "./plugins/Share";
 import { VerseScreen } from "./ui/VerseScreen";
 import { deepMerge } from "./deepMerge";
 
@@ -109,7 +111,7 @@ export default class TouchGrassBibleApp extends App {
         },
       },
       {
-        pluginClass: TSK,
+        pluginClass: TSKPlugin,
         manifest: {
           id: "tsk",
           name: "TSK+",

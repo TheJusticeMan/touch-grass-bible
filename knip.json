@@ -2,16 +2,14 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "entry": ["src/main.ts"],
   "project": ["src/**/*.ts"],
-  "ignore": ["processing/**"],
+  "ignore": ["processing/**", "src/externalPlugins/example/**"],
   "ignoreDependencies": [
     "path",
     "https",
     "cli-progress",
-    "@capacitor/android",
     "@capacitor/ios",
-    "@capacitor/filesystem",
     "@capacitor/status-bar",
-    "@capacitor/core",
+    "@touch-grass-bible",
     "@vitest/coverage-v8"
   ]
 }
