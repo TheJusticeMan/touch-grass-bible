@@ -1,4 +1,5 @@
 const { contextBridge, ipcRenderer } = require("electron");
+const WINDOW_MAXIMIZED_CHANNEL = "touch-grass:window-maximized-changed";
 
 contextBridge.exposeInMainWorld("touchGrassElectronPlatform", {
   async storageGetItem(key) {
@@ -24,5 +25,22 @@ contextBridge.exposeInMainWorld("touchGrassElectronPlatform", {
   },
   async windowClose() {
     await ipcRenderer.invoke("touch-grass:window-close");
+  },
+  async windowIsMaximized() {
+    return ipcRenderer.invoke("touch-grass:window-is-maximized");
+  },
+  onWindowMaximizedChange(callback) {
+    if (typeof callback !== "function") {
+      return () => {};
+    }
+
+    const listener = (_event, isMaximized) => {
+      callback(Boolean(isMaximized));
+    };
+
+    ipcRenderer.on(WINDOW_MAXIMIZED_CHANNEL, listener);
+    return () => {
+      ipcRenderer.removeListener(WINDOW_MAXIMIZED_CHANNEL, listener);
+    };
   },
 });

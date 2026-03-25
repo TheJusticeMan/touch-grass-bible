@@ -10,6 +10,8 @@ type ElectronPlatformBridge = {
   windowMinimize(): Promise<void>;
   windowMaximize(): Promise<void>;
   windowClose(): Promise<void>;
+  windowIsMaximized?: () => Promise<boolean>;
+  onWindowMaximizedChange?: (callback: (isMaximized: boolean) => void) => () => void;
 };
 
 declare global {

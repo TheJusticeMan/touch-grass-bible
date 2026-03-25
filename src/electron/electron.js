@@ -1,3 +1,4 @@
+/* eslint-disable security/detect-non-literal-fs-filename */
 const { app, BrowserWindow, ipcMain } = require("electron");
 const fs = require("fs").promises;
 const path = require("path");
@@ -45,9 +46,7 @@ async function readIfExists(filePath) {
 }
 
 function registerPlatformHandlers() {
-  ipcMain.handle("touch-grass:get-storage-item", async (_event, key) => {
-    return readIfExists(storagePathForKey(key));
-  });
+  ipcMain.handle("touch-grass:get-storage-item", async (_event, key) => readIfExists(storagePathForKey(key)));
 
   ipcMain.handle("touch-grass:set-storage-item", async (_event, key, value) => {
     const filePath = storagePathForKey(key);
@@ -94,6 +93,11 @@ function registerPlatformHandlers() {
     const win = BrowserWindow.fromWebContents(event.sender);
     win?.close();
   });
+
+  ipcMain.handle("touch-grass:window-is-maximized", async event => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    return win ? win.isMaximized() : false;
+  });
 }
 
 const createWindow = () => {
@@ -109,6 +113,16 @@ const createWindow = () => {
       sandbox: false,
     },
   });
+
+  const emitWindowMaximizedState = () => {
+    if (!win.isDestroyed()) {
+      win.webContents.send("touch-grass:window-maximized-changed", win.isMaximized());
+    }
+  };
+
+  win.on("maximize", emitWindowMaximizedState);
+  win.on("unmaximize", emitWindowMaximizedState);
+  win.webContents.on("did-finish-load", emitWindowMaximizedState);
 
   win.loadFile("index.html");
 };

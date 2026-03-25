@@ -1,9 +1,9 @@
 // Workspace.ts
 
-import { Copy, IconNode, Minimize, Plus, X } from "lucide";
+import { ChevronDown, IconNode, Maximize2, Minimize2, Plus, X } from "lucide";
 import { Files } from "../App";
 import { ETarget } from "../Event";
-import { Button, UIComponent } from "../UIComponents";
+import { Button, IconButton, UIComponent } from "../UIComponents";
 import "./Workspace.css";
 import {
   WorkspacePanelContainer,
@@ -127,6 +127,14 @@ type WorkspaceEvents = {
   dragXcancel: { deltaX: number; deltaY: number };
   dragYcancel: { deltaX: number; deltaY: number };
   [key: string]: unknown;
+};
+
+type WorkspaceElectronBridge = {
+  windowMinimize?: () => Promise<void>;
+  windowMaximize?: () => Promise<void>;
+  windowClose?: () => Promise<void>;
+  windowIsMaximized?: () => Promise<boolean>;
+  onWindowMaximizedChange?: (callback: (isMaximized: boolean) => void) => () => void;
 };
 
 type ViewEvents = {
@@ -1181,9 +1189,12 @@ export class LayoutNode {
   activeViewId: string | null = null;
   parent: LayoutNode | null = null;
   private persistent = false;
-  private addTabButton!: HTMLButtonElement;
+  private addTabButton!: UIComponent<"button">;
   private windowControlsEl: HTMLDivElement | null = null;
   private windowControlsComponent: UIComponent<"div"> | null = null;
+  private windowMaximizeButton: IconButton | null = null;
+  private isWindowMaximized = false;
+  private stopWindowStateSync: (() => void) | null = null;
   private splitterController: SplitterController;
 
   constructor(
@@ -1214,7 +1225,7 @@ export class LayoutNode {
       .listen("click", () => {
         this.workspace.openView("empty", this);
       });
-    this.addTabButton = addTabButtonComponent.mount(this.tabBarEl).element;
+    this.addTabButton = addTabButtonComponent.mount(this.tabBarEl);
     this.applyModeClasses();
     this.applySplitAxis();
   }
@@ -1576,7 +1587,7 @@ export class LayoutNode {
   private applyModeClasses() {
     this.containerComponent.setMode(this.mode);
     this.tabBarComponent.setHidden(this.mode !== "TabGroup");
-    this.addTabButton.classList.toggle("is-hidden", this.mode !== "TabGroup");
+    this.addTabButton.toggleClass("is-hidden", this.mode !== "TabGroup");
   }
 
   private applySplitAxis() {
@@ -1806,7 +1817,7 @@ export class LayoutNode {
         this.contentEl.appendChild(contentEl);
       }
     });
-    this.tabBarEl.appendChild(this.addTabButton);
+    this.tabBarEl.appendChild(this.addTabButton.element);
     if (this.windowControlsEl) {
       this.tabBarEl.appendChild(this.windowControlsEl);
     }
@@ -1821,33 +1832,90 @@ export class LayoutNode {
       const controls = controlsComponent.element;
 
       const makeControl = (
-        label: IconNode,
-        ariaLabel: string,
-        action: "windowMinimize" | "windowMaximize" | "windowClose",
-      ) =>
-        new Button(controls)
-          .setIcon(label)
-          .setTooltip(ariaLabel)
-          .on("click", () => {
-            const bridge = (
-              window as {
-                touchGrassElectronPlatform?: {
-                  [K in "windowMinimize" | "windowMaximize" | "windowClose"]?: () => Promise<void>;
-                };
-              }
-            ).touchGrassElectronPlatform;
-            void bridge?.[action]?.();
-          });
+        icon: IconNode,
+        tooltip: string,
+        className: string,
+        onClick: () => void,
+      ): IconButton =>
+        new IconButton(controls)
+          .setAttr("type", "button")
+          .addClass("panel-window-control", className)
+          .toggleClass("icon-button", false)
+          .setIcon(icon)
+          .setTooltip(tooltip)
+          .on("click", onClick);
 
-      makeControl(Minimize, "Minimize window", "windowMinimize");
-      makeControl(Copy, "Toggle maximize window", "windowMaximize");
-      makeControl(X, "Close window", "windowClose");
+      makeControl(ChevronDown, "Minimize window", "control-minimize", () => {
+        void this.getWindowControlsBridge()?.windowMinimize?.();
+      });
+
+      this.windowMaximizeButton = makeControl(Maximize2, "Maximize window", "control-maximize", () => {
+        const bridge = this.getWindowControlsBridge();
+        void (async () => {
+          await bridge?.windowMaximize?.();
+          if (bridge?.windowIsMaximized) {
+            await this.refreshWindowMaximizeState();
+            return;
+          }
+          this.isWindowMaximized = !this.isWindowMaximized;
+          this.applyWindowControlsState();
+        })();
+      });
+
+      makeControl(X, "Close window", "control-close", () => {
+        void this.getWindowControlsBridge()?.windowClose?.();
+      });
+
       this.windowControlsComponent = controlsComponent;
       this.windowControlsEl = controls;
+      this.applyWindowControlsState();
+      this.bindWindowStateSync();
     }
 
     this.windowControlsEl?.classList.toggle("is-hidden", !shouldShow);
+    if (shouldShow) {
+      void this.refreshWindowMaximizeState();
+    }
     this.makeDraggable(shouldShow);
+  }
+
+  private getWindowControlsBridge(): WorkspaceElectronBridge | null {
+    return (
+      (window as { touchGrassElectronPlatform?: WorkspaceElectronBridge }).touchGrassElectronPlatform ?? null
+    );
+  }
+
+  private bindWindowStateSync(): void {
+    if (this.stopWindowStateSync) {
+      return;
+    }
+
+    const bridge = this.getWindowControlsBridge();
+    if (!bridge?.onWindowMaximizedChange) {
+      return;
+    }
+
+    this.stopWindowStateSync = bridge.onWindowMaximizedChange(isMaximized => {
+      this.isWindowMaximized = isMaximized;
+      this.applyWindowControlsState();
+    });
+  }
+
+  private applyWindowControlsState(): void {
+    this.windowControlsEl?.classList.toggle("is-window-maximized", this.isWindowMaximized);
+    this.windowMaximizeButton?.toggleClass("is-window-maximized", this.isWindowMaximized);
+    this.windowMaximizeButton?.setIcon(this.isWindowMaximized ? Minimize2 : Maximize2);
+    this.windowMaximizeButton?.setTooltip(this.isWindowMaximized ? "Restore window" : "Maximize window");
+  }
+
+  private async refreshWindowMaximizeState(): Promise<void> {
+    const bridge = this.getWindowControlsBridge();
+    if (!bridge?.windowIsMaximized) {
+      return;
+    }
+
+    this.isWindowMaximized = await bridge.windowIsMaximized();
+    this.applyWindowControlsState();
   }
 
   syncWindowControls(): void {
@@ -1860,6 +1928,9 @@ export class LayoutNode {
   }
 
   private clearWindowControls(): void {
+    this.stopWindowStateSync?.();
+    this.stopWindowStateSync = null;
+    this.windowMaximizeButton = null;
     this.windowControlsComponent?.remove();
     this.windowControlsComponent = null;
     this.windowControlsEl = null;
