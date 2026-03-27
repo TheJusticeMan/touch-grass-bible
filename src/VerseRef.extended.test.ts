@@ -17,7 +17,12 @@ const makeMockBible = (): MockBible => ({
   // GENESIS: 3 chapters, up to 3 verses each
   GENESIS: [
     [],
-    ["", "In the beginning God created...", "The earth was without form...", "And God said let there be light"],
+    [
+      "",
+      "In the beginning God created...",
+      "The earth was without form...",
+      "And God said let there be light",
+    ],
     ["", "Thus the heavens and the earth were finished...", "And on the seventh day God finished..."],
     ["", "These are the generations of the heavens..."],
   ],

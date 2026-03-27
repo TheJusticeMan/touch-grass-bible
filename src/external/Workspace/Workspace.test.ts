@@ -2,7 +2,8 @@
 
 import { describe, expect, test } from "vitest";
 import { UnifiedCommandPalette } from "../CommandPalette";
-import { View, Workspace, WorkspaceDialog } from "./Workspace";
+import { View, Workspace } from "./Workspace";
+import { WorkspaceDialog } from "./WorkspaceDialog";
 
 function installWorkspaceDomPolyfills(): void {
   const prototype = HTMLElement.prototype as unknown as Record<string, unknown>;

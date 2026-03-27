@@ -112,7 +112,7 @@ describe("ETarget", () => {
 
   test("ActiveEvent reflects the currently-emitting event name", () => {
     const emitter = new TestEmitter();
-    let activeInsideHandler: (typeof emitter.ActiveEvent) | undefined;
+    let activeInsideHandler: typeof emitter.ActiveEvent | undefined;
     emitter.on("foo", () => {
       activeInsideHandler = emitter.ActiveEvent;
     });

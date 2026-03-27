@@ -147,3 +147,74 @@ export class WorkspacePanelContent extends UIComponent<"div"> {
     return this;
   }
 }
+
+export class WorkspaceRootHost extends UIComponent<"div"> {
+  constructor() {
+    super(null, "div", { detached: true });
+    this.addClass("workspace-root-host");
+  }
+}
+
+export class WorkspaceDialogLayer extends UIComponent<"div"> {
+  constructor() {
+    super(null, "div", { detached: true });
+    this.addClass("workspace-dialog-layer");
+  }
+}
+
+export class WorkspaceDialogFrame extends UIComponent<"div"> {
+  constructor(id: string) {
+    super(null, "div", { detached: true });
+    this.addClass("workspace-dialog-frame");
+    this.setData({ dialogId: id });
+  }
+}
+
+export class WorkspaceDialogBackdrop extends UIComponent<"div"> {
+  constructor() {
+    super(null, "div", { detached: true });
+    this.addClass("workspace-dialog-backdrop");
+  }
+}
+
+export class WorkspaceDialogContainer extends UIComponent<"div"> {
+  constructor(modal: boolean) {
+    super(null, "div", { detached: true });
+    this.addClass("workspace-dialog");
+    this.element.tabIndex = -1;
+    this.setAttr("role", "dialog");
+    this.setAttr("aria-modal", modal ? "true" : "false");
+  }
+}
+
+export class WorkspaceDialogHeader extends UIComponent<"div"> {
+  constructor() {
+    super(null, "div", { detached: true });
+    this.addClass("workspace-dialog-header");
+  }
+}
+
+export class WorkspaceDialogTitle extends UIComponent<"div"> {
+  constructor(title: string) {
+    super(null, "div", { detached: true });
+    this.addClass("workspace-dialog-title");
+    this.setText(title);
+  }
+}
+
+export class WorkspaceDialogCloseButton extends UIComponent<"button"> {
+  constructor() {
+    super(null, "button", { detached: true });
+    this.setAttr("type", "button");
+    this.addClass("workspace-dialog-close");
+    this.setAria({ label: "Close dialog" });
+    this.setText("Close");
+  }
+}
+
+export class WorkspaceDialogContent extends UIComponent<"div"> {
+  constructor() {
+    super(null, "div", { detached: true });
+    this.addClass("workspace-dialog-content");
+  }
+}
