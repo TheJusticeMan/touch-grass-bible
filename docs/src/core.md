@@ -36,13 +36,20 @@ This page covers the root-level `src/` files that define the app shell, Bible do
 - Provides short names and 3-letter codes for parsing and external URL generation.
 - Used heavily by `src/VerseRef.ts`.
 
-## `src/index.html`
+## `src/web/index.html`
 
-- Purpose: base web HTML shell
+- Purpose: source web HTML template used to generate the distributable shell
 - Key elements: `#loadingScreen`, `#loading-text`, loading spinner markup
-- Loads `dist/main.css` and `dist/main.js`.
+- Loaded by `esbuild.config.mjs` and written to `dist/index.html` with an injected CSP meta tag.
+- Links runtime web assets (`main.css`, `main.js`, manifest, icons, service worker).
 - Shows a startup loading overlay that `src/main.ts` removes after initialization.
-- Seeds a global `processstart` timestamp before the bundle runs.
+
+## `src/electron/index.html`
+
+- Purpose: Electron renderer HTML shell copied into the Electron `dist` output
+- Key elements: `#loadingScreen`, `#loading-text`, loading spinner markup
+- Loads renderer assets via `main.css` and `main.js` in the packaged Electron app.
+- Used by `src/electron/electron.js` through `win.loadFile("index.html")`.
 
 ## `src/info.json`
 

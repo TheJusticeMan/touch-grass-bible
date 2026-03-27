@@ -94,6 +94,6 @@
 }
 
 .journal-entry-editor:empty::before {
-  content: "Empty entry";
+  content: "Start typing your journal entry...";
   color: var(--color-text-muted, rgb(255 255 255 / 0.45));
 }

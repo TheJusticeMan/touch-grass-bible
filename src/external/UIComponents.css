@@ -1,8 +1,9 @@
 /* Components.css — shared primitive components */
 
 .scroll-bubble {
-  position: absolute;
+  position: fixed;
   right: 0;
+  z-index: var(--z-overlay, 300);
   /* Minimum 44 px touch target (width × height) */
   width: 2.75rem;
   height: 4rem;

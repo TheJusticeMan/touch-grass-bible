@@ -1177,6 +1177,20 @@ class SplitterController {
   }
 }
 
+type PanelView = {
+  viewType: string;
+  tabId: string;
+  title: string;
+  icon: IconNode | null;
+  view: View | null;
+  state?: unknown;
+  tabButton: HTMLButtonElement;
+  tabComponent: WorkspaceTabButton;
+  placeholderEl?: HTMLDivElement;
+  placeholderComponent?: WorkspacePlaceholder;
+};
+
+
 export class LayoutNode {
   private containerComponent: WorkspacePanelContainer;
   private tabBarComponent: WorkspacePanelTabs;
@@ -2071,18 +2085,6 @@ export class LayoutNode {
   }
 }
 
-type PanelView = {
-  viewType: string;
-  tabId: string;
-  title: string;
-  icon: IconNode | null;
-  view: View | null;
-  state?: unknown;
-  tabButton: HTMLButtonElement;
-  tabComponent: WorkspaceTabButton;
-  placeholderEl?: HTMLDivElement;
-  placeholderComponent?: WorkspacePlaceholder;
-};
 
 /**
  * Represents a view within a panel container.

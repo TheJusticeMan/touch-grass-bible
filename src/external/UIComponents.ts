@@ -566,11 +566,49 @@ export abstract class ScrollBubble extends UIComponent<
   maxScroll: number = 0; // Maximum scroll value
   isGrabbed: boolean = false;
   saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
-  private managedParentPosition = false;
+  private rightOffsetPx = 0;
 
   private updateBubblePosition = () => {
-    this.element.style.top = this.offsetTop;
+    this.positionBubble();
   };
+
+  private resolveCssLengthToPx(value: string): number {
+    const raw = value.trim();
+    if (!raw) return 0;
+
+    if (raw.endsWith("rem")) {
+      const rem = parseFloat(raw);
+      const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      return Number.isFinite(rem) ? rem * rootFontSize : 0;
+    }
+
+    if (raw.endsWith("px")) {
+      const px = parseFloat(raw);
+      return Number.isFinite(px) ? px : 0;
+    }
+
+    const numeric = parseFloat(raw);
+    return Number.isFinite(numeric) ? numeric : 0;
+  }
+
+  private positionBubble() {
+    const rect = this.parent.getBoundingClientRect();
+    const bubbleHeight = this.element.offsetHeight || 0;
+    const top = rect.top + this._scrollvalue * Math.max(0, rect.height - bubbleHeight);
+    const viewportRight = Math.max(0, window.innerWidth - rect.right + this.rightOffsetPx);
+
+    this.element.style.top = `${top}px`;
+    this.element.style.right = `${viewportRight}px`;
+  }
+
+  setRightOffset(offset: number | string) {
+    this.rightOffsetPx =
+      typeof offset === "number" ? Math.max(0, offset) : Math.max(0, this.resolveCssLengthToPx(offset));
+    if (this.element.isConnected) {
+      this.positionBubble();
+    }
+    return this;
+  }
 
   constructor(public parent: HTMLElement) {
     super(null, "div", { detached: true });
@@ -582,13 +620,9 @@ export abstract class ScrollBubble extends UIComponent<
   _show() {
     this.startHideTimer(); // Start the hide timer
     if (this.element.isConnected) return this; // If already shown, do nothing
-    if (window.getComputedStyle(this.parent).position === "static") {
-      this.parent.style.position = "relative";
-      this.managedParentPosition = true;
-    }
 
-    this.mount(this.parent);
-    this.element.style.top = this.offsetTop;
+    this.mount(document.body);
+    this.positionBubble();
     this.setUpListeners();
     return this;
   }
@@ -673,10 +707,6 @@ export abstract class ScrollBubble extends UIComponent<
     this.removeListeners();
     this.emit("hide");
     this.detach();
-    if (this.managedParentPosition) {
-      this.parent.style.removeProperty("position");
-      this.managedParentPosition = false;
-    }
     return this;
   }
 
@@ -690,10 +720,6 @@ export abstract class ScrollBubble extends UIComponent<
     this._scrollvalue = 0; // Reset scroll value
     this.isGrabbed = false; // Reset grab state
     this.maxScroll = 0; // Reset max scroll
-    if (this.managedParentPosition) {
-      this.parent.style.removeProperty("position");
-      this.managedParentPosition = false;
-    }
     return this;
   }
 
@@ -703,7 +729,7 @@ export abstract class ScrollBubble extends UIComponent<
 
   public set scrollvalue(value: number) {
     this._scrollvalue = Math.max(0, Math.min(1, value)); // Clamp value between 0 and 1
-    this.element.style.top = this.offsetTop;
+    this.positionBubble();
   }
 
   public get scroll(): number {
@@ -712,11 +738,13 @@ export abstract class ScrollBubble extends UIComponent<
 
   public set scroll(value: number) {
     this._scrollvalue = value / this.maxScroll; // Normalize to 0-1 range
-    if (!this.isGrabbed) this.element.style.top = this.offsetTop; // Update position if not grabbed
+    if (!this.isGrabbed) this.positionBubble(); // Update position if not grabbed
   }
 
   get offsetTop(): string {
-    return `${this._scrollvalue * (this.parent.clientHeight - (this.element?.offsetHeight || 0)) + this.parent.scrollTop}px`;
+    const rect = this.parent.getBoundingClientRect();
+    const bubbleHeight = this.element?.offsetHeight || 0;
+    return `${rect.top + this._scrollvalue * Math.max(0, rect.height - bubbleHeight)}px`;
   }
 }
 

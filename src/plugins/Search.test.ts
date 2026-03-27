@@ -45,10 +45,6 @@ describe("parseGoToVerseQuery", () => {
   });
 
   test("returns empty list when there is no match", () => {
-    const result = parseGoToVerseQuery("zzz", books, mockBible);
-    expect(result).toEqual([]);
-  });
-  test("returns empty list when there is no match", () => {
     const result = parseGoToVerseQuery("gzzz", books, mockBible);
     expect(result).toEqual([]);
   });

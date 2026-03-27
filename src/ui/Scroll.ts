@@ -55,8 +55,8 @@ export class BookScroll extends ScrollBubble {
     this.maxScroll = VerseRef.booksOfTheBible.length - 1;
     this.scroll = VerseRef.booksOfTheBible.indexOf(book.book);
     this.onScroll(this.cb);
+    this.setRightOffset("2.75rem");
     this._show();
-    this.element!.style.right = "2.75rem";
     return this;
   }
 
