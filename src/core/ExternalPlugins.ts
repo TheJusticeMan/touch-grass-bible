@@ -1,6 +1,7 @@
+import { Component } from "src/external/Plugin";
 import TouchGrassBibleApp from "../main";
 import { HOST_MODULE_ID, createExternalHostApi } from "./ExternalHostApi";
-import Plugin, { Component, type PluginMetadata } from "./Plugin";
+import Plugin, { type PluginMetadata } from "./Plugin";
 
 const BASE_PLUGIN_GLOBAL_KEY = "__tg_external_base_plugin__";
 const EXTERNAL_MODULES_GLOBAL_KEY = "__tg_external_modules__";

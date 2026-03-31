@@ -1,3 +1,4 @@
+import { Component } from "src/external/Plugin";
 import { DEFAULT_CATEGORY_ORDER } from "../config/CommandPaletteSettings";
 import { DEFAULT_SETTINGS } from "../config/TGAppSettings";
 import { CommandPaletteState } from "../external/CommandPalette";
@@ -5,7 +6,7 @@ import { BrowserConsole } from "../external/MyBrowserConsole";
 import { LayoutNode, View } from "../external/Workspace/Workspace";
 import TouchGrassBibleApp from "../main";
 import { VerseRef } from "../models/VerseRef";
-import Plugin, { Component } from "./Plugin";
+import Plugin from "./Plugin";
 
 export const HOST_MODULE_ID = "@touch-grass-bible" as const;
 export const HOST_API_VERSION = "1.0.0" as const;
