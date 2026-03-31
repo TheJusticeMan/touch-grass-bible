@@ -37,13 +37,13 @@ export default class NotesPlugin extends Plugin {
     if (this.app.settings.myNotes) {
       this.settings.myNotes = [...this.app.settings.myNotes];
       delete this.app.settings.myNotes;
-      this.app.saveSettings();
+      this.app.settingsStore.save();
     }
     this.myNotes = new OSISNotes(new Map(this.settings.myNotes));
     if (this.app.settings.ExtraNotes) {
       this.settings.ExtraNotes = [...this.app.settings.ExtraNotes];
       delete this.app.settings.ExtraNotes;
-      this.app.saveSettings();
+      this.app.settingsStore.save();
     }
     this.Vault.loadNotes(this.settings.ExtraNotes.map(nj => Note.fromJSON(nj)));
 
@@ -62,7 +62,7 @@ export default class NotesPlugin extends Plugin {
           .on("click", e => e.stopPropagation())
           .on("input", (value: string) => {
             this.myNotes.set(verseInfo.verse, value);
-            this.app.saveSettingsAfterDelay();
+            this.app.settingsStore.saveAfterDelay();
           });
         noteInput.focus(); // Auto-focus for better UX
       },

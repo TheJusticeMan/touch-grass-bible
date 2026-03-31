@@ -9,6 +9,12 @@ import { WorkspaceDialog } from "./Workspace";
 
 import { CMD } from "./Comands";
 import { Commands } from "./Commands";
+import {
+  COMMAND_PALETTE_CONFIG_NAME,
+  DEFAULT_COMMAND_PALETTE_SETTINGS,
+  type CommandPaletteSettings,
+} from "../config/CommandPaletteSettings";
+import { SettingsStore } from "./SettingsStore";
 import { escapeRegExp } from "./escapeRegExp";
 import { Highlighter } from "./highlighter";
 import { BrowserConsole } from "./MyBrowserConsole";
@@ -127,9 +133,13 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
   }
   private categories: CategoryLoader<unknown>[] = [];
   private hiddenCategories: CategoryLoader<unknown>[] = []; // Hidden categories
+  private _disabledPalettes: Set<string> = new Set();
   private stateController: PaletteStateController<CommandPaletteState>;
   private maxResults: number = 100; // Maximum results to show
   private categoryOrder: string[] = [];
+  private settingsInitialized = false;
+  private applyingSettings = false;
+  private readonly settingsStore: SettingsStore<CommandPaletteSettings>;
   commands: Commands = new Commands();
 
   inputMode: inputMode = "search"; // Default input type
@@ -137,12 +147,53 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
 
   constructor(public readonly app: App) {
     super();
+    this.settingsStore = new SettingsStore<CommandPaletteSettings>({
+      defaultValue: DEFAULT_COMMAND_PALETTE_SETTINGS,
+      defaultSaveDelayMs: 500,
+      fileManager: this.app.files,
+      fileName: COMMAND_PALETTE_CONFIG_NAME,
+    });
     this.stateController = new PaletteStateController<CommandPaletteState>(
       () => this.state,
       state => (this.state = state),
     );
     this.addHiddenPalette(() => new CategoryNavigator(this), "navigator");
     this.addHiddenPalette(() => new PromptCategory(this), "prompt");
+    this.columns = this.app.contentEl.offsetWidth > 800;
+    window.addEventListener("resize", () => {
+      const isWide = this.app.contentEl.offsetWidth > 800;
+      if (this.columns !== isWide) {
+        this.columns = isWide;
+        void (this.isOpen && this.display());
+      }
+    });
+  }
+
+  async initializeSettings(): Promise<void> {
+    const settings = await this.settingsStore.load(DEFAULT_COMMAND_PALETTE_SETTINGS);
+    this.applySettings(settings);
+    this.settingsInitialized = true;
+  }
+
+  private applySettings(settings: CommandPaletteSettings): void {
+    this.applyingSettings = true;
+    this.setCategoryOrder(settings.categoryOrder);
+    this.setDisabledPalettes(settings.disabledPalettes);
+    this.applyingSettings = false;
+  }
+
+  private onSettingsChanged(): void {
+    if (!this.settingsInitialized || this.applyingSettings) {
+      return;
+    }
+    const settings: CommandPaletteSettings = {
+      categoryOrder: this.getCategoryOrder(),
+      disabledPalettes: this.getDisabledPalettes(),
+    };
+    this.settingsStore.saveAfterDelay(settings);
+    if (this.isOpen) {
+      this.refresh();
+    }
   }
 
   get isOpen(): boolean {
@@ -250,12 +301,60 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
    * Falls back to the first visible category when no explicit top category is set.
    */
   get topCategory(): CategoryLoader<unknown> | undefined {
-    return this.getCategory(this.state.topCategory) || this.categories[0];
+    const topCategory = this.getCategory(this.state.topCategory);
+    if (topCategory && !this.isCategoryDisabled(topCategory.id)) {
+      return topCategory;
+    }
+    return this.palettes[0];
   }
 
   /** Visible command categories in registration order. */
   get palettes(): CategoryLoader<unknown>[] {
-    return this.categories; // Exclude the ListOfPalettes category
+    return this.categories.filter(cat => !this._disabledPalettes.has(cat.id));
+  }
+
+  /** All registered visible categories, including disabled entries. */
+  get allPalettes(): CategoryLoader<unknown>[] {
+    return this.categories;
+  }
+
+  isCategoryDisabled(id: string): boolean {
+    return this._disabledPalettes.has(id);
+  }
+
+  /**
+   * Sets which category ids are disabled (hidden from visible palettes).
+   *
+   * @param ids - Category ids to disable.
+   */
+  setDisabledPalettes(ids: string[]): void {
+    this._disabledPalettes = new Set(ids);
+    this.onSettingsChanged();
+  }
+
+  disableCategory(id: string) {
+    if (this._disabledPalettes.has(id)) {
+      return;
+    }
+    if (!this.categories.some(category => category.id === id)) {
+      return;
+    }
+    this._disabledPalettes.add(id);
+    if (this.state.topCategory === id) {
+      this.update({ topCategory: "" });
+    }
+    this.onSettingsChanged();
+  }
+  enableCategory(id: string) {
+    if (!this._disabledPalettes.has(id)) {
+      return;
+    }
+    this._disabledPalettes.delete(id);
+    this.onSettingsChanged();
+  }
+
+  getDisabledPalettes(): string[] {
+    return [...this._disabledPalettes];
   }
 
   /** Currently selected command item, or `null` when no item is selected. */
@@ -364,6 +463,11 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
   setCategoryOrder(order: string[]): void {
     this.categoryOrder = order;
     this.sortCategoriesByOrder(order);
+    this.onSettingsChanged();
+  }
+
+  getCategoryOrder(): string[] {
+    return [...this.categoryOrder];
   }
 
   /**
@@ -457,16 +561,18 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
    * This respects top-category focus and sibling-category overrides.
    */
   get categoriesToShow(): CategoryLoader<unknown>[] {
+    const visibleCategories = this.palettes;
     const { topCategory } = this.state;
     const top = this.topCategory;
     const siblings = top?.getPalette(this).siblings;
     // If SiblingCategories is set (even if empty)
     if (topCategory && siblings)
       return [top, ...siblings.map(catfn => this.getCategory(catfn.id))].filter(
-        Boolean,
-      ) as CategoryLoader<unknown>[];
-    if (topCategory && top) return [top, ...this.categories.filter(cat => cat !== top)];
-    return this.categories;
+        (category): category is CategoryLoader<unknown> =>
+          category !== undefined && !this.isCategoryDisabled(category.id),
+      );
+    if (topCategory && top) return [top, ...visibleCategories.filter(cat => cat !== top)];
+    return visibleCategories;
   }
 
   /**
@@ -490,7 +596,7 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
   }
 
   triggerCategoryData(): void {
-    this.categories.forEach(cat => cat.getPalette(this).tryTrigger(this.state));
+    this.palettes.forEach(cat => cat.getPalette(this).tryTrigger(this.state));
     this.hiddenCategories.forEach(cat => cat.getPalette(this).tryTrigger(this.state));
   }
 
@@ -1302,7 +1408,7 @@ class CategoryNavigator extends CommandCategory<CategoryLoader<unknown>> {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onTrigger(_state: CommandPaletteState): void {
-    this.names = this.commandPalette.palettes;
+    this.names = this.commandPalette.allPalettes;
   }
   getCommands(query: string): CategoryLoader<unknown>[] {
     return this.getcompatible(query, this.names, category => category.getPalette(this.commandPalette).name);
@@ -1311,9 +1417,21 @@ class CategoryNavigator extends CommandCategory<CategoryLoader<unknown>> {
     command: CategoryLoader<unknown>,
     Item: CommandItem<CategoryLoader<unknown>>,
   ): Partial<CommandPaletteState> {
-    Item.setTitle(command.getPalette(this.commandPalette).name).setDescription(
-      command.getPalette(this.commandPalette).description,
-    );
+    const disabled = this.commandPalette.isCategoryDisabled(command.id);
+    Item.setTitle(command.getPalette(this.commandPalette).name)
+      .setDescription(
+        `${command.getPalette(this.commandPalette).description}${disabled ? " (disabled)" : ""}`,
+      )
+      .addToggleInput(btn =>
+        btn
+          .setValue(!disabled)
+          .on("change", v =>
+            v
+              ? this.commandPalette.enableCategory(command.id)
+              : this.commandPalette.disableCategory(command.id),
+          ),
+      );
+
     return { topCategory: command.id };
   }
   executeCommand(): void {

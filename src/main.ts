@@ -1,9 +1,9 @@
 export const processstart = new Date().getTime();
 import type { PlatformBridge } from "@platform";
-import { DEFAULT_CATEGORY_ORDER, DEFAULT_SETTINGS, TGAppSettings } from "./config/TGAppSettings";
+import { DEFAULT_SETTINGS, TGAppSettings } from "./config/TGAppSettings";
 import { ExternalPlugins } from "./core/ExternalPlugins";
 import { InternalPlugins, type IconActionItem } from "./core/Plugin";
-import { deepMerge } from "./deepMerge";
+import { SettingsStore } from "./external/SettingsStore";
 import { App } from "./external/App";
 import { CommandPaletteState } from "./external/CommandPalette";
 import "./external/MyHTML";
@@ -54,7 +54,7 @@ export default class TouchGrassBibleApp extends App {
   externalPlugins: ExternalPlugins | null = null;
   private verseActions: Map<string, IconActionItem> = new Map();
   firstLoad = true;
-  saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  readonly settingsStore: SettingsStore<TGAppSettings>;
   private fallbackVerseState = this.commandPalette.useState(new VerseRef("GENESIS", 1, 1));
 
   get verseState(): PaletteState<VerseRef> {
@@ -64,13 +64,18 @@ export default class TouchGrassBibleApp extends App {
 
   constructor(doc: Document, platformBridge?: PlatformBridge) {
     super(doc, "Touch Grass Bible", platformBridge);
+    this.settingsStore = new SettingsStore<TGAppSettings>({
+      defaultValue: DEFAULT_SETTINGS,
+      defaultSaveDelayMs: 5000,
+      fileManager: this.files,
+      fileName: "app-data",
+    });
   }
 
   async onload() {
     this.workspace.on("ArrowRightKeyDown", () => this.workspace.activateView("navigation-panel"));
 
-    await this.loadsettings(DEFAULT_SETTINGS);
-    this.commandPalette.setCategoryOrder(this.settings.categoryOrder || DEFAULT_CATEGORY_ORDER);
+    await this.settingsStore.load();
     this.registerWorkspaceViews();
     this.ensureMainScreenTab();
 
@@ -81,14 +86,6 @@ export default class TouchGrassBibleApp extends App {
     } catch (e) {
       this.console.error("Failed to load translations.json. App may not function correctly.", e);
     }
-    this.commandPalette.columns = this.contentEl.offsetWidth > 800;
-    window.addEventListener("resize", () => {
-      const isWide = this.contentEl.offsetWidth > 800;
-      if (this.commandPalette.columns !== isWide) {
-        this.commandPalette.columns = isWide;
-        void (this.commandPalette.isOpen && this.commandPalette.display());
-      }
-    });
 
     VerseRef.bibleTranslations = translations;
 
@@ -260,29 +257,6 @@ export default class TouchGrassBibleApp extends App {
     return true;
   }
 
-  async loadsettings(DEFAULT_SETTINGS: TGAppSettings) {
-    this.settings = deepMerge(DEFAULT_SETTINGS, (await this.files.loadData()) as Partial<TGAppSettings>);
-  }
-
-  saveSettings() {
-    this.files.saveData(this.settings as Partial<TGAppSettings>);
-  }
-
-  saveSettingsAfterDelay(delay: number = 5000) {
-    // Clear the previous timeout if it exists
-    if (this.saveTimeoutId !== null) {
-      clearTimeout(this.saveTimeoutId);
-      this.saveTimeoutId = null; // Reset the timeout ID
-    }
-
-    // Set a new timeout
-    this.saveTimeoutId = setTimeout(() => {
-      this.saveSettings();
-      this.console.log("Settings saved after 5 seconds");
-      this.saveTimeoutId = null; // Reset after execution
-    }, delay);
-  }
-
   private registerWorkspaceViews() {
     this.workspace.registerView("verse-screen", panel => new VerseScreen(panel, this));
   }
@@ -344,4 +318,13 @@ export default class TouchGrassBibleApp extends App {
   }
 }
 
-export const app = new TouchGrassBibleApp(document);
+/* if (document.readyState !== "loading") {
+  // The DOM is already ready
+  console.log("DOM already loaded, initializing app...");
+ */ new TouchGrassBibleApp(document);
+/* } else {
+  // The DOM is still loading, so wait for the event
+  console.log("Waiting for DOM to load...");
+  document.addEventListener("DOMContentLoaded", () => new TouchGrassBibleApp(document));
+}
+ */

@@ -269,7 +269,6 @@ export class Workspace extends ETarget<WorkspaceEvents> {
   private panelCounter = 0;
   private suppressLayoutEvents = false;
   private dragDrop: DragDropController;
-  private app: WorkspaceHost | null = null;
   private initialized = false;
   private initializingPromise: Promise<boolean> | null = null;
   private hostEl: HTMLDivElement | null = null;
@@ -282,9 +281,8 @@ export class Workspace extends ETarget<WorkspaceEvents> {
   private dialogManager: WorkspaceDialogManager;
   private keyboardBound = false;
 
-  constructor(app?: WorkspaceHost) {
+  constructor(public app: WorkspaceHost) {
     super();
-    this.app = app ?? null;
     this.rootPanel = this.createPanel("SplitGroup", "row", "root");
     this.mutator = new LayoutTreeService(this);
     this.dragDrop = new DragDropController(this);
@@ -296,9 +294,6 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     if (this.hostEl) {
       return this.hostEl;
     }
-    if (!this.app) {
-      throw new Error("Workspace initialize options are missing");
-    }
     this.hostEl = new WorkspaceRootHost().mount(this.app.contentEl).element;
     this.dialogLayerEl = new WorkspaceDialogLayer().mount(this.app.contentEl).element;
     this.globalSwipeHandler = new GlobalSwipeHandler(this.hostEl);
@@ -309,9 +304,6 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     this.ensureHost();
     if (this.dialogLayerEl) {
       return this.dialogLayerEl;
-    }
-    if (!this.app) {
-      throw new Error("Workspace initialize options are missing");
     }
     this.dialogLayerEl = new WorkspaceDialogLayer().mount(this.app.contentEl).element;
     return this.dialogLayerEl;
@@ -367,15 +359,12 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     if (this.initializingPromise) {
       return this.initializingPromise;
     }
-    if (!this.app) {
-      throw new Error("Workspace initialize options are missing");
-    }
 
     this.initializingPromise = (async () => {
-      const rawLayout = await this.app!.files.loadConfig(WORKSPACE_CONFIG_NAME);
-      const restored = this.restoreLayoutFromString(rawLayout, this.app!.getDefaultWorkspaceLayout(), {
-        onInvalidJSON: error => this.app?.onWorkspaceLayoutInvalid(error),
-        onRejectedLayout: () => this.app?.onWorkspaceLayoutRejected(),
+      const rawLayout = await this.app.files.loadConfig(WORKSPACE_CONFIG_NAME);
+      const restored = this.restoreLayoutFromString(rawLayout, this.app.getDefaultWorkspaceLayout(), {
+        onInvalidJSON: error => this.app.onWorkspaceLayoutInvalid(error),
+        onRejectedLayout: () => this.app.onWorkspaceLayoutRejected(),
       });
       this.mountRoot();
       this.enableAutoSave();
@@ -390,9 +379,6 @@ export class Workspace extends ETarget<WorkspaceEvents> {
   }
 
   async saveLayout(): Promise<void> {
-    if (!this.app) {
-      return;
-    }
     const serializedLayout = this.serializeLayout();
     await this.app.files.saveConfig(WORKSPACE_CONFIG_NAME, JSON.stringify(serializedLayout));
   }
@@ -2011,9 +1997,9 @@ monkeypatchAllWorkspaceMethods([
   ["WorkspacePlaceholder", WorkspacePlaceholder],
   ["WorkspacePanelContainer", WorkspacePanelContainer],
   ["WorkspacePanelTabs", WorkspacePanelTabs],
-  ["WorkspacePanelContent", WorkspacePanelContent], */
-  /* ["Workspace", Workspace],
+  ["WorkspacePanelContent", WorkspacePanelContent],
+  ["Workspace", Workspace],
   ["Panel", LayoutNode],
-  ["View", View], */
-  /* ["EmptyView", EmptyView], */
+  ["View", View],
+  ["EmptyView", EmptyView], */
 ]);

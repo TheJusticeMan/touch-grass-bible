@@ -40,7 +40,7 @@ export default class BookmarkPlugin extends Plugin {
     if (this.app.settings.Bookmarks) {
       this.settings.Bookmarks = { ...this.app.settings.Bookmarks };
       delete this.app.settings.Bookmarks;
-      this.app.saveSettings();
+      this.app.settingsStore.save();
     }
 
     //this.console.log("Loaded bookmarks from settings:", this.settings.Bookmarks);

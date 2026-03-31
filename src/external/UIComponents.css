@@ -69,6 +69,56 @@
   gap: 0.4rem;
 }
 
+/* Slider toggle input */
+
+.ui-toggle-input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 2.5rem;
+  height: 1.5rem;
+  border-radius: 25% 50%;
+  border: 1px solid var(--color-border, rgb(255 255 255 / 0.24));
+  background: var(--color-surface-strong, rgb(255 255 255 / 0.12));
+  position: relative;
+  cursor: pointer;
+  margin: 0;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.ui-toggle-input::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: calc(1.5rem - 4px);
+  height: calc(1.5rem - 4px);
+  border-radius: 25% 50%;
+  background: var(--color-text, rgb(255 255 255 / 0.94));
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+  transition: transform 0.18s ease;
+}
+
+.ui-toggle-input:checked {
+  background: var(--color-accent, #3a7afe);
+  border-color: var(--color-accent, #3a7afe);
+}
+
+.ui-toggle-input:checked::after {
+  transform: translateX(1rem);
+}
+
+.ui-toggle-input:focus-visible {
+  outline: 2px solid var(--color-accent, #3a7afe);
+  outline-offset: 2px;
+}
+
+.ui-toggle-input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* ── Context menu ────────────────────────────────────────────── */
 
 .context-menu {

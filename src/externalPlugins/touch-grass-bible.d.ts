@@ -1,5 +1,6 @@
 declare module "@touch-grass-bible" {
-  export { DEFAULT_CATEGORY_ORDER, DEFAULT_SETTINGS } from "src/config/TGAppSettings";
+  export { DEFAULT_CATEGORY_ORDER } from "src/config/CommandPaletteSettings";
+  export { DEFAULT_SETTINGS } from "src/config/TGAppSettings";
   export { HOST_API_VERSION, HOST_MODULE_ID, type ExternalHostApi } from "src/core/ExternalHostApi";
   export { Component, default, default as Plugin } from "src/core/Plugin";
   export type { IconActionItem, PluginMetadata } from "src/core/Plugin";

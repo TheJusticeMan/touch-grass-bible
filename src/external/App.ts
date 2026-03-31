@@ -74,7 +74,7 @@ abstract class App extends ETarget<{
   readonly platformBridge: PlatformBridge;
 
   /** Shared command palette instance used across the app shell. */
-  commandPalette!: UnifiedCommandPalette;
+  commandPalette: UnifiedCommandPalette;
 
   files: Files;
 
@@ -102,21 +102,18 @@ abstract class App extends ETarget<{
 
     this.title = this._title;
 
-    if (document.readyState !== "loading") {
-      // The DOM is already ready
-      this.console.log("DOM already loaded, initializing app...");
-      this.load();
-    } else {
-      // The DOM is still loading, so wait for the event
-      this.console.log("Waiting for DOM to load...");
-      document.addEventListener("DOMContentLoaded", this.load.bind(this));
-    }
+    this.init();
     this.handlescrollmobile();
 
     // Handle page unload attempts
     window.addEventListener("beforeunload", () => this.unload());
     // Handle browser history navigation
     window.addEventListener("popstate", () => this.workspace.emit("historypop", {}));
+  }
+
+  async init() {
+    await this.commandPalette.initializeSettings();
+    await this.load();
   }
 
   /**
@@ -209,24 +206,6 @@ export class Files {
   console = new BrowserConsole(true, `Files:`);
 
   constructor(public platformBridge: PlatformBridge) {}
-
-  /**
-   * Saves the provided data object to the current platform storage under the key "app-data".
-   *
-   * @param data - An object containing key-value pairs representing application settings to be saved.
-   * @returns A promise that resolves when the data has been saved.
-   */
-  async saveData(data: { [setting: string]: unknown }) {
-    await this.platformBridge.storage.setItem("app-data", JSON.stringify(data));
-  }
-
-  /**
-   * Load data from local storage
-   */
-  async loadData(): Promise<{ [setting: string]: unknown }> {
-    const dataStr = await this.platformBridge.storage.getItem("app-data");
-    return dataStr ? JSON.parse(dataStr) : {};
-  }
 
   /**
    * Saves raw config content under a named key.

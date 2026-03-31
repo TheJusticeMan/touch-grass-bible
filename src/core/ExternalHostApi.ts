@@ -1,4 +1,5 @@
-import { DEFAULT_CATEGORY_ORDER, DEFAULT_SETTINGS } from "../config/TGAppSettings";
+import { DEFAULT_CATEGORY_ORDER } from "../config/CommandPaletteSettings";
+import { DEFAULT_SETTINGS } from "../config/TGAppSettings";
 import { CommandPaletteState } from "../external/CommandPalette";
 import { BrowserConsole } from "../external/MyBrowserConsole";
 import { LayoutNode, View } from "../external/Workspace/Workspace";

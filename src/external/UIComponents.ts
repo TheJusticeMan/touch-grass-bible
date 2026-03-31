@@ -1,4 +1,4 @@
-import { CheckSquare, createElement, IconNode, Square } from "lucide";
+import { createElement, IconNode } from "lucide";
 import { ETarget } from "./Event";
 import { Highlighter, HighlightType } from "./highlighter";
 import "./UIComponents.css";
@@ -45,8 +45,6 @@ type ManagedDomListener = {
 export class UIComponent<
   T extends keyof HTMLElementTagNameMap,
   EventS extends Record<string, unknown> = {
-    input: string;
-    change: string;
     click: Event;
     menu: Event;
     keydown: Event;
@@ -413,7 +411,7 @@ abstract class AbstractInput<T extends keyof HTMLElementTagNameMap, V> extends U
     [key: string]: unknown;
   }
 > {
-  constructor(parent: Node, tagName: T) {
+  constructor(parent: Node, tagName: T, autoFocus = true) {
     super(parent, tagName);
     this.listen("input", () => this.emit("input", this.getValue()));
     this.listen("change", () => this.emit("change", this.getValue()));
@@ -423,7 +421,9 @@ abstract class AbstractInput<T extends keyof HTMLElementTagNameMap, V> extends U
       return this.emit("menu", e);
     });
     this.listen("keydown", e => this.emit("keydown", e));
-    this.element.focus();
+    if (autoFocus) {
+      this.element.focus();
+    }
   }
 
   abstract setValue(value: V): this;
@@ -494,24 +494,28 @@ export class TextInput extends AbstractInput<"input", string> {
   }
 }
 
-export class toggleInput extends AbstractInput<"button", boolean> {
-  value: boolean = false;
+export class ToggleInput extends AbstractInput<"input", boolean> {
   constructor(parent: Node) {
-    super(parent, "button");
-    this.element.classList.add("icon-button");
+    super(parent, "input", false);
+    this.element.type = "checkbox";
+    this.element.classList.add("ui-toggle-input");
+    this.setAttr("role", "switch");
+    this.setAria({ checked: false });
+    this.listen("click", e => {
+      e.stopPropagation();
+      this.emit("change", this.getValue());
+      this.setAria({ checked: this.element.checked });
+    });
   }
+
   setValue(value: boolean) {
-    this.value = value;
-    this.update(value);
+    this.element.checked = value;
+    this.setAria({ checked: value });
     return this;
   }
+
   getValue(): boolean {
-    return this.value;
-  }
-  update(value: boolean) {
-    this.element.empty();
-    this.setIcon(value ? CheckSquare : Square);
-    return this;
+    return this.element.checked;
   }
 }
 
@@ -790,7 +794,10 @@ export class Item extends UIComponent<
   protected titleEl!: HTMLDivElement;
   protected descriptionEl!: HTMLDivElement;
   protected componentWrapper!: HTMLDivElement;
-  components: UIComponent<keyof HTMLElementTagNameMap>[] = []; // Array to hold additional components like buttons
+  components: Array<{
+    element: HTMLElement;
+    remove(): unknown;
+  }> = []; // Array to hold additional components like buttons
   private highlighter: Highlighter; // Highlighter for the category
   get hili() {
     return this.highlighter.highlight.bind(this.highlighter);
@@ -847,10 +854,17 @@ export class Item extends UIComponent<
     return this;
   }
 
-  addComponent<T extends UIComponent<keyof HTMLElementTagNameMap>>(
-    ComponentCtor: new (parent: Node) => T,
-    cb?: (el: T) => void,
-  ) {
+  addToggleInput(cb: (el: ToggleInput) => void) {
+    this.addComponent(ToggleInput, cb);
+    return this;
+  }
+
+  addComponent<
+    T extends {
+      element: HTMLElement;
+      remove(): unknown;
+    },
+  >(ComponentCtor: new (parent: Node) => T, cb?: (el: T) => void) {
     const compInstance = new ComponentCtor(this.componentWrapper);
     this.components.push(compInstance);
     cb?.(compInstance);

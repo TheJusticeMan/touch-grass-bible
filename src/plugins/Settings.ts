@@ -35,13 +35,13 @@ class SettingsCategory extends CommandCategory<string> {
       .on("change", (enabled: boolean) => {
         this.plugin.app.console.enabled = enabled;
         this.plugin.app.settings.enableLogging = enabled;
-        this.plugin.app.saveSettings();
+        this.plugin.app.settingsStore.save();
       });
     new CMD(this.defaultCMD)
       .setName("Download settings")
       .setDescription("Download your current settings as a JSON file")
       .on("_click", () => {
-        this.plugin.app.saveSettings();
+        this.plugin.app.settingsStore.save();
         this.plugin.app.files.downloadFile("TouchGrassBibleSettings.json", this.plugin.app.settings);
       });
     new CMD(this.defaultCMD)
@@ -53,7 +53,7 @@ class SettingsCategory extends CommandCategory<string> {
           newSettings => {
             this.plugin.app.settings = Object.assign({}, DEFAULT_SETTINGS, newSettings as object);
 
-            this.plugin.app.saveSettings();
+            this.plugin.app.settingsStore.save();
           },
           error => this.plugin.app.console.error("Failed to parse settings file:", error),
           message => this.plugin.app.console.warn(message),
@@ -69,7 +69,7 @@ class SettingsCategory extends CommandCategory<string> {
             if (!confirmed) return;
             this.plugin.app.settings = { ...DEFAULT_SETTINGS };
 
-            this.plugin.app.saveSettings();
+            this.plugin.app.settingsStore.save();
 
             this.commandPalette.display({ topCategory: "" });
           });
