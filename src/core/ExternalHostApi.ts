@@ -1,9 +1,12 @@
-import { Component } from "src/external/Plugin";
-import { DEFAULT_CATEGORY_ORDER } from "../config/CommandPaletteSettings";
-import { DEFAULT_SETTINGS } from "../config/TGAppSettings";
-import { CommandPaletteState } from "../external/CommandPalette";
-import { BrowserConsole } from "../external/MyBrowserConsole";
-import { LayoutNode, View } from "../external/Workspace/Workspace";
+import { DEFAULT_SETTINGS } from "src/config/TGAppSettings";
+import {
+  BrowserConsole,
+  CommandPaletteState,
+  Component,
+  DEFAULT_CATEGORY_ORDER,
+  LayoutNode,
+  View,
+} from "src/external";
 import TouchGrassBibleApp from "../main";
 import { VerseRef } from "../models/VerseRef";
 import Plugin from "./Plugin";

@@ -10,6 +10,11 @@ type HandlerInfo<E, K extends keyof E = keyof E> = {
   handler: (e: E[K]) => void;
 };
 
+type CancelOnTarget = {
+  lastHandler?: { eventName: PropertyKey; handler: unknown };
+  off(eventName: PropertyKey, handler: unknown): unknown;
+};
+
 /**
  * Abstract base class providing a chainable event handling system.
  *
@@ -105,7 +110,7 @@ export abstract class ETarget<E extends Record<string, unknown> = Record<string,
    * @param event - The event object containing the handler to be unsubscribed.
    * @returns The current instance for method chaining.
    */
-  cancelOn<K extends keyof E>(unsubscribeOn: K, event: ETarget) {
+  cancelOn<K extends keyof E>(unsubscribeOn: K, event: CancelOnTarget) {
     const theHandler = event.lastHandler;
     if (theHandler) {
       this.on(unsubscribeOn, () => event.off(theHandler.eventName, theHandler.handler));

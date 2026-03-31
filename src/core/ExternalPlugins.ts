@@ -1,4 +1,4 @@
-import { Component } from "src/external/Plugin";
+import { Component } from "src/external";
 import TouchGrassBibleApp from "../main";
 import { HOST_MODULE_ID, createExternalHostApi } from "./ExternalHostApi";
 import Plugin, { type PluginMetadata } from "./Plugin";

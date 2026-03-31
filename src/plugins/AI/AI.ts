@@ -1,12 +1,12 @@
 import { BrainCircuit } from "lucide";
-import { CMD } from "src/external/Comands";
 import {
+  Button,
+  CMD,
   CommandCategory,
   CommandItem,
   CommandPaletteState,
   UnifiedCommandPalette,
-} from "src/external/CommandPalette";
-import { Button } from "src/external/UIComponents";
+} from "src/external";
 import { VerseInfoComponent } from "src/ui/VerseScreen";
 import Plugin from "../../core/Plugin";
 import { AICategoryID, AIEmbeddingSearchCategoryID, SettingsCategoryID } from "../categoryIDs";

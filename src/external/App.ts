@@ -1,8 +1,9 @@
-import { createPlatformBridge, type PlatformBridge } from "@platform";
 import "./App.css";
 import { UnifiedCommandPalette } from "./CommandPalette";
 import { ETarget, touchDragger } from "./Event";
 import { BrowserConsole } from "./MyBrowserConsole";
+import "./MyHTML";
+import type { PlatformBridge } from "./PlatformBridge.ts";
 import { Workspace, WorkspaceLayout } from "./Workspace/Workspace";
 
 export { App };
@@ -88,7 +89,7 @@ abstract class App extends ETarget<{
   constructor(
     private doc: Document,
     private _title: string,
-    platformBridge: PlatformBridge = createPlatformBridge(),
+    platformBridge: PlatformBridge,
   ) {
     super();
     this.platformBridge = platformBridge;
@@ -364,6 +365,6 @@ export class Files {
   downloadFile(filename: string, data: unknown): void {
     void this.platformBridge.files
       .saveFile(filename, JSON.stringify(data, null, 2), "application/json;charset=utf-8")
-      .catch(error => this.console.error(`Failed to save ${filename}.`, error));
+      .catch((error: unknown) => this.console.error(`Failed to save ${filename}.`, error));
   }
 }

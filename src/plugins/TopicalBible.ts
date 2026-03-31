@@ -1,15 +1,15 @@
 import { GitCompare } from "lucide";
-import { CMD } from "src/external/Comands";
 import {
+  Button,
+  CMD,
   CommandCategory,
   CommandItem,
   CommandPaletteState,
   UnifiedCommandPalette,
-} from "src/external/CommandPalette";
-import { Button } from "src/external/UIComponents";
+} from "src/external";
 import { VerseInfoComponent } from "src/ui/VerseScreen";
 import Plugin from "../core/Plugin";
-import { PaletteState } from "../external/PaletteStateController";
+import { PaletteState } from "../external";
 import { BibleTopics, BibleTopicsType } from "../models/BibleTopics";
 import { VerseRef } from "../models/VerseRef";
 import { TopicListCategoryID, TSKCrossRefCategoryID } from "./categoryIDs";

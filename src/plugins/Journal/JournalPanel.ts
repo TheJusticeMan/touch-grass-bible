@@ -1,6 +1,6 @@
-import { UIComponent } from "src/external/UIComponents";
+import { UIComponent } from "src/external";
 import { VerseRef } from "src/models/VerseRef";
-import { LayoutNode, View } from "../../external/Workspace/Workspace";
+import { LayoutNode, View } from "../../external";
 import type { JournalDay, JournalEntry, JournalStorage } from "./journal-storage";
 import "./JournalPanel.css";
 

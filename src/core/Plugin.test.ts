@@ -1,5 +1,5 @@
+import { Component } from "src/external";
 import { describe, test, expect, vi } from "vitest";
-import { Component } from "./Plugin";
 
 // Concrete subclass for testing the abstract Component base class
 class TestComponent extends Component {

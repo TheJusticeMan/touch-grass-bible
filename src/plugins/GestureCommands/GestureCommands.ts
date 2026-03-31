@@ -1,15 +1,15 @@
 import { Terminal } from "lucide";
 import Plugin from "src/core/Plugin";
 import {
+  Button,
   CategoryLoader,
+  Command,
   CommandCategory,
   CommandItem,
   CommandPaletteState,
+  Offset,
   UnifiedCommandPalette,
-} from "src/external/CommandPalette";
-import { Command } from "src/external/Commands";
-import { Offset } from "src/external/Offset";
-import { Button } from "src/external/UIComponents";
+} from "src/external";
 import "src/plugins/GestureCommands/GestureCommands.css";
 import { GestureAddCommandsCategoryID } from "../categoryIDs";
 import { GestureCommand, GestureHandler } from "./gesture-handler";

@@ -95,6 +95,27 @@ export type WorkspaceHost = {
   onWorkspaceLayoutRejected(): void;
 };
 
+function createDefaultWorkspaceHost(): WorkspaceHost {
+  return {
+    contentEl: document.body,
+    files: {
+      loadConfig: async () => "",
+      saveConfig: async () => {},
+    } as unknown as Files,
+    getDefaultWorkspaceLayout: () => ({
+      version: 2,
+      rootPanel: {
+        id: "root",
+        splitAxis: "row",
+        mode: "SplitGroup",
+        children: [],
+      },
+    }),
+    onWorkspaceLayoutInvalid: () => {},
+    onWorkspaceLayoutRejected: () => {},
+  };
+}
+
 type WorkspaceEvents = {
   "layout-change": void;
   "dialog-open": { id: string };
@@ -281,7 +302,7 @@ export class Workspace extends ETarget<WorkspaceEvents> {
   private dialogManager: WorkspaceDialogManager;
   private keyboardBound = false;
 
-  constructor(public app: WorkspaceHost) {
+  constructor(public app: WorkspaceHost = createDefaultWorkspaceHost()) {
     super();
     this.rootPanel = this.createPanel("SplitGroup", "row", "root");
     this.mutator = new LayoutTreeService(this);

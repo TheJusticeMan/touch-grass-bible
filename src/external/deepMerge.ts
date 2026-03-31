@@ -2,13 +2,17 @@ function isPlainObject(value: unknown): value is object {
   return value !== null && value !== undefined && typeof value === "object" && !Array.isArray(value);
 }
 
-export function deepMerge<T extends object>(defaults: T, saved: Partial<T>): T {
+type DeepPartial<T> = {
+  [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K];
+};
+
+export function deepMerge<T extends object>(defaults: T, saved: DeepPartial<T>): T {
   const result = { ...defaults } as T;
   for (const key in saved) {
     const k = key as keyof T;
     if (isPlainObject(saved[k])) {
       if (isPlainObject(defaults[k])) {
-        result[k] = deepMerge(defaults[k] as object, saved[k] as object) as T[keyof T];
+        result[k] = deepMerge(defaults[k] as object, saved[k] as DeepPartial<object>) as T[keyof T];
       } else {
         result[k] = saved[k] as T[keyof T];
       }

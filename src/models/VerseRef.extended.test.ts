@@ -3,7 +3,7 @@
  * and data accessors that require mock bible data.
  */
 import { describe, test, expect, beforeAll, afterAll } from "vitest";
-import { VerseRef } from "./models/VerseRef";
+import { VerseRef } from "./VerseRef";
 
 // ---------------------------------------------------------------------------
 // Minimal mock bible data used throughout this suite.

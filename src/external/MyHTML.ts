@@ -115,118 +115,122 @@ declare global {
   }
 }
 
-Node.prototype.addClass = function <K extends keyof HTMLElementTagNameMap>(
-  this: HTMLElementTagNameMap[K],
-  ...cls: string[]
-): HTMLElementTagNameMap[K] {
-  this.classList.add(...cls);
-  return this;
-};
+if (typeof Node !== "undefined") {
+  Node.prototype.addClass = function <K extends keyof HTMLElementTagNameMap>(
+    this: HTMLElementTagNameMap[K],
+    ...cls: string[]
+  ): HTMLElementTagNameMap[K] {
+    this.classList.add(...cls);
+    return this;
+  };
 
-Node.prototype.createEl = function <K extends keyof HTMLElementTagNameMap>(
-  this: Node,
-  tag: K,
-  o?: DomElementInfo | string,
-  callback?: (el: HTMLElementTagNameMap[K]) => void,
-): HTMLElementTagNameMap[K] {
-  // Create the element
-  const el = document.createElement<K>(tag);
+  Node.prototype.createEl = function <K extends keyof HTMLElementTagNameMap>(
+    this: Node,
+    tag: K,
+    o?: DomElementInfo | string,
+    callback?: (el: HTMLElementTagNameMap[K]) => void,
+  ): HTMLElementTagNameMap[K] {
+    // Create the element
+    const el = document.createElement<K>(tag);
 
-  // If options are provided
-  if (o) {
-    // If o is a string, treat it as textContent
-    if (typeof o === "string") {
-      el.textContent = o;
-    } else {
-      const options = o as DomElementInfo;
+    // If options are provided
+    if (o) {
+      // If o is a string, treat it as textContent
+      if (typeof o === "string") {
+        el.textContent = o;
+      } else {
+        const options = o as DomElementInfo;
 
-      // Assign class(es)
-      if (options.cls !== undefined) {
-        if (Array.isArray(options.cls)) {
-          el.className = options.cls.join(" ");
-        } else {
-          el.className = options.cls;
-        }
-      }
-
-      // Assign textContent or DocumentFragment
-      if (options.text !== undefined) {
-        if (typeof options.text === "string") {
-          el.textContent = options.text;
-        } else if (options.text instanceof DocumentFragment) {
-          el.appendChild(options.text);
-        }
-      }
-
-      // Set attributes
-      if (options.attr !== undefined) {
-        for (const [key, value] of Object.entries(options.attr)) {
-          if (value === null || value === undefined || value === false) {
-            // Remove attribute if value is falsey or null
-            el.removeAttribute(key);
-          } else if (typeof value === "boolean") {
-            if (value) {
-              el.setAttribute(key, "");
-            } else {
-              el.removeAttribute(key);
-            }
+        // Assign class(es)
+        if (options.cls !== undefined) {
+          if (Array.isArray(options.cls)) {
+            el.className = options.cls.join(" ");
           } else {
-            el.setAttribute(key, String(value));
+            el.className = options.cls;
           }
         }
-      }
 
-      // Set title attribute
-      if (options.title !== undefined) {
-        el.setAttribute("title", options.title);
-      }
+        // Assign textContent or DocumentFragment
+        if (options.text !== undefined) {
+          if (typeof options.text === "string") {
+            el.textContent = options.text;
+          } else if (options.text instanceof DocumentFragment) {
+            el.appendChild(options.text);
+          }
+        }
 
-      // Set value attribute
-      if (options.value !== undefined) {
-        (el as HTMLInputElement | HTMLTextAreaElement).value = options.value;
-      }
+        // Set attributes
+        if (options.attr !== undefined) {
+          for (const [key, value] of Object.entries(options.attr)) {
+            if (value === null || value === undefined || value === false) {
+              // Remove attribute if value is falsey or null
+              el.removeAttribute(key);
+            } else if (typeof value === "boolean") {
+              if (value) {
+                el.setAttribute(key, "");
+              } else {
+                el.removeAttribute(key);
+              }
+            } else {
+              el.setAttribute(key, String(value));
+            }
+          }
+        }
 
-      // Set type attribute
-      if (options.type !== undefined) {
-        (el as HTMLElement & { type?: string }).type = options.type;
-      }
+        // Set title attribute
+        if (options.title !== undefined) {
+          el.setAttribute("title", options.title);
+        }
 
-      // Set placeholder
-      if (options.placeholder !== undefined) {
-        (el as HTMLInputElement | HTMLTextAreaElement).placeholder = options.placeholder;
-      }
+        // Set value attribute
+        if (options.value !== undefined) {
+          (el as HTMLInputElement | HTMLTextAreaElement).value = options.value;
+        }
 
-      // Set href
-      if (options.href !== undefined && "href" in el) {
-        (el as HTMLAnchorElement).href = options.href;
+        // Set type attribute
+        if (options.type !== undefined) {
+          (el as HTMLElement & { type?: string }).type = options.type;
+        }
+
+        // Set placeholder
+        if (options.placeholder !== undefined) {
+          (el as HTMLInputElement | HTMLTextAreaElement).placeholder = options.placeholder;
+        }
+
+        // Set href
+        if (options.href !== undefined && "href" in el) {
+          (el as HTMLAnchorElement).href = options.href;
+        }
       }
     }
-  }
 
-  // Execute callback if provided
-  if (callback) {
-    callback(el);
-  }
+    // Execute callback if provided
+    if (callback) {
+      callback(el);
+    }
 
-  this.appendChild(el);
+    this.appendChild(el);
 
-  return el;
-};
+    return el;
+  };
 
-Node.prototype.empty = function <K extends keyof HTMLElementTagNameMap>(
-  this: HTMLElementTagNameMap[K],
-): HTMLElementTagNameMap[K] {
-  this.textContent = "";
-  return this;
-};
+  Node.prototype.empty = function <K extends keyof HTMLElementTagNameMap>(
+    this: HTMLElementTagNameMap[K],
+  ): HTMLElementTagNameMap[K] {
+    this.textContent = "";
+    return this;
+  };
+}
 
-HTMLElement.prototype.setIcon = function <K extends keyof HTMLElementTagNameMap>(
-  this: HTMLElementTagNameMap[K],
-  icon: IconNode,
-): HTMLElementTagNameMap[K] {
-  this.appendChild(createElement(icon, { "stroke-width": 1 }));
-  return this;
-};
+if (typeof HTMLElement !== "undefined") {
+  HTMLElement.prototype.setIcon = function <K extends keyof HTMLElementTagNameMap>(
+    this: HTMLElementTagNameMap[K],
+    icon: IconNode,
+  ): HTMLElementTagNameMap[K] {
+    this.appendChild(createElement(icon, { "stroke-width": 1 }));
+    return this;
+  };
+}
 
 String.prototype.toTitleCase = function (this: string): string {
   return this.toLowerCase().replace(/\b\w/g, char => char.toUpperCase());

@@ -1,5 +1,5 @@
 import { HelpCircle, IconNode } from "lucide";
-import { Offset } from "src/external/Offset";
+import { Offset } from "src/external";
 
 /**
  * Represents a command that can be triggered by a gesture.

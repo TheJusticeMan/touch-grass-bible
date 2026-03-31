@@ -1,14 +1,16 @@
 export const processstart = new Date().getTime();
-import type { PlatformBridge } from "@platform";
+import { createPlatformBridge } from "@platform";
 import { DEFAULT_SETTINGS, TGAppSettings } from "./config/TGAppSettings";
 import { ExternalPlugins } from "./core/ExternalPlugins";
 import { InternalPlugins, type IconActionItem } from "./core/Plugin";
-import { SettingsStore } from "./external/SettingsStore";
-import { App } from "./external/App";
-import { CommandPaletteState } from "./external/CommandPalette";
-import "./external/MyHTML";
-import type { PaletteState } from "./external/PaletteStateController";
-import { WorkspaceLayout } from "./external/Workspace";
+import {
+  App,
+  CommandPaletteState,
+  PaletteState,
+  SettingsStore,
+  WorkspaceLayout,
+  type PlatformBridge,
+} from "./external";
 import info from "./info.json";
 import "./main.css";
 import { bibleData, VerseRef } from "./models/VerseRef";
@@ -62,7 +64,7 @@ export default class TouchGrassBibleApp extends App {
     return activeVerseScreen instanceof VerseScreen ? activeVerseScreen.verseState : this.fallbackVerseState;
   }
 
-  constructor(doc: Document, platformBridge?: PlatformBridge) {
+  constructor(doc: Document, platformBridge: PlatformBridge) {
     super(doc, "Touch Grass Bible", platformBridge);
     this.settingsStore = new SettingsStore<TGAppSettings>({
       defaultValue: DEFAULT_SETTINGS,
@@ -321,7 +323,7 @@ export default class TouchGrassBibleApp extends App {
 /* if (document.readyState !== "loading") {
   // The DOM is already ready
   console.log("DOM already loaded, initializing app...");
- */ new TouchGrassBibleApp(document);
+ */ new TouchGrassBibleApp(document, createPlatformBridge());
 /* } else {
   // The DOM is still loading, so wait for the event
   console.log("Waiting for DOM to load...");

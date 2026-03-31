@@ -8,16 +8,16 @@ import { IconActionComponent, inputMode, Item, TextInput, UIComponent } from "./
 import { WorkspaceDialog } from "./Workspace";
 
 import { CMD } from "./Comands";
-import { Commands } from "./Commands";
 import {
   COMMAND_PALETTE_CONFIG_NAME,
   DEFAULT_COMMAND_PALETTE_SETTINGS,
   type CommandPaletteSettings,
-} from "../config/CommandPaletteSettings";
-import { SettingsStore } from "./SettingsStore";
+} from "./CommandPaletteSettings";
+import { Commands } from "./Commands";
 import { escapeRegExp } from "./escapeRegExp";
 import { Highlighter } from "./highlighter";
 import { BrowserConsole } from "./MyBrowserConsole";
+import { SettingsStore } from "./SettingsStore";
 
 /**
  * Lazy wrapper for a command category factory.

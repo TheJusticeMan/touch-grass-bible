@@ -1,9 +1,4 @@
-import {
-  CommandCategory,
-  CommandItem,
-  CommandPaletteState,
-  UnifiedCommandPalette,
-} from "src/external/CommandPalette";
+import { CommandCategory, CommandItem, CommandPaletteState, UnifiedCommandPalette } from "src/external";
 import Plugin from "../core/Plugin";
 import { VerseRef, translation } from "../models/VerseRef";
 import { TranslationsCategoryID } from "./categoryIDs";

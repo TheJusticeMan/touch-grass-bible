@@ -1,12 +1,14 @@
 import { Bookmark, Plus, X } from "lucide";
-import { CMD } from "src/external/Comands";
 import {
+  Button,
+  CMD,
   CommandCategory,
   CommandItem,
   CommandPaletteState,
+  IconButton,
+  TextInput,
   UnifiedCommandPalette,
-} from "src/external/CommandPalette";
-import { Button, IconButton, TextInput } from "src/external/UIComponents";
+} from "src/external";
 import { VerseRef } from "src/models/VerseRef";
 import { VerseInfoComponent } from "src/ui/VerseScreen";
 import Plugin from "../core/Plugin";

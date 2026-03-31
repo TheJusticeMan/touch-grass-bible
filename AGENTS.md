@@ -111,6 +111,7 @@ This file contains instructions for agentic coding assistants working on the Tou
 ### Additional Notes
 
 - **Framework**: Custom framework (extends App, uses Event system).
+- **External framework boundary**: `src/external/**` must remain self-contained and must not import app-host aliases/modules outside `src/external` (for example `@platform`, `@touch-grass-bible`, `src/*`, or upward-relative escapes like `../../*`). Platform wiring belongs in app/bootstrap layers.
 - **Libraries**: lucide for icons, js-levenshtein for fuzzy search.
 - **No Cursor/Copilot rules**: None found in .cursor/rules/, .cursorrules, or .github/copilot-instructions.md.
 - **Testing**: Add unit tests for components (e.g., VerseScreen, CommandPalette). Use Jest/Vitest.

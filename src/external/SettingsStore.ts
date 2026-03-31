@@ -1,4 +1,4 @@
-import { deepMerge } from "../deepMerge";
+import { deepMerge } from "./deepMerge";
 
 type SettingsStoreOptions<T extends object> = {
   defaultValue: T;

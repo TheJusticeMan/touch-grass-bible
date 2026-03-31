@@ -1,10 +1,10 @@
-import { LayoutNode, View } from "@touch-grass-bible";
 import { Terminal } from "lucide";
 import { App } from "./App";
 import { CategoryLoaderFunc } from "./CommandPalette";
 import { Command } from "./Commands";
 import { ETarget } from "./Event";
 import { BrowserConsole } from "./MyBrowserConsole";
+import { LayoutNode, View } from "./Workspace";
 
 type StateTargetLike<T> = {
   onChange(listener: (value: T, previous: T) => void): () => void;
@@ -165,7 +165,7 @@ export type PluginMetadata = {
  * Any command, view, palette, or verse action registered through this class is
  * automatically removed when the plugin unloads.
  */
-export default class ePlugin<AppType extends App = App> extends Component {
+export class ePlugin<AppType extends App = App> extends Component {
   /** Logger scoped to this plugin's display name. */
   console: BrowserConsole;
 

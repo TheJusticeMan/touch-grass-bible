@@ -1,14 +1,6 @@
 import { ChevronLeft, Plus, X } from "lucide";
-import { ETarget } from "src/external/Event";
-import {
-  Button,
-  IconButton,
-  RowComponent,
-  TextArea,
-  TextInput,
-  UIComponent,
-} from "src/external/UIComponents";
-import { LayoutNode, View, WorkspaceDialog } from "../../external/Workspace/Workspace";
+import { Button, ETarget, IconButton, RowComponent, TextArea, TextInput, UIComponent } from "src/external";
+import { LayoutNode, View, WorkspaceDialog } from "../../external";
 import { myNotesCategoryID } from "../categoryIDs";
 import NotesPlugin from "./Notes";
 import "./NotesPanel.css";

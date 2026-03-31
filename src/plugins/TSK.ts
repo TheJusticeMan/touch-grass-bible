@@ -1,10 +1,5 @@
 import { Waypoints } from "lucide";
-import {
-  CommandCategory,
-  CommandItem,
-  CommandPaletteState,
-  UnifiedCommandPalette,
-} from "src/external/CommandPalette";
+import { CommandCategory, CommandItem, CommandPaletteState, UnifiedCommandPalette } from "src/external";
 import { VerseRef } from "src/models/VerseRef";
 import { VerseInfoComponent } from "src/ui/VerseScreen";
 import Plugin from "../core/Plugin";

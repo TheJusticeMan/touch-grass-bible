@@ -1,10 +1,4 @@
-import { CMD } from "src/external/Comands";
-import {
-  CommandCategory,
-  CommandItem,
-  CommandPaletteState,
-  UnifiedCommandPalette,
-} from "src/external/CommandPalette";
+import { CMD, CommandCategory, CommandItem, CommandPaletteState, UnifiedCommandPalette } from "src/external";
 import { VerseRef } from "src/models/VerseRef";
 import { AICategoryID, SettingsCategoryID, TSKCrossRefCategoryID } from "src/plugins/categoryIDs";
 import type AIPlugin from "./AI";

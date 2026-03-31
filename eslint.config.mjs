@@ -23,4 +23,15 @@ export default [
     files: ["src/electron/**/*.js"],
     rules: { "@typescript-eslint/no-require-imports": "off" },
   },
+  {
+    files: ["src/external/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: ["@platform", "@touch-grass-bible", "src/*", "../../*", "../../../*", "../../../../*"],
+        },
+      ],
+    },
+  },
 ];

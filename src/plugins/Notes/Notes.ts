@@ -3,9 +3,9 @@ import {
   CommandCategory,
   CommandItem,
   CommandPaletteState,
+  TextArea,
   UnifiedCommandPalette,
-} from "src/external/CommandPalette";
-import { TextArea } from "src/external/UIComponents";
+} from "src/external";
 import Plugin from "../../core/Plugin";
 import { OSIS, VerseRef } from "../../models/VerseRef";
 import { myNotesCategoryID, TSKCrossRefCategoryID } from "../categoryIDs";

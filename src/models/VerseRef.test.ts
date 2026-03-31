@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { VerseRef } from "./models/VerseRef";
+import { VerseRef } from "./VerseRef";
 
 describe("VerseRef", () => {
   test("constructor defaults to GENESIS 1:1", () => {
