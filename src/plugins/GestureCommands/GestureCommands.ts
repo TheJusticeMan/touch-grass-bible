@@ -7,12 +7,13 @@ import {
   CommandCategory,
   CommandItem,
   CommandPaletteState,
+  GestureCommand,
+  GestureHandler,
   Offset,
   UnifiedCommandPalette,
 } from "src/external";
 import "src/plugins/GestureCommands/GestureCommands.css";
 import { GestureAddCommandsCategoryID } from "../categoryIDs";
-import { GestureCommand, GestureHandler } from "./gesture-handler";
 
 type GestureCommandsSettings = {
   commandGestures: GestureCommand[];

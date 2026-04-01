@@ -1,5 +1,5 @@
 import { HelpCircle, IconNode } from "lucide";
-import { Offset } from "src/external";
+import { Offset } from "./Offset";
 
 /**
  * Represents a command that can be triggered by a gesture.
@@ -15,7 +15,7 @@ export interface GestureCommand {
 }
 
 /**
- * Helper function to set CSS properties on an element
+ * Helper function to set CSS properties on an element.
  */
 function setCssProps(el: HTMLElement, props: Record<string, string>): void {
   Object.assign(el.style, props);
@@ -263,54 +263,38 @@ export class GestureHandler {
       maxY = Math.max(maxY, y);
     });
 
-    const width = maxX - minX;
-    const height = maxY - minY;
-    const padding = 15;
-    const availableSize = size - padding * 2;
-    const scale = availableSize / Math.max(width, height, 1);
+    const width = maxX - minX || 1;
+    const height = maxY - minY || 1;
+    const scale = Math.min((size * 0.7) / width, (size * 0.7) / height);
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
 
-    const points = parsedPath
-      .map(([x, y]) => {
-        const nx = (x - minX) * scale + padding + (availableSize - width * scale) / 2;
-        const ny = (y - minY) * scale + padding + (availableSize - height * scale) / 2;
-        return `${nx.toFixed(1)},${ny.toFixed(1)}`;
-      })
-      .join(" ");
+    const norm = parsedPath.map(([x, y]) => {
+      const nx = (x - centerX) * scale + size / 2;
+      const ny = (y - centerY) * scale + size / 2;
+      return [nx, ny] as [number, number];
+    });
 
-    return [
-      [
-        "polyline",
-        {
-          points,
-          fill: "none",
-          stroke: "currentColor",
-          "stroke-width": "8",
-          "stroke-linecap": "round",
-          "stroke-linejoin": "round",
-        },
-      ],
+    const pathD = norm.map(([x, y], i) => `${i === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`).join(" ");
+
+    const iconNode: IconNode = [
+      ["path", { d: pathD, stroke: "currentColor", fill: "none", "stroke-width": "2" }],
     ];
+    return iconNode;
   }
 
   static calculateDifference(line1: Offset[], line2: Offset[]): number {
-    let totalDiff = 0;
     const n = Math.min(line1.length, line2.length);
-    if (n < 2) return Infinity;
-
-    for (let i = 0; i < n - 1; i++) {
-      const v1 = line1[i + 1].subtract(line1[i]);
-      const v2 = line2[i + 1].subtract(line2[i]);
-
-      const angle1 = Math.atan2(v1.y, v1.x);
-      const angle2 = Math.atan2(v2.y, v2.x);
-
-      let diff = Math.abs(angle1 - angle2);
-      if (diff > Math.PI) {
-        diff = 2 * Math.PI - diff;
+    let diff = 0;
+    for (let i = 1; i < n; i++) {
+      const angle1 = Math.atan2(line1[i].y - line1[i - 1].y, line1[i].x - line1[i - 1].x);
+      const angle2 = Math.atan2(line2[i].y - line2[i - 1].y, line2[i].x - line2[i - 1].x);
+      let angleDiff = Math.abs(angle1 - angle2);
+      if (angleDiff > Math.PI) {
+        angleDiff = 2 * Math.PI - angleDiff;
       }
-
-      totalDiff += diff;
+      diff += angleDiff;
     }
-    return totalDiff / (n - 1);
+    return diff / n;
   }
 }

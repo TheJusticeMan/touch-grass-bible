@@ -4,6 +4,8 @@ export * from "./CommandPaletteSettings";
 export * from "./Commands";
 export * from "./Comands";
 export * from "./Event";
+export * from "./ExternalPluginRuntime";
+export * from "./GestureHandler";
 export * from "./MyBrowserConsole";
 export * from "./Offset";
 export * from "./PaletteStateController";
