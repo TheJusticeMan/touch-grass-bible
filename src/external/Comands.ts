@@ -1,4 +1,3 @@
-import { CheckSquare, Square } from "lucide";
 import { CMDCategory, CommandItem, CommandPaletteState } from "./CommandPalette";
 import { ETarget } from "./Event";
 
@@ -53,6 +52,7 @@ export class CMD<Events extends CMDEvents = CMDEvents> extends ETarget<Events> {
 
 abstract class SettingCMD<T> extends CMD<{ change: T } & CMDEvents> {
   value: T;
+
   constructor(Category: CMDCategory, initialValue: T) {
     super(Category);
     this.value = initialValue;
@@ -62,7 +62,17 @@ abstract class SettingCMD<T> extends CMD<{ change: T } & CMDEvents> {
     if (this.value === value) return this;
     this.value = value;
     this.updateItem();
-    this.emit("change", this.value);
+    this.emit("change", value);
+
+    return this;
+  }
+
+  updateItem() {
+    if (this.item) {
+      this.item.setTitle(this.name).setDescription(this.description);
+      this.item.removeComponents();
+      this._onUpdate(this.item!);
+    }
     return this;
   }
 
@@ -77,11 +87,61 @@ export class toggleCMD extends SettingCMD<boolean> {
   }
 
   protected _onUpdate(item: CommandItem<CMD>): void {
-    item.addIconButton(btn =>
-      btn
-        .setIcon(this.value ? CheckSquare : Square)
-        .setTooltip(this.value ? "Enabled" : "Disabled")
-        .setDisabled(true),
-    );
+    item.addToggleInput(toggle => toggle.setValue(this.value).on("change", v => this.setValue(v)));
   }
+}
+
+export class textCMD extends SettingCMD<string> {
+  constructor(Category: CMDCategory, initialValue: string = "") {
+    super(Category, initialValue);
+    this.on("_click", () => {
+      const newValue = prompt("Enter new value:", this.value);
+      if (newValue !== null) {
+        this.setValue(newValue);
+      }
+    });
+  }
+
+  protected _onUpdate(item: CommandItem<CMD>): void {
+    item.addTextInput(input => input.setValue(this.value).on("change", v => this.setValue(v)));
+  }
+}
+
+export class sliderCMD extends SettingCMD<number> {
+  constructor(Category: CMDCategory, initialValue: number = 0) {
+    super(Category, initialValue);
+  }
+
+  protected _onUpdate(item: CommandItem<CMD>): void {
+    item.addSliderInput(slider => slider.setValue(this.value).on("change", v => this.setValue(v)));
+  }
+}
+
+abstract class CMD2Type<T> {
+  abstract name: string;
+  abstract description: string;
+  abstract render: (
+    command: T,
+    el: CommandItem<T>,
+  ) => Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState);
+}
+
+export function CMD2<T>(
+  name: string,
+  description: string,
+  cb: (
+    cmd: CommandItem<T>,
+  ) => Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState),
+): CMD2Type<T> {
+  return new (class extends CMD2Type<T> {
+    name = name;
+    description = description;
+    render = (
+      _command: T,
+      el: CommandItem<T>,
+    ): Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState) => {
+      el.setTitle(this.name).setDescription(this.description);
+      return cb(el);
+    };
+  })();
 }

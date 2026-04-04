@@ -120,7 +120,9 @@ class SettingsCategory extends CommandCategory<string> {
               .on("_click", () => {
                 this.plugin.app.commandPalette.confirm(`Uninstall plugin: ${filename}?`).then(confirmed => {
                   if (!confirmed) return;
-                  void this.plugin.app.externalPlugins!.uninstallPlugin(filename).then(() => this.plugin.app.console.log(`Plugin uninstalled: ${filename}`));
+                  void this.plugin.app
+                    .externalPlugins!.uninstallPlugin(filename)
+                    .then(() => this.plugin.app.console.log(`Plugin uninstalled: ${filename}`));
                 });
               });
           }

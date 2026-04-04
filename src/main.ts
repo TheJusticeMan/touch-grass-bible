@@ -16,6 +16,7 @@ import "./main.css";
 import { bibleData, VerseRef } from "./models/VerseRef";
 import {
   AIPlugin,
+  AppearancePlugin,
   BibleSearchPlugin,
   BookmarkPlugin,
   GesturePlugin,
@@ -204,6 +205,15 @@ export default class TouchGrassBibleApp extends App {
           id: "gesture-commands",
           name: "Gesture Commands",
           description: "Trigger commands by drawing gestures on the floating action button.",
+          version: "1.0.0",
+        },
+      },
+      {
+        pluginClass: AppearancePlugin,
+        manifest: {
+          id: "appearance",
+          name: "Appearance",
+          description: "Customize the appearance of Touch Grass Bible",
           version: "1.0.0",
         },
       },

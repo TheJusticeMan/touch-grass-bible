@@ -10,3 +10,4 @@ export { default as SharePlugin } from "./Share";
 export { default as TopicalBiblePlugin } from "./TopicalBible";
 export { default as TranslationsPlugin } from "./Translations";
 export { default as TSKPlugin } from "./TSK";
+export { default as AppearancePlugin } from "./Appearance";

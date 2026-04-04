@@ -520,6 +520,32 @@ export class ToggleInput extends AbstractInput<"input", boolean> {
   }
 }
 
+export class sliderInput extends AbstractInput<"input", number> {
+  constructor(parent: Node) {
+    super(parent, "input", false);
+    this.element.type = "range";
+    this.element.classList.add("ui-slider-input");
+    this.setAria({ role: "slider", value: 0 });
+    this.unlistenAll(); // Remove the default listeners set in AbstractInput
+    this.listen("change", e => {
+      e.stopPropagation();
+      const value = this.getValue();
+      this.emit("change", value);
+      this.setAria({ value });
+    });
+  }
+
+  setValue(value: number) {
+    this.element.value = String(value);
+    this.setAria({ value });
+    return this;
+  }
+
+  getValue(): number {
+    return parseFloat(this.element.value);
+  }
+}
+
 /**
  * Represents a draggable scroll bubble UI component that can be attached to a parent HTMLElement.
  *
@@ -845,6 +871,11 @@ export class Item extends UIComponent<
 
   addToggleInput(cb: (el: ToggleInput) => void) {
     this.addComponent(ToggleInput, cb);
+    return this;
+  }
+
+  addSliderInput(cb: (el: sliderInput) => void) {
+    this.addComponent(sliderInput, cb);
     return this;
   }
 
