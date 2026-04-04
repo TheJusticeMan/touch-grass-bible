@@ -1,6 +1,6 @@
 import "./App.css";
 import { UnifiedCommandPalette } from "./CommandPalette";
-import { ETarget, touchDragger } from "./Event";
+import { ETarget, touchDragger, touchDraggerEvents } from "./Event";
 import { BrowserConsole } from "./MyBrowserConsole";
 import "./MyHTML";
 import type { PlatformBridge } from "./PlatformBridge.ts";
@@ -48,20 +48,15 @@ export { App };
  * - Integrates with browser history and prevents accidental page unloads.
  * - Provides utility methods for data import/export and persistence.
  */
-abstract class App extends ETarget<{
-  keydown: { key: string; event: KeyboardEvent };
-  historypop: object;
-  open: void;
-  close: void;
-  draggingX: { deltaX: number };
-  draggingY: { deltaY: number };
-  dragX: { deltaX: number };
-  dragY: { deltaY: number };
-  dragCancel: { deltaX: number; deltaY: number };
-  dragXcancel: { deltaX: number; deltaY: number };
-  dragYcancel: { deltaX: number; deltaY: number };
-  [key: string]: unknown;
-}> {
+abstract class App extends ETarget<
+  {
+    keydown: { key: string; event: KeyboardEvent };
+    historypop: object;
+    open: void;
+    close: void;
+    [key: string]: unknown;
+  } & touchDraggerEvents
+> {
   /** Console instance for app-level logs and diagnostics. */
   console: BrowserConsole;
 

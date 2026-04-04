@@ -2,7 +2,7 @@
 
 import { ChevronDown, IconNode, Maximize2, Minimize2, Plus, X } from "lucide";
 import { Files } from "../App";
-import { ETarget } from "../Event";
+import { ETarget, touchDraggerEvents } from "../Event";
 import { Button, IconButton, UIComponent } from "../UIComponents";
 import "./Workspace.css";
 import {
@@ -122,15 +122,9 @@ type WorkspaceEvents = {
   "dialog-close": { id: string };
   keydown: { key: string; event: KeyboardEvent };
   historypop: object;
-  draggingX: { deltaX: number };
-  draggingY: { deltaY: number };
-  dragX: { deltaX: number };
-  dragY: { deltaY: number };
-  dragCancel: { deltaX: number; deltaY: number };
-  dragXcancel: { deltaX: number; deltaY: number };
-  dragYcancel: { deltaX: number; deltaY: number };
+
   [key: string]: unknown;
-};
+} & touchDraggerEvents;
 
 type WorkspaceElectronBridge = {
   windowMinimize?: () => Promise<void>;
@@ -147,6 +141,7 @@ type ViewEvents = {
   deactivate: void;
   open: void;
   close: void;
+  menu: MouseEvent;
 };
 
 class LayoutTreeService {
@@ -1454,6 +1449,7 @@ export class LayoutNode {
       !detachedView.view,
       event => this.workspace.handleTabPointerDown(this, tabId, event),
       () => this.removeViewByTabId(tabId),
+      menu => menu,
       icon,
     );
     const tabButton = tabComponent.element;
@@ -1879,7 +1875,12 @@ export class View extends ETarget<ViewEvents> {
 
   constructor(public panel: LayoutNode) {
     super();
-    this.containerEl = UIComponent.detached("div").addClass("view").element;
+    this.containerEl = UIComponent.detached("div")
+      .addClass("view")
+      .listen("contextmenu", (event: MouseEvent) => {
+        event.preventDefault();
+        this.emit("menu", event);
+      }).element;
   }
 
   /**

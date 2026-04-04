@@ -123,6 +123,15 @@ export abstract class ETarget<E extends Record<string, unknown> = Record<string,
   }
 }
 
+export type touchDraggerEvents = {
+  draggingX: { deltaX: number };
+  draggingY: { deltaY: number };
+  dragX: { deltaX: number };
+  dragY: { deltaY: number };
+  dragCancel: { deltaX: number; deltaY: number };
+  dragXcancel: { deltaX: number; deltaY: number };
+  dragYcancel: { deltaX: number; deltaY: number };
+};
 /**
  * A class that handles touch-based drag gestures on a given HTMLElement.
  *
@@ -152,15 +161,7 @@ export abstract class ETarget<E extends Record<string, unknown> = Record<string,
  *
  * @method setThreshold Sets the minimum distance (in pixels) required to trigger a drag event.
  */
-export class touchDragger extends ETarget<{
-  draggingX: { deltaX: number };
-  draggingY: { deltaY: number };
-  dragX: { deltaX: number };
-  dragY: { deltaY: number };
-  dragCancel: { deltaX: number; deltaY: number };
-  dragXcancel: { deltaX: number; deltaY: number };
-  dragYcancel: { deltaX: number; deltaY: number };
-}> {
+export class touchDragger extends ETarget<touchDraggerEvents> {
   private startX: number = 0;
   private startY: number = 0;
   private currentX: number = 0;

@@ -1007,7 +1007,13 @@ export class Menu extends ETarget {
 
     this.emit("show", this.items);
 
-    this._onClickAway = () => this.hide();
+    this._onClickAway = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (target && this.menuEl?.contains(target)) {
+        return;
+      }
+      this.hide();
+    };
     setTimeout(() => document.addEventListener("mousedown", this._onClickAway!), 0);
 
     return this;

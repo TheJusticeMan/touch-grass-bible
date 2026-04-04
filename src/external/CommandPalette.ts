@@ -2,7 +2,7 @@ import levenshtein from "js-levenshtein";
 import { ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, X } from "lucide";
 import { App } from "./App";
 import "./CommandPalette.css";
-import { ETarget } from "./Event";
+import { ETarget, touchDraggerEvents } from "./Event";
 import { PaletteState, PaletteStateController } from "./PaletteStateController";
 import { IconActionComponent, inputMode, Item, TextInput, UIComponent } from "./UIComponents";
 import { WorkspaceDialog } from "./Workspace";
@@ -60,20 +60,10 @@ export class CategoryLoader<T> {
 export type CategoryLoaderFunc<T> = (commandPalette: UnifiedCommandPalette) => CommandCategory<T>;
 
 type UnifiedCommandPaletteEvents = {
-  open: void;
-  display: CommandPaletteState;
   close: void;
-  update: CommandPaletteState;
   keydown: { key: string };
   historypop: CommandPaletteState;
-  draggingX: { deltaX: number };
-  draggingY: { deltaY: number };
-  dragX: { deltaX: number };
-  dragY: { deltaY: number };
-  dragCancel: { deltaX: number; deltaY: number };
-  dragXcancel: { deltaX: number; deltaY: number };
-  dragYcancel: { deltaX: number; deltaY: number };
-};
+} & touchDraggerEvents;
 
 /**
  * Abstract base class for a unified command palette UI component.
@@ -124,11 +114,11 @@ type UnifiedCommandPaletteEvents = {
 export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> {
   private dialog: CommandPaletteDialog | null = null;
   private _state: CommandPaletteState = new CommandPaletteState(""); // Initialize with default state
+  freezeScrollOnRender: boolean = false; // Flag to control scroll freezing on render
   public get state(): CommandPaletteState {
     return this._state;
   }
   public set state(value: CommandPaletteState) {
-    this.emit("update", value);
     this._state = value;
   }
   private categories: CategoryLoader<unknown>[] = [];
@@ -205,9 +195,7 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
     return this.dialog;
   }
 
-  onDialogOpened(): void {
-    this.emit("open", undefined);
-  }
+  onDialogOpened(): void {}
 
   onDialogClosed(dialog: CommandPaletteDialog): void {
     if (this.dialog === dialog) {
@@ -339,15 +327,19 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
     }
     this._disabledPalettes.add(id);
     if (this.state.topCategory === id) {
+      this.freezeScrollOnRender = true; // Prevent scroll reset on next render
       this.update({ topCategory: "" });
     }
+    this.freezeScrollOnRender = true; // Prevent scroll reset on next render
     this.onSettingsChanged();
   }
+
   enableCategory(id: string) {
     if (!this._disabledPalettes.has(id)) {
       return;
     }
     this._disabledPalettes.delete(id);
+    this.freezeScrollOnRender = true; // Prevent scroll reset on next render
     this.onSettingsChanged();
   }
 
@@ -486,7 +478,6 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
    */
   update(context: Partial<CommandPaletteState> = {}) {
     this.state = this.stateController.update(context);
-    this.emit("update", this.state);
     return this;
   }
 
@@ -502,7 +493,6 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
       this.update({ query: "", maxResults: this.maxResults });
     }
     this.update(context);
-    this.emit("display", this.state);
     if (shouldSaveHistory) this.saveStateHistory();
     this.stateController.pushCurrentContext();
     this.inputMode = "search";
@@ -547,7 +537,6 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
       return this.display(context, false);
     }
     this.update(context);
-    this.emit("display", this.state);
     this.triggerCategoryData();
     this.dialog?.setValue(this.state.query);
     return this;
@@ -891,9 +880,12 @@ class CommandPaletteDialog extends WorkspaceDialog {
     const state = this.palette.state;
     this.contentComponent.mainEl.empty();
     this.contentComponent.overviewEl.empty();
-    this.contentComponent.mainEl.scroll(0, 0);
-    this.contentComponent.overviewEl.scroll(0, 0);
     this.contentComponent.mainEl.removeEventListener("scroll", this.handleScroll);
+    if (!this.palette.freezeScrollOnRender) {
+      this.contentComponent.mainEl.scroll(0, 0);
+      this.contentComponent.overviewEl.scroll(0, 0);
+      this.palette.freezeScrollOnRender = false;
+    }
     this.contentComponent.mainEl.addEventListener("scroll", this.handleScroll, {
       passive: true,
       once: true,

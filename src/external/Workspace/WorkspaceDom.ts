@@ -1,5 +1,5 @@
 import { createElement, IconNode, X } from "lucide";
-import { UIComponent } from "../UIComponents";
+import { Menu, UIComponent } from "../UIComponents";
 import type { NodeType, SplitAxis } from "./Workspace";
 
 export class WorkspaceTabButton extends UIComponent<"button"> {
@@ -15,16 +15,14 @@ export class WorkspaceTabButton extends UIComponent<"button"> {
     unresolved: boolean = false,
     onPointerDown?: (event: PointerEvent) => void,
     private onClose?: () => void,
+    private onMenu?: (event: Menu) => void,
     icon: IconNode | null = null,
   ) {
     super(null, "button", { detached: true });
     this.setAttr("type", "button").addClass("panel-tab").setData({ viewId: tabId });
     this.iconEl = this.createChild("span", { cls: "panel-tab-icon" });
     this.labelEl = this.createChild("span", { cls: "panel-tab-label" });
-    this.closeEl = this.createChild("span", {
-      cls: "panel-tab-close",
-      attr: { role: "button" },
-    });
+    this.closeEl = this.createChild("span", { cls: "panel-tab-close", attr: { role: "button" } });
     this.closeEl.setAttribute("aria-label", `Close ${title}`);
     this.closeIconEl = this.closeEl.createEl("span", { cls: "panel-tab-close-icon" });
     this.closeIconEl.appendChild(createElement(X, { "stroke-width": 1.75 }));
@@ -46,9 +44,16 @@ export class WorkspaceTabButton extends UIComponent<"button"> {
       this.onClose?.();
     });
     this.listen("auxclick", event => {
-      if (event.button === 1) {
-        this.onClose?.();
-      }
+      if (event.button === 1) this.onClose?.();
+    });
+
+    this.listen("contextmenu", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const menu = new Menu()
+        .addItem(item => item.setTitle("Close").on("click", () => this.onClose?.()))
+        .showAtMouseEvent(event);
+      this.onMenu?.(menu);
     });
 
     if (onPointerDown) {
