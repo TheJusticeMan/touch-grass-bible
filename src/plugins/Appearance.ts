@@ -1,5 +1,4 @@
 import Plugin from "src/core/Plugin";
-import { sliderCMD } from "src/external/Comands";
 import {
   CommandCategory,
   CommandItem,
@@ -26,14 +25,16 @@ class AppearanceCategory extends CommandCategory<string> {
 
   onTrigger(_state: CommandPaletteState): void {
     void _state;
-    new sliderCMD(this.defaultCMD)
-      .setValue(this.plugin.app.settings.style.fontSize)
-      .setName("Font Size")
-      .on("change", (value: number) => {
-        this.plugin.app.settings.style.fontSize = value;
-        document.documentElement.style.setProperty("--font-size-base", `${value}px`);
-        this.plugin.app.settingsStore.save();
-      });
+    this.defaultCMD.addCMD("Font Size", "Adjust the font size of the Bible text", item => {
+      item.addSliderInput(slider =>
+        slider.setValue(this.plugin.app.settings.style.fontSize).on("change", (value: number) => {
+          this.plugin.app.settings.style.fontSize = value;
+          document.documentElement.style.setProperty("--font-size-base", `${value}px`);
+          this.plugin.app.settingsStore.save();
+        }),
+      );
+      return {};
+    });
   }
 
   getCommands(_query: string): string[] {

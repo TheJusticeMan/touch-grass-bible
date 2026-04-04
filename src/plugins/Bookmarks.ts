@@ -1,7 +1,6 @@
 import { Bookmark, Plus, X } from "lucide";
 import {
   Button,
-  CMD,
   CommandCategory,
   CommandItem,
   CommandPaletteState,
@@ -149,24 +148,32 @@ class VerseListCategory extends CommandCategory<VerseRef> {
   }
 
   onTrigger(): void {
-    new CMD(this.defaultCMD)
-      .setName(this.isediting ? "Stop Editing Bookmark Tag" : "Edit Bookmark Tag")
-      .on("_click", () => {
-        this.isediting = !this.isediting;
-        this.commandPalette.update({ topCategory: VerseListCategoryID }).display();
-      });
-    new CMD(this.defaultCMD).setName("Merge verses from the same chapter").on("_click", () => {
-      const versesToKeep = this.plugin.Bookmarks.get(this.plugin.tag.get())
-        .reverse()
-        .reduce((acc: VerseRef[], v) => {
-          if (!acc.some(av => av.isSameChapter(v))) acc.push(v);
-          return acc;
-        }, [])
-        .reverse();
-      this.plugin.Bookmarks.set(this.plugin.tag.get(), ...versesToKeep);
-      this.commandPalette.display();
-      this.plugin.saveSettings();
-    });
+    this.defaultCMD.addCMD(
+      this.isediting ? "Stop Editing Bookmark Tag" : "Edit Bookmark Tag",
+      "",
+      item =>
+        void item.on("click", () => {
+          this.isediting = !this.isediting;
+          this.commandPalette.update({ topCategory: VerseListCategoryID }).display();
+        }),
+    );
+    this.defaultCMD.addCMD(
+      "Merge verses from the same chapter",
+      "",
+      item =>
+        void item.on("click", () => {
+          const versesToKeep = this.plugin.Bookmarks.get(this.plugin.tag.get())
+            .reverse()
+            .reduce((acc: VerseRef[], v) => {
+              if (!acc.some(av => av.isSameChapter(v))) acc.push(v);
+              return acc;
+            }, [])
+            .reverse();
+          this.plugin.Bookmarks.set(this.plugin.tag.get(), ...versesToKeep);
+          this.commandPalette.display();
+          this.plugin.saveSettings();
+        }),
+    );
     this.title = `Bookmark tag: ${VerseListCategory.convertTopicDate(this.plugin.tag.get())}`;
     this.verses = this.plugin.Bookmarks.get(this.plugin.tag.get()).reverse();
   }
@@ -252,41 +259,47 @@ class BookmarkCategory extends CommandCategory<string> {
     void _state;
     const tag = this.plugin.tag.get();
     const verse = this.plugin.app.verseState.get();
-    new CMD(this.defaultCMD)
-      .setName(`Delete ${verse.toString()} from "${tag}"`)
-      .setDescription("Delete a verse from a bookmark tag")
-      .on("_click", () => {
-        const tag = this.plugin.tag.get();
-        const verse = this.plugin.app.verseState.get();
-        this.plugin.Bookmarks.remove(tag, verse);
-        this.commandPalette.display();
-        this.plugin.saveSettings();
-      });
-
-    new CMD(this.defaultCMD)
-      .setName(`Delete tag: ${this.plugin.tag.get()}`)
-      .setDescription("Delete a bookmark tag")
-      .on("_click", () => {
-        const tag = this.plugin.tag.get();
-        this.plugin.Bookmarks.delete(tag);
-        this.commandPalette.display();
-        this.plugin.saveSettings();
-      });
-    new CMD(this.defaultCMD)
-      .setName(`Save ${verse.toString()} to new tag`)
-      .setDescription("Save the current verse to a bookmark tag")
-      .on("_click", () => {
-        this.console.log("Prompting for new bookmark tag for", verse.toString());
-        this.plugin.app.commandPalette.prompt("Enter new bookmark tag").then(st => {
-          this.console.log("Adding bookmark", verse.toString(), "to tag", st);
-          if (!st) return;
-          this.console.log("Adding bookmark", verse.toString(), "to tag", st);
-          const tag = st.toTitleCase();
-          this.plugin.Bookmarks.add(tag, verse);
+    this.defaultCMD.addCMD(
+      `Delete ${verse.toString()} from "${tag}"`,
+      "Delete a verse from a bookmark tag",
+      item =>
+        void item.on("click", () => {
+          const tag = this.plugin.tag.get();
+          const verse = this.plugin.app.verseState.get();
+          this.plugin.Bookmarks.remove(tag, verse);
           this.commandPalette.display();
           this.plugin.saveSettings();
-        });
-      });
+        }),
+    );
+
+    this.defaultCMD.addCMD(
+      `Delete tag: ${this.plugin.tag.get()}`,
+      "Delete a bookmark tag",
+      item =>
+        void item.on("click", () => {
+          const tag = this.plugin.tag.get();
+          this.plugin.Bookmarks.delete(tag);
+          this.commandPalette.display();
+          this.plugin.saveSettings();
+        }),
+    );
+    this.defaultCMD.addCMD(
+      `Save ${verse.toString()} to new tag`,
+      "Save the current verse to a bookmark tag",
+      item =>
+        void item.on("click", () => {
+          this.console.log("Prompting for new bookmark tag for", verse.toString());
+          this.plugin.app.commandPalette.prompt("Enter new bookmark tag").then(st => {
+            this.console.log("Adding bookmark", verse.toString(), "to tag", st);
+            if (!st) return;
+            this.console.log("Adding bookmark", verse.toString(), "to tag", st);
+            const tag = st.toTitleCase();
+            this.plugin.Bookmarks.add(tag, verse);
+            this.commandPalette.display();
+            this.plugin.saveSettings();
+          });
+        }),
+    );
 
     this.tags = this.plugin.Bookmarks.keys;
   }

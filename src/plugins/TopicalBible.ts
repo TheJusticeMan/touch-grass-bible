@@ -1,7 +1,6 @@
 import { GitCompare } from "lucide";
 import {
   Button,
-  CMD,
   CommandCategory,
   CommandItem,
   CommandPaletteState,
@@ -66,10 +65,15 @@ class topicListCategory extends CommandCategory<VerseRef | string> {
     if (topic) {
       this.list = this.plugin.topics.get(topic);
       this.title = `Topic: ${topic.toTitleCase()}`;
-      new CMD(this.defaultCMD).setName("Clear topic filter").on("_click", () => {
-        this.topic.set("");
-        this.commandPalette.display();
-      });
+      this.defaultCMD.addCMD(
+        "Clear topic filter",
+        "",
+        item =>
+          void item.on("click", () => {
+            this.topic.set("");
+            this.commandPalette.display();
+          }),
+      );
     } else {
       this.list = this.plugin.topics.keys;
     }

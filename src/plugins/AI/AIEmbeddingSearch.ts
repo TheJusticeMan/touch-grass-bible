@@ -1,4 +1,4 @@
-import { CMD, CommandCategory, CommandItem, CommandPaletteState, UnifiedCommandPalette } from "src/external";
+import { CommandCategory, CommandItem, CommandPaletteState, UnifiedCommandPalette } from "src/external";
 import { VerseRef } from "src/models/VerseRef";
 import { AICategoryID, SettingsCategoryID, TSKCrossRefCategoryID } from "src/plugins/categoryIDs";
 import type AIPlugin from "./AI";
@@ -34,42 +34,49 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
   }
 
   onTrigger(): void {
-    new CMD(this.defaultCMD)
-      .setName("Back to AI chat")
-      .setDescription("Return to AI Q&A mode")
-      .on("_click", () => this.commandPalette.display({ topCategory: AICategoryID }));
+    this.defaultCMD.addCMD(
+      "Back to AI chat",
+      "Return to AI Q&A mode",
+      item => void item.on("click", () => this.commandPalette.display({ topCategory: AICategoryID })),
+    );
 
     if (!this.plugin.settings.aiApiKey) {
-      new CMD(this.defaultCMD)
-        .setName("No OpenAI API key set")
-        .setDescription("OpenAI embeddings need a key. Ollama fallback is used if local server is available.")
-        .on("_click", () => this.plugin.app.openCommandPalette({ topCategory: SettingsCategoryID }));
+      this.defaultCMD.addCMD(
+        "No OpenAI API key set",
+        "OpenAI embeddings need a key. Ollama fallback is used if local server is available.",
+        item =>
+          void item.on("click", () =>
+            this.plugin.app.openCommandPalette({ topCategory: SettingsCategoryID }),
+          ),
+      );
     }
 
     if (this.inFlight) {
-      new CMD(this.defaultCMD)
-        .setName("Searching embeddings…")
-        .setDescription(`Working on: ${this.inFlightQuery}`);
+      this.defaultCMD.addCMD("Searching embeddings…", `Working on: ${this.inFlightQuery}`, () => ({}));
     }
 
     if (this.errorMessage) {
-      new CMD(this.defaultCMD).setName("Embedding search error").setDescription(this.errorMessage);
+      this.defaultCMD.addCMD("Embedding search error", this.errorMessage, () => ({}));
     }
 
     if (!this.inFlight && this.lastResults.length > 0) {
-      new CMD(this.defaultCMD)
-        .setName("Latest semantic search")
-        .setDescription(`Found ${this.lastResults.length} result(s) for: ${this.lastQuery}`);
+      this.defaultCMD.addCMD(
+        "Latest semantic search",
+        `Found ${this.lastResults.length} result(s) for: ${this.lastQuery}`,
+        () => ({}),
+      );
     }
 
     if (this.dbService.errorMessage) {
-      new CMD(this.defaultCMD).setName("Embedding setup error").setDescription(this.dbService.errorMessage);
+      this.defaultCMD.addCMD("Embedding setup error", this.dbService.errorMessage, () => ({}));
     }
 
     if (this.dbService.sourceProvider && this.dbService.sourceModel) {
-      new CMD(this.defaultCMD)
-        .setName("Embedding source")
-        .setDescription(`${this.dbService.sourceProvider}:${this.dbService.sourceModel}`);
+      this.defaultCMD.addCMD(
+        "Embedding source",
+        `${this.dbService.sourceProvider}:${this.dbService.sourceModel}`,
+        () => ({}),
+      );
     }
   }
 

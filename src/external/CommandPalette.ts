@@ -7,7 +7,6 @@ import { PaletteState, PaletteStateController } from "./PaletteStateController";
 import { IconActionComponent, inputMode, Item, TextInput, UIComponent } from "./UIComponents";
 import { WorkspaceDialog } from "./Workspace";
 
-import { CMD } from "./Comands";
 import {
   COMMAND_PALETTE_CONFIG_NAME,
   DEFAULT_COMMAND_PALETTE_SETTINGS,
@@ -18,6 +17,7 @@ import { escapeRegExp } from "./escapeRegExp";
 import { Highlighter } from "./highlighter";
 import { BrowserConsole } from "./MyBrowserConsole";
 import { SettingsStore } from "./SettingsStore";
+import { CMD, CMDType } from "./Comands";
 
 /**
  * Lazy wrapper for a command category factory.
@@ -1489,10 +1489,10 @@ class PromptCategory extends CommandCategory<string> {
   }
 }
 
-export class CMDCategory extends CommandCategory<CMD> {
+export class CMDCategory extends CommandCategory<CMDType> {
   name: string = "";
   description: string = "";
-  protected commands: CMD[] = [];
+  protected commands: CMDType[] = [];
 
   /** Clears command entries for the next trigger cycle. */
   resetCommands() {
@@ -1508,8 +1508,13 @@ export class CMDCategory extends CommandCategory<CMD> {
    *
    * @param query - Query text.
    */
-  getCommands(query: string): CMD[] {
-    return this.getcompatible(query, this.commands, a => a.name);
+  getCommands(query: string): CMDType[] {
+    return this.getcompatible(
+      query,
+      this.commands,
+      a => a.name,
+      a => a.description,
+    );
   }
 
   /**
@@ -1518,7 +1523,10 @@ export class CMDCategory extends CommandCategory<CMD> {
    * @param command - Command to render.
    * @param el - UI item element for mutation.
    */
-  renderCommand(command: CMD, el: CommandItem<CMD>): Partial<CommandPaletteState> {
+  renderCommand(
+    command: CMDType,
+    el: CommandItem<CMDType>,
+  ): Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState) {
     return command.render(command, el);
   }
 
@@ -1527,8 +1535,8 @@ export class CMDCategory extends CommandCategory<CMD> {
    *
    * @param command - Command to execute.
    */
-  executeCommand(command: CMD): void {
-    command.click(command);
+  executeCommand(command: CMDType): void {
+    void command;
   }
 
   /**
@@ -1537,7 +1545,14 @@ export class CMDCategory extends CommandCategory<CMD> {
    * @param command - Command to add.
    * @returns This category instance for method chaining.
    */
-  addCMD(command: CMD): CMDCategory {
+  addCMD(
+    name: string,
+    description: string,
+    cb: (
+      cmd: CommandItem<CMDType>,
+    ) => Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState) | void,
+  ): CMDCategory {
+    const command = CMD(name, description, cb);
     this.commands.push(command);
     return this;
   }

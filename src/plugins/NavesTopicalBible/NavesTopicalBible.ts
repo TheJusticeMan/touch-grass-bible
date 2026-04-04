@@ -1,7 +1,6 @@
 import { GitCompare } from "lucide";
 import {
   Button,
-  CMD,
   CommandCategory,
   CommandItem,
   CommandPaletteState,
@@ -189,17 +188,27 @@ class NavesTopicCategory extends CommandCategory<NaveCommand> {
         );
 
       this.title = formatTopicPath(selectedTopic.path);
-      new CMD(this.defaultCMD).setName("Browse all Nave topics").on("_click", () => {
-        this.plugin.selectedTopicId.set("");
-        this.plugin.focusedTopicIds.set([]);
-        this.commandPalette.display({ topCategory: NavesTopicListCategoryID });
-      });
+      this.defaultCMD.addCMD(
+        "Browse all Nave topics",
+        "",
+        item =>
+          void item.on("click", () => {
+            this.plugin.selectedTopicId.set("");
+            this.plugin.focusedTopicIds.set([]);
+            this.commandPalette.display({ topCategory: NavesTopicListCategoryID });
+          }),
+      );
 
       if (selectedTopic.parentId) {
-        new CMD(this.defaultCMD).setName("Go to parent topic").on("_click", () => {
-          this.plugin.selectedTopicId.set(selectedTopic.parentId ?? "");
-          this.commandPalette.display({ topCategory: NavesTopicListCategoryID });
-        });
+        this.defaultCMD.addCMD(
+          "Go to parent topic",
+          "",
+          item =>
+            void item.on("click", () => {
+              this.plugin.selectedTopicId.set(selectedTopic.parentId ?? "");
+              this.commandPalette.display({ topCategory: NavesTopicListCategoryID });
+            }),
+        );
       }
 
       this.commands = [
@@ -222,10 +231,15 @@ class NavesTopicCategory extends CommandCategory<NaveCommand> {
     if (focusedTopicIds.length > 0) {
       const verse = this.plugin.app.verseState.get();
       this.title = `Nave topics for ${verse.toString()}`;
-      new CMD(this.defaultCMD).setName("Browse all Nave topics").on("_click", () => {
-        this.plugin.focusedTopicIds.set([]);
-        this.commandPalette.display({ topCategory: NavesTopicListCategoryID });
-      });
+      this.defaultCMD.addCMD(
+        "Browse all Nave topics",
+        "",
+        item =>
+          void item.on("click", () => {
+            this.plugin.focusedTopicIds.set([]);
+            this.commandPalette.display({ topCategory: NavesTopicListCategoryID });
+          }),
+      );
 
       this.commands = focusedTopicIds
         .map(topicId => this.plugin.topicById(topicId))
@@ -250,7 +264,8 @@ class NavesTopicCategory extends CommandCategory<NaveCommand> {
   }
 
   getCommands(query: string): NaveCommand[] {
-    if (!query) return [];
+    if (!query && !this.plugin.selectedTopicId.get() && this.plugin.focusedTopicIds.get().length === 0)
+      return [];
     const selectedTopicId = this.plugin.selectedTopicId.get();
     const sourceCommands =
       !query && !selectedTopicId

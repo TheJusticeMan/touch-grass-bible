@@ -1,7 +1,6 @@
 import { BrainCircuit } from "lucide";
 import {
   Button,
-  CMD,
   CommandCategory,
   CommandItem,
   CommandPaletteState,
@@ -70,7 +69,9 @@ export default class AIPlugin extends Plugin {
             }
             return true;
           })
-          .catch(err => (responseEl.textContent = `Error: ${err instanceof Error ? err.message : String(err)}`));
+          .catch(
+            err => (responseEl.textContent = `Error: ${err instanceof Error ? err.message : String(err)}`),
+          );
       },
     });
   }
@@ -95,42 +96,53 @@ class AICommandPalette extends CommandCategory<string> {
 
   onTrigger(): void {
     if (!this.plugin.settings.aiApiKey) {
-      new CMD(this.defaultCMD)
-        .setName("No API key set")
-        .setDescription("Go to Settings → Set AI API key to enable the AI assistant.");
+      this.defaultCMD.addCMD(
+        "No API key set",
+        "Go to Settings → Set AI API key to enable the AI assistant.",
+        () => ({}),
+      );
+      return;
     }
-    new CMD(this.defaultCMD)
-      .setName("Set AI API key")
-      .setDescription(
-        "Store your OpenAI-compatible API key (saved locally in localStorage — keep it private)." +
-          (this.plugin.settings.aiApiKey ? " Key is currently set." : " No key set."),
-      )
-      .on("_click", () => {
-        this.plugin.app.commandPalette.prompt("Enter your OpenAI-compatible API key:").then(key => {
-          if (key === null) return;
-          this.plugin.settings.aiApiKey = key.trim();
-          this.plugin.saveSettings();
-          this.commandPalette.display({ topCategory: AICategoryID });
-        });
-      });
+    this.defaultCMD.addCMD(
+      "Set AI API key",
+      "Store your OpenAI-compatible API key (saved locally in localStorage — keep it private)." +
+        (this.plugin.settings.aiApiKey ? " Key is currently set." : " No key set."),
+      item =>
+        void item.on("click", () =>
+          this.plugin.app.commandPalette.prompt("Enter your OpenAI-compatible API key:").then(key => {
+            if (key === null) return;
+            this.plugin.settings.aiApiKey = key.trim();
+            this.plugin.saveSettings();
+            this.commandPalette.display({ topCategory: AICategoryID });
+          }),
+        ),
+    );
 
-    new CMD(this.defaultCMD)
-      .setName("Open semantic embedding search")
-      .setDescription("Search semantically similar verses using precomputed embeddings + Orama")
-      .on("_click", () => this.commandPalette.display({ topCategory: AIEmbeddingSearchCategoryID }));
+    this.defaultCMD.addCMD(
+      "Open semantic embedding search",
+      "Search semantically similar verses using precomputed embeddings + Orama",
+      item =>
+        void item.on("click", () =>
+          this.commandPalette.display({ topCategory: AIEmbeddingSearchCategoryID }),
+        ),
+    );
 
     if (this.inFlightResponse) {
       const { question, answer, error } = this.inFlightResponse;
-      new CMD(this.defaultCMD)
-        .setName(error ? "AI error" : "AI: thinking…")
-        .setDescription(error ? error : answer || `Working on: ${question}`);
+      this.defaultCMD.addCMD(
+        error ? "AI error" : "AI: thinking…",
+        error ? error : answer || `Working on: ${question}`,
+        () => ({}),
+      );
     }
 
     if (this.responses.length > 0) {
       const latest = this.responses[this.responses.length - 1];
-      new CMD(this.defaultCMD)
-        .setName("Latest AI response")
-        .setDescription(latest.answer || `No content returned for: ${latest.question}`);
+      this.defaultCMD.addCMD(
+        "Latest AI response",
+        latest.answer || `No content returned for: ${latest.question}`,
+        () => ({}),
+      );
     }
   }
 
