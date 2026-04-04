@@ -42,7 +42,14 @@ export function parseGoToVerseQuery(
 
     return matches
       .filter(m => m.matchLen === maxMatchLen)
-      .map(m => ({ item: m.item, remaining: normalizeQuerySegment(normalizedQ.slice(m.matchLen)) }))
+      .map(m => {
+        const remainingRaw = normalizedQ.slice(m.matchLen);
+        return {
+          item: m.item,
+          remainingRaw,
+          remaining: normalizeQuerySegment(remainingRaw),
+        };
+      })
       .filter(m => m.remaining.length === 0 || !/^[a-z]/.test(m.remaining));
   };
 
@@ -50,7 +57,28 @@ export function parseGoToVerseQuery(
 
   // We only proceed with specific number parsing if we have a clear book match
   if (bestBookMatches.length === 1) {
-    const { item: book, remaining } = bestBookMatches[0];
+    const { item: book, remaining, remainingRaw } = bestBookMatches[0];
+
+    // If numeric input continues after the chapter digits, switch to strict numeric parsing.
+    const strictChapterMatch = remainingRaw.match(/^(\d+)(.*)$/);
+    if (strictChapterMatch && strictChapterMatch[2].trim().length > 0) {
+      const chapter = parseInt(strictChapterMatch[1], 10);
+      if (chapter < 1 || chapter >= bible[book].length) return [];
+
+      const verseSegment = normalizeQuerySegment(strictChapterMatch[2]);
+      if (!verseSegment.length) return [{ book, chapter }];
+
+      const strictVerseMatch = verseSegment.match(/^(\d+)(.*)$/);
+      if (!strictVerseMatch) return [];
+
+      const verse = parseInt(strictVerseMatch[1], 10);
+      if (verse < 1 || verse >= bible[book][chapter].length) return [];
+
+      // Any trailing non-delimiter content after verse makes this query invalid.
+      if (normalizeQuerySegment(strictVerseMatch[2]).length > 0) return [];
+
+      return [{ book, chapter, verse }];
+    }
 
     const chapterList = Array.from({ length: bible[book].length - 1 }, (_, i) => (i + 1).toString());
     const chapterMatches = eat(remaining, chapterList);
@@ -58,8 +86,13 @@ export function parseGoToVerseQuery(
     let chapter: number | undefined;
 
     if (chapterMatches.length === 1) {
-      const { item: chItem, remaining: verseRemaining } = chapterMatches[0];
+      const { item: chItem, remaining: verseRemaining, remainingRaw: verseRemainingRaw } = chapterMatches[0];
       chapter = parseInt(chItem, 10);
+
+      // If there are only trailing delimiters after the chapter, keep chapter-only result.
+      if (verseRemainingRaw.trim().length > 0 && verseRemaining.length === 0) {
+        return [{ book, chapter }];
+      }
 
       const verseList = Array.from({ length: bible[book][chapter].length - 1 }, (_, i) => (i + 1).toString());
       const verseMatches = eat(verseRemaining, verseList);

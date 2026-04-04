@@ -7,13 +7,23 @@ const books = ["JOHN", "JONAH", "GENESIS"];
 const mockBible: bibleData = {
   JOHN: [[], ["", "John 1:1", "John 1:2"], ["", "John 2:1"], ["", "John 3:1", "John 3:2", "John 3:3"]],
   JONAH: [[], ["", "Jonah 1:1"], ["", "Jonah 2:1"]],
-  GENESIS: [[], ["", "Genesis 1:1"]],
+  GENESIS: [[], ["", "Genesis 1:1"], ["", "Genesis 10:1", "Genesis 10:2"]],
 };
 
 describe("parseGoToVerseQuery", () => {
   test("returns best-matching books for partial book input", () => {
     const result = parseGoToVerseQuery("jo", books, mockBible);
     expect(result).toEqual([{ book: "JOHN" }, { book: "JONAH" }]);
+  });
+
+  test("returns just the one digit chapter when there is something after the chapter number", () => {
+    const result = parseGoToVerseQuery("genesis 1, ", books, mockBible);
+    expect(result).toEqual([{ book: "GENESIS", chapter: 1 }]);
+  });
+
+  test("returns just the one digit chapter when there is something after the chapter number", () => {
+    const result = parseGoToVerseQuery("gene 1,1", books, mockBible);
+    expect(result).toEqual([{ book: "GENESIS", chapter: 1, verse: 1 }]);
   });
 
   test("returns all chapters when book is fully matched", () => {
@@ -42,6 +52,11 @@ describe("parseGoToVerseQuery", () => {
   test("parses chapter and verse with mixed punctuation", () => {
     const result = parseGoToVerseQuery("john:3,1", books, mockBible);
     expect(result).toEqual([{ book: "JOHN", chapter: 3, verse: 1 }]);
+  });
+
+  test("switches to strict numeric parsing when query continues", () => {
+    const result = parseGoToVerseQuery("ge1,1", books, mockBible);
+    expect(result).toEqual([{ book: "GENESIS", chapter: 1, verse: 1 }]);
   });
 
   test("returns empty list when there is no match", () => {
