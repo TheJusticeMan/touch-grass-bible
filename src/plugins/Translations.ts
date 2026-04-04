@@ -1,4 +1,4 @@
-import { CommandCategory, CommandItem, CommandPaletteState, UnifiedCommandPalette } from "src/external";
+import { CommandCategory, CommandItem, CommandPaletteState, UnifiedCommandPalette } from "@touchgrass/framework";
 import Plugin from "../core/Plugin";
 import { VerseRef, translation } from "../models/VerseRef";
 import { TranslationsCategoryID } from "./categoryIDs";

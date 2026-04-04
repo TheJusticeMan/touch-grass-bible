@@ -3,4 +3,4 @@ export type {
   PlatformFileAdapter,
   PlatformStorageAdapter,
   PlatformTarget,
-} from "../external/PlatformBridge";
+} from "@touchgrass/framework";

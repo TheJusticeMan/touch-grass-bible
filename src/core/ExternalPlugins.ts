@@ -1,4 +1,4 @@
-import { eExternalPlugins } from "src/external";
+import { eExternalPlugins } from "@touchgrass/framework";
 import TouchGrassBibleApp from "../main";
 import { HOST_MODULE_ID, createExternalHostApi } from "./ExternalHostApi";
 import Plugin, { type PluginMetadata } from "./Plugin";

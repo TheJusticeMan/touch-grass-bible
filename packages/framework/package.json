@@ -1,0 +1,22 @@
+{
+  "name": "@touchgrass/framework",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --format=esm --outfile=dist/index.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "js-levenshtein": "^1.1.6",
+    "lucide": "^0.577.0"
+  }
+}

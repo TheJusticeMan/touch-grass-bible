@@ -1,6 +1,6 @@
-import { UIComponent } from "src/external";
+import { UIComponent } from "@touchgrass/framework";
 import { VerseRef } from "src/models/VerseRef";
-import { LayoutNode, View } from "../../external";
+import { LayoutNode, View } from "@touchgrass/framework";
 import type { JournalDay, JournalEntry, JournalStorage } from "./journal-storage";
 import "./JournalPanel.css";
 

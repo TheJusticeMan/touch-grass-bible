@@ -1,4 +1,4 @@
-import { Component } from "src/external";
+import { Component } from "@touchgrass/framework";
 import { describe, test, expect, vi } from "vitest";
 
 // Concrete subclass for testing the abstract Component base class

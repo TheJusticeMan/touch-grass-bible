@@ -1,5 +1,5 @@
 import apocalypseThrottle from "apocalypse-throttle";
-import { Highlighter, IconButton, LayoutNode, PaletteState, pdsp, UIComponent, View } from "../external";
+import { Highlighter, IconButton, LayoutNode, PaletteState, pdsp, UIComponent, View } from "@touchgrass/framework";
 import TouchGrassBibleApp from "../main";
 import { VerseRef } from "../models/VerseRef";
 import { BookScroll, ChapterScroll } from "./Scroll";

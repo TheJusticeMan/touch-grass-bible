@@ -1,6 +1,14 @@
 import { ChevronLeft, Plus, X } from "lucide";
-import { Button, ETarget, IconButton, RowComponent, TextArea, TextInput, UIComponent } from "src/external";
-import { LayoutNode, View, WorkspaceDialog } from "../../external";
+import {
+  Button,
+  ETarget,
+  IconButton,
+  RowComponent,
+  TextArea,
+  TextInput,
+  UIComponent,
+} from "@touchgrass/framework";
+import { LayoutNode, View, WorkspaceDialog } from "@touchgrass/framework";
 import { myNotesCategoryID } from "../categoryIDs";
 import NotesPlugin from "./Notes";
 import "./NotesPanel.css";

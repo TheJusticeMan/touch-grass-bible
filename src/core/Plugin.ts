@@ -1,5 +1,5 @@
 import { IconNode } from "lucide";
-import { eInternalPlugins, ePlugin } from "src/external";
+import { eInternalPlugins, ePlugin } from "@touchgrass/framework";
 import TouchGrassBibleApp from "../main";
 import { VerseInfoComponent } from "../ui/VerseScreen";
 

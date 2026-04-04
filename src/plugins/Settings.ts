@@ -5,7 +5,7 @@ import {
   CommandPaletteState,
   pluginOptions,
   UnifiedCommandPalette,
-} from "src/external";
+} from "@touchgrass/framework";
 import { DEFAULT_SETTINGS } from "../config/TGAppSettings";
 import Plugin from "../core/Plugin";
 import { PluginOptionsCategoryID, SettingsCategoryID } from "./categoryIDs";

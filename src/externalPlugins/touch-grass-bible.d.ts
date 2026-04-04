@@ -9,6 +9,6 @@ declare module "@touch-grass-bible" {
     DEFAULT_CATEGORY_ORDER,
     LayoutNode,
     View,
-  } from "src/external";
+  } from "@touchgrass/framework";
   export { VerseRef } from "src/models/VerseRef";
 }

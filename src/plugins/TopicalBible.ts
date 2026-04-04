@@ -5,10 +5,10 @@ import {
   CommandItem,
   CommandPaletteState,
   UnifiedCommandPalette,
-} from "src/external";
+} from "@touchgrass/framework";
 import { VerseInfoComponent } from "src/ui/VerseScreen";
 import Plugin from "../core/Plugin";
-import { PaletteState } from "../external";
+import { PaletteState } from "@touchgrass/framework";
 import { BibleTopics, BibleTopicsType } from "../models/BibleTopics";
 import { VerseRef } from "../models/VerseRef";
 import { TopicListCategoryID, TSKCrossRefCategoryID } from "./categoryIDs";

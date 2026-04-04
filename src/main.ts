@@ -11,7 +11,7 @@ import {
   SettingsStore,
   WorkspaceLayout,
   type PlatformBridge,
-} from "./external";
+} from "@touchgrass/framework";
 import "./main.css";
 import { bibleData, VerseRef } from "./models/VerseRef";
 import {

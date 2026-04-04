@@ -1,6 +1,7 @@
 {
-  "name": "touch-grass-bible",
+  "name": "touch-grass-bible-workspace",
   "version": "3.1.1",
+  "private": true,
   "description": "The bible app that keeps you grounded in the word while letting you into some functionality.",
   "keywords": [
     "bible",
@@ -21,8 +22,15 @@
   "license": "MIT",
   "author": "Justice Vellacott",
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "setup": "npm install",
+    "dev:app": "npm run dev --workspace=@touchgrass/app",
+    "build:framework": "npm run build --workspace=@touchgrass/framework",
+    "build:app": "npm run build --workspace=@touchgrass/app",
+    "test:all": "npm run test --workspaces --if-present",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -63,6 +71,7 @@
     "init": "npm run setup"
   },
   "dependencies": {
+    "@touchgrass/framework": "*",
     "@capacitor/android": "^8.2.0",
     "@capacitor/cli": "^8.2.0",
     "@capacitor/core": "^8.2.0",

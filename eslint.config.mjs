@@ -25,7 +25,7 @@ export default [
     rules: { "@typescript-eslint/no-require-imports": "off" },
   },
   {
-    files: ["src/external/**/*.ts"],
+    files: ["packages/framework/src/**/*.ts"],
     rules: {
       "no-restricted-imports": [
         "error",

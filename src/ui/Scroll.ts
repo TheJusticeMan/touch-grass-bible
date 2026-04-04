@@ -1,4 +1,4 @@
-import { ScrollBubble } from "../external";
+import { ScrollBubble } from "@touchgrass/framework";
 import { VerseRef } from "../models/VerseRef";
 
 export class ChapterScroll extends ScrollBubble {

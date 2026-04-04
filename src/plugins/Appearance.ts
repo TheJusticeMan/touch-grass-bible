@@ -4,7 +4,7 @@ import {
   CommandItem,
   CommandPaletteState,
   UnifiedCommandPalette,
-} from "src/external/CommandPalette";
+} from "@touchgrass/framework";
 
 export default class AppearancePlugin extends Plugin {
   async onload(): Promise<void> {

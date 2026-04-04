@@ -46,7 +46,7 @@ function resolveRelativeImport(fromFile: string, specifier: string): string {
 }
 
 describe("external import boundaries", () => {
-  test("all imports stay within src/external", () => {
+  test("all imports stay within packages/framework/src", () => {
     const files = listTsFiles(externalRoot);
     const fromPattern = /\bfrom\s+["']([^"']+)["']/g;
     const sideEffectImportPattern = /\bimport\s+["']([^"']+)["']/g;
@@ -72,7 +72,7 @@ describe("external import boundaries", () => {
         const resolvedImport = resolveRelativeImport(filePath, specifier);
         if (!resolvedImport.startsWith(externalRoot)) {
           violations.push(
-            `${filePath}: relative import "${specifier}" resolves outside src/external (${resolvedImport})`,
+            `${filePath}: relative import "${specifier}" resolves outside packages/framework/src (${resolvedImport})`,
           );
         }
       }

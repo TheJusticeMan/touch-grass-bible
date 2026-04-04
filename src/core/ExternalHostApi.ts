@@ -6,7 +6,7 @@ import {
   DEFAULT_CATEGORY_ORDER,
   LayoutNode,
   View,
-} from "src/external";
+} from "@touchgrass/framework";
 import TouchGrassBibleApp from "../main";
 import { VerseRef } from "../models/VerseRef";
 import Plugin from "./Plugin";
