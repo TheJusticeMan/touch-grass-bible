@@ -250,6 +250,7 @@ class NavesTopicCategory extends CommandCategory<NaveCommand> {
   }
 
   getCommands(query: string): NaveCommand[] {
+    if (!query) return [];
     const selectedTopicId = this.plugin.selectedTopicId.get();
     const sourceCommands =
       !query && !selectedTopicId

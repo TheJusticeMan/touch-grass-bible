@@ -17,6 +17,7 @@ export default [
       "no-new-func": "error",
       "dot-notation": "error",
       "security/detect-object-injection": "off",
+      "prefer-const": "error",
     },
   },
   {

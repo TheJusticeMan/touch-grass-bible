@@ -74,6 +74,8 @@
   --scrollbar-thumb-active: rgb(255 255 255 / 0.42);
   --scrollbar-border: rgb(0 0 0 / 0.25);
 
+  --mobile-width: 600px;
+
   color-scheme: dark;
 }
 

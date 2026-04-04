@@ -39,9 +39,7 @@ export class WorkspaceTabButton extends UIComponent<"button"> {
       }
       this.onClick();
     });
-    this.listenOn<PointerEvent>(this.closeEl, "pointerdown", event => {
-      event.stopPropagation();
-    });
+    this.listenOn<PointerEvent>(this.closeEl, "pointerdown", event => event.stopPropagation());
     this.listenOn<MouseEvent>(this.closeEl, "click", event => {
       event.preventDefault();
       event.stopPropagation();

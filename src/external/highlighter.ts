@@ -4,6 +4,7 @@
  * - `elTag`: HTML element tag name for wrapping matched text.
  * - `cls`: Optional CSS class name to apply to the wrapping element.
  * - `replace?: string`: Optional string for replacing matched groups (uses regex replacement syntax).
+ * - `children?: HighlightType[]`: Optional array of nested highlight configurations for further processing of matched text.
  */
 export interface HighlightType {
   regEXP: RegExp; // Must include 'g' for global matching
@@ -30,7 +31,7 @@ export class Highlighter {
    * @param text - The input string to process for highlighting.
    * @returns A DocumentFragment containing the styled and unstyled segments of text.
    */
-  highlight(text: string): DocumentFragment {
+  highlight = (text: string): DocumentFragment => {
     // Internal interface for match details
     interface MatchInfo {
       start: number;
@@ -107,7 +108,7 @@ export class Highlighter {
     }
 
     return fragment;
-  }
+  };
 }
 
 /**

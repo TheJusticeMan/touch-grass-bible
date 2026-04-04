@@ -317,7 +317,7 @@ export class Workspace extends ETarget<WorkspaceEvents> {
     }
     this.hostEl = new WorkspaceRootHost().mount(this.app.contentEl).element;
     this.dialogLayerEl = new WorkspaceDialogLayer().mount(this.app.contentEl).element;
-    this.globalSwipeHandler = new GlobalSwipeHandler(this.hostEl);
+    this.globalSwipeHandler = new GlobalSwipeHandler(this.hostEl, this);
     return this.hostEl;
   }
 
@@ -392,9 +392,7 @@ export class Workspace extends ETarget<WorkspaceEvents> {
       this.bindKeyboard();
       this.initialized = true;
       return restored;
-    })().finally(() => {
-      this.initializingPromise = null;
-    });
+    })().finally(() => (this.initializingPromise = null));
 
     return this.initializingPromise;
   }
@@ -420,9 +418,7 @@ export class Workspace extends ETarget<WorkspaceEvents> {
       return;
     }
     this.autoSaveBound = true;
-    this.on("layout-change", () => {
-      this.saveAfterDelay(delay);
-    });
+    this.on("layout-change", () => this.saveAfterDelay(delay));
   }
 
   shutdown() {
@@ -867,13 +863,9 @@ class SplitterController {
     lastPrimary: number;
   } | null = null;
 
-  private readonly onResizePointerMove = (event: PointerEvent) => {
-    this.handleResizePointerMove(event);
-  };
+  private readonly onResizePointerMove = (event: PointerEvent) => this.handleResizePointerMove(event);
 
-  private readonly onResizePointerUp = (event: PointerEvent) => {
-    this.handleResizePointerUp(event);
-  };
+  private readonly onResizePointerUp = (event: PointerEvent) => this.handleResizePointerUp(event);
 
   constructor(private panel: LayoutNode) {}
 
@@ -1023,9 +1015,7 @@ export class LayoutNode {
       .addClass("panel-tab", "panel-tab-add")
       .setAria({ label: "New tab" })
       .setIcon(Plus)
-      .listen("click", () => {
-        this.workspace.openView("empty", this);
-      });
+      .listen("click", () => this.workspace.openView("empty", this));
     this.addTabButton = addTabButtonComponent.mount(this.tabBarEl);
     this.applyModeClasses();
     this.applySplitAxis();
@@ -1547,9 +1537,7 @@ export class LayoutNode {
     this.views = [];
     this.activeViewId = null;
 
-    this.childPanels.forEach(child => {
-      child.panel.parent = this;
-    });
+    this.childPanels.forEach(child => (child.panel.parent = this));
 
     const sourceViews = [...source.views];
     sourceViews.forEach(panelView => {
@@ -1646,9 +1634,12 @@ export class LayoutNode {
           .setTooltip(tooltip)
           .on("click", onClick);
 
-      makeControl(ChevronDown, "Minimize window", "control-minimize", () => {
-        void this.getWindowControlsBridge()?.windowMinimize?.();
-      });
+      makeControl(
+        ChevronDown,
+        "Minimize window",
+        "control-minimize",
+        () => void this.getWindowControlsBridge()?.windowMinimize?.(),
+      );
 
       this.windowMaximizeButton = makeControl(Maximize2, "Maximize window", "control-maximize", () => {
         const bridge = this.getWindowControlsBridge();
@@ -1663,9 +1654,12 @@ export class LayoutNode {
         })();
       });
 
-      makeControl(X, "Close window", "control-close", () => {
-        void this.getWindowControlsBridge()?.windowClose?.();
-      });
+      makeControl(
+        X,
+        "Close window",
+        "control-close",
+        () => void this.getWindowControlsBridge()?.windowClose?.(),
+      );
 
       this.windowControlsComponent = controlsComponent;
       this.windowControlsEl = controls;
@@ -2005,9 +1999,9 @@ class EmptyView extends View {
     content.style.padding = "1em";
     this.panel.workspace.listRegisteredViews().forEach(viewType => {
       if (viewType !== "empty") {
-        new Button(content).setButtonText(`Open ${viewType}`).on("click", () => {
-          this.panel.workspace.openView(viewType, this.panel, { activate: true });
-        });
+        new Button(content)
+          .setButtonText(`Open ${viewType}`)
+          .on("click", () => this.panel.workspace.openView(viewType, this.panel, { activate: true }));
       }
     });
   }

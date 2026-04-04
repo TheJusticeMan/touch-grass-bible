@@ -146,9 +146,9 @@ Be attentive, thoughtful, and precise. Provide clear, well-structured answers th
     }
 
     if (fullcalls.length > 0) {
-      fullcalls.forEach(call => {
-        delete call.index; // Remove index from tool calls
-      });
+      fullcalls.forEach(call => 
+         delete call.index // Remove index from tool calls
+      );
       console.log("Full tool calls:", fullcalls);
       return { role: "assistant", tool_calls: fullcalls };
     }

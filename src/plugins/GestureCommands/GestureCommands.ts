@@ -12,7 +12,7 @@ import {
   Offset,
   UnifiedCommandPalette,
 } from "src/external";
-import "src/plugins/GestureCommands/GestureCommands.css";
+import "./GestureCommands.css";
 import { GestureAddCommandsCategoryID } from "../categoryIDs";
 
 type GestureCommandsSettings = {

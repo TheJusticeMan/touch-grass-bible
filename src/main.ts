@@ -1,4 +1,5 @@
 export const processstart = new Date().getTime();
+import info from "@build-info";
 import { createPlatformBridge } from "@platform";
 import { DEFAULT_SETTINGS, TGAppSettings } from "./config/TGAppSettings";
 import { ExternalPlugins } from "./core/ExternalPlugins";
@@ -11,7 +12,6 @@ import {
   WorkspaceLayout,
   type PlatformBridge,
 } from "./external";
-import info from "./info.json";
 import "./main.css";
 import { bibleData, VerseRef } from "./models/VerseRef";
 import {

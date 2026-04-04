@@ -39,10 +39,10 @@ export type WorkspaceDialogHost = {
 export class WorkspaceDialog<E extends Record<string, unknown> = Record<string, never>> extends ETarget<
   E & WorkspaceDialogEvents
 > {
-  readonly frameEl: HTMLDivElement;
-  readonly dialogEl: HTMLDivElement;
-  readonly contentEl: HTMLDivElement;
-  private titleEl: HTMLDivElement;
+  readonly frameEl: WorkspaceDialogFrame;
+  readonly dialogEl: WorkspaceDialogContainer;
+  readonly contentEl: WorkspaceDialogContent;
+  private titleEl: WorkspaceDialogTitle;
   private _isOpen = false;
 
   constructor(
@@ -51,8 +51,7 @@ export class WorkspaceDialog<E extends Record<string, unknown> = Record<string, 
     private onRequestClose: () => void,
   ) {
     super();
-    const frameComponent = new WorkspaceDialogFrame(id);
-    this.frameEl = frameComponent.element;
+    this.frameEl = new WorkspaceDialogFrame(id);
 
     const modal = options.modal ?? true;
     const closeOnBackdrop = options.closeOnBackdrop ?? modal;
@@ -62,31 +61,30 @@ export class WorkspaceDialog<E extends Record<string, unknown> = Record<string, 
       if (closeOnBackdrop) {
         backdropEl.listen("click", () => this.close());
       }
-      this.frameEl.appendChild(backdropEl.element);
+      this.frameEl.element.appendChild(backdropEl.element);
     }
 
-    const dialogComponent = new WorkspaceDialogContainer(modal);
-    this.dialogEl = dialogComponent.element;
+    this.dialogEl = new WorkspaceDialogContainer(modal);
     if (options.ariaLabel) {
-      dialogComponent.setAria({ label: options.ariaLabel });
+      this.dialogEl.setAria({ label: options.ariaLabel });
     }
     if (options.className) {
       const classNames = Array.isArray(options.className) ? options.className : [options.className];
-      dialogComponent.addClass(...classNames.filter(Boolean));
+      this.dialogEl.addClass(...classNames.filter(Boolean));
     }
     if (options.width !== undefined) {
-      this.dialogEl.style.width =
+      this.dialogEl.element.style.width =
         typeof options.width === "number" ? `${Math.max(1, options.width)}px` : String(options.width);
     }
     if (options.height !== undefined) {
-      this.dialogEl.style.height =
+      this.dialogEl.element.style.height =
         typeof options.height === "number" ? `${Math.max(1, options.height)}px` : String(options.height);
     }
 
     const headerEl = new WorkspaceDialogHeader();
     const titleEl = new WorkspaceDialogTitle(options.title ?? "Dialog");
-    this.titleEl = titleEl.element;
-    headerEl.element.appendChild(this.titleEl);
+    this.titleEl = titleEl;
+    headerEl.element.appendChild(this.titleEl.element);
 
     if (options.showCloseButton !== false) {
       const closeButtonEl = new WorkspaceDialogCloseButton();
@@ -94,22 +92,21 @@ export class WorkspaceDialog<E extends Record<string, unknown> = Record<string, 
       headerEl.element.appendChild(closeButtonEl.element);
     }
 
-    const contentEl = new WorkspaceDialogContent();
-    this.contentEl = contentEl.element;
+    this.contentEl = new WorkspaceDialogContent();
 
-    this.dialogEl.append(headerEl.element, this.contentEl);
-    this.frameEl.appendChild(this.dialogEl);
+    this.dialogEl.element.append(headerEl.element, this.contentEl.element);
+    this.frameEl.element.appendChild(this.dialogEl.element);
   }
 
   mount(layerEl: HTMLElement): this {
     if (this._isOpen) {
       return this;
     }
-    layerEl.appendChild(this.frameEl);
+    layerEl.appendChild(this.frameEl.element);
     this._isOpen = true;
-    this.options.render?.(this.contentEl, this as unknown as WorkspaceDialog);
+    this.options.render?.(this.contentEl.element, this as unknown as WorkspaceDialog);
     this.options.onOpen?.(this as unknown as WorkspaceDialog);
-    this.dialogEl.focus();
+    this.dialogEl.element.focus();
     this.emit("open", undefined);
     return this;
   }
@@ -128,7 +125,7 @@ export class WorkspaceDialog<E extends Record<string, unknown> = Record<string, 
   }
 
   setTitle(title: string): void {
-    this.titleEl.textContent = title;
+    this.titleEl.element.textContent = title;
   }
 
   destroy(): void {
@@ -136,7 +133,7 @@ export class WorkspaceDialog<E extends Record<string, unknown> = Record<string, 
       return;
     }
     this._isOpen = false;
-    this.frameEl.remove();
+    this.frameEl.element.remove();
     this.options.onClose?.();
     this.emit("close", undefined);
   }
@@ -186,9 +183,7 @@ export class WorkspaceDialogManager {
   }
 
   closeAll(): void {
-    [...this.stack].reverse().forEach(id => {
-      this.close(id);
-    });
+    [...this.stack].reverse().forEach(id => this.close(id));
   }
 
   isOpen(id: string): boolean {

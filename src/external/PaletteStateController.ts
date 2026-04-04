@@ -113,9 +113,7 @@ export class PaletteStateController<S extends UpdatableState<S>> {
 
   private createSnapshot(): PaletteContextSnapshot<S> {
     const atomStates = new Map<PaletteState<unknown>, unknown>();
-    this.atoms.forEach(atom => {
-      atomStates.set(atom, atom.snapshot());
-    });
+    this.atoms.forEach(atom => atomStates.set(atom, atom.snapshot()));
 
     return {
       state: this.getState().update({} as Partial<S>),
@@ -125,8 +123,6 @@ export class PaletteStateController<S extends UpdatableState<S>> {
 
   private restoreSnapshot(snapshot: PaletteContextSnapshot<S>): void {
     this.setState(snapshot.state.update({} as Partial<S>));
-    snapshot.atomStates.forEach((value, atom) => {
-      atom.restore(value);
-    });
+    snapshot.atomStates.forEach((value, atom) => atom.restore(value));
   }
 }

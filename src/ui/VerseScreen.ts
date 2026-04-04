@@ -57,31 +57,34 @@ class ChapterComponent extends UIComponent<"div"> {
   ) {
     super(parent, "div");
     this.verse = ref;
-    const h: Highlighter["highlight"] = VerseHighlight.highlight.bind(VerseHighlight);
     const { book, chapter } = ref;
     this.addClass("chapter");
     this.createChild("h2", {
-      text: h(ref.toChapterString()),
+      text: VerseHighlight.highlight(ref.toChapterString()),
       cls: "chapter-title",
     });
     ref.cTXT.forEach((text: string, v: number) => {
       if (v === 0) return;
       const newVerse = new VerseRef(book, chapter, v);
       this.verses[v] = this.createChild("div", {}, (el: HTMLElement) => {
-        el.createEl("div", { text: h(`${v} ${text}`), cls: "verse" }, (el: HTMLElement) => {
-          if (text.includes("#")) el.addClass("paragraph-break");
+        el.createEl(
+          "div",
+          { text: VerseHighlight.highlight(`${v} ${text}`), cls: "verse" },
+          (el: HTMLElement) => {
+            if (text.includes("#")) el.addClass("paragraph-break");
 
-          el.addEventListener("click", () => this.app.verseState.set(newVerse));
-          el.addEventListener(
-            "contextmenu",
-            pdsp(
-              () => (
-                app.verseState.set(newVerse),
-                this.app.openCommandPalette({ topCategory: "tsk-cross-ref" })
+            el.addEventListener("click", () => this.app.verseState.set(newVerse));
+            el.addEventListener(
+              "contextmenu",
+              pdsp(
+                () => (
+                  app.verseState.set(newVerse),
+                  this.app.openCommandPalette({ topCategory: "tsk-cross-ref" })
+                ),
               ),
-            ),
-          );
-        });
+            );
+          },
+        );
         // Replace raw div creation with the new component
         this.verseInfos[v] = new VerseInfoComponent(el, newVerse, this.app);
       });
@@ -268,9 +271,7 @@ export class VerseScreen extends View {
       this.renderedChapters.push(component);
     }
 
-    this.waitFullUpdate(() => {
-      this.highlightVerse(true);
-    });
+    this.waitFullUpdate(() => this.highlightVerse(true));
   }
 
   removeActive() {

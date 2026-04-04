@@ -66,9 +66,7 @@ export default class BookmarkPlugin extends Plugin {
       id: "bookmark",
       name: "Bookmark verse",
       icon: Bookmark,
-      onTrigger: (verseInfo: VerseInfoComponent) => {
-        this.syncBookmarkStatus(verseInfo);
-      },
+      onTrigger: (verseInfo: VerseInfoComponent) => this.syncBookmarkStatus(verseInfo),
     });
   }
 

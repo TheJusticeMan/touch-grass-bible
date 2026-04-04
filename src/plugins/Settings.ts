@@ -1,19 +1,24 @@
+import info from "@build-info";
 import {
   CMD,
   CommandCategory,
   CommandItem,
   CommandPaletteState,
+  pluginOptions,
   toggleCMD,
   UnifiedCommandPalette,
 } from "src/external";
 import { DEFAULT_SETTINGS } from "../config/TGAppSettings";
 import Plugin from "../core/Plugin";
-import info from "../info.json";
-import { SettingsCategoryID } from "./categoryIDs";
+import { PluginOptionsCategoryID, SettingsCategoryID } from "./categoryIDs";
 
 export default class SettingsPlugin extends Plugin {
   async onload(): Promise<void> {
     this.registerPalette(() => new SettingsCategory(this.app.commandPalette, this), SettingsCategoryID);
+    this.registerPalette(
+      () => new pluginOptions(this.app.commandPalette, this.app.plugins),
+      PluginOptionsCategoryID,
+    );
   }
 }
 
@@ -115,9 +120,7 @@ class SettingsCategory extends CommandCategory<string> {
               .on("_click", () => {
                 this.plugin.app.commandPalette.confirm(`Uninstall plugin: ${filename}?`).then(confirmed => {
                   if (!confirmed) return;
-                  void this.plugin.app.externalPlugins!.uninstallPlugin(filename).then(() => {
-                    this.plugin.app.console.log(`Plugin uninstalled: ${filename}`);
-                  });
+                  void this.plugin.app.externalPlugins!.uninstallPlugin(filename).then(() => this.plugin.app.console.log(`Plugin uninstalled: ${filename}`));
                 });
               });
           }

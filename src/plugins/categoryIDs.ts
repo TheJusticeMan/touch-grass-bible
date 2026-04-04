@@ -6,6 +6,7 @@ export const GoToVerseCategoryID = "go-to-verse";
 export const myNotesCategoryID = "my-notes";
 export const NavesTopicListCategoryID = "naves-topical-bible";
 export const SettingsCategoryID = "settings";
+export const PluginOptionsCategoryID = "plugin-options";
 export const TopicListCategoryID = "topics";
 export const TranslationsCategoryID = "translations";
 export const TSKCrossRefCategoryID = "tsk-cross-ref";

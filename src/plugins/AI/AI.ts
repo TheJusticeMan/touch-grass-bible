@@ -40,9 +40,7 @@ export default class AIPlugin extends Plugin {
           AIEmbeddingSearchCategoryID,
         );
       })
-      .catch(err => {
-        this.app.console.error(`Error loading embedding search database`, err);
-      });
+      .catch(err => this.app.console.error(`Error loading embedding search database`, err));
     //});
 
     this.addVerseAction({
@@ -72,9 +70,7 @@ export default class AIPlugin extends Plugin {
             }
             return true;
           })
-          .catch(err => {
-            responseEl.textContent = `Error: ${err instanceof Error ? err.message : String(err)}`;
-          });
+          .catch(err => (responseEl.textContent = `Error: ${err instanceof Error ? err.message : String(err)}`));
       },
     });
   }

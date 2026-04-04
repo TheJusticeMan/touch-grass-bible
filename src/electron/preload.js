@@ -34,13 +34,9 @@ contextBridge.exposeInMainWorld("touchGrassElectronPlatform", {
       return () => {};
     }
 
-    const listener = (_event, isMaximized) => {
-      callback(Boolean(isMaximized));
-    };
+    const listener = (_event, isMaximized) => callback(Boolean(isMaximized));
 
     ipcRenderer.on(WINDOW_MAXIMIZED_CHANNEL, listener);
-    return () => {
-      ipcRenderer.removeListener(WINDOW_MAXIMIZED_CHANNEL, listener);
-    };
+    return () => ipcRenderer.removeListener(WINDOW_MAXIMIZED_CHANNEL, listener);
   },
 });

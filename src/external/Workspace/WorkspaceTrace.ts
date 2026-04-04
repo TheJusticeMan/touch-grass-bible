@@ -122,7 +122,5 @@ function monkeypatchClassMethodsWithLifecycleLogs(className: string, klass: Patc
 export function monkeypatchAllWorkspaceMethods(
   classes: Array<[className: string, klass: PatchableClass]>,
 ): void {
-  classes.forEach(([className, klass]) => {
-    monkeypatchClassMethodsWithLifecycleLogs(className, klass);
-  });
+  classes.forEach(([className, klass]) => monkeypatchClassMethodsWithLifecycleLogs(className, klass));
 }

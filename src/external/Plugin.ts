@@ -1,6 +1,12 @@
 import { Terminal } from "lucide";
 import { App } from "./App";
-import { CategoryLoaderFunc } from "./CommandPalette";
+import {
+  CategoryLoaderFunc,
+  CommandCategory,
+  CommandItem,
+  CommandPaletteState,
+  UnifiedCommandPalette,
+} from "./CommandPalette";
 import { Command } from "./Commands";
 import { ETarget } from "./Event";
 import { BrowserConsole } from "./MyBrowserConsole";
@@ -111,6 +117,10 @@ export abstract class Component {
     return this;
   }
 
+  hasChild(child: Component): boolean {
+    return this.children.includes(child);
+  }
+
   /**
    * Registers a callback to be executed during `unload()`.
    *
@@ -189,9 +199,7 @@ export class ePlugin<AppType extends App = App> extends Component {
     handler: (e: E[K]) => void,
   ): this {
     target.on(eventName, handler);
-    return this.registerUnload(() => {
-      target.off(eventName, handler);
-    });
+    return this.registerUnload(() => target.off(eventName, handler));
   }
 
   registerStateChange<T>(target: StateTargetLike<T>, listener: (value: T, previous: T) => void): this {
@@ -315,6 +323,7 @@ export class ePlugin<AppType extends App = App> extends Component {
 export class eInternalPlugins<AppType extends App = App> extends Component {
   /** Registered plugins keyed by manifest id. */
   plugins: Map<string, ePlugin<AppType>> = new Map();
+  private disabledPlugins: Set<string> = new Set();
 
   /**
    * Creates an internal plugin manager instance.
@@ -323,6 +332,17 @@ export class eInternalPlugins<AppType extends App = App> extends Component {
    */
   constructor(public app: AppType) {
     super();
+  }
+
+  async onload(): Promise<void> {
+    const config = await this.app.files.loadConfigObject<{ disabledPlugins: string[] }>("disabled-plugins");
+    if (config?.disabledPlugins) {
+      this.disabledPlugins = new Set(config.disabledPlugins);
+    }
+    for (const pluginId of this.disabledPlugins) {
+      const plugin = this.plugins.get(pluginId);
+      if (plugin) await this.removeChild(plugin);
+    }
   }
 
   /**
@@ -345,7 +365,7 @@ export class eInternalPlugins<AppType extends App = App> extends Component {
     }
     const pluginInstance = new pluginClass(this.app, manifest);
     this.plugins.set(manifest.id, pluginInstance);
-    this.addChild(pluginInstance);
+    if (!this.disabledPlugins.has(manifest.id)) this.addChild(pluginInstance);
     return this;
   }
 
@@ -381,7 +401,7 @@ export class eInternalPlugins<AppType extends App = App> extends Component {
       return this;
     }
     this.plugins.set(pluginInstance.manifest.id, pluginInstance);
-    this.addChild(pluginInstance);
+    if (!this.disabledPlugins.has(pluginInstance.manifest.id)) this.addChild(pluginInstance);
     return this;
   }
 
@@ -394,5 +414,97 @@ export class eInternalPlugins<AppType extends App = App> extends Component {
   addPluginInstances(...pluginInstances: ePlugin<AppType>[]) {
     pluginInstances.forEach(plugin => this.addPluginInstance(plugin));
     return this;
+  }
+
+  enable(pluginId: string) {
+    const plugin = this.plugins.get(pluginId);
+    if (!plugin || this.hasChild(plugin)) {
+      this.app.console.warn(`Plugin with id ${pluginId} not found or already enabled.`);
+      return this;
+    }
+
+    this.addChild(plugin);
+    this.saveDisabledPlugins();
+    return this;
+  }
+
+  disable(pluginId: string) {
+    const plugin = this.plugins.get(pluginId);
+    this.app.console.log(`Attempting to disable plugin with id ${pluginId}...`);
+    if (!plugin || !this.hasChild(plugin) || pluginId === "settings") {
+      this.app.console.warn(`Plugin with id ${pluginId} not found or already disabled.`);
+      return this;
+    }
+
+    this.removeChild(plugin);
+    this.saveDisabledPlugins();
+    return this;
+  }
+
+  toggle(pluginId: string, value: boolean = !this.isEnabled(pluginId)) {
+    if (value) {
+      this.enable(pluginId);
+    } else {
+      this.disable(pluginId);
+    }
+    return this;
+  }
+
+  isEnabled(pluginId: string): boolean {
+    const plugin = this.plugins.get(pluginId);
+    return !!plugin && this.hasChild(plugin);
+  }
+
+  saveDisabledPlugins() {
+    const disabledPluginIds = Array.from(this.plugins.keys()).filter(id => !this.isEnabled(id));
+    this.app.files.saveConfigObject("disabled-plugins", { disabledPlugins: disabledPluginIds });
+  }
+}
+
+export class pluginOptions<AppType extends App = App> extends CommandCategory<ePlugin<AppType>> {
+  readonly name = "Plugin Options";
+  readonly description = "Enable, disable, and configure plugins";
+  enabled: Map<string, boolean> = new Map();
+  constructor(
+    public commandPalette: UnifiedCommandPalette,
+    public pluginManager: eInternalPlugins<AppType>,
+  ) {
+    super(commandPalette);
+  }
+  onTrigger(state: CommandPaletteState): void {
+    void state;
+    this.pluginManager.plugins.forEach((plugin, id) => {
+      void plugin;
+      this.enabled.set(id, this.pluginManager.isEnabled(id));
+    });
+  }
+  getCommands(query: string): ePlugin<AppType>[] {
+    const plugins = Array.from(this.pluginManager.plugins.values());
+    return this.getcompatibleWithLevenshtein(
+      query,
+      plugins,
+      plugin => plugin.manifest.name,
+      plugin => plugin.manifest.description,
+    );
+  }
+  renderCommand(
+    command: ePlugin<AppType>,
+    el: CommandItem<ePlugin<AppType>>,
+  ): Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState) {
+    const isEnabled =
+      this.enabled.get(command.manifest.id) ?? this.pluginManager.isEnabled(command.manifest.id);
+    el.setName(`${isEnabled ? "Disable" : "Enable"}: ${command.manifest.name}`)
+      .setDescription(command.manifest.description)
+      .addToggleInput(toggle => {
+        toggle.setValue(isEnabled);
+        toggle.on("change", value => {
+          this.enabled.set(command.manifest.id, value);
+          this.pluginManager.toggle(command.manifest.id, value);
+        });
+      });
+    return {};
+  }
+  executeCommand(command: ePlugin<AppType>): void {
+    void command;
   }
 }

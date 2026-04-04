@@ -19,13 +19,9 @@ type DragDropState = {
 export class DragDropController {
   private dragState: DragDropState | null = null;
 
-  private readonly onDocumentPointerMove = (event: PointerEvent) => {
-    this.handlePointerMove(event);
-  };
+  private readonly onDocumentPointerMove = (event: PointerEvent) => this.handlePointerMove(event);
 
-  private readonly onDocumentPointerUp = (event: PointerEvent) => {
-    this.handlePointerUp(event);
-  };
+  private readonly onDocumentPointerUp = (event: PointerEvent) => this.handlePointerUp(event);
 
   constructor(private workspace: Workspace) {}
 

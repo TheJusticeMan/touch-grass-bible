@@ -201,9 +201,7 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
   }
 
   private getOrCreateDialog(): CommandPaletteDialog {
-    if (!this.dialog) {
-      this.dialog = new CommandPaletteDialog(this);
-    }
+    this.dialog ??= new CommandPaletteDialog(this);
     return this.dialog;
   }
 
@@ -607,8 +605,6 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
 
 class CommandPaletteDialog extends WorkspaceDialog {
   private searchInput?: TextInput;
-  private contentMainEl!: HTMLElement;
-  private contentOverview!: HTMLDivElement;
   private headerComponent?: CommandPaletteHeader;
   private contentComponent?: CommandPaletteContent;
   private touchHideKeyboardBound = false;
@@ -638,25 +634,21 @@ class CommandPaletteDialog extends WorkspaceDialog {
 
   private readonly handleDraggingX = (e: { deltaX: number }) => {
     this.palette.emit("draggingX", e);
-    if (e.deltaX > 0 && this.contentMainEl) {
-      this.contentMainEl.style.transform = `scale(${1 - Math.min(Math.abs(e.deltaX) / 1000, 0.1)})`;
+    if (e.deltaX > 0 && this.contentComponent) {
+      this.contentComponent.mainEl.style.transform = `scale(${1 - Math.min(Math.abs(e.deltaX) / 1000, 0.1)})`;
     }
   };
 
   private readonly handleDragXCancel = () => {
     this.palette.emit("dragXcancel", { deltaX: 0, deltaY: 0 });
-    if (this.contentMainEl) {
-      this.contentMainEl.style.transform = "";
+    if (this.contentComponent) {
+      this.contentComponent.mainEl.style.transform = "";
     }
   };
 
-  private readonly handleTouchMove = () => {
-    this.searchInput?.element.blur();
-  };
+  private readonly handleTouchMove = () => this.searchInput?.element.blur();
 
-  private readonly handleViewportResize = () => {
-    this.applyMobileResize();
-  };
+  private readonly handleViewportResize = () => this.applyMobileResize();
 
   constructor(private readonly palette: UnifiedCommandPalette) {
     super(
@@ -670,11 +662,9 @@ class CommandPaletteDialog extends WorkspaceDialog {
         className: "command-palette",
         ariaLabel: "Command palette",
       },
-      () => {
-        this.palette.close();
-      },
+      () => this.palette.close(),
     );
-    this.dialogEl.querySelector(".workspace-dialog-header")?.remove();
+    this.dialogEl.element.querySelector(".workspace-dialog-header")?.remove();
   }
 
   get length(): number {
@@ -719,13 +709,11 @@ class CommandPaletteDialog extends WorkspaceDialog {
     this.bindTouchHideKeyboard();
     this.resetContent();
     this.contentEl.addClass("palette");
-    this.headerComponent = new CommandPaletteHeader(this.contentEl);
+    this.headerComponent = new CommandPaletteHeader(this.contentEl.element);
 
     new IconActionComponent(this.headerComponent.element)
       .setAction(ChevronLeft, "Back to previous context")
-      .on("click", () => {
-        this.palette.handleBack();
-      });
+      .on("click", () => this.palette.handleBack());
 
     new IconActionComponent(this.headerComponent.element)
       .setAction(this.palette.state.expanded ? ChevronsDownUp : ChevronsUpDown, "Toggle expanded view")
@@ -740,11 +728,11 @@ class CommandPaletteDialog extends WorkspaceDialog {
         }),
       );
 
-    new IconActionComponent(this.headerComponent.element).setAction(X, "Close Palette").on("click", () => {
-      this.palette.close();
-    });
+    new IconActionComponent(this.headerComponent.element)
+      .setAction(X, "Close Palette")
+      .on("click", () => this.palette.close());
 
-    this.searchInput = new TextInput(this.contentEl)
+    this.searchInput = new TextInput(this.contentEl.element)
       .addClass("palette-search")
       .setPlaceholder(
         `Search ${this.palette.state.topCategory ? this.palette.topCategory?.getPalette(this.palette).title : "all"}...`,
@@ -758,9 +746,7 @@ class CommandPaletteDialog extends WorkspaceDialog {
 
     this.searchInput.setValue(this.palette.state.query);
 
-    this.contentComponent = new CommandPaletteContent(this.contentEl, this.palette.state.expanded);
-    this.contentOverview = this.contentComponent.overviewEl;
-    this.contentMainEl = this.contentComponent.mainEl;
+    this.contentComponent = new CommandPaletteContent(this.contentEl.element, this.palette.state.expanded);
 
     this.render();
     this.searchInput.element.focus();
@@ -785,7 +771,7 @@ class CommandPaletteDialog extends WorkspaceDialog {
     this.headerComponent = undefined;
     this.contentComponent?.remove();
     this.contentComponent = undefined;
-    this.contentEl.empty();
+    this.contentEl.element.empty();
   }
 
   private bindWorkspaceEvents(): void {
@@ -809,14 +795,14 @@ class CommandPaletteDialog extends WorkspaceDialog {
       return;
     }
     this.touchHideKeyboardBound = true;
-    this.dialogEl.addEventListener("touchmove", this.handleTouchMove, { passive: true });
+    this.dialogEl.element.addEventListener("touchmove", this.handleTouchMove, { passive: true });
   }
 
   private unbindTouchHideKeyboard(): void {
     if (!this.touchHideKeyboardBound) {
       return;
     }
-    this.dialogEl.removeEventListener("touchmove", this.handleTouchMove);
+    this.dialogEl.element.removeEventListener("touchmove", this.handleTouchMove);
     this.touchHideKeyboardBound = false;
   }
 
@@ -827,7 +813,7 @@ class CommandPaletteDialog extends WorkspaceDialog {
     }
     this.visualViewport?.removeEventListener("resize", this.handleViewportResize);
     this.visualViewport = visual;
-    this.dialogEl.style.height = `calc(${visual.height}px - 2em)`;
+    this.dialogEl.element.style.height = `calc(${visual.height}px - 2em)`;
     visual.addEventListener("resize", this.handleViewportResize, { passive: true });
   }
 
@@ -838,13 +824,17 @@ class CommandPaletteDialog extends WorkspaceDialog {
 
   private readonly handleScroll = () => {
     window.requestAnimationFrame(() => {
-      if (this.palette.state.maxResults < 1000) {
+      if (this.palette.state.maxResults < 1000 && this.contentComponent) {
         const currentselection = this.selectedIndex;
         this.palette.update({ maxResults: 1000 });
         this.render();
         this.selectIndex(currentselection, true);
         if (this.commandItems.length > this.palette.state.maxResults)
-          new CommandItem(this.contentMainEl, null, this.palette.topCategory!.getPalette(this.palette))
+          new CommandItem(
+            this.contentComponent.mainEl,
+            null,
+            this.palette.topCategory!.getPalette(this.palette),
+          )
             .setTitle("Are you kidding me?")
             .setDescription("Seriously, you want to load more results?")
             .setHidden(false)
@@ -894,31 +884,31 @@ class CommandPaletteDialog extends WorkspaceDialog {
   }
 
   private render(): void {
-    if (!this.isOpen) {
+    if (!this.isOpen || !this.contentComponent) {
       return;
     }
 
     const state = this.palette.state;
-    this.contentMainEl.empty();
-    this.contentOverview.empty();
-    this.contentMainEl.scroll(0, 0);
-    this.contentOverview.scroll(0, 0);
-    this.contentMainEl.removeEventListener("scroll", this.handleScroll);
-    this.contentMainEl.addEventListener("scroll", this.handleScroll, {
+    this.contentComponent.mainEl.empty();
+    this.contentComponent.overviewEl.empty();
+    this.contentComponent.mainEl.scroll(0, 0);
+    this.contentComponent.overviewEl.scroll(0, 0);
+    this.contentComponent.mainEl.removeEventListener("scroll", this.handleScroll);
+    this.contentComponent.mainEl.addEventListener("scroll", this.handleScroll, {
       passive: true,
       once: true,
     });
     this.commandItems = [];
     this.selectedIndex = 0;
 
-    this.contentOverview.style.display = this.palette.columns ? "block" : "";
+    this.contentComponent.overviewEl.style.display = this.palette.columns ? "block" : "";
     if (this.palette.columns) {
       const navigatorCategory = this.palette.getCategory("navigator")!.getPalette(this.palette);
 
       navigatorCategory.setUp(state);
       const commands = navigatorCategory.trygetCommands(state.query);
       if (commands.length > 0) {
-        const catEl = this.contentOverview.createEl("div", { cls: "category" });
+        const catEl = this.contentComponent.overviewEl.createEl("div", { cls: "category" });
         catEl.createEl("div", { text: navigatorCategory.title, cls: "category-title" }, el =>
           el.addEventListener("click", e => {
             e.stopPropagation();
@@ -937,7 +927,6 @@ class CommandPaletteDialog extends WorkspaceDialog {
       }
       this.selectedIndex = this.commandItems.length;
     }
-
     this.palette.categoriesToShow
       .map(cat => ({ cat: cat.getPalette(this.palette), id: cat.id }))
       .forEach(({ cat, id }) => {
@@ -946,8 +935,12 @@ class CommandPaletteDialog extends WorkspaceDialog {
         cat.extraCMD?.setUp(state);
         const commands = cat.trygetCommands(state.query);
         const extras = cat.extraCMD?.trygetCommands(state.query) || [];
-        if (commands.length === 0 && extras.length === 0 && state.topCategory !== id) return;
-        const catEl = this.contentMainEl.createEl("div", { cls: "category" });
+        if (
+          (commands.length === 0 && extras.length === 0 && state.topCategory !== id) ||
+          !this.contentComponent
+        )
+          return;
+        const catEl = this.contentComponent.mainEl.createEl("div", { cls: "category" });
         catEl.createEl("div", { text: cat.title, cls: "category-title" }, el =>
           el.addEventListener("click", e => {
             e.stopPropagation();
@@ -984,8 +977,8 @@ class CommandPaletteDialog extends WorkspaceDialog {
             this.commandItems.push(itemEl);
             void (
               i === 0 &&
-              (itemEl.el.style.borderTopStyle = "none") &&
-              (itemEl.el.style.marginTop = "1em")
+              (itemEl.element.style.borderTopStyle = "none") &&
+              (itemEl.element.style.marginTop = "1em")
             );
           });
       });
@@ -1004,10 +997,10 @@ class CommandPaletteDialog extends WorkspaceDialog {
 
   private updateSelection(scroll = false): void {
     this.commandItems.forEach((item, idx) =>
-      item.el.classList.toggle("selected", idx === this.selectedIndex),
+      item.element.classList.toggle("selected", idx === this.selectedIndex),
     );
     if (scroll)
-      this.selCMD?.el.scrollIntoView({
+      this.selCMD?.element.scrollIntoView({
         block: "nearest",
         inline: "nearest",
         behavior: "smooth",
@@ -1015,7 +1008,7 @@ class CommandPaletteDialog extends WorkspaceDialog {
   }
 
   private activateSelected(): void {
-    this.selCMD?.el.click();
+    this.selCMD?.element.click();
   }
 }
 
@@ -1122,11 +1115,10 @@ export abstract class CommandCategory<T> {
   abstract readonly name: string;
   abstract readonly description: string; // Description for the category, can be used in UI
   //state: CommandCategoryState = new CommandCategoryState();
-  title!: string; // Title for the category, can be used in UI
+  title: string = ""; // Title for the category, can be used in UI
   protected commands: T[] = [];
-  highlighter!: Highlighter; // Highlighter for the category
-  hili!: Highlighter["highlight"]; // Function to highlight text
-  query!: string;
+  highlighter: Highlighter = new Highlighter([]); // Highlighter instance for query highlighting
+  query: string = ""; // Current query string for filtering commands
   siblings?: CategoryLoader<unknown>[];
   console: BrowserConsole = new BrowserConsole(true, `${this.constructor.name}:`); // Console for logging
 
@@ -1157,7 +1149,6 @@ export abstract class CommandCategory<T> {
       },
       { regEXP: /\n/g, elTag: "br" },
     ]);
-    this.hili = this.highlighter.highlight.bind(this.highlighter);
     this.query = state.query;
     return this;
   }

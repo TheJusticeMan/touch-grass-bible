@@ -55,13 +55,9 @@ class EditableJournalEntry extends UIComponent<"article"> {
       })
       .setText(this.entry.content);
 
-    this.contentEl.listen("focus", () => {
-      void this.handleFocus();
-    });
+    this.contentEl.listen("focus", () => void this.handleFocus());
 
-    this.contentEl.listen("blur", () => {
-      void this.saveEdit();
-    });
+    this.contentEl.listen("blur", () => void this.saveEdit());
 
     this.contentEl.listen("keydown", event => {
       if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
@@ -337,9 +333,7 @@ export class JournalPanel extends View {
   private renderStream(): void {
     this.resetRenderedState();
 
-    this.loadedDays.forEach(day => {
-      this.renderDay(day);
-    });
+    this.loadedDays.forEach(day => this.renderDay(day));
   }
 
   private resetRenderedState(): void {
@@ -353,9 +347,7 @@ export class JournalPanel extends View {
     dayGroup.dataset.dayKey = day.date;
     dayGroup.createEl("div", { cls: "journal-day-header", text: formatDayHeader(day.date) });
 
-    day.entries.forEach(entry => {
-      this.renderEntry(dayGroup, day.date, entry);
-    });
+    day.entries.forEach(entry => this.renderEntry(dayGroup, day.date, entry));
 
     if (this.isToday(day.date)) {
       this.renderDraftEntry(dayGroup, day.date);
@@ -377,9 +369,7 @@ export class JournalPanel extends View {
     }
 
     const component = new EditableJournalEntry(dayGroup, dayKey, entry, this.plugin.storage, {
-      onDelete: deletedEntry => {
-        this.removeEntryFromLoadedDay(dayKey, deletedEntry);
-      },
+      onDelete: deletedEntry => this.removeEntryFromLoadedDay(dayKey, deletedEntry),
     });
 
     if (beforeEl) {
@@ -391,9 +381,7 @@ export class JournalPanel extends View {
     const draftEntry = this.createDraftEntry();
     this.todayDraftEntry = draftEntry;
     this.todayDraftComponent = new EditableJournalEntry(dayGroup, dayKey, draftEntry, this.plugin.storage, {
-      onDelete: deletedEntry => {
-        this.removeEntryFromLoadedDay(dayKey, deletedEntry);
-      },
+      onDelete: deletedEntry => this.removeEntryFromLoadedDay(dayKey, deletedEntry),
       onDraftFocus: async () => this.materializeTodayDraft(dayKey, dayGroup),
     });
   }

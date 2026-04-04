@@ -134,9 +134,9 @@ export class UIComponent<
   }
 
   unlistenAll() {
-    this.managedDomListeners.forEach(({ target, type, listener, options }) => {
-      target.removeEventListener(type, listener, options);
-    });
+    this.managedDomListeners.forEach(({ target, type, listener, options }) =>
+      target.removeEventListener(type, listener, options),
+    );
     this.managedDomListeners = [];
     return this;
   }
@@ -501,6 +501,7 @@ export class ToggleInput extends AbstractInput<"input", boolean> {
     this.element.classList.add("ui-toggle-input");
     this.setAttr("role", "switch");
     this.setAria({ checked: false });
+    this.unlistenAll(); // Remove the default listeners set in AbstractInput
     this.listen("click", e => {
       e.stopPropagation();
       this.emit("change", this.getValue());
@@ -572,9 +573,7 @@ export abstract class ScrollBubble extends UIComponent<
   saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private rightOffsetPx = 0;
 
-  private updateBubblePosition = () => {
-    this.positionBubble();
-  };
+  private updateBubblePosition = () => this.positionBubble();
 
   private resolveCssLengthToPx(value: string): number {
     const raw = value.trim();
@@ -787,25 +786,15 @@ export class Item extends UIComponent<
     [key: string]: unknown;
   }
 > {
-  get el(): HTMLDivElement {
-    return this.element;
-  }
-  protected infoEl!: HTMLDivElement;
+  protected infoEl: HTMLDivElement;
   protected titleEl!: HTMLDivElement;
   protected descriptionEl!: HTMLDivElement;
   protected componentWrapper!: HTMLDivElement;
-  components: Array<{
-    element: HTMLElement;
-    remove(): unknown;
-  }> = []; // Array to hold additional components like buttons
-  private highlighter: Highlighter; // Highlighter for the category
-  get hili() {
-    return this.highlighter.highlight.bind(this.highlighter);
-  }
+  components: Array<{ element: HTMLElement; remove(): unknown }> = []; // Array to hold additional components like buttons
+  private highlighter: Highlighter = new Highlighter([]); // Highlighter for the category
 
   constructor(parent: HTMLElement) {
     super(parent, "div");
-    this.highlighter = new Highlighter([]);
     this.addClass("command-item");
     this.infoEl = this.createChild("div", { cls: "command-item-info" }, infoEl => {
       this.titleEl = infoEl.createEl("div", { cls: "command-title" });
@@ -878,14 +867,14 @@ export class Item extends UIComponent<
   }
 
   setTitle(title: string | DocumentFragment) {
-    this.titleEl.replaceChildren(typeof title === "string" ? this.hili(title) : title);
+    this.titleEl.replaceChildren(typeof title === "string" ? this.highlighter.highlight(title) : title);
     return this;
   }
 
   setName = this.setTitle;
 
   setDescription(text: string | DocumentFragment) {
-    this.descriptionEl.replaceChildren(typeof text === "string" ? this.hili(text) : text);
+    this.descriptionEl.replaceChildren(typeof text === "string" ? this.highlighter.highlight(text) : text);
     return this;
   }
 

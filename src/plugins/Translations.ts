@@ -18,9 +18,7 @@ export default class TranslationsPlugin extends Plugin {
       () => new translationCategory(this.app.commandPalette, this),
       TranslationsCategoryID,
     );
-    this.registerStateChange(this.defaultTranslation, newTranslation => {
-      VerseRef.defaultTranslation = newTranslation;
-    });
+    this.registerStateChange(this.defaultTranslation, newTranslation => (VerseRef.defaultTranslation = newTranslation));
   }
 }
 

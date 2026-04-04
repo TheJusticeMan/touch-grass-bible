@@ -55,9 +55,7 @@ export class Note extends ETarget<{ change: Note }> {
     this._dateCreated = dateCreated;
     this._dateModified = dateModified;
     this._tags = tags;
-    this.on("change", () => {
-      this._dateModified = new Date();
-    });
+    this.on("change", () => (this._dateModified = new Date()));
   }
 
   get json() {

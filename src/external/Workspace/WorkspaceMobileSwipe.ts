@@ -1,4 +1,5 @@
 import { Offset } from "../Offset";
+import { Workspace } from "./Workspace";
 
 type SwipeState = "leftopen" | "rightopen" | "none";
 
@@ -16,9 +17,40 @@ export class GlobalSwipeHandler {
   startPosition: Offset | null = null;
   currentPosition: Offset | null = null;
   screenWidth: number = 0;
-  state: SwipeState = "none";
+  private _state: SwipeState = "none";
 
-  constructor(private WorkspaceRoot: HTMLElement) {
+  public get state(): SwipeState {
+    return this._state;
+  }
+
+  public set state(value: SwipeState) {
+    this._state = value;
+
+    if (value === "rightopen") {
+      this.setRightPanel(PANEL_OPEN);
+      this.setLeftPanel(LEFT_PANEL_CLOSED);
+    } else if (value === "leftopen") {
+      this.setLeftPanel(PANEL_OPEN);
+      this.setRightPanel(RIGHT_PANEL_CLOSED);
+    } else {
+      this.closeBothPanels();
+    }
+
+    const panels = this.workspace?.rootPanel.childPanels;
+    if (!panels?.length) return;
+    if (value === "rightopen") {
+      this.workspace!.setActivePanel(panels[0]?.panel ?? null);
+    } else if (value === "leftopen") {
+      this.workspace!.setActivePanel(panels[panels.length - 1]?.panel ?? null);
+    } else {
+      this.workspace!.setActivePanel(panels[Math.floor((panels.length - 1) / 2)]?.panel ?? null);
+    }
+  }
+
+  constructor(
+    private WorkspaceRoot: HTMLElement,
+    private workspace?: Workspace,
+  ) {
     document.addEventListener("touchstart", this.handleTouchStart, false);
     document.addEventListener("touchmove", this.handleTouchMove, false);
     document.addEventListener("touchend", this.handleTouchEnd, false);
@@ -97,27 +129,16 @@ export class GlobalSwipeHandler {
   private applyEndState(deltaX: number) {
     if (this.state === "none") {
       if (deltaX > SNAP_THRESHOLD) {
-        this.setRightPanel(PANEL_OPEN);
         this.state = "rightopen";
       } else if (deltaX < -SNAP_THRESHOLD) {
-        this.setLeftPanel(PANEL_OPEN);
         this.state = "leftopen";
       } else {
-        this.closeBothPanels();
         this.state = "none";
       }
     } else if (this.state === "rightopen") {
-      if (deltaX < -SNAP_THRESHOLD) {
-        this.setRightPanel(RIGHT_PANEL_CLOSED);
-        this.state = "none";
-      } else {
-        this.setRightPanel(PANEL_OPEN);
-      }
-    } else if (deltaX > SNAP_THRESHOLD) {
-      this.setLeftPanel(LEFT_PANEL_CLOSED);
-      this.state = "none";
+      this.state = deltaX < -SNAP_THRESHOLD ? "none" : "rightopen";
     } else {
-      this.setLeftPanel(PANEL_OPEN);
+      this.state = deltaX > SNAP_THRESHOLD ? "none" : "leftopen";
     }
   }
 
@@ -134,13 +155,7 @@ export class GlobalSwipeHandler {
     const delta = this.getDelta(scaleFactor);
     if (!delta || !this.isHorizontalGesture(delta)) {
       // Ignore clicks/vertical movement and preserve current open state.
-      if (this.state === "none") {
-        this.closeBothPanels();
-      } else if (this.state === "rightopen") {
-        this.setRightPanel(PANEL_OPEN);
-      } else {
-        this.setLeftPanel(PANEL_OPEN);
-      }
+      this.state = this._state;
       this.startPosition = null;
       this.currentPosition = null;
       return;
