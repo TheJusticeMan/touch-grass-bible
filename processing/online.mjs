@@ -1,5 +1,5 @@
 import { get } from "https";
-import { copyFileSync, writeFileSync, createWriteStream, unlinkSync, write } from "fs";
+import { copyFileSync, writeFileSync, createWriteStream, unlinkSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { Open } from "unzipper";
@@ -72,7 +72,7 @@ async function unzipFirstFileAsString(zipPath) {
       translations[f.replace(/.json/, "")] = JSON.parse(readFileSync(join(translationsDir, f), "utf8"));
     });
     writeFileSync(join("./src", "translations.json"), JSON.stringify(translations));
-    console.log(`Loaded ${translations.length} translation files.`);
+    console.log(`Loaded ${Object.keys(translations).length} translation files.`);
   } catch (err) {
     console.error("Error:", err);
   }

@@ -11,7 +11,7 @@ import {
   GestureHandler,
   Offset,
   UnifiedCommandPalette,
-} from "src/external";
+} from "@touchgrass/framework";
 import "./GestureCommands.css";
 import { GestureAddCommandsCategoryID } from "../categoryIDs";
 

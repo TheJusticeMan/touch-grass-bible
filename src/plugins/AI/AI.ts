@@ -5,7 +5,7 @@ import {
   CommandItem,
   CommandPaletteState,
   UnifiedCommandPalette,
-} from "src/external";
+} from "@touchgrass/framework";
 import { VerseInfoComponent } from "src/ui/VerseScreen";
 import Plugin from "../../core/Plugin";
 import { AICategoryID, AIEmbeddingSearchCategoryID, SettingsCategoryID } from "../categoryIDs";

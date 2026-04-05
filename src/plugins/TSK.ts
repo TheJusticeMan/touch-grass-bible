@@ -1,5 +1,10 @@
 import { Waypoints } from "lucide";
-import { CommandCategory, CommandItem, CommandPaletteState, UnifiedCommandPalette } from "src/external";
+import {
+  CommandCategory,
+  CommandItem,
+  CommandPaletteState,
+  UnifiedCommandPalette,
+} from "@touchgrass/framework";
 import { VerseRef } from "src/models/VerseRef";
 import { VerseInfoComponent } from "src/ui/VerseScreen";
 import Plugin from "../core/Plugin";
@@ -22,7 +27,10 @@ export default class TSK extends Plugin {
     this.addVerseAction({
       id: "cross-ref",
       name: "View cross references (TSK+)",
+      description:
+        "View cross references for this verse from the Treasury of Scripture Knowledge and related resources",
       icon: Waypoints,
+      isAvailable: verseInfo => this.crossRefsForVerse(verseInfo.verse).length > 0,
       onTrigger: (verseInfo: VerseInfoComponent) => {
         this.app.verseState.set(verseInfo.verse);
         this.app.openCommandPalette({

@@ -306,6 +306,8 @@ export class ePlugin<AppType extends App = App> extends Component {
   }
 }
 
+export class Plugin<AppType extends App = App> extends ePlugin<AppType> {}
+
 /**
  * Internal plugin registry and lifecycle coordinator.
  *
@@ -460,6 +462,8 @@ export class eInternalPlugins<AppType extends App = App> extends Component {
     this.app.files.saveConfigObject("disabled-plugins", { disabledPlugins: disabledPluginIds });
   }
 }
+
+export class InternalPlugins<AppType extends App = App> extends eInternalPlugins<AppType> {}
 
 export class pluginOptions<AppType extends App = App> extends CommandCategory<ePlugin<AppType>> {
   readonly name = "Plugin Options";

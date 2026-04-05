@@ -1,5 +1,5 @@
 import { Share } from "lucide";
-import { Button } from "src/external";
+import { Button } from "@touchgrass/framework";
 import Plugin from "../core/Plugin";
 
 export default class SharePlugin extends Plugin {

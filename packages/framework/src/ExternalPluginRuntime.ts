@@ -355,3 +355,9 @@ export class eExternalPlugins<
     }
   }
 }
+
+export class ExternalPlugins<
+  AppType extends App,
+  ManifestType extends { id: string },
+  PluginType extends ePlugin<AppType>,
+> extends eExternalPlugins<AppType, ManifestType, PluginType> {}

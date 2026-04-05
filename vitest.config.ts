@@ -6,9 +6,7 @@ export default defineConfig({
     alias: {
       src: path.resolve(__dirname, "src"),
       "@platform": path.resolve(__dirname, "src/platform/current.ts"),
-      // Redirect external/App imports to a lightweight stub that avoids DOM-heavy
-      // and circular dependencies (external/App.ts imports ../main which imports CSS, plugins, etc.)
-      "./external/App": path.resolve(__dirname, "src/__mocks__/external-App.stub.ts"),
+      "@touchgrass/framework": path.resolve(__dirname, "packages/framework/src/index.ts"),
     },
   },
   test: {

@@ -1,5 +1,10 @@
 import { Plus } from "lucide";
-import { CommandCategory, CommandItem, CommandPaletteState, UnifiedCommandPalette } from "src/external";
+import {
+  CommandCategory,
+  CommandItem,
+  CommandPaletteState,
+  UnifiedCommandPalette,
+} from "@touchgrass/framework";
 import { VerseRef } from "src/models/VerseRef";
 import Plugin from "../../core/Plugin";
 import { JournalPanel } from "./JournalPanel";
@@ -39,7 +44,7 @@ export default class JournalPlugin extends Plugin {
       name: "Log Verse to Journal",
       description: "Automatically log verses you read to your journal.",
       icon: Plus,
-      onTrigger: verseInfo => void this.handleVerseChange(verseInfo.verse),
+      onTrigger: verseInfo => (this.handleVerseChange(verseInfo.verse), verseInfo.render()), // Log the verse and re-render to update any available actions
     });
   }
 

@@ -1,4 +1,4 @@
-import { BrowserConsole } from "../../external";
+import { BrowserConsole } from "@touchgrass/framework";
 
 type ChatMessage = { role: string; content: string };
 type ToolCall = {

@@ -5,7 +5,7 @@ import {
   CommandItem,
   CommandPaletteState,
   UnifiedCommandPalette,
-} from "src/external";
+} from "@touchgrass/framework";
 import { VerseRef } from "src/models/VerseRef";
 import { VerseInfoComponent } from "src/ui/VerseScreen";
 import Plugin from "../../core/Plugin";
@@ -98,6 +98,7 @@ export default class NavesTopicalBiblePlugin extends Plugin {
       name: "View verse topics (Nave's Topical Bible)",
       description: "Find Nave topics that include this verse and open them in the command palette",
       icon: GitCompare,
+      isAvailable: verseInfo => this.topicsForVerse(verseInfo.verse).length > 0,
       onTrigger: (verseInfo: VerseInfoComponent) => {
         const matches = this.topicsForVerse(verseInfo.verse);
 

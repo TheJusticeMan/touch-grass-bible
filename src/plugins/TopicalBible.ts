@@ -5,10 +5,10 @@ import {
   CommandItem,
   CommandPaletteState,
   UnifiedCommandPalette,
-} from "src/external";
+} from "@touchgrass/framework";
 import { VerseInfoComponent } from "src/ui/VerseScreen";
 import Plugin from "../core/Plugin";
-import { PaletteState } from "../external";
+import { PaletteState } from "@touchgrass/framework";
 import { BibleTopics, BibleTopicsType } from "../models/BibleTopics";
 import { VerseRef } from "../models/VerseRef";
 import { TopicListCategoryID, TSKCrossRefCategoryID } from "./categoryIDs";
@@ -31,6 +31,7 @@ export default class TopicalBiblePlugin extends Plugin {
       name: "View verse topics (OpenBible.info)",
       description: "View topics associated with this verse from OpenBible.info",
       icon: GitCompare,
+      isAvailable: verseInfo => this.topics.getTopicsFromVerse(verseInfo.verse).length > 0,
       onTrigger: (verseInfo: VerseInfoComponent) => {
         const topicList = this.topics.getTopicsFromVerse(verseInfo.verse);
         topicList.forEach(topic => {

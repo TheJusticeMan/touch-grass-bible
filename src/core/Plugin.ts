@@ -1,5 +1,5 @@
 import { IconNode } from "lucide";
-import { eInternalPlugins, ePlugin } from "src/external";
+import { eInternalPlugins, ePlugin } from "@touchgrass/framework";
 import TouchGrassBibleApp from "../main";
 import { VerseInfoComponent } from "../ui/VerseScreen";
 
@@ -18,6 +18,13 @@ export type IconActionItem = {
 
   /** Lucide icon node rendered for the action. */
   icon: IconNode;
+
+  /**
+   * Optional predicate that controls whether this action is shown for a verse.
+   *
+   * Return `true` to render the icon for the current verse, `false` to hide it.
+   */
+  isAvailable?: (verseInfo: VerseInfoComponent) => boolean;
 
   /**
    * Action handler executed with the active verse context.
@@ -74,8 +81,8 @@ export default class Plugin extends ePlugin<TouchGrassBibleApp> {
    *
    * @param action - Verse action definition including icon and trigger handler.
    */
-  addVerseAction({ id, name, description, icon, onTrigger }: IconActionItem) {
-    this.app.addVerseAction({ id, name, description, icon, onTrigger });
+  addVerseAction({ id, name, description, icon, isAvailable, onTrigger }: IconActionItem) {
+    this.app.addVerseAction({ id, name, description, icon, isAvailable, onTrigger });
     this.registerUnload(() => this.app.removeVerseAction(id));
     return this;
   }

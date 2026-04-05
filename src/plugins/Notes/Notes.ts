@@ -5,7 +5,7 @@ import {
   CommandPaletteState,
   TextArea,
   UnifiedCommandPalette,
-} from "src/external";
+} from "@touchgrass/framework";
 import Plugin from "../../core/Plugin";
 import { OSIS, VerseRef } from "../../models/VerseRef";
 import { myNotesCategoryID, TSKCrossRefCategoryID } from "../categoryIDs";
