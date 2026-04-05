@@ -3,7 +3,7 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-"$script_dir/with-android-sdk.sh" bash -lc '
+"$script_dir/with-android-sdk.sh" bash -c '
 if command -v studio >/dev/null 2>&1; then
   npx cap open android
 else

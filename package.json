@@ -64,7 +64,7 @@
     "add:android": "bash ./scripts/add-platform.sh android",
     "add:ios": "bash ./scripts/add-platform.sh ios",
     "capacitor:assets": "npx --yes @capacitor/assets generate --android",
-    "sync:capacitor": "./scripts/with-android-sdk.sh bash -lc 'mkdir -p ./dist && npm run build:bundle:capacitor && cp src/web/* dist && npx cap sync'",
+    "sync:capacitor": "./scripts/with-android-sdk.sh bash -c 'mkdir -p ./dist && npm run build:bundle:capacitor && cp src/web/* dist && npx cap sync'",
     "open:android": "bash ./scripts/open-android.sh",
     "open:ios": "bash -lc 'if [ \"$(uname -s)\" != \"Darwin\" ]; then echo \"open:ios requires macOS; skipping.\"; exit 0; fi; npx cap open ios'",
     "run:android": "bash ./scripts/run-android.sh",
