@@ -1,5 +1,10 @@
 import { Plus } from "lucide";
-import { CommandCategory, CommandItem, CommandPaletteState, UnifiedCommandPalette } from "@touchgrass/framework";
+import {
+  CommandCategory,
+  CommandItem,
+  CommandPaletteState,
+  UnifiedCommandPalette,
+} from "@touchgrass/framework";
 import { VerseRef } from "src/models/VerseRef";
 import Plugin from "../../core/Plugin";
 import { JournalPanel } from "./JournalPanel";

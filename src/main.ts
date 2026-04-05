@@ -1,9 +1,6 @@
 export const processstart = new Date().getTime();
 import info from "@build-info";
 import { createPlatformBridge } from "@platform";
-import { DEFAULT_SETTINGS, TGAppSettings } from "./config/TGAppSettings";
-import { ExternalPlugins } from "./core/ExternalPlugins";
-import { InternalPlugins, type IconActionItem } from "./core/Plugin";
 import {
   App,
   CommandPaletteState,
@@ -12,8 +9,12 @@ import {
   WorkspaceLayout,
   type PlatformBridge,
 } from "@touchgrass/framework";
+import { DEFAULT_SETTINGS, TGAppSettings } from "./config/TGAppSettings";
+import { ExternalPlugins } from "./core/ExternalPlugins";
+import { InternalPlugins, type IconActionItem } from "./core/Plugin";
+import { TranslationManager } from "./core/TranslationManager";
 import "./main.css";
-import { bibleData, VerseRef } from "./models/VerseRef";
+import { VerseRef, type translation } from "./models/VerseRef";
 import {
   AIPlugin,
   AppearancePlugin,
@@ -58,7 +59,16 @@ export default class TouchGrassBibleApp extends App {
   private verseActions: Map<string, IconActionItem> = new Map();
   firstLoad = true;
   readonly settingsStore: SettingsStore<TGAppSettings>;
+  readonly translationManager: TranslationManager;
   private fallbackVerseState = this.commandPalette.useState(new VerseRef("GENESIS", 1, 1));
+  private fallbackTranslationState = this.commandPalette.useState<translation>("KJV");
+
+  get translationState(): PaletteState<translation> {
+    const activeVerseScreen = this.workspace.getActiveViewOfType("verse-screen");
+    return activeVerseScreen instanceof VerseScreen
+      ? activeVerseScreen.translationState
+      : this.fallbackTranslationState;
+  }
 
   get verseState(): PaletteState<VerseRef> {
     const activeVerseScreen = this.workspace.getActiveViewOfType("verse-screen");
@@ -73,26 +83,24 @@ export default class TouchGrassBibleApp extends App {
       fileManager: this.files,
       fileName: "app-data",
     });
+    this.translationManager = new TranslationManager(this);
   }
 
   async onload() {
     this.workspace.on("ArrowRightKeyDown", () => this.workspace.activateView("navigation-panel"));
 
-    await this.settingsStore.load();
+    this.settings = await this.settingsStore.load();
     this.registerWorkspaceViews();
     this.ensureMainScreenTab();
 
-    // Load all JSON files in parallel for faster startup
-    let translations: { [translation: string]: bibleData } = {};
+    const defaultTranslation: translation = "KJV";
+    VerseRef.defaultTranslation = defaultTranslation;
     try {
-      translations = await this.files.loadJSON<{ [translation: string]: bibleData }>("translations.json");
+      await this.translationManager.loadTranslation(defaultTranslation);
     } catch (e) {
-      this.console.error("Failed to load translations.json. App may not function correctly.", e);
+      this.console.error(`Failed to load default translation ${defaultTranslation}.`, e);
     }
 
-    VerseRef.bibleTranslations = translations;
-
-    this.verseState.set(VerseRef.RandomVerse);
     this.console.enabled = this.settings.enableLogging;
     this.console.log(info.name, info.version, "loaded");
     this.workspace.on("Ctrl+EnterKeyDown", () => !this.commandPalette.isOpen && this.openCommandPalette());

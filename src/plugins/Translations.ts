@@ -1,6 +1,11 @@
-import { CommandCategory, CommandItem, CommandPaletteState, UnifiedCommandPalette } from "@touchgrass/framework";
+import {
+  CommandCategory,
+  CommandItem,
+  CommandPaletteState,
+  UnifiedCommandPalette,
+} from "@touchgrass/framework";
 import Plugin from "../core/Plugin";
-import { VerseRef, translation } from "../models/VerseRef";
+import { translation } from "../models/VerseRef";
 import { TranslationsCategoryID } from "./categoryIDs";
 
 const translationMetadata: {
@@ -12,16 +17,18 @@ const translationMetadata: {
 };
 
 export default class TranslationsPlugin extends Plugin {
-  defaultTranslation = this.app.commandPalette.useState("KJV" as translation);
   async onload(): Promise<void> {
     this.registerPalette(
       () => new translationCategory(this.app.commandPalette, this),
       TranslationsCategoryID,
     );
-    this.registerStateChange(
-      this.defaultTranslation,
-      newTranslation => (VerseRef.defaultTranslation = newTranslation),
-    );
+  }
+
+  async switchTranslation(newTranslation: translation): Promise<void> {
+    await this.app.translationManager.loadTranslation(newTranslation);
+    this.app.translationState.set(newTranslation);
+    this.app.settingsStore.saveAfterDelay();
+    this.app.emit("translation-changed", newTranslation);
   }
 }
 
@@ -39,7 +46,7 @@ class translationCategory extends CommandCategory<string> {
 
   onTrigger(_state: CommandPaletteState): void {
     void _state;
-    this.translations = Object.keys(VerseRef.bibleTranslations);
+    this.translations = this.plugin.app.translationManager.availableTranslations;
   }
 
   getCommands(query: string): string[] {
@@ -52,7 +59,7 @@ class translationCategory extends CommandCategory<string> {
   ): (state: CommandPaletteState) => CommandPaletteState {
     Item.setTitle(translationMetadata[command]?.name || command).addctx();
     return state => {
-      this.plugin.defaultTranslation.set(command as translation);
+      void this.plugin.switchTranslation(command as translation);
       return state.update({ topCategory: "" });
     };
   }

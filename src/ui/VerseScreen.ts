@@ -1,7 +1,15 @@
 import apocalypseThrottle from "apocalypse-throttle";
-import { Highlighter, IconButton, LayoutNode, PaletteState, pdsp, UIComponent, View } from "@touchgrass/framework";
+import {
+  Highlighter,
+  IconButton,
+  LayoutNode,
+  PaletteState,
+  pdsp,
+  UIComponent,
+  View,
+} from "@touchgrass/framework";
 import TouchGrassBibleApp from "../main";
-import { VerseRef } from "../models/VerseRef";
+import { VerseRef, type translation } from "../models/VerseRef";
 import { BookScroll, ChapterScroll } from "./Scroll";
 import "./VerseScreen.css";
 
@@ -19,6 +27,7 @@ type VerseScreenState = {
     chapter: number;
     verse: number;
   };
+  translation?: string;
 };
 
 /**
@@ -54,6 +63,7 @@ class ChapterComponent extends UIComponent<"div"> {
     parent: HTMLElement,
     ref: VerseRef,
     private app: TouchGrassBibleApp,
+    translation: translation,
   ) {
     super(parent, "div");
     this.verse = ref;
@@ -63,7 +73,7 @@ class ChapterComponent extends UIComponent<"div"> {
       text: VerseHighlight.highlight(ref.toChapterString()),
       cls: "chapter-title",
     });
-    ref.cTXT.forEach((text: string, v: number) => {
+    ref.chapterData(translation).forEach((text: string, v: number) => {
       if (v === 0) return;
       const newVerse = new VerseRef(book, chapter, v);
       this.verses[v] = this.createChild("div", {}, (el: HTMLElement) => {
@@ -153,6 +163,7 @@ class ChapterComponent extends UIComponent<"div"> {
 export class VerseScreen extends View {
   content: HTMLElement;
   verseState: PaletteState<VerseRef>;
+  translationState: PaletteState<translation>;
   chapterContainer!: HTMLElement;
   renderedChapters: ChapterComponent[] = [];
   maxRenderedChapters = 11; // Keep this an odd number
@@ -183,10 +194,24 @@ export class VerseScreen extends View {
     super(panel);
     this.containerEl.classList.add("screen-view", "content");
     this.verseState = this.app.commandPalette.useState(new VerseRef("GENESIS", 1, 1));
+    this.translationState = this.app.commandPalette.useState<translation>(this.app.translationState.get());
+    this.translationState.onChange(() => this.updateTitle());
     this.content = this.containerEl; //.createEl("div", { cls: "content" });
   }
 
+  private ensureTranslationLoaded(t: translation): void {
+    VerseRef.defaultTranslation = t;
+    void this.app.translationManager.loadTranslation(t);
+  }
+
   onAttach(): void {
+    this.translationState.onChange(t => {
+      this.ensureTranslationLoaded(t);
+      this.requestStateSave();
+    });
+
+    this.ensureTranslationLoaded(this.translationState.get());
+
     this.verseState.onChange(verse => {
       this.updateTitle();
       this.chapterScroll?.setRef(verse);
@@ -208,6 +233,9 @@ export class VerseScreen extends View {
     this.chapterScroll = new ChapterScroll(this.content, v => (this.bookScroll.show(v), (this.verse = v)));
 
     this.app.on("verse-actions-change", () => this.refreshActiveVerseInfo());
+    this.app.on("translation-loaded", t => {
+      if (t === this.translationState.get()) this.renderInitialChapters();
+    });
 
     this.app.on(
       "verse-info-highlight",
@@ -220,7 +248,9 @@ export class VerseScreen extends View {
    * Checks if this view is already the active verse screen to avoid redundant setup.
    */
   onActivate(): void {
-    if (!VerseRef.bible) return;
+    const t = this.translationState.get();
+    if (!VerseRef.bibleTranslations[t]) return;
+    VerseRef.defaultTranslation = t;
     this.updateTitle();
     this.chapterScroll?.setRef(this.verse);
     this.bookScroll?.setRef(this.verse);
@@ -242,11 +272,12 @@ export class VerseScreen extends View {
   }
 
   updateTitle() {
-    this.title = this.verse.toString();
+    this.title = `${this.verse.toString()} - ${this.translationState.get()}`;
   }
 
   renderInitialChapters() {
-    //this.chapterContainer.empty();  this was deleting the scroll bubbles, so instead we just remove the chapter components
+    const t = this.translationState.get();
+    if (!VerseRef.bibleTranslations[t]) return;
 
     this.renderedChapters.forEach(c => c.remove());
 
@@ -260,14 +291,14 @@ export class VerseScreen extends View {
     const buffer = Math.floor((this.maxRenderedChapters - 1) / 2);
 
     for (let i = 0; i < buffer; i++) {
-      prev = prev.prevChapter;
+      prev = prev.prevChapterIn(t);
       chaptersToRender.unshift(prev);
-      next = next.nextChapter;
+      next = next.nextChapterIn(t);
       chaptersToRender.push(next);
     }
 
     for (const ref of chaptersToRender) {
-      const component = new ChapterComponent(this.chapterContainer, ref, this.app);
+      const component = new ChapterComponent(this.chapterContainer, ref, this.app, t);
       this.renderedChapters.push(component);
     }
 
@@ -353,10 +384,11 @@ export class VerseScreen extends View {
     const firstChapter = this.renderedChapters[0];
     if (!firstChapter) return;
 
-    const prevRef = firstChapter.verse.prevChapter;
+    const t = this.translationState.get();
+    const prevRef = firstChapter.verse.prevChapterIn(t);
     if (this.renderedChapters.some(c => c.verse.isSameChapter(prevRef))) return;
 
-    const component = new ChapterComponent(this.chapterContainer, prevRef, this.app);
+    const component = new ChapterComponent(this.chapterContainer, prevRef, this.app, t);
     this.chapterContainer.prepend(component.element);
     this.renderedChapters.unshift(component);
 
@@ -372,10 +404,11 @@ export class VerseScreen extends View {
     const lastChapter = this.renderedChapters[this.renderedChapters.length - 1];
     if (!lastChapter) return;
 
-    const nextRef = lastChapter.verse.nextChapter;
+    const t = this.translationState.get();
+    const nextRef = lastChapter.verse.nextChapterIn(t);
     if (this.renderedChapters.some(c => c.verse.isSameChapter(nextRef))) return;
 
-    const component = new ChapterComponent(this.chapterContainer, nextRef, this.app);
+    const component = new ChapterComponent(this.chapterContainer, nextRef, this.app, t);
     this.renderedChapters.push(component);
 
     if (this.renderedChapters.length > this.maxRenderedChapters) {
@@ -405,6 +438,7 @@ export class VerseScreen extends View {
         chapter: current.chapter,
         verse: current.verse,
       },
+      translation: this.translationState.get(),
     } satisfies VerseScreenState;
   }
 
@@ -412,6 +446,15 @@ export class VerseScreen extends View {
     if (!this.isVerseScreenState(state)) return;
     if (!VerseRef.booksOfTheBible.includes(state.verse.book)) return;
     this.verseState.set(new VerseRef(state.verse.book, state.verse.chapter, state.verse.verse));
+    if (
+      state.translation &&
+      this.app.translationManager.availableTranslations.includes(state.translation as translation)
+    ) {
+      this.translationState.set(state.translation as translation);
+      this.ensureTranslationLoaded(state.translation as translation);
+      return;
+    }
+    this.ensureTranslationLoaded(this.translationState.get());
   }
 }
 

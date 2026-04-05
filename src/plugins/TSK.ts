@@ -1,5 +1,10 @@
 import { Waypoints } from "lucide";
-import { CommandCategory, CommandItem, CommandPaletteState, UnifiedCommandPalette } from "@touchgrass/framework";
+import {
+  CommandCategory,
+  CommandItem,
+  CommandPaletteState,
+  UnifiedCommandPalette,
+} from "@touchgrass/framework";
 import { VerseRef } from "src/models/VerseRef";
 import { VerseInfoComponent } from "src/ui/VerseScreen";
 import Plugin from "../core/Plugin";

@@ -146,17 +146,21 @@ export class VerseRef {
     const book = this.book === "SONG SOLOMON" ? "SONG OF SOLOMON" : this.book;
     return `https://www.biblegateway.com/passage/?search=${book}+${this.chapter}%3A${this.verse}&version=${VerseRef.defaultTranslation}`;
   }
-  get nextChapter(): VerseRef {
+  nextChapterIn(t: translation): VerseRef {
+    const bible = VerseRef.bibleTranslations[t];
     const { book, chapter } = this;
     const nextChapter = chapter + 1;
     const nextBookIndex = VerseRef.booksOfTheBible.indexOf(book) + 1;
-    if (nextChapter > VerseRef.bible[book].length - 1) {
+    if (nextChapter > bible[book].length - 1) {
       if (nextBookIndex > VerseRef.booksOfTheBible.length) {
         return new VerseRef(VerseRef.booksOfTheBible[0], 1, 1);
       }
       return new VerseRef(VerseRef.booksOfTheBible[nextBookIndex], 1, 1);
     }
     return new VerseRef(book, nextChapter, 1);
+  }
+  get nextChapter(): VerseRef {
+    return this.nextChapterIn(VerseRef.defaultTranslation);
   }
 
   Chapteroffset(offset: number): VerseRef {
@@ -192,7 +196,8 @@ export class VerseRef {
    *
    * @returns {VerseRef} A new VerseRef pointing to the last verse of the previous chapter.
    */
-  get prevChapter(): VerseRef {
+  prevChapterIn(t: translation): VerseRef {
+    const bible = VerseRef.bibleTranslations[t];
     const { book, chapter } = this;
     const books = VerseRef.booksOfTheBible;
 
@@ -213,10 +218,13 @@ export class VerseRef {
         prevBookIndex = books.length - 1;
       }
       prevBook = books[prevBookIndex];
-      prevChapter = VerseRef.bible[prevBook].length - 1; // last chapter index
+      prevChapter = bible[prevBook].length - 1; // last chapter index
     }
 
-    const lastVerseIndex = VerseRef.bible[prevBook][prevChapter].length - 1;
+    const lastVerseIndex = bible[prevBook][prevChapter].length - 1;
     return new VerseRef(prevBook, prevChapter, lastVerseIndex);
+  }
+  get prevChapter(): VerseRef {
+    return this.prevChapterIn(VerseRef.defaultTranslation);
   }
 }
