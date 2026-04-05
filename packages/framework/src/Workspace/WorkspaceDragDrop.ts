@@ -23,7 +23,20 @@ export class DragDropController {
 
   private readonly onDocumentPointerUp = (event: PointerEvent) => this.handlePointerUp(event);
 
+  private readonly onDocumentPointerCancel = (event: PointerEvent) => this.handlePointerCancel(event);
+
+  private readonly onSourceLostPointerCapture = (event: PointerEvent) =>
+    this.handleSourceLostPointerCapture(event);
+
   constructor(private workspace: Workspace) {}
+
+  private isPrimaryDragPointer(event: PointerEvent): boolean {
+    if (!event.isPrimary) return false;
+    if (event.pointerType === "mouse") {
+      return event.button === 0;
+    }
+    return true;
+  }
 
   destroy(): void {
     const dragState = this.dragState;
@@ -34,9 +47,10 @@ export class DragDropController {
   }
 
   handleTabPointerDown(panel: LayoutNode, tabId: string, event: PointerEvent): void {
-    if (event.button !== 0 || this.dragState) return;
+    if (!this.isPrimaryDragPointer(event) || this.dragState) return;
     const sourceTabButton = event.currentTarget as HTMLButtonElement | null;
     if (!sourceTabButton) return;
+    sourceTabButton.style.touchAction = "none";
     this.dragState = {
       sourcePanel: panel,
       tabId,
@@ -50,9 +64,17 @@ export class DragDropController {
       targetInsertIndex: null,
       targetTabButton: null,
     };
-    sourceTabButton.setPointerCapture(event.pointerId);
+    if (typeof sourceTabButton.setPointerCapture === "function") {
+      try {
+        sourceTabButton.setPointerCapture(event.pointerId);
+      } catch {
+        // Some mobile webviews can reject capture; drag still works via document listeners.
+      }
+    }
+    sourceTabButton.addEventListener("lostpointercapture", this.onSourceLostPointerCapture);
     document.addEventListener("pointermove", this.onDocumentPointerMove);
     document.addEventListener("pointerup", this.onDocumentPointerUp);
+    document.addEventListener("pointercancel", this.onDocumentPointerCancel);
   }
 
   handlePointerMove(event: PointerEvent): void {
@@ -77,7 +99,13 @@ export class DragDropController {
     const dragState = this.dragState;
     if (!dragState || event.pointerId !== dragState.pointerId) return;
 
-    dragState.sourceTabButton.releasePointerCapture(event.pointerId);
+    if (dragState.sourceTabButton.hasPointerCapture(event.pointerId)) {
+      try {
+        dragState.sourceTabButton.releasePointerCapture(event.pointerId);
+      } catch {
+        // Ignore release errors and continue cleanup.
+      }
+    }
     this.clearDropTargetClasses();
 
     if (!dragState.dragging) {
@@ -86,6 +114,18 @@ export class DragDropController {
     }
 
     this.performDrop();
+    this.clearDragState();
+  }
+
+  handlePointerCancel(event: PointerEvent): void {
+    const dragState = this.dragState;
+    if (!dragState || event.pointerId !== dragState.pointerId) return;
+    this.clearDragState();
+  }
+
+  handleSourceLostPointerCapture(event: PointerEvent): void {
+    const dragState = this.dragState;
+    if (!dragState || event.pointerId !== dragState.pointerId) return;
     this.clearDragState();
   }
 
@@ -210,9 +250,12 @@ export class DragDropController {
     if (!dragState) return;
     this.clearDropTargetClasses();
     dragState.sourceTabButton.classList.remove("is-dragging");
+    dragState.sourceTabButton.style.touchAction = "";
+    dragState.sourceTabButton.removeEventListener("lostpointercapture", this.onSourceLostPointerCapture);
     document.body.classList.remove("workspace-tab-dragging");
     document.removeEventListener("pointermove", this.onDocumentPointerMove);
     document.removeEventListener("pointerup", this.onDocumentPointerUp);
+    document.removeEventListener("pointercancel", this.onDocumentPointerCancel);
     this.dragState = null;
   }
 }

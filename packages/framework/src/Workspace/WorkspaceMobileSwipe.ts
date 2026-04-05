@@ -18,6 +18,7 @@ export class GlobalSwipeHandler {
   currentPosition: Offset | null = null;
   screenWidth: number = 0;
   private _state: SwipeState = "none";
+  private isTrackingGesture: boolean = false;
 
   public get state(): SwipeState {
     return this._state;
@@ -85,6 +86,20 @@ export class GlobalSwipeHandler {
     this.startPosition = new Offset(x, y);
     this.currentPosition = null;
     this.screenWidth = window.innerWidth;
+    this.isTrackingGesture = true;
+  }
+
+  private cancelGesture(): void {
+    this.startPosition = null;
+    this.currentPosition = null;
+    this.isTrackingGesture = false;
+  }
+
+  private shouldIgnoreGestureTarget(target: EventTarget | null): boolean {
+    const element = target instanceof Element ? target : null;
+    const bodyHasDragClass = document.body?.classList?.contains("workspace-tab-dragging") ?? false;
+    if (!element) return false;
+    return Boolean(element.closest(".panel-tabs, .panel-tab, .panel-resize-handle") || bodyHasDragClass);
   }
 
   private getDelta(scaleFactor: number): Offset | null {
@@ -151,49 +166,59 @@ export class GlobalSwipeHandler {
   }
 
   private endGesture(scaleFactor: number) {
-    if (!this.startPosition) return;
+    if (!this.startPosition || !this.isTrackingGesture) return;
     const delta = this.getDelta(scaleFactor);
     if (!delta || !this.isHorizontalGesture(delta)) {
       // Ignore clicks/vertical movement and preserve current open state.
       this.state = this._state;
-      this.startPosition = null;
-      this.currentPosition = null;
+      this.cancelGesture();
       return;
     }
 
     this.applyEndState(delta.x);
-    this.startPosition = null;
-    this.currentPosition = null;
+    this.cancelGesture();
   }
 
   handleTouchStart = (e: TouchEvent) => {
+    if (this.shouldIgnoreGestureTarget(e.target)) {
+      this.cancelGesture();
+      return;
+    }
     this.beginGesture(e.touches[0].clientX, e.touches[0].clientY);
     // Handle touch start
   };
 
   handleTouchMove = (e: TouchEvent) => {
+    if (!this.isTrackingGesture) return;
     this.updateGesture(e.touches[0].clientX, e.touches[0].clientY, TOUCH_SCALE_FACTOR);
 
     // Handle touch move, e.g., determine swipe direction and distance
   };
 
   handleTouchEnd = () => {
+    if (!this.isTrackingGesture) return;
     this.endGesture(TOUCH_SCALE_FACTOR);
     // Handle touch end
   };
 
   handleMouseDown = (e: MouseEvent) => {
+    if (this.shouldIgnoreGestureTarget(e.target)) {
+      this.cancelGesture();
+      return;
+    }
     this.beginGesture(e.clientX, e.clientY);
 
     // Handle mouse down
   };
 
   handleMouseMove = (e: MouseEvent) => {
+    if (!this.isTrackingGesture) return;
     this.updateGesture(e.clientX, e.clientY, MOUSE_SCALE_FACTOR);
     // Handle mouse move, e.g., determine swipe direction and distance
   };
 
   handleMouseUp = (e: MouseEvent) => {
+    if (!this.isTrackingGesture) return;
     this.currentPosition = new Offset(e.clientX, e.clientY);
     this.endGesture(MOUSE_SCALE_FACTOR);
     // Handle mouse up

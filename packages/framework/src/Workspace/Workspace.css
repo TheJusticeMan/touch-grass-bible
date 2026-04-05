@@ -222,6 +222,12 @@
   -webkit-app-region: no-drag;
 }
 
+@media (pointer: coarse) {
+  .panel-tab {
+    touch-action: none;
+  }
+}
+
 .panel-tab:not(.panel-tab-add):not(.is-active) + .panel-tab:not(.panel-tab-add):not(.is-active)::before {
   content: "";
   position: absolute;
