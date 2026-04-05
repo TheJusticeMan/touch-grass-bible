@@ -492,6 +492,15 @@ export class VerseInfoComponent extends UIComponent<"div"> {
     this.clearChildren(); // Clear previous contents to re-render
 
     for (const action of this.app.getVerseActions()) {
+      if (action.isAvailable) {
+        try {
+          if (!action.isAvailable(this)) continue;
+        } catch (error) {
+          this.app.console.error(`Error evaluating verse action availability: ${action.id}`, error);
+          continue;
+        }
+      }
+
       new IconButton(this.element)
         .setIcon(action.icon)
         .setTooltip(action.name)

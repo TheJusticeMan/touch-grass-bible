@@ -247,6 +247,7 @@ export default class TouchGrassBibleApp extends App {
    *   name: string;
    *   description?: string;
    *   icon: IconNode;
+   *   isAvailable?: (verseInfo: VerseInfoComponent) => boolean;
    *   onTrigger: (verseInfo: VerseInfoComponent) => void;
    * };
    */

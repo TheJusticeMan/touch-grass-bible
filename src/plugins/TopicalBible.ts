@@ -31,6 +31,7 @@ export default class TopicalBiblePlugin extends Plugin {
       name: "View verse topics (OpenBible.info)",
       description: "View topics associated with this verse from OpenBible.info",
       icon: GitCompare,
+      isAvailable: verseInfo => this.topics.getTopicsFromVerse(verseInfo.verse).length > 0,
       onTrigger: (verseInfo: VerseInfoComponent) => {
         const topicList = this.topics.getTopicsFromVerse(verseInfo.verse);
         topicList.forEach(topic => {
