@@ -50,10 +50,9 @@ export class WorkspaceTabButton extends UIComponent<"button"> {
     this.listen("contextmenu", event => {
       event.preventDefault();
       event.stopPropagation();
-      const menu = new Menu()
-        .addItem(item => item.setTitle("Close").on("click", () => this.onClose?.()))
-        .showAtMouseEvent(event);
+      const menu = new Menu();
       this.onMenu?.(menu);
+      menu.showAtMouseEvent(event);
     });
 
     if (onPointerDown) {

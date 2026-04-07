@@ -991,6 +991,7 @@ export class Menu extends ETarget {
   private position: { x: number; y: number } = { x: 0, y: 0 };
   private menuEl: HTMLDivElement | null = null;
   private _onClickAway: ((e: MouseEvent) => void) | null = null;
+  private isShown = false;
 
   /**
    * Adds a menu item using a builder callback.
@@ -1001,6 +1002,8 @@ export class Menu extends ETarget {
     const item = new MenuItem();
     cb(item);
     this.items.push(item);
+    if (this.isShown && this.menuEl) this.show(); // Re-render menu to include the new item if it's already shown
+
     return this;
   }
 
@@ -1028,6 +1031,7 @@ export class Menu extends ETarget {
   show(): this {
     this.hide();
     if (this.items.length === 0) return this;
+    this.isShown = true;
 
     document.body.createEl("div", { cls: "context-menu" }, (menuEl: HTMLDivElement) => {
       menuEl.style.left = `${this.position.x}px`;
@@ -1062,6 +1066,7 @@ export class Menu extends ETarget {
       document.removeEventListener("mousedown", this._onClickAway);
       this._onClickAway = null;
     }
+    this.isShown = false;
     return this;
   }
 

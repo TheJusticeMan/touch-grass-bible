@@ -331,17 +331,19 @@ class BookmarkCategory extends CommandCategory<string> {
     command: string,
     Item: CommandItem<string>,
   ): (state: CommandPaletteState) => CommandPaletteState {
+    const verses = this.plugin.Bookmarks.get(command);
     Item.setTitle(VerseListCategory.convertTopicDate(command))
       .addctx()
       .setDescription(
-        this.plugin.Bookmarks.get(command)
+        verses
+          .slice(0, 5)
           .map(v => v.toString())
-          .join(", "),
+          .join(", ") + (verses.length > 5 ? `, and ${verses.length - 5} more...` : ""),
       );
 
     return state => {
       this.plugin.tag.set(command);
-      return state.update({ topCategory: BookmarkCategoryID });
+      return state.update({ topCategory: VerseListCategoryID });
     };
   }
 

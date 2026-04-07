@@ -5,6 +5,7 @@ import { Files } from "../App";
 import { ETarget, touchDraggerEvents } from "../Event";
 import { Button, IconButton, UIComponent } from "../UIComponents";
 import "./Workspace.css";
+import { WorkspaceDialog, WorkspaceDialogManager, type WorkspaceDialogOptions } from "./WorkspaceDialog";
 import {
   WorkspaceDialogLayer,
   WorkspacePanelContainer,
@@ -15,7 +16,6 @@ import {
   WorkspaceTabButton,
 } from "./WorkspaceDom";
 import { DragDropController, type PanelDropEdge } from "./WorkspaceDragDrop";
-import { WorkspaceDialog, WorkspaceDialogManager, type WorkspaceDialogOptions } from "./WorkspaceDialog";
 import { WorkspaceLayoutModel } from "./WorkspaceLayoutModel";
 import { GlobalSwipeHandler } from "./WorkspaceMobileSwipe";
 import { monkeypatchAllWorkspaceMethods } from "./WorkspaceTrace";
@@ -1449,7 +1449,13 @@ export class LayoutNode {
       !detachedView.view,
       event => this.workspace.handleTabPointerDown(this, tabId, event),
       () => this.removeViewByTabId(tabId),
-      menu => menu,
+      menu =>
+        menu.addItem(item =>
+          item
+            .setTitle("Close")
+            .setIcon(X)
+            .onClick(() => this.removeViewByTabId(tabId)),
+        ),
       icon,
     );
     const tabButton = tabComponent.element;
