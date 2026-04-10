@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { GlobalSwipeHandler } from "./WorkspaceMobileSwipe";
 
-type Listener = (event: MouseEvent) => void;
+type Listener = (event: Event) => void;
 
 class StyleMock {
   private values = new Map<string, string>();
@@ -29,7 +29,7 @@ class DocumentMock {
     this.listeners.get(type)?.delete(listener);
   }
 
-  dispatch(type: string, event: MouseEvent): void {
+  dispatch(type: string, event: Event): void {
     const handlers = this.listeners.get(type);
     if (!handlers) return;
     handlers.forEach(handler => handler(event));
@@ -38,6 +38,12 @@ class DocumentMock {
 
 function mouseEvent(x: number, y: number): MouseEvent {
   return { clientX: x, clientY: y } as MouseEvent;
+}
+
+function touchEvent(points: Array<[number, number]>): TouchEvent {
+  return {
+    touches: points.map(([clientX, clientY]) => ({ clientX, clientY })),
+  } as unknown as TouchEvent;
 }
 
 describe("GlobalSwipeHandler click behavior", () => {
@@ -122,6 +128,54 @@ describe("GlobalSwipeHandler click behavior", () => {
 
     expect(style.getPropertyValue("--leftpanel-open")).toBe("0%");
     expect(handler.state).toBe("leftopen");
+
+    handler.destroy();
+  });
+
+  test("ignores two-finger touch gestures", () => {
+    const root = { style } as unknown as HTMLElement;
+    const handler = new GlobalSwipeHandler(root);
+
+    documentMock.dispatch(
+      "touchstart",
+      touchEvent([
+        [100, 120],
+        [200, 120],
+      ]),
+    );
+    documentMock.dispatch(
+      "touchmove",
+      touchEvent([
+        [180, 120],
+        [280, 120],
+      ]),
+    );
+    documentMock.dispatch("touchend", { touches: [] } as unknown as TouchEvent);
+
+    expect(handler.state).toBe("none");
+    expect(style.getPropertyValue("--rightpanel-open")).toBe("");
+    expect(style.getPropertyValue("--leftpanel-open")).toBe("");
+
+    handler.destroy();
+  });
+
+  test("cancels swipe tracking when a second finger is added", () => {
+    const root = { style } as unknown as HTMLElement;
+    const handler = new GlobalSwipeHandler(root);
+
+    documentMock.dispatch("touchstart", touchEvent([[100, 120]]));
+    documentMock.dispatch(
+      "touchmove",
+      touchEvent([
+        [160, 120],
+        [260, 120],
+      ]),
+    );
+    documentMock.dispatch("touchend", { touches: [] } as unknown as TouchEvent);
+
+    expect(handler.state).toBe("none");
+    expect(style.getPropertyValue("--rightpanel-open")).toBe("");
+    expect(style.getPropertyValue("--leftpanel-open")).toBe("");
 
     handler.destroy();
   });

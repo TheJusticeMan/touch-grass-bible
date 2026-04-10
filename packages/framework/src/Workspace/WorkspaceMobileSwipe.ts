@@ -96,7 +96,8 @@ export class GlobalSwipeHandler {
   }
 
   private shouldIgnoreGestureTarget(target: EventTarget | null): boolean {
-    const element = target instanceof Element ? target : null;
+    const hasElementCtor = typeof Element !== "undefined";
+    const element = hasElementCtor && target instanceof Element ? target : null;
     const bodyHasDragClass = document.body?.classList?.contains("workspace-tab-dragging") ?? false;
     if (!element) return false;
     return Boolean(element.closest(".panel-tabs, .panel-tab, .panel-resize-handle") || bodyHasDragClass);
@@ -180,7 +181,7 @@ export class GlobalSwipeHandler {
   }
 
   handleTouchStart = (e: TouchEvent) => {
-    if (this.shouldIgnoreGestureTarget(e.target)) {
+    if (e.touches.length !== 1 || this.shouldIgnoreGestureTarget(e.target)) {
       this.cancelGesture();
       return;
     }
@@ -189,6 +190,10 @@ export class GlobalSwipeHandler {
   };
 
   handleTouchMove = (e: TouchEvent) => {
+    if (e.touches.length !== 1) {
+      this.cancelGesture();
+      return;
+    }
     if (!this.isTrackingGesture) return;
     this.updateGesture(e.touches[0].clientX, e.touches[0].clientY, TOUCH_SCALE_FACTOR);
 

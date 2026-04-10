@@ -30,6 +30,7 @@ import {
   TranslationsPlugin,
   TSKPlugin,
 } from "./plugins";
+import { clampBaseFontSize } from "./ui/pinchZoom";
 import { VerseScreen } from "./ui/VerseScreen";
 
 /**
@@ -86,10 +87,21 @@ export default class TouchGrassBibleApp extends App {
     this.translationManager = new TranslationManager(this);
   }
 
+  setFontSize(value: number, persist = false, roundToWhole = true): number {
+    const nextFontSize = clampBaseFontSize(value, roundToWhole);
+    this.settings.style.fontSize = nextFontSize;
+    document.documentElement.style.setProperty("--font-size-base", `${nextFontSize}px`);
+    if (persist) {
+      void this.settingsStore.save();
+    }
+    return nextFontSize;
+  }
+
   async onload() {
     this.workspace.on("ArrowRightKeyDown", () => this.workspace.activateView("navigation-panel"));
 
     this.settings = await this.settingsStore.load();
+    this.setFontSize(this.settings.style.fontSize);
     this.registerWorkspaceViews();
     this.ensureMainScreenTab();
 

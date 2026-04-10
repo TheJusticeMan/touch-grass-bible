@@ -27,11 +27,9 @@ class AppearanceCategory extends CommandCategory<string> {
     void _state;
     this.defaultCMD.addCMD("Font Size", "Adjust the font size of the Bible text", item => {
       item.addSliderInput(slider =>
-        slider.setValue(this.plugin.app.settings.style.fontSize).on("change", (value: number) => {
-          this.plugin.app.settings.style.fontSize = value;
-          document.documentElement.style.setProperty("--font-size-base", `${value}px`);
-          this.plugin.app.settingsStore.save();
-        }),
+        slider
+          .setValue(this.plugin.app.settings.style.fontSize)
+          .on("change", (value: number) => this.plugin.app.setFontSize(value, true)),
       );
       return {};
     });

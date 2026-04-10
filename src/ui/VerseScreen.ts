@@ -10,6 +10,7 @@ import {
 } from "@touchgrass/framework";
 import TouchGrassBibleApp from "../main";
 import { VerseRef, type translation } from "../models/VerseRef";
+import { getPinchDistance } from "./pinchZoom";
 import { BookScroll, ChapterScroll } from "./Scroll";
 import "./VerseScreen.css";
 
@@ -172,6 +173,9 @@ export class VerseScreen extends View {
   chapterScroll!: ChapterScroll;
   bookScroll!: BookScroll;
   private highlightedVerse: VerseRef | null = null;
+  private pinchStartDistance: number | null = null;
+  private pinchStartFontSize: number | null = null;
+  private isPinching = false;
 
   private isVerseScreenState(state: unknown): state is VerseScreenState {
     if (!state || typeof state !== "object") return false;
@@ -227,6 +231,10 @@ export class VerseScreen extends View {
     });
 
     this.chapterContainer = this.content;
+    this.content.addEventListener("touchstart", this.handlePinchStart, { passive: true });
+    this.content.addEventListener("touchmove", this.handlePinchMove, { passive: false });
+    this.content.addEventListener("touchend", this.handlePinchEnd, { passive: true });
+    this.content.addEventListener("touchcancel", this.handlePinchEnd, { passive: true });
     this.content.addEventListener("scroll", this.handleScroll, { passive: true });
 
     this.bookScroll = new BookScroll(this.content, v => (this.chapterScroll.show(v), (this.verse = v)));
@@ -241,6 +249,14 @@ export class VerseScreen extends View {
       "verse-info-highlight",
       verse => verse instanceof VerseRef && this.highlightVerseInfoButton(verse),
     );
+  }
+
+  onDetach(): void {
+    this.resetPinchZoom();
+    this.content.removeEventListener("touchstart", this.handlePinchStart);
+    this.content.removeEventListener("touchmove", this.handlePinchMove);
+    this.content.removeEventListener("touchend", this.handlePinchEnd);
+    this.content.removeEventListener("touchcancel", this.handlePinchEnd);
   }
 
   /**
@@ -274,6 +290,55 @@ export class VerseScreen extends View {
   updateTitle() {
     this.title = `${this.verse.toString()} - ${this.translationState.get()}`;
   }
+
+  private shouldIgnorePinchTarget(target: EventTarget | null): boolean {
+    const element = target instanceof Element ? target : null;
+    if (!element) return false;
+    return Boolean(
+      element.closest("textarea, input, select, button, [contenteditable='true'], .icon-button, .note-area"),
+    );
+  }
+
+  private resetPinchZoom(): void {
+    this.isPinching = false;
+    this.pinchStartDistance = null;
+    this.pinchStartFontSize = null;
+  }
+
+  private handlePinchStart = (event: TouchEvent): void => {
+    if (event.touches.length !== 2 || this.shouldIgnorePinchTarget(event.target)) {
+      this.resetPinchZoom();
+      return;
+    }
+
+    this.isPinching = true;
+    this.pinchStartDistance = getPinchDistance(event.touches[0], event.touches[1]);
+    this.pinchStartFontSize = this.app.settings.style.fontSize;
+  };
+
+  private handlePinchMove = (event: TouchEvent): void => {
+    if (!this.isPinching) return;
+    if (
+      event.touches.length !== 2 ||
+      this.pinchStartDistance === null ||
+      this.pinchStartDistance <= 0 ||
+      this.pinchStartFontSize === null
+    ) {
+      this.resetPinchZoom();
+      return;
+    }
+
+    event.preventDefault();
+    const nextDistance = getPinchDistance(event.touches[0], event.touches[1]);
+    const nextFontSize = this.pinchStartFontSize * (nextDistance / this.pinchStartDistance);
+    this.app.setFontSize(nextFontSize, false, false);
+  };
+
+  private handlePinchEnd = (): void => {
+    if (!this.isPinching) return;
+    this.app.setFontSize(this.app.settings.style.fontSize, true, true);
+    this.resetPinchZoom();
+  };
 
   renderInitialChapters() {
     const t = this.translationState.get();
