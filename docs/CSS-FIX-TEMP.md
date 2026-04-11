@@ -175,7 +175,7 @@ Rule of thumb:
 ## Naming guidance for this codebase
 
 - Prefer feature-scoped names over generic names.
-- Good: `.journal-entry`, `.note-preview`, `.panel-tab`, `.palette-search`
+- Good: `.entry`, `.note-preview`, `.panel-tab`, `.palette-search`
 - Risky: `.content`, `.active`, `.icon-button`, `.visible`
 - If a class is intentionally generic, document which file owns it.
 

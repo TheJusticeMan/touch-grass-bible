@@ -35,40 +35,18 @@ This page covers the feature layer under `src/plugins/`, where most user-facing 
 
 ## `src/plugins/Journal/Journal.ts`
 
-- Purpose: journal plugin and reading-history logging
-- Key APIs: `JournalPlugin`, internal `JournalCategory`, `JournalSettings`, `defaultJournalSettings`
-- Registers the `journal-panel` workspace view and tracks open panel instances.
-- Registers an `Open Journal` palette command.
-- Watches verse changes and appends reading-history entries via `JournalStorage`.
+- Purpose: timeline-style journaling with text and verse-linked entries
+- Key APIs: `JournalPlugin`, `JournalCategoryID`, `JournalViewID`, internal `JournalPanel`
+- Registers the `journal-panel` workspace view and persists grouped journal data in plugin settings.
+- Adds a verse action for creating journal entries from the currently selected verse.
+- Supports inline text editing, verse previews, and context-menu removal for existing entries.
 
-## `src/plugins/Journal/index.ts`
-
-- Purpose: folder entry point for the journal plugin
-- Key APIs: default re-export of `./Journal`
-- Allows imports from the folder root instead of the concrete file path.
-
-## `src/plugins/Journal/journal-storage.ts`
-
-- Purpose: journal persistence layer
-- Key APIs: `JournalStorage`, `JournalEntry`, `JournalDay`
-- Stores data under `journal/index.json` plus daily files like `journal/YYYY-MM-DD.json`.
-- Creates missing days, appends text or verse entries, and finds previous journal days.
-- Used by `src/plugins/Journal/Journal.ts` and `src/plugins/Journal/JournalPanel.ts`.
-
-## `src/plugins/Journal/JournalPanel.css`
+## `src/plugins/Journal/Journal.css`
 
 - Purpose: journal panel styling
-- Key selectors: `.journal-panel`, `.journal-stream`, `.journal-day`, `.journal-entry`, `.journal-composer`
-- Defines the layout for the journal stream, sticky day headers, and composer area.
-- Distinguishes verse-reference entries from freeform text entries.
-
-## `src/plugins/Journal/JournalPanel.ts`
-
-- Purpose: journal workspace view UI
-- Key APIs: `JournalPanel`, local `formatDayHeader()`, local `formatEntryTime()`
-- Renders the journal shell, append-only toggle, status text, and composer.
-- Loads recent entries first and lazy-loads older days as the user scrolls upward.
-- Saves new entries through `JournalStorage` and reacts to live updates from the plugin.
+- Key selectors: `.journal-panel`, `.day-group`, `.entry`, `.add-button`, `.time`
+- Styles grouped daily entries, editable text/verse cards, and action buttons used by the journal view.
+- Supports the UI defined in `src/plugins/Journal/Journal.ts`.
 
 ## `src/plugins/Notes/Notes.ts`
 

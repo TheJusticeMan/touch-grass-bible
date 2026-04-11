@@ -465,12 +465,13 @@ export class Workspace extends ETarget<WorkspaceEvents> {
    * Get the last active view of a specific type.
    * Returns null if no view of that type has been activated yet.
    */
-  getActiveViewOfType(viewType: string): View | null {
-    const view = this._lastActiveViewByType.get(viewType);
+  getActiveViewOfType<T extends View = View>(viewType: string): T | null {
+    const view = this._lastActiveViewByType.get(viewType) || this.rootPanel.firstViewOfType(viewType);
     // Verify the tracked view still exists and is valid
     if (view && this.rootPanel.containsView(view)) {
-      return view;
+      return view as T;
     }
+
     // Clean up stale reference
     this._lastActiveViewByType.delete(viewType);
     return null;
@@ -1865,6 +1866,22 @@ export class LayoutNode {
     }
     // Check child panels recursively
     return this.childPanels.some(cp => cp.panel.containsView(view));
+  }
+
+  firstViewOfType(viewType: string): View | null {
+    // Check direct views in this panel
+    const direct = this.views.find(pv => pv.viewType === viewType && !!pv.view);
+    if (direct?.view) {
+      return direct.view;
+    }
+    // Check child panels recursively
+    for (const cp of this.childPanels) {
+      const found = cp.panel.firstViewOfType(viewType);
+      if (found) {
+        return found;
+      }
+    }
+    return null;
   }
 }
 

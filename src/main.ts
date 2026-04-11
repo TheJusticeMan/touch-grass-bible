@@ -21,7 +21,6 @@ import {
   BibleSearchPlugin,
   BookmarkPlugin,
   GesturePlugin,
-  JournalPlugin,
   NavesTopicalBiblePlugin,
   NotesPlugin,
   SettingsPlugin,
@@ -29,6 +28,7 @@ import {
   TopicalBiblePlugin,
   TranslationsPlugin,
   TSKPlugin,
+  JournalPlugin,
 } from "./plugins";
 import { clampBaseFontSize } from "./ui/pinchZoom";
 import { VerseScreen } from "./ui/VerseScreen";
