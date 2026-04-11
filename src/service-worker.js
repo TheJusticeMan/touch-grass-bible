@@ -1,5 +1,4 @@
-const VERSION = "3.1.1";
-const CACHE_NAME = `bible-app-cache-V${VERSION}`;
+const CACHE_NAME = `bible-app-cache-V${__APP_VERSION__}`;
 const ASSETS = [
   "./index.html",
   "./manifest.json",

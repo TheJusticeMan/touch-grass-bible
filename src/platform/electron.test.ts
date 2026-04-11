@@ -65,13 +65,17 @@ describe("electron platform bridge", () => {
     browserFileIOMocks.pickBrowserFileText.mockResolvedValue('{"ok":true}');
     const bridge = createPlatformBridge();
 
-    await expect(bridge.files.loadAssetJson<{ path: string }>("translations.json")).resolves.toEqual({
-      path: "translations.json",
-    });
+    await expect(bridge.files.loadAssetJson<{ path: string }>("data/translations/KJV.json")).resolves.toEqual(
+      {
+        path: "data/translations/KJV.json",
+      },
+    );
     await expect(bridge.files.pickFileText(".json")).resolves.toBe('{"ok":true}');
     await bridge.files.saveFile("export.json", "{}", "application/json");
 
-    expect(window.touchGrassElectronPlatform!.readAssetText).toHaveBeenCalledWith("translations.json");
+    expect(window.touchGrassElectronPlatform!.readAssetText).toHaveBeenCalledWith(
+      "data/translations/KJV.json",
+    );
     expect(browserFileIOMocks.pickBrowserFileText).toHaveBeenCalledWith(".json");
     expect(browserFileIOMocks.saveBrowserFile).toHaveBeenCalledWith("export.json", "{}", "application/json");
   });

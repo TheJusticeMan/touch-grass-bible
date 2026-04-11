@@ -92,14 +92,14 @@ describe("capacitor platform bridge", () => {
     browserFileIOMocks.pickBrowserFileText.mockResolvedValue('{"ok":true}');
     const bridge = createPlatformBridge();
 
-    await expect(bridge.files.loadAssetJson<{ translation: string }>("./translations.json")).resolves.toEqual(
-      {
-        translation: "YLT",
-      },
-    );
+    await expect(
+      bridge.files.loadAssetJson<{ translation: string }>("./data/translations/YLT.json"),
+    ).resolves.toEqual({
+      translation: "YLT",
+    });
     await expect(bridge.files.pickFileText(".json")).resolves.toBe('{"ok":true}');
 
-    expect(fetch).toHaveBeenCalledWith("translations.json");
+    expect(fetch).toHaveBeenCalledWith("data/translations/YLT.json");
     expect(browserFileIOMocks.pickBrowserFileText).toHaveBeenCalledWith(".json");
   });
 });

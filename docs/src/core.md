@@ -78,7 +78,7 @@ This page covers the root-level `src/` files that define the app shell, Bible do
 
 - Purpose: root app entry and main application class
 - Key APIs: `TouchGrassBibleApp`, `app`, local `isPlainObject()`, local `deepMerge()`
-- Boots the app, loads saved settings, and loads `translations.json` into `VerseRef.bibleTranslations`.
+- Boots the app, loads saved settings, and loads `[translations].json` into `VerseRef.bibleTranslations`.
 - Registers workspace views and ensures the default reading layout exists.
 - Installs internal plugins for bookmarks, TSK, search, topical browsing, notes, journal, translations, settings, AI, and sharing.
 - Manages verse actions, palette opening, delayed settings persistence, and startup UI cleanup.
@@ -129,14 +129,6 @@ This page covers the root-level `src/` files that define the app shell, Bible do
 - Defines app-level settings for logging, help visibility, style, and palette category ordering.
 - Keeps deprecated note/bookmark fields for migration compatibility.
 - Consumed by `src/main.ts` and settings-related tests.
-
-## `src/translations.json`
-
-- Purpose: packaged Bible text data
-- Key structure: translation -> book -> chapter -> verse
-- Stores scripture text for translations such as `ASV`, `KJV`, and `YLT`.
-- Powers verse lookup, chapter navigation, and random verse generation.
-- Loaded by `src/main.ts` and consumed throughout `src/VerseRef.ts` and `src/VerseScreen.ts`.
 
 ## `src/VerseRef.test.ts`
 

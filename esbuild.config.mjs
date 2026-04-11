@@ -13,20 +13,14 @@ if you want to view the source, please visit the github repository of this app
 const prod = process.argv[2] === "production";
 const buildTarget = process.env.APP_TARGET || "web";
 const enableExternalPlugins = process.env.ENABLE_EXTERNAL_PLUGINS === "true";
+const targetVersion = process.env.npm_package_version || "0.0.0";
+const frameworkLucidePath = resolve("packages/framework/node_modules/lucide/dist/esm/lucide.js");
 
 if (!["web", "electron", "capacitor"].includes(buildTarget)) {
   throw new Error(`Unsupported APP_TARGET: ${buildTarget}`);
 }
 
-function writeMetadata() {
-  const targetVersion = process.env.npm_package_version;
-  const ServiceWorkerFile = readFileSync("src/web/service-worker.js", "utf8").split("\n");
-  ServiceWorkerFile[0] = `const VERSION = "${targetVersion}";`;
-  writeFileSync("src/web/service-worker.js", ServiceWorkerFile.join("\n"));
-}
-
 function getBuildMetadata() {
-  const targetVersion = process.env.npm_package_version;
   return {
     name: "Touch Grass Bible",
     description:
@@ -69,10 +63,7 @@ function writeIndexHtml() {
   writeFileSync("dist/index.html", output);
 }
 
-// Always write metadata before starting
-writeMetadata();
-
-const context = await esbuild.context({
+const appContext = await esbuild.context({
   banner: {
     js: banner,
     css: banner,
@@ -92,10 +83,16 @@ const context = await esbuild.context({
   },
   plugins: [
     {
+      name: "lucide-framework-alias",
+      setup(build) {
+        build.onResolve({ filter: /^lucide$/ }, () => ({
+          path: frameworkLucidePath,
+        }));
+      },
+    },
+    {
       name: "metadata-writer",
       setup(build) {
-        build.onStart(() => writeMetadata());
-
         build.onResolve({ filter: /^@build-info$/ }, () => ({
           path: BUILD_INFO_MODULE,
           namespace: "tg-build-info",
@@ -128,8 +125,25 @@ const context = await esbuild.context({
   ],
 });
 
+const serviceWorkerContext = await esbuild.context({
+  banner: {
+    js: banner,
+  },
+  entryPoints: ["src/service-worker.js"],
+  bundle: true,
+  outfile: "dist/service-worker.js",
+  format: "iife",
+  sourcemap: prod ? false : true,
+  platform: "browser",
+  logLevel: "info",
+  minify: prod,
+  define: {
+    __APP_VERSION__: JSON.stringify(targetVersion),
+  },
+});
+
 if (prod) {
-  const result = await context.rebuild();
+  const [result] = await Promise.all([appContext.rebuild(), serviceWorkerContext.rebuild()]);
 
   // Write processed index.html with appropriate CSP
   writeIndexHtml();
@@ -144,5 +158,5 @@ if (prod) {
 
   process.exit(0);
 } else {
-  await context.watch();
+  await Promise.all([appContext.watch(), serviceWorkerContext.watch()]);
 }

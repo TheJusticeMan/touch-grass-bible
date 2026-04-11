@@ -1,9 +1,8 @@
+import { createWriteStream, readFileSync, unlinkSync, writeFileSync } from "fs";
 import { get } from "https";
-import { copyFileSync, writeFileSync, createWriteStream, unlinkSync } from "fs";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 import { Open } from "unzipper";
-import { readdirSync, readFileSync } from "fs";
+import { fileURLToPath } from "url";
 
 const _dirname = dirname(fileURLToPath(import.meta.url));
 const _dest = "./dist";
@@ -60,19 +59,13 @@ async function unzipFirstFileAsString(zipPath) {
         crossrefs[FromVerse].push([ToVerse, Number(Votes)]);
       });
     writeFileSync(join(_dest, "crossrefs.json"), JSON.stringify(crossrefs));
-    copyFileSync(join("./data", "parsed-nave.json"), join(_dest, "parsed-nave.json"));
+    const naves = readFileSync(join("./data", "parsed-nave.json"), "utf8"); // Verify it exists and is valid JSON
+    writeFileSync(join(_dest, "parsed-nave.json"), JSON.stringify(JSON.parse(naves)));
+    //copyFileSync(join("./data", "parsed-nave.json"), join(_dest, "parsed-nave.json"));
 
     files.forEach(f => unlinkSync(f.path));
     // Use data/data2 as needed
     console.log("Data processing completed successfully.");
-    const translationsDir = "./data/translations";
-    const translationFiles = readdirSync(translationsDir).filter(f => f.endsWith(".json"));
-    const translations = {};
-    translationFiles.forEach(f => {
-      translations[f.replace(/.json/, "")] = JSON.parse(readFileSync(join(translationsDir, f), "utf8"));
-    });
-    writeFileSync(join("./src", "translations.json"), JSON.stringify(translations));
-    console.log(`Loaded ${Object.keys(translations).length} translation files.`);
   } catch (err) {
     console.error("Error:", err);
   }

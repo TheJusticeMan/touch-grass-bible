@@ -78,12 +78,12 @@ describe("web platform bridge", () => {
     } as Response);
     const bridge = createPlatformBridge();
 
-    await expect(bridge.files.loadAssetJson<{ translation: string }>("./translations.json")).resolves.toEqual(
-      {
-        translation: "KJV",
-      },
-    );
-    expect(fetch).toHaveBeenCalledWith("translations.json");
+    await expect(
+      bridge.files.loadAssetJson<{ translation: string }>("./data/translations/KJV.json"),
+    ).resolves.toEqual({
+      translation: "KJV",
+    });
+    expect(fetch).toHaveBeenCalledWith("data/translations/KJV.json");
   });
 
   test("delegates file picking and saving to browser helpers", async () => {
