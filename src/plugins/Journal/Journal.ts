@@ -4,7 +4,7 @@ import van, { State } from "node_modules/vanjs-core/src/van";
 import Plugin from "src/core/Plugin";
 import { VerseRef } from "src/models/VerseRef";
 import "./Journal.css";
-const { div, button } = van.tags;
+const { div, button, img } = van.tags;
 
 export const JournalCategoryID = "journal";
 export const JournalViewID = "journal-panel";
@@ -21,7 +21,14 @@ type JournalVerseEntry = {
   reference: string;
 };
 
-type JournalAnyEntry = JournalEntry | JournalVerseEntry;
+type JournalImageEntry = {
+  type: "image";
+  time: string;
+  filePath: string;
+  filename: string;
+};
+
+type JournalAnyEntry = JournalEntry | JournalVerseEntry | JournalImageEntry;
 
 type JournalSettings = {
   appendOnly: boolean;
@@ -75,11 +82,21 @@ export default class JournalPlugin extends Plugin {
   async saveSettings(): Promise<void> {
     await super.saveSettings(this.settings);
   }
+
+  buildImageFilePath(filename: string): string {
+    const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const ext = safeName.includes(".") ? safeName.slice(safeName.lastIndexOf(".")) : ".img";
+    const now = Date.now();
+    const rand = Math.random().toString(36).slice(2, 8);
+    return `journal/images/${now}-${rand}${ext}.txt`;
+  }
 }
 
 class JournalPanel extends View {
   lastContent: HTMLElement | null = null;
   verse: State<VerseRef>;
+  imageStateByPath: Map<string, State<string>> = new Map();
+  loadingImagePaths: Set<string> = new Set();
   constructor(
     panel: LayoutNode,
     public plugin: JournalPlugin,
@@ -114,6 +131,7 @@ class JournalPanel extends View {
                   entry =>
                     (entry.type === "text" && this.entry(entry)) ||
                     (entry.type === "verse" && this.verseEntry(entry)) ||
+                    (entry.type === "image" && this.imageEntry(entry)) ||
                     null,
                 )
                 .filter(Boolean),
@@ -122,6 +140,7 @@ class JournalPanel extends View {
         ),
       ),
       button({ class: "add-button", onclick: () => this.addEntry() }, "Add Entry"),
+      button({ class: "add-button", onclick: () => void this.addImageEntry() }, "Add Image"),
       button(
         { class: "add-button", onclick: () => this.addVerseEntry(this.verse.val) },
         () => `Add ${this.verse.val.toString()}`,
@@ -150,6 +169,26 @@ class JournalPanel extends View {
       if (existing) this.pruneEntry(existing);
     }
     this.appendEntry(entry);
+  }
+
+  async addImageEntry(): Promise<void> {
+    try {
+      const selected = await this.pickImageDataUrl();
+      if (!selected) return;
+
+      const filePath = this.plugin.buildImageFilePath(selected.filename);
+      await this.plugin.app.files.writeTextFile(filePath, selected.dataUrl);
+
+      const entry: JournalImageEntry = {
+        type: "image",
+        time: this.getCurrentTime(),
+        filePath,
+        filename: selected.filename,
+      };
+      this.appendEntry(entry);
+    } catch (error) {
+      this.plugin.app.console.error("Failed to add image journal entry", error);
+    }
   }
 
   private getCurrentTime(): string {
@@ -228,6 +267,23 @@ class JournalPanel extends View {
     );
   }
 
+  imageEntry(journalEntry: JournalImageEntry): HTMLDivElement {
+    const imageState = this.getImageState(journalEntry);
+    this.ensureImageLoaded(journalEntry, imageState);
+
+    return div(
+      { class: "entry is-image", oncontextmenu: e => this.contextMenuHandler(e, journalEntry) },
+      img({
+        class: "image",
+        src: () => imageState.val,
+        alt: journalEntry.filename,
+        loading: "lazy",
+      }),
+      div({ class: "filename" }, journalEntry.filename),
+      div({ class: "time" }, journalEntry.time),
+    );
+  }
+
   contextMenuHandler(e: MouseEvent, entry: JournalAnyEntry): Menu {
     e.preventDefault();
     return new Menu()
@@ -240,7 +296,7 @@ class JournalPanel extends View {
       .showAtMouseEvent(e);
   }
 
-  private pruneEntry(entry: JournalEntry | JournalVerseEntry): void {
+  private pruneEntry(entry: JournalAnyEntry): void {
     const data = this.plugin.settings.data;
 
     for (const yearGroup of data) {
@@ -267,5 +323,65 @@ class JournalPanel extends View {
         }
       }
     }
+  }
+
+  private pickImageDataUrl(): Promise<{ dataUrl: string; filename: string } | null> {
+    return new Promise((resolve, reject) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+
+      input.onchange = event => {
+        const target = event.target as HTMLInputElement;
+        const file = target.files?.[0];
+        if (!file) {
+          resolve(null);
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result;
+          if (typeof result !== "string") {
+            resolve(null);
+            return;
+          }
+          resolve({ dataUrl: result, filename: file.name });
+        };
+        reader.onerror = () => reject(reader.error ?? new Error("Failed to read selected image file."));
+        reader.readAsDataURL(file);
+      };
+
+      input.click();
+    });
+  }
+
+  private getImageState(entry: JournalImageEntry): State<string> {
+    const cached = this.imageStateByPath.get(entry.filePath);
+    if (cached) {
+      return cached;
+    }
+
+    const state = van.state("");
+    this.imageStateByPath.set(entry.filePath, state);
+    return state;
+  }
+
+  private ensureImageLoaded(entry: JournalImageEntry, state: State<string>): void {
+    if (state.val !== "") return;
+    if (this.loadingImagePaths.has(entry.filePath)) return;
+
+    this.loadingImagePaths.add(entry.filePath);
+    void this.plugin.app.files
+      .readTextFile(entry.filePath)
+      .then(content => {
+        state.val = content;
+      })
+      .catch(error => {
+        this.plugin.app.console.error(`Failed to load journal image file ${entry.filePath}`, error);
+      })
+      .finally(() => {
+        this.loadingImagePaths.delete(entry.filePath);
+      });
   }
 }
