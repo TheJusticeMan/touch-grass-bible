@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="512"
+   height="512"
+   viewBox="0 0 512 512"
+   version="1.1"
+   id="svg1"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1">
+    <filter
+       style="color-interpolation-filters:sRGB"
+       id="filter15"
+       x="-1.0545455"
+       y="-0.41428571"
+       width="3.1090909"
+       height="1.8275684">
+      <feGaussianBlur
+         stdDeviation="64 64"
+         result="blur"
+         id="feGaussianBlur15" />
+    </filter>
+  </defs>
+  <g
+     id="layer1">
+    <use
+       x="0"
+       y="0"
+       xlink:href="#g15"
+       id="use17" />
+    <g
+       id="g15"
+       style="filter:url(#filter15)">
+      <path
+         style="fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:64;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
+         d="M 256,32 V 272"
+         id="path9" />
+      <path
+         style="fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:64;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
+         d="M 336,112 H 176"
+         id="path10" />
+      <path
+         style="fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:64;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
+         d="m 160,256 c 0,0 96,32 96,224 0,-128 80,-160 80,-160"
+         id="path11" />
+    </g>
+    <path
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:32;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
+       d="M 256,32 V 272"
+       id="path13" />
+    <path
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:32;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
+       d="M 336,112 H 176"
+       id="path14" />
+    <path
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:32;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
+       d="m 160,256 c 0,0 96,32 96,224 0,-128 80,-160 80,-160"
+       id="path15" />
+  </g>
+</svg>
