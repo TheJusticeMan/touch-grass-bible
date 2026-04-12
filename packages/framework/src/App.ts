@@ -273,6 +273,26 @@ export class Files {
   }
 
   /**
+   * Reads binary content through the active platform bridge.
+   *
+   * @param path - File path to read.
+   * @returns File contents as bytes.
+   */
+  async readBinaryFile(path: string): Promise<Uint8Array> {
+    return this.platformBridge.files.readBinaryFile(path);
+  }
+
+  /**
+   * Writes binary content through the active platform bridge.
+   *
+   * @param path - Destination file path.
+   * @param content - Binary data to write.
+   */
+  async writeBinaryFile(path: string, content: Uint8Array): Promise<void> {
+    await this.platformBridge.files.writeBinaryFile(path, content);
+  }
+
+  /**
    * Reads and parses JSON from a file path.
    *
    * @typeParam T - Expected JSON object shape.

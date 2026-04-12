@@ -26,6 +26,7 @@ type JournalImageEntry = {
   time: string;
   filePath: string;
   filename: string;
+  mimeType: string;
 };
 
 type JournalAnyEntry = JournalEntry | JournalVerseEntry | JournalImageEntry;
@@ -88,7 +89,7 @@ export default class JournalPlugin extends Plugin {
     const ext = safeName.includes(".") ? safeName.slice(safeName.lastIndexOf(".")) : ".img";
     const now = Date.now();
     const rand = Math.random().toString(36).slice(2, 8);
-    return `journal/images/${now}-${rand}${ext}.txt`;
+    return `journal/images/${now}-${rand}${ext}`;
   }
 }
 
@@ -96,6 +97,7 @@ class JournalPanel extends View {
   lastContent: HTMLElement | null = null;
   verse: State<VerseRef>;
   imageStateByPath: Map<string, State<string>> = new Map();
+  imageObjectUrlByPath: Map<string, string> = new Map();
   loadingImagePaths: Set<string> = new Set();
   constructor(
     panel: LayoutNode,
@@ -173,17 +175,18 @@ class JournalPanel extends View {
 
   async addImageEntry(): Promise<void> {
     try {
-      const selected = await this.pickImageDataUrl();
+      const selected = await this.pickImageBytes();
       if (!selected) return;
 
       const filePath = this.plugin.buildImageFilePath(selected.filename);
-      await this.plugin.app.files.writeTextFile(filePath, selected.dataUrl);
+      await this.plugin.app.files.writeBinaryFile(filePath, selected.bytes);
 
       const entry: JournalImageEntry = {
         type: "image",
         time: this.getCurrentTime(),
         filePath,
         filename: selected.filename,
+        mimeType: selected.mimeType,
       };
       this.appendEntry(entry);
     } catch (error) {
@@ -299,6 +302,15 @@ class JournalPanel extends View {
   private pruneEntry(entry: JournalAnyEntry): void {
     const data = this.plugin.settings.data;
 
+    if (entry.type === "image") {
+      const objectUrl = this.imageObjectUrlByPath.get(entry.filePath);
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+        this.imageObjectUrlByPath.delete(entry.filePath);
+      }
+      this.imageStateByPath.delete(entry.filePath);
+    }
+
     for (const yearGroup of data) {
       for (const monthGroup of yearGroup.months) {
         for (const dayGroup of monthGroup.days) {
@@ -325,13 +337,13 @@ class JournalPanel extends View {
     }
   }
 
-  private pickImageDataUrl(): Promise<{ dataUrl: string; filename: string } | null> {
+  private pickImageBytes(): Promise<{ bytes: Uint8Array; filename: string; mimeType: string } | null> {
     return new Promise((resolve, reject) => {
       const input = document.createElement("input");
       input.type = "file";
       input.accept = "image/*";
 
-      input.onchange = event => {
+      input.onchange = async event => {
         const target = event.target as HTMLInputElement;
         const file = target.files?.[0];
         if (!file) {
@@ -339,21 +351,39 @@ class JournalPanel extends View {
           return;
         }
 
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result;
-          if (typeof result !== "string") {
-            resolve(null);
-            return;
-          }
-          resolve({ dataUrl: result, filename: file.name });
-        };
-        reader.onerror = () => reject(reader.error ?? new Error("Failed to read selected image file."));
-        reader.readAsDataURL(file);
+        try {
+          const buffer = await file.arrayBuffer();
+          resolve({
+            bytes: new Uint8Array(buffer),
+            filename: file.name,
+            mimeType: file.type || this.inferMimeTypeFromFilename(file.name),
+          });
+        } catch (error) {
+          reject(error);
+        }
       };
 
       input.click();
     });
+  }
+
+  private inferMimeTypeFromFilename(filename: string): string {
+    const extension = filename.toLowerCase().split(".").pop();
+    switch (extension) {
+      case "jpg":
+      case "jpeg":
+        return "image/jpeg";
+      case "png":
+        return "image/png";
+      case "webp":
+        return "image/webp";
+      case "gif":
+        return "image/gif";
+      case "bmp":
+        return "image/bmp";
+      default:
+        return "application/octet-stream";
+    }
   }
 
   private getImageState(entry: JournalImageEntry): State<string> {
@@ -373,9 +403,23 @@ class JournalPanel extends View {
 
     this.loadingImagePaths.add(entry.filePath);
     void this.plugin.app.files
-      .readTextFile(entry.filePath)
+      .readBinaryFile(entry.filePath)
       .then(content => {
-        state.val = content;
+        const buffer = content.buffer.slice(
+          content.byteOffset,
+          content.byteOffset + content.byteLength,
+        ) as ArrayBuffer;
+        const objectUrl = URL.createObjectURL(
+          new Blob([buffer], {
+            type: entry.mimeType || this.inferMimeTypeFromFilename(entry.filename),
+          }),
+        );
+        const previousUrl = this.imageObjectUrlByPath.get(entry.filePath);
+        if (previousUrl) {
+          URL.revokeObjectURL(previousUrl);
+        }
+        this.imageObjectUrlByPath.set(entry.filePath, objectUrl);
+        state.val = objectUrl;
       })
       .catch(error => {
         this.plugin.app.console.error(`Failed to load journal image file ${entry.filePath}`, error);

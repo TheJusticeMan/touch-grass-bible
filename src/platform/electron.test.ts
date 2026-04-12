@@ -34,16 +34,19 @@ describe("electron platform bridge", () => {
   test("delegates storage and file operations to the preload bridge", async () => {
     const bridge = createPlatformBridge();
     const electronBridge = window.touchGrassElectronPlatform!;
+    const payload = new Uint8Array([1, 2, 3]);
 
     await expect(bridge.storage.getItem("settings")).resolves.toBe("stored:settings");
     await bridge.storage.setItem("settings", "value");
     await expect(bridge.files.readTextFile("notes/file.txt")).resolves.toBe("text:notes/file.txt");
     await bridge.files.writeTextFile("notes/file.txt", "hello");
+    await bridge.files.writeBinaryFile("notes/file.bin", payload);
 
     expect(electronBridge.storageGetItem).toHaveBeenCalledWith("settings");
     expect(electronBridge.storageSetItem).toHaveBeenCalledWith("settings", "value");
     expect(electronBridge.readTextFile).toHaveBeenCalledWith("notes/file.txt");
     expect(electronBridge.writeTextFile).toHaveBeenCalledWith("notes/file.txt", "hello");
+    expect(electronBridge.writeTextFile).toHaveBeenCalledWith("notes/file.bin", "AQID");
   });
 
   test("reads and writes JSON through the preload bridge", async () => {
@@ -78,5 +81,14 @@ describe("electron platform bridge", () => {
     );
     expect(browserFileIOMocks.pickBrowserFileText).toHaveBeenCalledWith(".json");
     expect(browserFileIOMocks.saveBrowserFile).toHaveBeenCalledWith("export.json", "{}", "application/json");
+  });
+
+  test("reads binary files through the preload bridge", async () => {
+    window.touchGrassElectronPlatform!.readTextFile = vi.fn(async () => "AQID");
+    const bridge = createPlatformBridge();
+
+    await expect(bridge.files.readBinaryFile("notes/file.bin")).resolves.toEqual(new Uint8Array([1, 2, 3]));
+
+    expect(window.touchGrassElectronPlatform!.readTextFile).toHaveBeenCalledWith("notes/file.bin");
   });
 });

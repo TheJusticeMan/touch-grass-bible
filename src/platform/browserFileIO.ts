@@ -1,23 +1,36 @@
-export function pickBrowserFileText(accept: string): Promise<string | null> {
-  return new Promise((resolve, reject) => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = accept;
+function createHiddenFileInput(accept: string): HTMLInputElement {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = accept;
+  input.style.display = "none";
+  return input;
+}
 
-    input.onchange = event => {
-      const target = event.target as HTMLInputElement;
-      const file = target.files?.[0];
+export async function pickBrowserFileText(accept: string): Promise<string | null> {
+  return new Promise((resolve, reject) => {
+    const input = createHiddenFileInput(accept);
+
+    input.onchange = async () => {
+      const file = input.files?.[0] ?? null;
+      input.remove();
       if (!file) {
         resolve(null);
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : null);
-      reader.onerror = () => reject(reader.error ?? new Error("Failed to read selected file."));
-      reader.readAsText(file);
+      try {
+        resolve(await file.text());
+      } catch (error) {
+        reject(error);
+      }
     };
 
+    input.oncancel = () => {
+      input.remove();
+      resolve(null);
+    };
+
+    document.body.appendChild(input);
     input.click();
   });
 }
@@ -25,15 +38,17 @@ export function pickBrowserFileText(accept: string): Promise<string | null> {
 export async function saveBrowserFile(
   filename: string,
   content: string,
-  mimeType: string = "application/json;charset=utf-8",
+  mimeType = "text/plain;charset=utf-8",
 ): Promise<void> {
   const blob = new Blob([content], { type: mimeType });
-  const objectUrl = URL.createObjectURL(blob);
-  const downloadAnchorNode = document.createElement("a");
-  downloadAnchorNode.setAttribute("href", objectUrl);
-  downloadAnchorNode.setAttribute("download", filename);
-  document.body.appendChild(downloadAnchorNode);
-  downloadAnchorNode.click();
-  downloadAnchorNode.remove();
-  URL.revokeObjectURL(objectUrl);
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.style.display = "none";
+
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }

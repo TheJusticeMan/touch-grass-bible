@@ -1,6 +1,25 @@
 import { Directory, Encoding, Filesystem } from "@capacitor/filesystem";
-import { pickBrowserFileText } from "./browserFileIO";
 import type { PlatformBridge } from "./types";
+
+function uint8ToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
+function base64ToUint8(base64: string): Uint8Array {
+  const normalized = base64.replace(/\s/g, "");
+  const binary = atob(normalized);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
 
 function normalizePath(path: string): string {
   return path
@@ -54,6 +73,30 @@ async function writeFilesystemText(path: string, content: string, directory: Dir
   });
 }
 
+async function readFilesystemBinary(path: string, directory: Directory): Promise<Uint8Array> {
+  const result = await Filesystem.readFile({
+    path: normalizePath(path),
+    directory,
+  });
+
+  if (typeof result.data === "string") {
+    return base64ToUint8(result.data);
+  }
+
+  const buffer = await result.data.arrayBuffer();
+  return new Uint8Array(buffer);
+}
+
+async function writeFilesystemBinary(path: string, content: Uint8Array, directory: Directory): Promise<void> {
+  const normalizedPath = normalizePath(path);
+  await ensureParentDirectory(normalizedPath, directory);
+  await Filesystem.writeFile({
+    path: normalizedPath,
+    data: uint8ToBase64(content),
+    directory,
+  });
+}
+
 function getStoragePath(key: string): string {
   return `.tg-storage/${encodeURIComponent(key)}.txt`;
 }
@@ -88,6 +131,12 @@ export function createPlatformBridge(): PlatformBridge {
       async writeTextFile(path: string, content: string): Promise<void> {
         await writeFilesystemText(path, content, Directory.Data);
       },
+      async readBinaryFile(path: string): Promise<Uint8Array> {
+        return readFilesystemBinary(path, Directory.Data);
+      },
+      async writeBinaryFile(path: string, content: Uint8Array): Promise<void> {
+        await writeFilesystemBinary(path, content, Directory.Data);
+      },
       async readJsonFile<T>(path: string): Promise<T> {
         return JSON.parse(await readFilesystemText(path, Directory.Data)) as T;
       },
@@ -101,7 +150,7 @@ export function createPlatformBridge(): PlatformBridge {
         return JSON.parse(await fetchAssetText(path)) as T;
       },
       async pickFileText(accept: string): Promise<string | null> {
-        return pickBrowserFileText(accept);
+        throw new Error(`pickFileText is not supported in capacitor builds (accept: ${accept})`);
       },
       async saveFile(filename: string, content: string): Promise<void> {
         await writeFilesystemText(filename, content, Directory.Documents);

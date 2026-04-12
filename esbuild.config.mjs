@@ -1,5 +1,5 @@
 import esbuild from "esbuild";
-import { readFileSync, writeFileSync } from "fs";
+import { writeFileSync } from "fs";
 import { resolve } from "path";
 import process from "process";
 
@@ -11,12 +11,12 @@ if you want to view the source, please visit the github repository of this app
 */
 `;
 const prod = process.argv[2] === "production";
-const buildTarget = process.env.APP_TARGET || "web";
+const buildTarget = process.env.APP_TARGET || "capacitor";
 const enableExternalPlugins = process.env.ENABLE_EXTERNAL_PLUGINS === "true";
 const targetVersion = process.env.npm_package_version || "0.0.0";
 const frameworkLucidePath = resolve("packages/framework/node_modules/lucide/dist/esm/lucide.js");
 
-if (!["web", "electron", "capacitor"].includes(buildTarget)) {
+if (!["electron", "capacitor"].includes(buildTarget)) {
   throw new Error(`Unsupported APP_TARGET: ${buildTarget}`);
 }
 
@@ -40,25 +40,105 @@ function getBuildInfoModuleSource() {
 }
 
 /**
- * Generates `dist/index.html` from the web template, conditionally injecting
- * a Content Security Policy meta tag based on the build mode.
- *
- * - Secure build (`ENABLE_EXTERNAL_PLUGINS=false`): strict CSP that disallows
- *   eval and blob: script sources.
- * - Extensible build (`ENABLE_EXTERNAL_PLUGINS=true`): relaxed CSP that
- *   permits `blob:` script sources and `unsafe-eval` required for dynamic
- *   plugin evaluation.
+ * Generates `dist/index.html` with a loading shell and conditional CSP.
  */
 function writeIndexHtml() {
-  const template = readFileSync("src/web/index.html", "utf8");
-
   const cspContent = enableExternalPlugins
-    ? "default-src 'self'; script-src 'self' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src blob:;"
-    : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;";
+    ? "default-src 'self'; script-src 'self' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' http://localhost:11434 http://127.0.0.1:11434; worker-src blob:;"
+    : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://localhost:11434 http://127.0.0.1:11434;";
 
-  const cspMetaTag = `    <meta http-equiv="Content-Security-Policy" content="${cspContent}" />`;
-
-  const output = template.replace(/(<meta\s+charset\s*=\s*"UTF-8"\s*\/>)/i, `$1\n${cspMetaTag}`);
+  const output = [
+    "<!doctype html>",
+    '<html lang="en">',
+    "  <head>",
+    '    <meta charset="UTF-8" />',
+    '    <meta name="viewport" content="width=device-width, initial-scale=1.0" />',
+    '    <meta name="apple-mobile-web-app-capable" content="yes" />',
+    `    <meta http-equiv="Content-Security-Policy" content="${cspContent}" />`,
+    '    <link rel="stylesheet" href="main.css" />',
+    '    <link rel="icon" href="./favicon.ico" />',
+    "    <title>Touch Grass Bible</title>",
+    "    <style>",
+    "      .loading-screen {",
+    "        position: fixed;",
+    "        inset: 0;",
+    "        background-color: #444;",
+    "        display: flex;",
+    "        flex-direction: column;",
+    "        justify-content: center;",
+    "        align-items: center;",
+    "        z-index: 1000;",
+    "      }",
+    "",
+    "      .loading-spinner {",
+    "        border: 8px solid #aaa;",
+    "        border-radius: 50%;",
+    "        width: 60px;",
+    "        height: 60px;",
+    "        animation: spin 2s linear infinite;",
+    "      }",
+    "",
+    "      @keyframes spin {",
+    "        0% {",
+    "          border-radius: 100% 0%;",
+    "          border-color: #fff #000;",
+    "        }",
+    "",
+    "        25% {",
+    "          border-radius: 0% 100%;",
+    "        }",
+    "",
+    "        50% {",
+    "          border-radius: 100% 0%;",
+    "          border-color: #000 #fff;",
+    "        }",
+    "",
+    "        75% {",
+    "          border-radius: 0% 100%;",
+    "        }",
+    "",
+    "        100% {",
+    "          border-radius: 100% 0%;",
+    "          border-color: #fff #000;",
+    "        }",
+    "      }",
+    "",
+    "      .loading-screen p {",
+    "        margin-top: 20px;",
+    "        font-size: 18px;",
+    "        color: #ccc;",
+    "      }",
+    "    </style>",
+    "  </head>",
+    "  <body>",
+    '    <div id="loadingScreen" class="loading-screen">',
+    '      <div class="loading-spinner"></div>',
+    '      <p id="loading-text">Loading... 0%</p>',
+    "    </div>",
+    "    <script>",
+    "      let percent = 0;",
+    '      const loadingText = document.getElementById("loading-text");',
+    "",
+    "      function updateLoadingText() {",
+    "        percent++;",
+    "        if (percent > 100) percent = 999;",
+    "        if (loadingText) loadingText.textContent = `Loading... ${percent}%`;",
+    "",
+    "        setTimeout(() => {",
+    "          if (Math.random() < 0.1) {",
+    "            percent = Math.floor(Math.random() * 50 + 25);",
+    "          }",
+    "          if (loadingText?.isConnected) updateLoadingText();",
+    "        }, 100);",
+    "      }",
+    "",
+    "      updateLoadingText();",
+    "    </script>",
+    '    <script src="main.js"></script>',
+    "  </body>",
+    "</html>",
+    "",
+  ].join("\n");
 
   writeFileSync("dist/index.html", output);
 }
@@ -80,6 +160,7 @@ const appContext = await esbuild.context({
   treeShaking: true,
   define: {
     __ENABLE_EXTERNAL_PLUGINS__: JSON.stringify(enableExternalPlugins),
+    __TG_PLATFORM_TARGET__: JSON.stringify(buildTarget),
   },
   plugins: [
     {
@@ -125,25 +206,8 @@ const appContext = await esbuild.context({
   ],
 });
 
-const serviceWorkerContext = await esbuild.context({
-  banner: {
-    js: banner,
-  },
-  entryPoints: ["src/service-worker.js"],
-  bundle: true,
-  outfile: "dist/service-worker.js",
-  format: "iife",
-  sourcemap: prod ? false : true,
-  platform: "browser",
-  logLevel: "info",
-  minify: prod,
-  define: {
-    __APP_VERSION__: JSON.stringify(targetVersion),
-  },
-});
-
 if (prod) {
-  const [result] = await Promise.all([appContext.rebuild(), serviceWorkerContext.rebuild()]);
+  const result = await appContext.rebuild();
 
   // Write processed index.html with appropriate CSP
   writeIndexHtml();
@@ -158,5 +222,5 @@ if (prod) {
 
   process.exit(0);
 } else {
-  await Promise.all([appContext.watch(), serviceWorkerContext.watch()]);
+  await appContext.watch();
 }

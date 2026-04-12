@@ -6,9 +6,9 @@ This file contains instructions for agentic coding assistants working on the Tou
 
 ### Build Commands
 
-- **Development server**: `npm run dev` - Starts the web development build and local server.
-- **Production build**: `npm run build` - Alias for `npm run build:web`.
-- **Web build**: `npm run build:web` - Builds for web deployment.
+- **Development server**: `npm run dev` - Starts the capacitor-targeted development build and local server.
+- **Production build**: `npm run build` - Alias for `npm run build:bundle:capacitor`.
+- **Capacitor web bundle**: `npm run build:bundle:capacitor` - Builds the browser bundle using the capacitor platform bridge.
 - **Electron build**: `npm run build:electron` - Builds Electron distributable files into `dist`.
 - **Electron run**: `npm run run:electron` - Builds and launches Electron from `dist`.
 - **Electron package**: `npm run package:electron` - Builds and packages Electron app.

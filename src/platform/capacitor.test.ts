@@ -1,16 +1,11 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-const browserFileIOMocks = vi.hoisted(() => ({
-  pickBrowserFileText: vi.fn(),
-}));
-
 const capacitorMocks = vi.hoisted(() => ({
   mkdir: vi.fn(),
   readFile: vi.fn(),
   writeFile: vi.fn(),
 }));
 
-vi.mock("./browserFileIO", () => browserFileIOMocks);
 vi.mock("@capacitor/filesystem", () => ({
   Directory: {
     Data: "DATA",
@@ -61,8 +56,10 @@ describe("capacitor platform bridge", () => {
 
   test("writes files under the correct capacitor directories", async () => {
     const bridge = createPlatformBridge();
+    const payload = new Uint8Array([1, 2, 3, 255]);
 
     await bridge.files.writeTextFile("notes/daily.txt", "hello");
+    await bridge.files.writeBinaryFile("notes/pic.jpg", payload);
     await bridge.files.saveFile("export/settings.json", "{}", "application/json");
 
     expect(capacitorMocks.mkdir).toHaveBeenCalledWith({
@@ -77,6 +74,11 @@ describe("capacitor platform bridge", () => {
       encoding: "utf8",
     });
     expect(capacitorMocks.writeFile).toHaveBeenCalledWith({
+      path: "notes/pic.jpg",
+      data: "AQID/w==",
+      directory: "DATA",
+    });
+    expect(capacitorMocks.writeFile).toHaveBeenCalledWith({
       path: "export/settings.json",
       data: "{}",
       directory: "DOCUMENTS",
@@ -84,12 +86,11 @@ describe("capacitor platform bridge", () => {
     });
   });
 
-  test("loads asset JSON and delegates browser file picking", async () => {
+  test("loads asset JSON and rejects unsupported file picking", async () => {
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
       text: async () => '{"translation":"YLT"}',
     } as Response);
-    browserFileIOMocks.pickBrowserFileText.mockResolvedValue('{"ok":true}');
     const bridge = createPlatformBridge();
 
     await expect(
@@ -97,9 +98,22 @@ describe("capacitor platform bridge", () => {
     ).resolves.toEqual({
       translation: "YLT",
     });
-    await expect(bridge.files.pickFileText(".json")).resolves.toBe('{"ok":true}');
+    await expect(bridge.files.pickFileText(".json")).rejects.toThrow(
+      "pickFileText is not supported in capacitor builds",
+    );
 
     expect(fetch).toHaveBeenCalledWith("data/translations/YLT.json");
-    expect(browserFileIOMocks.pickBrowserFileText).toHaveBeenCalledWith(".json");
+  });
+
+  test("reads binary files as Uint8Array", async () => {
+    capacitorMocks.readFile.mockResolvedValueOnce({ data: "AQID" });
+    const bridge = createPlatformBridge();
+
+    await expect(bridge.files.readBinaryFile("notes/pic.jpg")).resolves.toEqual(new Uint8Array([1, 2, 3]));
+
+    expect(capacitorMocks.readFile).toHaveBeenCalledWith({
+      path: "notes/pic.jpg",
+      directory: "DATA",
+    });
   });
 });
