@@ -1034,8 +1034,8 @@ export class Menu extends ETarget {
     this.isShown = true;
 
     document.body.createEl("div", { cls: "context-menu" }, (menuEl: HTMLDivElement) => {
-      menuEl.style.left = `${this.position.x}px`;
-      menuEl.style.top = `${this.position.y}px`;
+      menuEl.style.setProperty("--menu-x", `${this.position.x}px`);
+      menuEl.style.setProperty("--menu-y", `${this.position.y}px`);
       this.items.forEach(item => item.render(menuEl).on("click", () => this.hide()));
       this.menuEl = menuEl;
     });
