@@ -1,4 +1,5 @@
 import { create, insertMultiple, search } from "@orama/orama";
+import { VerseRef, type bibleData, type translation } from "../../models/VerseRef";
 
 type EmbeddingVerseRecord = {
   book: string;
@@ -13,14 +14,17 @@ type BinaryEmbeddingMeta = {
   model?: string;
   dimensions: number;
   count?: number;
-  dtype?: "int16";
   quantScale?: number;
-  verses: Array<{
-    book: string;
-    chapter: number;
-    verse: number;
-    text: string;
-  }>;
+  translation?: string;
+  verses?: Array<
+    | {
+        book: string;
+        chapter: number;
+        verse: number;
+        text?: string;
+      }
+    | [string, number, number]
+  >;
 };
 
 type EmbeddingsJson =
@@ -76,6 +80,46 @@ function dequantizeEmbedding(values: Int16Array, start: number, dimensions: numb
     out[i] = values[start + i] / scale;
   }
   return out;
+}
+
+function getBibleForTranslation(value?: string): bibleData | null {
+  if (!value) {
+    return VerseRef.bibleTranslations[VerseRef.defaultTranslation] || null;
+  }
+
+  const key = value.toUpperCase() as translation;
+  return VerseRef.bibleTranslations[key] || VerseRef.bibleTranslations[VerseRef.defaultTranslation] || null;
+}
+
+function flattenBibleLayout(
+  bible: bibleData,
+): Array<{ book: string; chapter: number; verse: number; text: string }> {
+  const refs: Array<{ book: string; chapter: number; verse: number; text: string }> = [];
+
+  for (const book of Object.keys(bible)) {
+    const chapters = bible[book];
+    for (let chapterIndex = 1; chapterIndex < chapters.length; chapterIndex++) {
+      const chapter = chapters[chapterIndex];
+      if (!Array.isArray(chapter)) continue;
+      for (let verseIndex = 1; verseIndex < chapter.length; verseIndex++) {
+        const text = chapter[verseIndex];
+        if (!text) continue;
+        refs.push({ book, chapter: chapterIndex, verse: verseIndex, text });
+      }
+    }
+  }
+
+  return refs;
+}
+
+function verseTextFromBible(
+  bible: bibleData | null,
+  book: string,
+  chapter: number,
+  verse: number,
+  fallback = "",
+): string {
+  return bible?.[book]?.[chapter]?.[verse] || fallback;
 }
 
 export class AIEmbeddingSearchDB {
@@ -356,11 +400,53 @@ export class AIEmbeddingSearchDB {
         }
 
         const meta = (await metaResponse.json()) as BinaryEmbeddingMeta;
-        if (!meta.dimensions || !Array.isArray(meta.verses) || meta.verses.length === 0) {
+        if (!meta.dimensions) {
           continue;
         }
 
-        const count = meta.count ?? meta.verses.length;
+        if (!Array.isArray(meta.verses) || meta.verses.length === 0) {
+          const bible = getBibleForTranslation(meta.translation);
+          if (!bible) {
+            continue;
+          }
+
+          const refs = flattenBibleLayout(bible);
+          if (refs.length === 0) {
+            continue;
+          }
+
+          const scale = meta.quantScale || 10000;
+          const binResponse = await fetch(asset.binUrl);
+          if (!binResponse.ok) {
+            continue;
+          }
+
+          const arrayBuffer = await binResponse.arrayBuffer();
+          const values = new Int16Array(arrayBuffer);
+          const expectedLength = refs.length * meta.dimensions;
+          if (values.length < expectedLength) {
+            throw new Error(
+              `Binary embedding length mismatch for ${asset.binUrl}. Expected ${expectedLength}, got ${values.length}`,
+            );
+          }
+
+          const verses: EmbeddingVerseRecord[] = refs.map((ref, index) => ({
+            book: ref.book,
+            chapter: ref.chapter,
+            verse: ref.verse,
+            text: ref.text,
+            embedding: dequantizeEmbedding(values, index * meta.dimensions, meta.dimensions, scale),
+          }));
+
+          return {
+            dimensions: meta.dimensions,
+            provider: meta.provider || "ollama",
+            model: meta.model || "nomic-embed-text",
+            verses,
+          };
+        }
+
+        const bible = getBibleForTranslation(meta.translation);
         const scale = meta.quantScale || 10000;
         const binResponse = await fetch(asset.binUrl);
         if (!binResponse.ok) {
@@ -369,6 +455,7 @@ export class AIEmbeddingSearchDB {
 
         const arrayBuffer = await binResponse.arrayBuffer();
         const values = new Int16Array(arrayBuffer);
+        const count = meta.count ?? meta.verses.length;
         const expectedLength = count * meta.dimensions;
         if (values.length < expectedLength) {
           throw new Error(
@@ -376,13 +463,19 @@ export class AIEmbeddingSearchDB {
           );
         }
 
-        const verses: EmbeddingVerseRecord[] = meta.verses.map((verse, index) => ({
-          book: verse.book,
-          chapter: verse.chapter,
-          verse: verse.verse,
-          text: verse.text,
-          embedding: dequantizeEmbedding(values, index * meta.dimensions, meta.dimensions, scale),
-        }));
+        const verses: EmbeddingVerseRecord[] = meta.verses.map((verse, index) => {
+          const [book, chapter, verseNo, text] = Array.isArray(verse)
+            ? [verse[0], verse[1], verse[2], ""]
+            : [verse.book, verse.chapter, verse.verse, verse.text || ""];
+
+          return {
+            book,
+            chapter,
+            verse: verseNo,
+            text: verseTextFromBible(bible, book, chapter, verseNo, text),
+            embedding: dequantizeEmbedding(values, index * meta.dimensions, meta.dimensions, scale),
+          };
+        });
 
         return {
           dimensions: meta.dimensions,

@@ -3,23 +3,12 @@ import { readFileSync, writeFileSync } from "fs";
 type Provider = "openai" | "ollama";
 type BibleData = Record<string, Array<Array<string | null> | null>>;
 
-type VerseEmbeddingMeta = {
-  book: string;
-  chapter: number;
-  verse: number;
-  text: string;
-};
-
 type EmbeddingMetaOutput = {
   provider: Provider;
   model: string;
   dimensions: number;
-  count: number;
-  dtype: "int16";
-  quantScale: number;
-  generatedAt: string;
-  sourcePath: string;
-  verses: VerseEmbeddingMeta[];
+  quantScale?: number;
+  translation?: string;
 };
 
 type EmbeddingProvider = {
@@ -45,6 +34,14 @@ function resolveOutputPaths(provider: EmbeddingProvider): { metaPath: string; bi
     metaPath: process.env.EMBED_OUTPUT_META_PATH || `processing/bible-embeddings.${slug}.meta.json`,
     binPath: process.env.EMBED_OUTPUT_BIN_PATH || `processing/bible-embeddings.${slug}.bin`,
   };
+}
+
+function resolveTranslationCode(path: string): string {
+  const normalized = path.replace(/\\/g, "/");
+  const fileName = normalized.split("/").pop() || "";
+  const dotIndex = fileName.lastIndexOf(".");
+  const stem = dotIndex > 0 ? fileName.slice(0, dotIndex) : fileName;
+  return stem.toUpperCase();
 }
 
 const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
@@ -169,9 +166,25 @@ function quantizeEmbedding(embedding: number[], scale: number): Int16Array {
   return out;
 }
 
+function formatDuration(totalSeconds: number): string {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m ${seconds}s`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`;
+  }
+  return `${seconds}s`;
+}
+
 async function run(): Promise<void> {
   const provider = getProvider();
   const { metaPath, binPath } = resolveOutputPaths(provider);
+  const translationCode = resolveTranslationCode(EMBED_TRANSLATION_PATH);
   // eslint-disable-next-line security/detect-non-literal-fs-filename
   const source = JSON.parse(readFileSync(EMBED_TRANSLATION_PATH, "utf8")) as BibleData;
   const verses = flattenBible(source);
@@ -183,7 +196,6 @@ async function run(): Promise<void> {
   const start = Date.now();
   let nextLogAt = 500;
 
-  const verseMeta: VerseEmbeddingMeta[] = [];
   const packedValues: number[] = [];
   let dimensions = 0;
 
@@ -200,9 +212,6 @@ async function run(): Promise<void> {
     }
 
     const quantized = quantizeEmbedding(embedding, EMBED_QUANT_SCALE);
-    verseMeta.push({
-      ...current,
-    });
     for (let j = 0; j < quantized.length; j++) {
       packedValues.push(quantized[j]);
     }
@@ -210,7 +219,13 @@ async function run(): Promise<void> {
     const processed = i + 1;
     if (processed >= nextLogAt || processed === verses.length) {
       const percentage = ((processed / verses.length) * 100).toFixed(2);
-      console.log(`Progress: ${processed}/${verses.length} (${percentage}%)`);
+      const elapsedSeconds = (Date.now() - start) / 1000;
+      const itemsPerSecond = processed / Math.max(1, elapsedSeconds);
+      const remaining = verses.length - processed;
+      const etaSeconds = remaining / itemsPerSecond;
+      console.log(
+        `Progress: ${processed}/${verses.length} (${percentage}%) | elapsed ${formatDuration(elapsedSeconds)} | ETA ${formatDuration(etaSeconds)}`,
+      );
       nextLogAt += 500;
     }
   }
@@ -219,13 +234,15 @@ async function run(): Promise<void> {
     provider: provider.provider,
     model: provider.model,
     dimensions,
-    count: verseMeta.length,
-    dtype: "int16",
-    quantScale: EMBED_QUANT_SCALE,
-    generatedAt: new Date().toISOString(),
-    sourcePath: EMBED_TRANSLATION_PATH,
-    verses: verseMeta,
   };
+
+  if (EMBED_QUANT_SCALE !== 10000) {
+    output.quantScale = EMBED_QUANT_SCALE;
+  }
+
+  if (translationCode) {
+    output.translation = translationCode;
+  }
 
   const packed = Int16Array.from(packedValues);
 
@@ -238,7 +255,7 @@ async function run(): Promise<void> {
   console.log(`Embedding generation complete in ${elapsedSeconds}s`);
   console.log(`Provider: ${provider.provider}`);
   console.log(`Model: ${provider.model}`);
-  console.log(`Verses embedded: ${verseMeta.length}`);
+  console.log(`Verses embedded: ${verses.length}`);
   console.log(`Dimensions: ${dimensions}`);
   console.log(`Quant scale: ${EMBED_QUANT_SCALE}`);
   console.log(`Meta output: ${metaPath}`);
