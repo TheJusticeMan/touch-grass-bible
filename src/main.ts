@@ -18,6 +18,7 @@ import { VerseRef, type translation } from "./models/VerseRef";
 import {
   AIPlugin,
   AppearancePlugin,
+  BibleMapPlugin,
   BibleSearchPlugin,
   BookmarkPlugin,
   GesturePlugin,
@@ -234,6 +235,15 @@ export default class TouchGrassBibleApp extends App {
           id: "appearance",
           name: "Appearance",
           description: "Customize the appearance of Touch Grass Bible",
+          version: "1.0.0",
+        },
+      },
+      {
+        pluginClass: BibleMapPlugin,
+        manifest: {
+          id: "bible-map",
+          name: "Bible Map",
+          description: "Explore a 2D UMAP landscape of Bible chapters.",
           version: "1.0.0",
         },
       },

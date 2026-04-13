@@ -1,5 +1,6 @@
 export { default as AIPlugin } from "./AI";
 export { default as BookmarkPlugin } from "./Bookmarks";
+export { default as BibleMapPlugin } from "./BibleMap/BibleMapPlugin";
 export { default as GesturePlugin } from "./GestureCommands";
 export { default as JournalPlugin } from "./Journal";
 export { default as NavesTopicalBiblePlugin } from "./NavesTopicalBible";
