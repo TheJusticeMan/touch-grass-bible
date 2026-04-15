@@ -21,148 +21,100 @@ type LabelPoint = {
   chapterCount: number;
 };
 
-type MapCoord = [number, number];
-type ContourShape = d3.ContourMultiPolygon;
+type ShelfContour = {
+  contour: d3.ContourMultiPolygon;
+  intensity: number;
+};
+
+type ShelfContourResult = {
+  contours: ShelfContour[];
+  cacheHit: boolean;
+  bandwidth: number;
+};
+
+type DotClusterPath = {
+  cluster: number;
+  fill: string;
+  d: string;
+};
+
+type TerrainPathEntry = {
+  d: string;
+  fill: string;
+  opacity: number;
+};
+
+type CountryPathEntry = {
+  d: string;
+  fill: string;
+};
 
 const DEFAULT_MAP_TUNING = {
-  landDensity: 0.3,
-  continentalUnity: 0.07,
-  coastRuggedness: 0.4,
+  landDensity: 0,
 } as const;
 
 type RenderProfile = {
   terrainThresholds: number;
-  biomeThresholds: number;
-  densifySegmentLength: number;
-  showDetailLines: boolean;
   chapterFontPx: number;
   chapterLabelPadding: number;
   maxVisibleChapterLabels: number;
 };
 
 const TERRAIN_COLORS = {
-  water: "#0084cb",
-  plains: "#99d98c",
-  forest: "#52b788",
-  mountain: "#9c6644",
-  peaks: "#ffffff",
+  water: "#2e8bb5",
+  lowland: "#9dd147",
+  upland: "#6fb833",
+  highland: "#4a9d2a",
+  peak: "#316b1f",
+  summit: "#1a3d10",
+  alpine: "#0f2408",
+  snow: "#b8d4e8",
+  ice: "#d4e8f7",
+  extreme: "#f0f4fa",
 } as const;
 
-const BIOME_COLORS = [
-  "#d9c27a",
-  "#8ecf6c",
-  "#5dbb8a",
-  "#4ca6a8",
-  "#cf8f5f",
-  "#c16f7c",
-  "#a883d8",
-  "#90b867",
-  "#d3a35f",
-  "#7396d1",
-  "#c66d4c",
-  "#73b8a0",
-] as const;
+const GOLDEN_ANGLE_DEGREES = 137.50776405003785;
 
 const MAP_TUNING = {
   terrain: {
-    bandwidthMin: 16,
-    bandwidthMax: 32,
-    bandwidthFactor: 0.95,
-    thresholds: 22,
+    bandwidthMin: 1,
+    bandwidthMax: 8,
+    bandwidthFactor: 0.9,
+    thresholds: 16,
   },
-  terrainDistortion: {
-    baseAmplitude: 8,
-    amplitudeByIntensity: 4,
-    baseFrequency: 45,
-    frequencyByIntensity: 35,
-  },
-  terrainStroke: {
-    intensityCutoff: 0.28,
-    wideWidth: 1.1,
-    thinWidth: 0.5,
-    wideColor: "rgb(255 255 255 / 0.2)",
-    thinColor: "rgb(255 255 255 / 0.12)",
-    opacity: 0.94,
-  },
-  detailLines: {
-    minIntensity: 0.22,
-    maxIntensity: 0.9,
-    stroke: "rgb(24 34 45 / 0.25)",
-    strokeWidth: 0.45,
-    opacity: 0.55,
-  },
-  biome: {
-    bandwidthMin: 14,
-    bandwidthMax: 28,
-    bandwidthFactor: 1.45,
-    thresholds: 6,
-    contourAmplitude: 4.2,
-    contourFrequency: 0.42,
-    boundaryAmplitude: 4.6,
-    boundaryFrequency: 0.48,
-    baseOpacity: 0.1,
-    opacityRange: 0.14,
-    boundaryStrokeWidth: 1.25,
-    boundaryDasharray: "6 7",
-    boundaryOpacity: 0.62,
-  },
-  distortion: {
-    densifySegmentLength: 14,
-    ringScaleSmoothingCutoff: 0.45,
-    extraSmoothingPasses: 2,
-    normalSmoothingPasses: 1,
-    wave: {
-      sin1X: 0.05,
-      sin1Y: 0.02,
-      sin1Index: 0.16,
-      cos1Y: 0.06,
-      cos1X: 0.025,
-      cos1Index: 0.12,
-      sin2XY: 0.03,
-      sin2Radius: 0.045,
-      sin3X: 0.18,
-      sin3Y: 0.14,
-      sin3Index: 0.45,
-      mixCos1: 0.35,
-      mixSin2: 0.18,
-      mixSin3: 0.12,
-    },
-    ringScale: {
-      smallPerimeter: 140,
-      mediumPerimeter: 260,
-      largePerimeter: 420,
-      hugePerimeter: 700,
-      smallScale: 0.18,
-      mediumScale: 0.32,
-      largeScale: 0.5,
-      hugeScale: 0.68,
-      maxScale: 0.82,
-    },
-    smoothing: {
-      prevWeight: 0.22,
-      currentWeight: 0.56,
-      nextWeight: 0.22,
-    },
+  shelves: {
+    minOpacity: 0.42,
+    maxOpacity: 0.9,
   },
 } as const;
 
 export class BibleMapView extends View {
   private readonly margin = { top: 20, right: 20, bottom: 20, left: 20 };
+  private readonly minBookLabelZoom = 1.35;
   private readonly minChapterLabelZoom = 4;
   private readonly dataPath = "data/bible-map-umap.json";
+  private readonly mapCoordSize = 1000;
+  private readonly mapCoordPadding = 24;
   private resizeObserver: ResizeObserver | null = null;
   private renderFrame: number | null = null;
   private labelFrame: number | null = null;
   private verseStateUnsubscribe: (() => void) | null = null;
   private rootEl: HTMLDivElement | null = null;
   private statusEl: HTMLDivElement | null = null;
-  private biomeToggleEl: HTMLButtonElement | null = null;
   private svgEl: SVGSVGElement | null = null;
   private activeChapterLayer: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
+  private bookLabelLayer: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
   private chapterLabelLayer: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
+  private chapterDotsLayer: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
   private currentZoomScale = 1;
-  private showBiomes = true;
+  private readonly chapterDotBaseRadius = 2.2;
+  private readonly chapterDotRadiusEpsilon = 0.06;
   private points: BibleMapPoint[] = [];
+  private shelfContourCache: ShelfContour[] | null = null;
+  private shelfContourCacheKey = "";
+  private terrainPathCache: { entries: TerrainPathEntry[]; landMaskPath: string } | null = null;
+  private terrainPathCacheKey = "";
+  private countryPathCache: CountryPathEntry[] | null = null;
   private renderProfile: RenderProfile = this.getRenderProfile(1200, 700);
 
   constructor(
@@ -179,16 +131,6 @@ export class BibleMapView extends View {
 
     this.rootEl = this.containerEl.createEl("div", { cls: "bible-map-root" });
     this.statusEl = this.rootEl.createEl("div", { cls: "bible-map-status", text: "Loading map terrain..." });
-    this.biomeToggleEl = this.rootEl.createEl("button", {
-      cls: "bible-map-biome-toggle",
-      text: "Biome: On",
-    }) as HTMLButtonElement;
-    this.biomeToggleEl.type = "button";
-    this.biomeToggleEl.addEventListener("click", () => {
-      this.showBiomes = !this.showBiomes;
-      this.updateBiomeToggleLabel();
-      this.renderMapIfReady();
-    });
 
     this.svgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg") as SVGSVGElement;
     this.svgEl.classList.add("bible-map-canvas");
@@ -245,6 +187,11 @@ export class BibleMapView extends View {
     try {
       const loadedPoints = await this.plugin.app.files.loadJSON<BibleMapPoint[]>(this.dataPath);
       this.points = this.normalizePoints(loadedPoints);
+      this.shelfContourCache = null;
+      this.shelfContourCacheKey = "";
+      this.terrainPathCache = null;
+      this.terrainPathCacheKey = "";
+      this.countryPathCache = null;
       if (!this.points.length) {
         this.renderEmptyState("No map points available.");
         return;
@@ -307,127 +254,94 @@ export class BibleMapView extends View {
     this.svgEl.style.height = "";
     this.svgEl.setAttribute("viewBox", `0 0 ${svgWidth} ${svgHeight}`);
 
-    const innerWidth = size;
-    const innerHeight = size;
-    const tuning = this.getWorldMapTuning();
+    const baseMapScale = size / this.mapCoordSize;
+    const tuning = this.getMapTuning();
 
     const svg = d3.select(this.svgEl);
     svg.selectAll("*").remove();
-
-    this.updateBiomeToggleLabel();
 
     const worldLayer = svg
       .append("g")
       .attr("class", "bible-map-world")
       .attr("transform", `translate(${mapOffsetX}, ${mapOffsetY})`);
 
-    /*     worldLayer
+    worldLayer
       .append("rect")
       .attr("class", "bible-map-water")
       .attr("x", 0)
       .attr("y", 0)
-      .attr("width", innerWidth)
-      .attr("height", innerHeight)
+      .attr("width", this.mapCoordSize)
+      .attr("height", this.mapCoordSize)
       .attr("rx", 12)
       .attr("ry", 12);
- */
-    const xExtent = d3.extent(this.points, point => point.x);
-    const yExtent = d3.extent(this.points, point => point.y);
-    const xMin = xExtent[0] ?? 0;
-    const xMax = xExtent[1] ?? 1;
-    const yMin = yExtent[0] ?? 0;
-    const yMax = yExtent[1] ?? 1;
+    const { xScale, yScale } = this.getMapScales();
 
-    const xScale = d3
-      .scaleLinear()
-      .domain([xMin, xMax])
-      .range([24, innerWidth - 24]);
-    const yScale = d3
-      .scaleLinear()
-      .domain([yMin, yMax])
-      .range([innerHeight - 24, 24]);
-
-    const density = d3
-      .contourDensity<BibleMapPoint>()
-      .x(point => xScale(point.x))
-      .y(point => yScale(point.y))
-      .size([innerWidth, innerHeight])
-      .bandwidth(
-        Math.max(
-          MAP_TUNING.terrain.bandwidthMin,
-          Math.min(
-            MAP_TUNING.terrain.bandwidthMax,
-            Math.sqrt(this.points.length) * MAP_TUNING.terrain.bandwidthFactor * tuning.unityBandwidthScale,
-          ),
-        ),
-      )
-      .thresholds(this.renderProfile.terrainThresholds);
-
-    const contours = density(this.points);
-    const maxContourValue = d3.max(contours, contour => contour.value) || 1;
-    const contourPath = d3.geoPath();
-    const distortedContours = contours.map(contour => {
-      const intensity = contour.value / maxContourValue;
-      return {
-        contour: this.distortContourShape(
-          contour,
-          (MAP_TUNING.terrainDistortion.baseAmplitude -
-            intensity * MAP_TUNING.terrainDistortion.amplitudeByIntensity) *
-            tuning.ruggednessAmplitudeScale,
-          (MAP_TUNING.terrainDistortion.baseFrequency +
-            (1 - intensity) * MAP_TUNING.terrainDistortion.frequencyByIntensity) *
-            tuning.ruggednessFrequencyScale,
-          this.renderProfile.densifySegmentLength,
-        ),
-        intensity,
-      };
-    });
+    const contourResult = this.getShelfContours(xScale, yScale);
+    const shelfContours = contourResult.contours;
+    const terrainRenderData = this.getTerrainRenderData(shelfContours, tuning.landCutoff);
+    const countryPathData = this.getCountryPathData(xScale, yScale);
 
     worldLayer
       .append("g")
-      .attr("class", "bible-map-topography")
+      .attr("class", "bible-map-land-shelves")
       .selectAll("path")
-      .data(distortedContours)
+      .data(terrainRenderData.entries)
       .join("path")
-      .attr("d", entry => contourPath(entry.contour) || "")
-      .attr("fill", entry => this.getTerrainColor(entry.intensity, tuning.landCutoff))
-      .attr("stroke", entry =>
-        entry.intensity < MAP_TUNING.terrainStroke.intensityCutoff
-          ? MAP_TUNING.terrainStroke.wideColor
-          : MAP_TUNING.terrainStroke.thinColor,
-      )
-      .attr("stroke-width", entry =>
-        entry.intensity < MAP_TUNING.terrainStroke.intensityCutoff
-          ? MAP_TUNING.terrainStroke.wideWidth
-          : MAP_TUNING.terrainStroke.thinWidth,
-      )
-      .attr("opacity", MAP_TUNING.terrainStroke.opacity);
+      .attr("d", entry => entry.d)
+      .attr("fill", entry => entry.fill)
+      .attr("opacity", entry => entry.opacity);
 
-    if (this.renderProfile.showDetailLines) {
-      worldLayer
-        .append("g")
-        .attr("class", "bible-map-detail-lines")
-        .selectAll("path")
-        .data(
-          distortedContours.filter(
-            entry =>
-              entry.intensity > Math.max(MAP_TUNING.detailLines.minIntensity, tuning.landCutoff) &&
-              entry.intensity < MAP_TUNING.detailLines.maxIntensity,
-          ),
-        )
+    const landMaskPath = terrainRenderData.landMaskPath;
+
+    if (landMaskPath) {
+      const landClipId = "bible-map-land-clip";
+      const defs = worldLayer.append("defs");
+      defs.append("clipPath").attr("id", landClipId).append("path").attr("d", landMaskPath);
+
+      if (countryPathData.length > 0) {
+        worldLayer
+          .append("g")
+          .attr("class", "bible-map-countries")
+          .attr("clip-path", `url(#${landClipId})`)
+          .selectAll("path")
+          .data(countryPathData)
+          .join("path")
+          .attr("d", entry => entry.d)
+          .attr("fill", entry => entry.fill)
+          .attr("opacity", 0.16);
+      }
+    }
+
+    let chapterDotPaths: d3.Selection<SVGPathElement, DotClusterPath, SVGGElement, unknown> | null = null;
+    let currentDotTier = -1;
+    let lastDotRadius = this.chapterDotBaseRadius;
+    this.chapterDotsLayer = worldLayer.append("g").attr("class", "bible-map-chapter-dots");
+    const renderDotsForZoom = (relativeZoom: number, radius: number): void => {
+      if (!this.chapterDotsLayer) {
+        return;
+      }
+      const nextTier = relativeZoom < 1.2 ? 0 : relativeZoom < 2.1 ? 1 : 2;
+      if (nextTier === currentDotTier && chapterDotPaths) {
+        return;
+      }
+      currentDotTier = nextTier;
+      const budget = this.getDotRenderBudget(relativeZoom);
+      const dotPoints = this.getDotPointsForBudget(this.points, budget, xScale, yScale);
+      const dotClusterPaths = this.buildDotClusterPaths(dotPoints, xScale, yScale, radius);
+      chapterDotPaths = this.chapterDotsLayer
+        .selectAll<SVGPathElement, DotClusterPath>("path")
+        .data(dotClusterPaths, entry => `${entry.cluster}`)
         .join("path")
-        .attr("d", entry => contourPath(entry.contour) || "")
-        .attr("fill", "none")
-        .attr("stroke", MAP_TUNING.detailLines.stroke)
-        .attr("stroke-width", MAP_TUNING.detailLines.strokeWidth)
-        .attr("opacity", MAP_TUNING.detailLines.opacity);
-    }
+        .attr("d", entry => entry.d)
+        .attr("fill", entry => entry.fill)
+        .attr("opacity", 0.9);
+    };
+    renderDotsForZoom(1, lastDotRadius);
 
-    if (this.showBiomes) {
-      this.renderBiomeBoundaries(worldLayer, xScale, yScale, innerWidth, innerHeight, tuning);
-    }
     this.activeChapterLayer = worldLayer.append("g").attr("class", "bible-map-active-chapter");
-    this.renderBookLabels(worldLayer, xScale, yScale);
+
+    this.bookLabelLayer = this.renderBookLabels(worldLayer, xScale, yScale);
+    this.bookLabelLayer.style("display", "none");
 
     const chapterLabelLayer = worldLayer.append("g").attr("class", "bible-map-chapter-labels");
     this.chapterLabelLayer = chapterLabelLayer;
@@ -443,7 +357,29 @@ export class BibleMapView extends View {
     const LABEL_PAD = this.renderProfile.chapterLabelPadding;
 
     const updateLabelScale = (k: number): void => {
-      worldLayer.style("--map-label-font-size", `${LABEL_FONT_PX / k}px`);
+      const relativeZoom = Math.max(0.1, k / baseMapScale);
+      worldLayer.style("--map-label-font-size", `${LABEL_FONT_PX / Math.max(k, 0.1)}px`);
+      const dotRadius = this.chapterDotBaseRadius / relativeZoom;
+      if (chapterDotPaths && this.chapterDotsLayer) {
+        const radiusChanged = Math.abs(dotRadius - lastDotRadius) >= this.chapterDotRadiusEpsilon;
+        const nextTier = relativeZoom < 1.2 ? 0 : relativeZoom < 2.1 ? 1 : 2;
+        if (radiusChanged || nextTier !== currentDotTier) {
+          if (radiusChanged) {
+            lastDotRadius = dotRadius;
+          }
+          const budget = this.getDotRenderBudget(relativeZoom);
+          const dotPoints = this.getDotPointsForBudget(this.points, budget, xScale, yScale);
+          const dotClusterPaths = this.buildDotClusterPaths(dotPoints, xScale, yScale, lastDotRadius);
+          chapterDotPaths = this.chapterDotsLayer
+            .selectAll<SVGPathElement, DotClusterPath>("path")
+            .data(dotClusterPaths, entry => `${entry.cluster}`)
+            .join("path")
+            .attr("d", entry => entry.d)
+            .attr("fill", entry => entry.fill)
+            .attr("opacity", 0.9);
+          currentDotTier = nextTier;
+        }
+      }
     };
 
     const placeChapterLabels = (k: number, tx: number, ty: number): void => {
@@ -542,7 +478,7 @@ export class BibleMapView extends View {
       point => xScale(point.x),
       point => yScale(point.y),
     );
-    const voronoi = delaunay.voronoi([0, 0, innerWidth, innerHeight]);
+    const voronoi = delaunay.voronoi([0, 0, this.mapCoordSize, this.mapCoordSize]);
 
     worldLayer
       .append("g")
@@ -566,14 +502,18 @@ export class BibleMapView extends View {
       .zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.5, 48])
       .on("zoom", event => {
-        this.currentZoomScale = event.transform.k;
+        const relativeZoom = Math.max(0.1, event.transform.k / baseMapScale);
+        this.currentZoomScale = relativeZoom;
         worldLayer.attr(
           "transform",
           `translate(${event.transform.x}, ${event.transform.y}) scale(${event.transform.k})`,
         );
         updateLabelScale(event.transform.k);
         this.updateActiveChapterHighlight();
-        if (event.transform.k >= this.minChapterLabelZoom) {
+        if (this.bookLabelLayer) {
+          this.bookLabelLayer.style("display", relativeZoom >= this.minBookLabelZoom ? "block" : "none");
+        }
+        if (relativeZoom >= this.minChapterLabelZoom) {
           chapterLabelLayer.style("display", "block");
           scheduleChapterLabels(event.transform.k, event.transform.x, event.transform.y);
         } else {
@@ -581,126 +521,15 @@ export class BibleMapView extends View {
         }
       });
 
-    const initialTransform = d3.zoomIdentity.translate(mapOffsetX, mapOffsetY);
-    this.currentZoomScale = initialTransform.k;
+    const initialTransform = d3.zoomIdentity.translate(mapOffsetX, mapOffsetY).scale(baseMapScale);
+    this.currentZoomScale = 1;
     updateLabelScale(initialTransform.k);
     svg.call(zoom).call(zoom.transform, initialTransform);
     svg.on("dblclick.zoom", null);
-    this.updateActiveChapterHighlight();
-  }
-
-  private renderBiomeBoundaries(
-    worldLayer: d3.Selection<SVGGElement, unknown, null, undefined>,
-    xScale: d3.ScaleLinear<number, number>,
-    yScale: d3.ScaleLinear<number, number>,
-    innerWidth: number,
-    innerHeight: number,
-    tuning: {
-      ruggednessAmplitudeScale: number;
-      ruggednessFrequencyScale: number;
-      unityBandwidthScale: number;
-    },
-  ): void {
-    const biomeLayer = worldLayer.append("g").attr("class", "bible-map-biomes");
-    const grouped = d3.group(this.points, point => point.cluster);
-    const contourPath = d3.geoPath();
-
-    const biomeContours: Array<{
-      cluster: number;
-      path: string;
-      fill: string;
-      stroke: string;
-      opacity: number;
-    }> = [];
-    const biomeBoundaries: Array<{ path: string; stroke: string }> = [];
-
-    for (const [cluster, points] of grouped) {
-      if (points.length < 3) {
-        continue;
-      }
-
-      const fill = this.getBiomeColor(cluster);
-      const stroke = d3.color(fill)?.darker(1.1).formatRgb() || fill;
-      const density = d3
-        .contourDensity<BibleMapPoint>()
-        .x(point => xScale(point.x))
-        .y(point => yScale(point.y))
-        .size([innerWidth, innerHeight])
-        .bandwidth(
-          Math.max(
-            MAP_TUNING.biome.bandwidthMin,
-            Math.min(
-              MAP_TUNING.biome.bandwidthMax,
-              Math.sqrt(points.length) * MAP_TUNING.biome.bandwidthFactor * tuning.unityBandwidthScale,
-            ),
-          ),
-        )
-        .thresholds(this.renderProfile.biomeThresholds);
-
-      const contours = density(points);
-      if (!contours.length) {
-        continue;
-      }
-
-      contours.forEach((contour, index) => {
-        const distortedContour = this.distortContourShape(
-          contour,
-          MAP_TUNING.biome.contourAmplitude * tuning.ruggednessAmplitudeScale,
-          MAP_TUNING.biome.contourFrequency * tuning.ruggednessFrequencyScale,
-          this.renderProfile.densifySegmentLength,
-        );
-        const path = contourPath(distortedContour) || "";
-        if (!path) {
-          return;
-        }
-
-        biomeContours.push({
-          cluster,
-          path,
-          fill,
-          stroke,
-          opacity:
-            MAP_TUNING.biome.baseOpacity + ((index + 1) / contours.length) * MAP_TUNING.biome.opacityRange,
-        });
-      });
-
-      const outerPath =
-        contourPath(
-          this.distortContourShape(
-            contours[0],
-            MAP_TUNING.biome.boundaryAmplitude * tuning.ruggednessAmplitudeScale,
-            MAP_TUNING.biome.boundaryFrequency * tuning.ruggednessFrequencyScale,
-            this.renderProfile.densifySegmentLength,
-          ),
-        ) || "";
-      if (outerPath) {
-        biomeBoundaries.push({ path: outerPath, stroke });
-      }
+    if (this.bookLabelLayer) {
+      this.bookLabelLayer.style("display", this.currentZoomScale >= this.minBookLabelZoom ? "block" : "none");
     }
-
-    biomeLayer
-      .append("g")
-      .attr("class", "bible-map-biome-fills")
-      .selectAll("path")
-      .data(biomeContours)
-      .join("path")
-      .attr("d", entry => entry.path)
-      .attr("fill", entry => entry.fill)
-      .attr("stroke", "none")
-      .attr("opacity", entry => entry.opacity);
-
-    biomeLayer
-      .append("g")
-      .attr("class", "bible-map-biome-boundaries")
-      .selectAll("path")
-      .data(biomeBoundaries)
-      .join("path")
-      .attr("d", entry => entry.path)
-      .attr("fill", "none")
-      .attr("stroke", entry => entry.stroke)
-      .attr("stroke-width", MAP_TUNING.biome.boundaryStrokeWidth)
-      .attr("stroke-dasharray", MAP_TUNING.biome.boundaryDasharray)
-      .attr("opacity", MAP_TUNING.biome.boundaryOpacity);
+    this.updateActiveChapterHighlight();
   }
 
   private renderBookLabels(
@@ -745,14 +574,37 @@ export class BibleMapView extends View {
       return TERRAIN_COLORS.water;
     }
     const t = (intensity - landCutoff) / (1 - landCutoff);
-    if (t < 0.25) return TERRAIN_COLORS.plains;
-    if (t < 0.525) return TERRAIN_COLORS.forest;
-    if (t < 0.775) return TERRAIN_COLORS.mountain;
-    return TERRAIN_COLORS.peaks;
+    if (t < 0.1) return TERRAIN_COLORS.lowland;
+    if (t < 0.2) return TERRAIN_COLORS.upland;
+    if (t < 0.3) return TERRAIN_COLORS.highland;
+    if (t < 0.4) return TERRAIN_COLORS.peak;
+    if (t < 0.5) return TERRAIN_COLORS.summit;
+    if (t < 0.6) return TERRAIN_COLORS.alpine;
+    if (t < 0.7) return TERRAIN_COLORS.snow;
+    if (t < 0.8) return TERRAIN_COLORS.ice;
+    return TERRAIN_COLORS.extreme;
   }
 
-  private getBiomeColor(cluster: number): string {
-    return BIOME_COLORS[Math.abs(cluster) % BIOME_COLORS.length];
+  private getChapterDotColor(cluster: number): string {
+    const hue = this.getClusterHue(cluster);
+    return `hsl(${hue.toFixed(2)}deg 72% 66%)`;
+  }
+
+  private getChapterDotStrokeColor(cluster: number): string {
+    const hue = this.getClusterHue(cluster);
+    return `hsl(${hue.toFixed(2)}deg 42% 28%)`;
+  }
+
+  private getCountryColor(cluster: number): string {
+    const index = Math.abs(Math.round(cluster));
+    const hue = this.getClusterHue(index);
+    const saturation = 28 + ((index * 17) % 7);
+    const lightness = 50 + ((index * 29) % 9) - 4;
+    return `hsl(${hue.toFixed(2)}deg ${saturation}% ${lightness}%)`;
+  }
+
+  private getClusterHue(cluster: number): number {
+    return (Math.abs(Math.round(cluster)) * GOLDEN_ANGLE_DEGREES) % 360;
   }
 
   private getPointKey(point: Pick<BibleMapPoint, "book" | "chapter">): string {
@@ -805,22 +657,7 @@ export class BibleMapView extends View {
         ]
       : [];
 
-    const xExtent = d3.extent(this.points, point => point.x);
-    const yExtent = d3.extent(this.points, point => point.y);
-    const xMin = xExtent[0] ?? 0;
-    const xMax = xExtent[1] ?? 1;
-    const yMin = yExtent[0] ?? 0;
-    const yMax = yExtent[1] ?? 1;
-    const bounds = this.svgEl.viewBox.baseVal;
-    const size = Math.min(bounds.width, bounds.height) - this.margin.left - this.margin.right;
-    const xScale = d3
-      .scaleLinear()
-      .domain([xMin, xMax])
-      .range([24, size - 24]);
-    const yScale = d3
-      .scaleLinear()
-      .domain([yMin, yMax])
-      .range([size - 24, 24]);
+    const { xScale, yScale } = this.getMapScales();
 
     this.activeChapterLayer
       .selectAll<SVGGElement, { x: number; y: number }>("g")
@@ -837,146 +674,6 @@ export class BibleMapView extends View {
       );
   }
 
-  private distortContourShape(
-    contour: ContourShape,
-    amplitude: number,
-    frequency: number,
-    densifySegmentLength: number,
-  ): ContourShape {
-    return {
-      ...contour,
-      coordinates: contour.coordinates.map(polygon =>
-        polygon.map(ring => this.distortRing(ring as MapCoord[], amplitude, frequency, densifySegmentLength)),
-      ),
-    };
-  }
-
-  private distortRing(
-    ring: MapCoord[],
-    amplitude: number,
-    frequency: number,
-    densifySegmentLength: number,
-  ): MapCoord[] {
-    if (ring.length < 4) {
-      return ring;
-    }
-
-    const densifiedRing = this.densifyRing(ring, densifySegmentLength);
-    const centerX = d3.mean(densifiedRing, point => point[0]) || 0;
-    const centerY = d3.mean(densifiedRing, point => point[1]) || 0;
-    const ringScale = this.getRingScale(densifiedRing);
-    const adjustedAmplitude = amplitude * ringScale;
-    const distorted = densifiedRing.map((point, index) => {
-      const dx = point[0] - centerX;
-      const dy = point[1] - centerY;
-      const radius = Math.max(1, Math.hypot(dx, dy));
-      const nx = dx / radius;
-      const ny = dy / radius;
-      const wave =
-        Math.sin(
-          point[0] * MAP_TUNING.distortion.wave.sin1X * frequency +
-            point[1] * MAP_TUNING.distortion.wave.sin1Y +
-            index * MAP_TUNING.distortion.wave.sin1Index,
-        ) +
-        MAP_TUNING.distortion.wave.mixCos1 *
-          Math.cos(
-            point[1] * MAP_TUNING.distortion.wave.cos1Y * frequency -
-              point[0] * MAP_TUNING.distortion.wave.cos1X +
-              index * MAP_TUNING.distortion.wave.cos1Index,
-          ) +
-        MAP_TUNING.distortion.wave.mixSin2 *
-          Math.sin(
-            (dx + dy) * MAP_TUNING.distortion.wave.sin2XY + radius * MAP_TUNING.distortion.wave.sin2Radius,
-          ) +
-        MAP_TUNING.distortion.wave.mixSin3 *
-          Math.sin(
-            point[0] * MAP_TUNING.distortion.wave.sin3X * frequency +
-              point[1] * MAP_TUNING.distortion.wave.sin3Y +
-              index * MAP_TUNING.distortion.wave.sin3Index,
-          );
-      const offset = wave * adjustedAmplitude;
-      return [point[0] + nx * offset, point[1] + ny * offset] as MapCoord;
-    });
-
-    return this.smoothClosedRing(
-      distorted,
-      ringScale < MAP_TUNING.distortion.ringScaleSmoothingCutoff
-        ? MAP_TUNING.distortion.extraSmoothingPasses
-        : MAP_TUNING.distortion.normalSmoothingPasses,
-    );
-  }
-
-  private densifyRing(ring: MapCoord[], maxSegmentLength: number): MapCoord[] {
-    const densified: MapCoord[] = [];
-
-    for (let i = 0; i < ring.length - 1; i++) {
-      const from = ring[i];
-      const to = ring[i + 1];
-      densified.push(from);
-      const segmentLength = Math.hypot(to[0] - from[0], to[1] - from[1]);
-      const inserts = Math.max(0, Math.ceil(segmentLength / maxSegmentLength) - 1);
-
-      for (let j = 1; j <= inserts; j++) {
-        const t = j / (inserts + 1);
-        densified.push([from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t] as MapCoord);
-      }
-    }
-
-    densified.push(densified[0]);
-    return densified;
-  }
-
-  private getRingScale(ring: MapCoord[]): number {
-    const perimeter = this.getRingPerimeter(ring);
-    if (perimeter < MAP_TUNING.distortion.ringScale.smallPerimeter) {
-      return MAP_TUNING.distortion.ringScale.smallScale;
-    }
-    if (perimeter < MAP_TUNING.distortion.ringScale.mediumPerimeter) {
-      return MAP_TUNING.distortion.ringScale.mediumScale;
-    }
-    if (perimeter < MAP_TUNING.distortion.ringScale.largePerimeter) {
-      return MAP_TUNING.distortion.ringScale.largeScale;
-    }
-    if (perimeter < MAP_TUNING.distortion.ringScale.hugePerimeter) {
-      return MAP_TUNING.distortion.ringScale.hugeScale;
-    }
-    return MAP_TUNING.distortion.ringScale.maxScale;
-  }
-
-  private getRingPerimeter(ring: MapCoord[]): number {
-    let perimeter = 0;
-    for (let i = 1; i < ring.length; i++) {
-      perimeter += Math.hypot(ring[i][0] - ring[i - 1][0], ring[i][1] - ring[i - 1][1]);
-    }
-    return perimeter;
-  }
-
-  private smoothClosedRing(ring: MapCoord[], passes: number): MapCoord[] {
-    let smoothed = [...ring];
-
-    for (let pass = 0; pass < passes; pass++) {
-      smoothed = smoothed.map((point, index) => {
-        if (index === smoothed.length - 1) {
-          return smoothed[0];
-        }
-
-        const prev = smoothed[(index - 1 + smoothed.length - 1) % (smoothed.length - 1)];
-        const next = smoothed[(index + 1) % (smoothed.length - 1)];
-        return [
-          prev[0] * MAP_TUNING.distortion.smoothing.prevWeight +
-            point[0] * MAP_TUNING.distortion.smoothing.currentWeight +
-            next[0] * MAP_TUNING.distortion.smoothing.nextWeight,
-          prev[1] * MAP_TUNING.distortion.smoothing.prevWeight +
-            point[1] * MAP_TUNING.distortion.smoothing.currentWeight +
-            next[1] * MAP_TUNING.distortion.smoothing.nextWeight,
-        ] as MapCoord;
-      });
-    }
-
-    smoothed[smoothed.length - 1] = smoothed[0];
-    return smoothed;
-  }
-
   private renderMapIfReady(): void {
     if (!this.points.length) {
       return;
@@ -990,6 +687,227 @@ export class BibleMapView extends View {
     });
   }
 
+  private getMapScales(): {
+    xScale: d3.ScaleLinear<number, number>;
+    yScale: d3.ScaleLinear<number, number>;
+  } {
+    const xExtent = d3.extent(this.points, point => point.x);
+    const yExtent = d3.extent(this.points, point => point.y);
+    const xMin = xExtent[0] ?? 0;
+    const xMax = xExtent[1] ?? 1;
+    const yMin = yExtent[0] ?? 0;
+    const yMax = yExtent[1] ?? 1;
+
+    const xScale = d3
+      .scaleLinear()
+      .domain([xMin, xMax])
+      .range([this.mapCoordPadding, this.mapCoordSize - this.mapCoordPadding]);
+    const yScale = d3
+      .scaleLinear()
+      .domain([yMin, yMax])
+      .range([this.mapCoordSize - this.mapCoordPadding, this.mapCoordPadding]);
+
+    return { xScale, yScale };
+  }
+
+  private getDotRenderBudget(relativeZoom: number): number {
+    if (relativeZoom < 1.2) {
+      return 900;
+    }
+    if (relativeZoom < 2.1) {
+      return 1800;
+    }
+    return Number.POSITIVE_INFINITY;
+  }
+
+  private getDotPointsForBudget(
+    points: BibleMapPoint[],
+    budget: number,
+    xScale: d3.ScaleLinear<number, number>,
+    yScale: d3.ScaleLinear<number, number>,
+  ): BibleMapPoint[] {
+    if (!Number.isFinite(budget) || points.length <= budget) {
+      return points;
+    }
+
+    const cellSize = Math.max(4, this.mapCoordSize / Math.sqrt(budget));
+    const sampled = new Map<string, BibleMapPoint>();
+
+    for (const point of points) {
+      const cellX = Math.floor(xScale(point.x) / cellSize);
+      const cellY = Math.floor(yScale(point.y) / cellSize);
+      const key = `${cellX}:${cellY}`;
+      if (!sampled.has(key)) {
+        sampled.set(key, point);
+      }
+    }
+
+    return Array.from(sampled.values());
+  }
+
+  private buildDotClusterPaths(
+    points: BibleMapPoint[],
+    xScale: d3.ScaleLinear<number, number>,
+    yScale: d3.ScaleLinear<number, number>,
+    radius: number,
+  ): DotClusterPath[] {
+    const commandsByCluster = new Map<number, string[]>();
+    const diameter = radius * 2;
+
+    for (const point of points) {
+      const cluster = point.cluster;
+      const cx = xScale(point.x);
+      const cy = yScale(point.y);
+      const command =
+        `M${(cx - radius).toFixed(2)},${cy.toFixed(2)}` +
+        `a${radius.toFixed(2)},${radius.toFixed(2)} 0 1,0 ${diameter.toFixed(2)},0` +
+        `a${radius.toFixed(2)},${radius.toFixed(2)} 0 1,0 -${diameter.toFixed(2)},0`;
+
+      const existing = commandsByCluster.get(cluster);
+      if (existing) {
+        existing.push(command);
+      } else {
+        commandsByCluster.set(cluster, [command]);
+      }
+    }
+
+    return Array.from(commandsByCluster.entries()).map(([cluster, commands]) => ({
+      cluster,
+      fill: this.getChapterDotColor(cluster),
+      stroke: this.getChapterDotStrokeColor(cluster),
+      d: commands.join(""),
+    }));
+  }
+
+  private getShelfContours(
+    xScale: d3.ScaleLinear<number, number>,
+    yScale: d3.ScaleLinear<number, number>,
+  ): ShelfContourResult {
+    const bandwidth = Math.max(
+      MAP_TUNING.terrain.bandwidthMin,
+      Math.min(
+        MAP_TUNING.terrain.bandwidthMax,
+        Math.sqrt(this.points.length) * MAP_TUNING.terrain.bandwidthFactor,
+      ),
+    );
+    const cacheKey = `${this.renderProfile.terrainThresholds}:${bandwidth.toFixed(3)}`;
+    if (this.shelfContourCache && this.shelfContourCacheKey === cacheKey) {
+      return {
+        contours: this.shelfContourCache,
+        cacheHit: true,
+        bandwidth,
+      };
+    }
+
+    const density = d3
+      .contourDensity<BibleMapPoint>()
+      .x(point => xScale(point.x))
+      .y(point => yScale(point.y))
+      .size([this.mapCoordSize, this.mapCoordSize])
+      .bandwidth(bandwidth)
+      .thresholds(this.renderProfile.terrainThresholds);
+
+    const contours = density(this.points);
+    const maxContourValue = d3.max(contours, contour => contour.value) || 1;
+    const shelfContours = contours.map(contour => ({
+      contour,
+      intensity: contour.value / maxContourValue,
+    }));
+
+    this.shelfContourCache = shelfContours;
+    this.shelfContourCacheKey = cacheKey;
+    return {
+      contours: shelfContours,
+      cacheHit: false,
+      bandwidth,
+    };
+  }
+
+  private getTerrainRenderData(
+    shelfContours: ShelfContour[],
+    landCutoff: number,
+  ): { entries: TerrainPathEntry[]; landMaskPath: string } {
+    const cacheKey = `${this.shelfContourCacheKey}:${landCutoff.toFixed(3)}`;
+    if (this.terrainPathCache && this.terrainPathCacheKey === cacheKey) {
+      return this.terrainPathCache;
+    }
+
+    const pathGenerator = d3.geoPath();
+    const visibleShelves = shelfContours
+      .filter(entry => entry.intensity >= landCutoff)
+      .sort((a, b) => a.intensity - b.intensity);
+
+    const entries = visibleShelves.map(entry => ({
+      d: pathGenerator(entry.contour) || "",
+      fill: this.getTerrainColor(entry.intensity, landCutoff),
+      opacity:
+        MAP_TUNING.shelves.minOpacity +
+        (entry.intensity - landCutoff) *
+          ((MAP_TUNING.shelves.maxOpacity - MAP_TUNING.shelves.minOpacity) / (1 - landCutoff)),
+    }));
+
+    const terrainRenderData = {
+      entries,
+      landMaskPath: entries.length > 0 ? entries[0].d : "",
+    };
+
+    this.terrainPathCache = terrainRenderData;
+    this.terrainPathCacheKey = cacheKey;
+    return terrainRenderData;
+  }
+
+  private getCountryPathData(
+    xScale: d3.ScaleLinear<number, number>,
+    yScale: d3.ScaleLinear<number, number>,
+  ): CountryPathEntry[] {
+    if (this.countryPathCache) {
+      return this.countryPathCache;
+    }
+
+    const countrySeeds = Array.from(
+      d3
+        .rollup(
+          this.points,
+          points => ({
+            cluster: points[0].cluster,
+            x: d3.mean(points, point => xScale(point.x)) || 0,
+            y: d3.mean(points, point => yScale(point.y)) || 0,
+          }),
+          point => point.cluster,
+        )
+        .values(),
+    );
+
+    if (countrySeeds.length <= 1) {
+      this.countryPathCache = [];
+      return this.countryPathCache;
+    }
+
+    const countryRegions = countrySeeds.map(seed => {
+      const fill = this.getCountryColor(seed.cluster);
+      return {
+        ...seed,
+        fill,
+        stroke: d3.color(fill)?.darker(0.8).formatRgb() || "#445",
+      };
+    });
+
+    const countryDelaunay = d3.Delaunay.from(
+      countryRegions,
+      seed => seed.x,
+      seed => seed.y,
+    );
+    const countryVoronoi = countryDelaunay.voronoi([0, 0, this.mapCoordSize, this.mapCoordSize]);
+
+    this.countryPathCache = countryRegions.map((region, index) => ({
+      d: countryVoronoi.renderCell(index),
+      fill: region.fill,
+      stroke: region.stroke,
+    }));
+
+    return this.countryPathCache;
+  }
+
   private getRenderProfile(width: number, height: number): RenderProfile {
     const minDimension = Math.min(width, height);
     const isCoarsePointer = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
@@ -997,39 +915,24 @@ export class BibleMapView extends View {
 
     return isCompact
       ? {
-          terrainThresholds: 14,
-          biomeThresholds: 4,
-          densifySegmentLength: 22,
-          showDetailLines: false,
-          chapterFontPx: 14,
+          terrainThresholds: 10,
+          chapterFontPx: 18,
           chapterLabelPadding: 2,
           maxVisibleChapterLabels: 140,
         }
       : {
           terrainThresholds: MAP_TUNING.terrain.thresholds,
-          biomeThresholds: MAP_TUNING.biome.thresholds,
-          densifySegmentLength: MAP_TUNING.distortion.densifySegmentLength,
-          showDetailLines: true,
-          chapterFontPx: 20,
-          chapterLabelPadding: 3,
+          chapterFontPx: 18,
+          chapterLabelPadding: 2,
           maxVisibleChapterLabels: 260,
         };
   }
 
-  private getWorldMapTuning(): {
+  private getMapTuning(): {
     landCutoff: number;
-    unityBandwidthScale: number;
-    ruggednessAmplitudeScale: number;
-    ruggednessFrequencyScale: number;
   } {
-    const unityNormalized = (DEFAULT_MAP_TUNING.continentalUnity - 0.03) / (0.12 - 0.03);
-    const ruggednessNormalized = (DEFAULT_MAP_TUNING.coastRuggedness - 0.1) / (1.0 - 0.1);
-
     return {
       landCutoff: DEFAULT_MAP_TUNING.landDensity,
-      unityBandwidthScale: 0.78 + Math.max(0, Math.min(1, unityNormalized)) * 0.9,
-      ruggednessAmplitudeScale: 0.58 + Math.max(0, Math.min(1, ruggednessNormalized)) * 1.12,
-      ruggednessFrequencyScale: 0.72 + Math.max(0, Math.min(1, ruggednessNormalized)) * 0.62,
     };
   }
 
@@ -1052,12 +955,6 @@ export class BibleMapView extends View {
   private updateStatus(text: string): void {
     if (this.statusEl) {
       this.statusEl.textContent = text;
-    }
-  }
-
-  private updateBiomeToggleLabel(): void {
-    if (this.biomeToggleEl) {
-      this.biomeToggleEl.textContent = this.showBiomes ? "Biome: On" : "Biome: Off";
     }
   }
 }
