@@ -368,12 +368,9 @@ export class AIEmbeddingSearchDB {
     }
 
     throw new Error(
-      "Could not load embedding data. Expected one of: " +
-        EMBEDDING_BINARY_ASSETS.map(asset => `${asset.metaUrl} + ${asset.binUrl}`).join(", ") +
-        " or " +
-        EMBEDDING_JSON_URLS.join(", ") +
-        ". Tried: " +
-        errors.join("; "),
+      `Could not load embedding data. Expected one of: ${EMBEDDING_BINARY_ASSETS.map(
+        asset => `${asset.metaUrl} + ${asset.binUrl}`,
+      ).join(", ")} or ${EMBEDDING_JSON_URLS.join(", ")}. Tried: ${errors.join("; ")}`,
     );
   }
 

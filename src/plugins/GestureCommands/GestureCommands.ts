@@ -82,7 +82,7 @@ class AddGesture extends CommandCategory<Command> {
     command: Command,
     el: CommandItem<Command>,
   ): Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState) {
-    el.setName("Add Gesture for: " + command.name);
+    el.setName(`Add Gesture for: ${command.name}`);
     return {};
   }
 

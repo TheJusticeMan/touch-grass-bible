@@ -105,8 +105,9 @@ class AICommandPalette extends CommandCategory<string> {
     }
     this.defaultCMD.addCMD(
       "Set AI API key",
-      "Store your OpenAI-compatible API key (saved locally in localStorage — keep it private)." +
-        (this.plugin.settings.aiApiKey ? " Key is currently set." : " No key set."),
+      `Store your OpenAI-compatible API key (saved locally in localStorage — keep it private).${
+        this.plugin.settings.aiApiKey ? " Key is currently set." : " No key set."
+      }`,
       item =>
         void item.on("click", () =>
           this.plugin.app.commandPalette.prompt("Enter your OpenAI-compatible API key:").then(key => {

@@ -18,6 +18,10 @@ export default [
       "dot-notation": "error",
       "security/detect-object-injection": "off",
       "prefer-const": "error",
+      "prefer-template": "error",
+      "no-param-reassign": "error",
+      "prefer-arrow-callback": "error",
+      "object-shorthand": "error",
     },
   },
   {

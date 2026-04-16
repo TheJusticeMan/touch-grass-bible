@@ -236,7 +236,7 @@ class notePreview extends UIComponent<"div"> {
           });
       });
     // Content (truncated)
-    const truncatedText = note.content.length > 100 ? note.content.substring(0, 100) + "..." : note.content;
+    const truncatedText = note.content.length > 100 ? `${note.content.substring(0, 100)}...` : note.content;
     this.createChild("div", { cls: "note-content", text: truncatedText });
   };
   destroy() {
@@ -360,7 +360,7 @@ class noteEditor extends ETarget<{ open: void; close: void }> {
       .on("click", () => this.close());
     new TextInput(header.element)
       .addClass("editor-title-input")
-      .setValue(this.note.name + " # " + this.note.tags.join(", "))
+      .setValue(`${this.note.name} # ${this.note.tags.join(", ")}`)
       .on("input", (value: string) => {
         const [namePart, tags] = value.split("#");
         this.note.tags = tags ? tags.split(",").map(t => t.trim()) : [];
