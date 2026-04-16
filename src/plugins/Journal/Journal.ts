@@ -6,7 +6,6 @@ import { VerseRef } from "src/models/VerseRef";
 import "./Journal.css";
 const { div, button, img } = van.tags;
 
-export const JournalCategoryID = "journal";
 export const JournalViewID = "journal-panel";
 
 type JournalEntry = {
@@ -209,19 +208,19 @@ class JournalPanel extends View {
     let yearGroup = data.find(g => g.year === year);
     if (!yearGroup) {
       yearGroup = { year, months: [] };
-      data.unshift(yearGroup);
+      data.push(yearGroup);
     }
 
     let monthGroup = yearGroup.months.find(m => m.month === month);
     if (!monthGroup) {
       monthGroup = { month, days: [] };
-      yearGroup.months.unshift(monthGroup);
+      yearGroup.months.push(monthGroup);
     }
 
     let dayGroup = monthGroup.days.find(d => d.day === day);
     if (!dayGroup) {
       dayGroup = { day, entries: [] };
-      monthGroup.days.unshift(dayGroup);
+      monthGroup.days.push(dayGroup);
     }
 
     return dayGroup;
