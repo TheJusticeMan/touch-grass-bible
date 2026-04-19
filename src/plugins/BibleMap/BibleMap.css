@@ -40,11 +40,6 @@
     0 12px 30px rgb(0 0 0 / 0.35);
 }
 
-.bible-map-water {
-  fill: #6f95b5;
-  opacity: 0.94;
-}
-
 .bible-map-land-shelves path {
   paint-order: stroke;
 }

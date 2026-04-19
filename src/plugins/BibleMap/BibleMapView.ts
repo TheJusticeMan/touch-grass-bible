@@ -265,15 +265,6 @@ export class BibleMapView extends View {
       .attr("class", "bible-map-world")
       .attr("transform", `translate(${mapOffsetX}, ${mapOffsetY})`);
 
-    worldLayer
-      .append("rect")
-      .attr("class", "bible-map-water")
-      .attr("x", 0)
-      .attr("y", 0)
-      .attr("width", this.mapCoordSize)
-      .attr("height", this.mapCoordSize)
-      .attr("rx", 12)
-      .attr("ry", 12);
     const { xScale, yScale } = this.getMapScales();
 
     const contourResult = this.getShelfContours(xScale, yScale);
