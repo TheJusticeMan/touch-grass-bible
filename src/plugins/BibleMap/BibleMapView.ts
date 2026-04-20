@@ -1,18 +1,13 @@
 import { LayoutNode, View } from "@touchgrass/framework";
 import * as d3 from "d3";
+import type { DataMapPoint } from "src/models/DataTypes";
 import { VerseRef } from "src/models/VerseRef";
 import BibleMapPlugin from "./BibleMapPlugin";
 import "./BibleMap.css";
 
 export const BIBLE_MAP_VIEW_ID = "bible-map";
 
-type BibleMapPoint = {
-  book: string;
-  chapter: number;
-  x: number;
-  y: number;
-  cluster: number;
-};
+type BibleMapPoint = DataMapPoint;
 
 type LabelPoint = {
   book: string;

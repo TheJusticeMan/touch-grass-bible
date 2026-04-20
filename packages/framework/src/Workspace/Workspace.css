@@ -9,7 +9,7 @@
   --workspace-surface-3: var(--color-surface-strong, rgb(255 255 255 / 0.12));
   --workspace-tab-text: var(--color-text, rgb(255 255 255 / 0.94));
   --workspace-tab-muted: var(--color-text-muted, rgb(255 255 255 / 0.62));
-  --workspace-glow: var(--shadow-glow, 0 0 16px -8px #fff);
+  --workspace-glow: var(--shadow-focus-ring);
   --workspace-tab-gap: 0.45rem;
   --workspace-tab-strip-padding: 0.3rem;
   --workspace-tab-padding-y: 0.2rem;
@@ -44,6 +44,9 @@
   display: grid;
   place-items: center;
   pointer-events: none;
+  padding: var(--safe-area-top, 0px) var(--safe-area-right, 0px) var(--safe-area-bottom, 0px)
+    var(--safe-area-left, 0px);
+  box-sizing: border-box;
 }
 
 .workspace-dialog-backdrop {
@@ -57,13 +60,14 @@
 .workspace-dialog {
   position: relative;
   /* width: min(42rem, calc(100% - 2rem)); this was causing the command palette to be small */
-  max-height: calc(100dvh - 2rem);
+  max-height: calc(100dvh - 2rem - var(--safe-area-top, 0px) - var(--safe-area-bottom, 0px));
   display: flex;
   flex-direction: column;
   border: 1px solid var(--workspace-border);
   border-radius: var(--border-radius-large);
   background: var(--workspace-surface);
   box-shadow: var(--workspace-glow);
+  backdrop-filter: blur(6px);
   pointer-events: auto;
   overflow: hidden;
 }
@@ -99,11 +103,6 @@
   background: var(--workspace-surface-3);
 }
 
-.workspace-dialog-close:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
 .workspace-dialog-content {
   flex: 1;
   min-height: 0;
@@ -135,6 +134,9 @@
   flex-wrap: nowrap;
   gap: 0;
   padding: var(--workspace-tab-strip-padding);
+  padding-top: calc(var(--workspace-tab-strip-padding) + var(--safe-area-top, 0px));
+  padding-left: calc(var(--workspace-tab-strip-padding) + var(--safe-area-left, 0px));
+  padding-right: calc(var(--workspace-tab-strip-padding) + var(--safe-area-right, 0px));
   border-bottom: 1px solid var(--workspace-border);
   background: var(--workspace-surface);
   backdrop-filter: blur(4px);
@@ -183,8 +185,6 @@
 
 .panel-tab-add:focus-visible {
   opacity: 1;
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
 }
 
 .panel-tab-add.is-hidden {
@@ -236,11 +236,6 @@
   width: 1px;
   height: 60%;
   background: var(--workspace-border);
-}
-
-.panel-tab:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
 }
 
 .panel-window-controls {
@@ -303,11 +298,6 @@
   background: rgb(248 113 113 / 0.3);
 }
 
-.panel-window-control:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
 .panel-tab-icon {
   width: var(--workspace-icon-size);
   height: var(--workspace-icon-size);
@@ -365,8 +355,6 @@
 }
 
 .panel-tab-close:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
   opacity: 1;
 }
 

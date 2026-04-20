@@ -15,11 +15,6 @@
   resize: vertical;
 }
 
-.note-area:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
 .info-container {
   display: none;
 }
@@ -38,7 +33,7 @@
 
 .active .info-container.is-highlighted {
   display: block;
-  border-left: 2px solid rgb(255 255 255 / 0.5);
+  border-left: 1px solid rgb(255 255 255 / 0.5);
   padding-left: 0.35rem;
 }
 

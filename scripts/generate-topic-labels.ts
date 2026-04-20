@@ -6,8 +6,8 @@
  *   npm run generate:topic-labels
  *
  * Env overrides:
- *   TOPIC_CENTERS_PATH   topic centers JSON      (default: dist/data/bible-topic-centers.json)
- *   TOPIC_LABELS_OUTPUT  output JSON path        (default: dist/data/bible-topic-labels.json)
+ *   TOPIC_CENTERS_PATH   topic centers JSON      (default: data/bible-topic-centers.json)
+ *   TOPIC_LABELS_OUTPUT  output JSON path        (default: data/bible-topic-labels.json)
  *   LABEL_PROVIDER       openai | ollama         (default: ollama)
  *   OPENAI_BASE_URL      OpenAI base URL         (default: https://api.openai.com/v1)
  *   OPENAI_API_KEY       OpenAI API key          (required for openai)
@@ -17,44 +17,25 @@
  */
 
 import { readFileSync, writeFileSync } from "fs";
+import type {
+  DataTopicCenterVerse,
+  DataTopicCentersFile,
+  DataTopicLabelsFile,
+} from "../src/models/DataTypes";
 
 type Provider = "openai" | "ollama";
 
-type TopicCenterVerse = {
-  book: string;
-  chapter: number;
-  verse: number;
-  text: string;
-  distance: number;
-};
-
-type TopicCentersInput = {
-  topics: Array<{
-    topic: number;
-    size: number;
-    centerVerses: TopicCenterVerse[];
-  }>;
-};
+type TopicCentersInput = DataTopicCentersFile;
 
 type TopicLabelResult = {
   label: string;
   description: string;
 };
 
-type TopicLabelsOutput = {
-  provider: Provider;
-  model: string;
-  topics: Array<{
-    topic: number;
-    size: number;
-    label: string;
-    description: string;
-    centerVerses: TopicCenterVerse[];
-  }>;
-};
+type TopicLabelsOutput = DataTopicLabelsFile;
 
-const TOPIC_CENTERS_PATH = process.env.TOPIC_CENTERS_PATH ?? "dist/data/bible-topic-centers.json";
-const OUTPUT_PATH = process.env.TOPIC_LABELS_OUTPUT ?? "dist/data/bible-topic-labels.json";
+const TOPIC_CENTERS_PATH = process.env.TOPIC_CENTERS_PATH ?? "data/bible-topic-centers.json";
+const OUTPUT_PATH = process.env.TOPIC_LABELS_OUTPUT ?? "data/bible-topic-labels.json";
 const LABEL_PROVIDER = ((process.env.LABEL_PROVIDER ?? "ollama").toLowerCase() as Provider) || "ollama";
 
 const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1").replace(/\/$/, "");
@@ -64,7 +45,7 @@ const LABEL_OPENAI_MODEL = process.env.LABEL_OPENAI_MODEL ?? "gpt-4.1-mini";
 const LABEL_OLLAMA_URL = process.env.LABEL_OLLAMA_URL ?? "http://localhost:11434/api/chat";
 const LABEL_OLLAMA_MODEL = process.env.LABEL_OLLAMA_MODEL ?? "qwen3.5:2b";
 
-function buildPrompt(centerVerses: TopicCenterVerse[]): string {
+function buildPrompt(centerVerses: DataTopicCenterVerse[]): string {
   const examples = centerVerses
     .map(verse => `${verse.book} ${verse.chapter}:${verse.verse} - ${verse.text.replace(/\s+/g, " ").trim()}`)
     .join("\n");

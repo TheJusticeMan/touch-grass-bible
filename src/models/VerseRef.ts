@@ -1,6 +1,7 @@
 import { books3letter, BookShortNames, booksOfTheBible } from "./booksOfTheBible";
+import type { DataBibleChapter, DataBibleTranslationFile } from "./DataTypes";
 
-export type bibleData = { [book: string]: string[][] };
+export type bibleData = DataBibleTranslationFile;
 
 export type OSIS = string;
 export type translation = "KJV" | "YLT" | "ASV";
@@ -49,9 +50,17 @@ export class VerseRef {
   static get RandomVerse(): VerseRef {
     const book = VerseRef.booksOfTheBible[(Math.random() * (VerseRef.booksOfTheBible.length - 1)) | 0];
     if (!VerseRef.bibleTranslations.KJV) return new VerseRef(book, 1, 1);
-    const chapter = Math.floor(Math.random() * (VerseRef.bibleTranslations.KJV[book].length - 2)) + 1;
-    const verse = Math.floor(Math.random() * (VerseRef.bibleTranslations.KJV[book][chapter].length - 2)) + 1;
+    const bookData = VerseRef.bibleTranslations.KJV[book];
+    const chapter = Math.floor(Math.random() * (bookData.length - 2)) + 1;
+    const chapterData = VerseRef.getChapterValues(bookData, chapter);
+    const verse = Math.floor(Math.random() * (chapterData.length - 2)) + 1;
     return new VerseRef(book, chapter, verse);
+  }
+
+  private static getChapterValues(bookData: bibleData[string], chapter: number): DataBibleChapter {
+    const chapterData = bookData?.[chapter];
+    if (!Array.isArray(chapterData)) return [];
+    return chapterData;
   }
 
   constructor(
@@ -70,7 +79,10 @@ export class VerseRef {
     return this.book === verse.book && this.chapter === verse.chapter && this.verse === verse.verse;
   }
   text(translation: translation): string {
-    return VerseRef.bibleTranslations[translation][this.book]?.[this.chapter]?.[this.verse] || "";
+    const bookData = VerseRef.bibleTranslations[translation]?.[this.book];
+    const chapterData = bookData ? VerseRef.getChapterValues(bookData, this.chapter) : [];
+    const verseText = chapterData[this.verse];
+    return typeof verseText === "string" ? verseText : "";
   }
   toOSIS(): string {
     const bookIndex = VerseRef.booksOfTheBible.indexOf(this.book);
@@ -102,22 +114,32 @@ export class VerseRef {
     return `${this.book.toTitleCase()} ${this.chapter}`;
   }
   verseData(translation: translation): string {
-    return VerseRef.bibleTranslations[translation]?.[this.book]?.[this.chapter]?.[this.verse] || "";
+    const bookData = VerseRef.bibleTranslations[translation]?.[this.book];
+    const chapterData = bookData ? VerseRef.getChapterValues(bookData, this.chapter) : [];
+    const verseText = chapterData[this.verse];
+    return typeof verseText === "string" ? verseText : "";
   }
   chapterData(translation: translation): string[] {
-    return VerseRef.bibleTranslations[translation]?.[this.book]?.[this.chapter] || [];
+    const bookData = VerseRef.bibleTranslations[translation]?.[this.book];
+    const chapterData = bookData ? VerseRef.getChapterValues(bookData, this.chapter) : [];
+    return chapterData as string[];
   }
   bookData(translation: translation): string[][] {
-    return VerseRef.bibleTranslations[translation]?.[this.book] || [];
+    return (VerseRef.bibleTranslations[translation]?.[this.book] as unknown as string[][]) || [];
   }
   get vTXT(): string {
-    return VerseRef.bible[this.book][this.chapter][this.verse] || "";
+    const bookData = VerseRef.bible?.[this.book];
+    const chapterData = bookData ? VerseRef.getChapterValues(bookData, this.chapter) : [];
+    const verseText = chapterData[this.verse];
+    return typeof verseText === "string" ? verseText : "";
   }
   get cTXT(): string[] {
-    return VerseRef.bible[this.book][this.chapter] || [];
+    const bookData = VerseRef.bible?.[this.book];
+    const chapterData = bookData ? VerseRef.getChapterValues(bookData, this.chapter) : [];
+    return chapterData as string[];
   }
   get bTXT(): string[][] {
-    return VerseRef.bible[this.book] || [];
+    return (VerseRef.bible?.[this.book] as unknown as string[][]) || [];
   }
   set OSIS(osis: string) {
     const [[book, chapter, verse]] = osis.split("-").map(ft => ft.split("."));
@@ -151,7 +173,8 @@ export class VerseRef {
     const { book, chapter } = this;
     const nextChapter = chapter + 1;
     const nextBookIndex = VerseRef.booksOfTheBible.indexOf(book) + 1;
-    if (nextChapter > bible[book].length - 1) {
+    const bookData = bible[book];
+    if (nextChapter > bookData.length - 1) {
       if (nextBookIndex > VerseRef.booksOfTheBible.length) {
         return new VerseRef(VerseRef.booksOfTheBible[0], 1, 1);
       }
@@ -221,7 +244,8 @@ export class VerseRef {
       prevChapter = bible[prevBook].length - 1; // last chapter index
     }
 
-    const lastVerseIndex = bible[prevBook][prevChapter].length - 1;
+    const prevChapterData = VerseRef.getChapterValues(bible[prevBook], prevChapter);
+    const lastVerseIndex = prevChapterData.length - 1;
     return new VerseRef(prevBook, prevChapter, lastVerseIndex);
   }
   get prevChapter(): VerseRef {

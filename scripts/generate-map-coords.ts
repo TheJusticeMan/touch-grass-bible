@@ -23,8 +23,9 @@
 import { readFileSync, writeFileSync } from "fs";
 import { UMAP } from "umap-js";
 import { kmeans } from "ml-kmeans";
+import type { DataBibleChapter, DataBibleTranslationFile, DataMapPoint } from "../src/models/DataTypes";
 
-type BibleData = Record<string, Array<Array<string | null> | null>>;
+type BibleData = DataBibleTranslationFile;
 
 type EmbeddingMeta = {
   provider: string;
@@ -34,27 +35,23 @@ type EmbeddingMeta = {
   quantScale?: number;
 };
 
-type MapPoint = {
-  book: string;
-  chapter: number;
-  x: number;
-  y: number;
-  cluster: number;
-};
+type MapPoint = DataMapPoint;
+type ChapterRef = { book: string; chapter: number };
+type ChapterAggregate = ChapterRef & { sum: Float64Array; count: number };
 
 const META_PATH =
   process.env.EMBED_META ?? "processing/bible-chapter-embeddings.ollama.qwen3-embedding-0-6b.meta.json";
 const BIN_PATH =
   process.env.EMBED_BIN ?? "processing/bible-chapter-embeddings.ollama.qwen3-embedding-0-6b.bin";
 const TRANSLATION_PATH = process.env.TRANSLATION_PATH ?? "data/translations/KJV.json";
-const OUTPUT_PATH = process.env.MAP_OUTPUT ?? "dist/data/bible-map-umap.json";
+const OUTPUT_PATH = process.env.MAP_OUTPUT ?? "data/bible-map-umap.json";
 const N_CLUSTERS = Math.max(2, parseInt(process.env.N_CLUSTERS ?? "24", 10));
 const UMAP_N_NEIGHBORS = Math.max(2, parseInt(process.env.UMAP_N_NEIGHBORS ?? "15", 10));
 const UMAP_MIN_DIST = parseFloat(process.env.UMAP_MIN_DIST ?? "0.8");
 
 /** Mirrors flattenBible from generate-bible-embeddings.ts — must stay in sync. */
-function buildVerseIndex(bible: BibleData): Array<{ book: string; chapter: number }> {
-  const rows: Array<{ book: string; chapter: number }> = [];
+function buildVerseIndex(bible: BibleData): ChapterRef[] {
+  const rows: ChapterRef[] = [];
 
   for (const book of Object.keys(bible)) {
     const chapters = bible[book];
@@ -72,14 +69,14 @@ function buildVerseIndex(bible: BibleData): Array<{ book: string; chapter: numbe
 }
 
 /** One entry per chapter (order must match generate-chapter-embeddings.ts). */
-function buildChapterIndex(bible: BibleData): Array<{ book: string; chapter: number }> {
-  const rows: Array<{ book: string; chapter: number }> = [];
+function buildChapterIndex(bible: BibleData): ChapterRef[] {
+  const rows: ChapterRef[] = [];
 
   for (const book of Object.keys(bible)) {
     const chapters = bible[book];
     for (let ci = 1; ci < chapters.length; ci++) {
       if (!Array.isArray(chapters[ci])) continue;
-      const hasVerse = (chapters[ci] as Array<string | null>).slice(1).some(v => v);
+      const hasVerse = (chapters[ci] as DataBibleChapter).slice(1).some(v => v);
       if (hasVerse) rows.push({ book, chapter: ci });
     }
   }
@@ -104,7 +101,7 @@ async function run(): Promise<void> {
   // eslint-disable-next-line security/detect-non-literal-fs-filename
   const bible = JSON.parse(readFileSync(TRANSLATION_PATH, "utf8")) as BibleData;
 
-  let chapters: Array<{ book: string; chapter: number }>;
+  let chapters: ChapterRef[];
   let matrix: number[][];
 
   if (meta.granularity === "chapter") {
@@ -136,7 +133,7 @@ async function run(): Promise<void> {
       );
     }
 
-    const chapterMap = new Map<string, { sum: Float64Array; count: number; book: string; chapter: number }>();
+    const chapterMap = new Map<string, ChapterAggregate>();
     for (let i = 0; i < verseIndex.length; i++) {
       const { book, chapter } = verseIndex[i];
       const key = `${book}\x00${chapter}`;
@@ -149,8 +146,9 @@ async function run(): Promise<void> {
       entry.count++;
     }
 
-    chapters = [...chapterMap.values()];
-    matrix = chapters.map(c => {
+    const aggregates = [...chapterMap.values()];
+    chapters = aggregates.map(c => ({ book: c.book, chapter: c.chapter }));
+    matrix = aggregates.map(c => {
       const mean = new Array<number>(dims);
       for (let d = 0; d < dims; d++) mean[d] = c.sum[d] / c.count;
       return mean;

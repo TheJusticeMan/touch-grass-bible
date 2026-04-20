@@ -18,11 +18,6 @@
   cursor: grabbing;
 }
 
-.scroll-bubble:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
 /* ── Layout helpers ─────────────────────────────────────────── */
 
 .ui-stack {
@@ -109,11 +104,6 @@
   transform: translateX(1rem);
 }
 
-.ui-toggle-input:focus-visible {
-  outline: 2px solid var(--color-accent, #3a7afe);
-  outline-offset: 2px;
-}
-
 .ui-toggle-input:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -131,7 +121,7 @@
   color: var(--color-text-muted, rgb(255 255 255 / 0.62));
   border: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
   border-radius: var(--border-radius-medium);
-  box-shadow: 0 8px 32px -6px rgb(0 0 0 / 0.85);
+  box-shadow: var(--shadow-focus-ring);
   backdrop-filter: blur(6px);
   font-family: inherit;
   z-index: var(--z-menu, 400);
@@ -159,8 +149,7 @@
 }
 
 .menu-item:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: -2px;
+  box-shadow: var(--shadow-focus-ring-inset);
 }
 
 .menu-item:active {
@@ -222,7 +211,9 @@
     max-width: 100%;
     border-radius: 1rem 1rem 0 0;
     border-bottom: none;
-    padding: 0 0.5rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    padding: 0 0.5rem calc(0.75rem + var(--safe-area-bottom, 0px));
+    padding-left: calc(0.5rem + var(--safe-area-left, 0px));
+    padding-right: calc(0.5rem + var(--safe-area-right, 0px));
     background: rgb(12 12 14 / 0.97);
     backdrop-filter: blur(16px);
     /* large spread acts as a scrim/backdrop */

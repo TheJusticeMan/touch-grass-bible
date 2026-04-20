@@ -239,7 +239,7 @@ class JournalPanel extends View {
       div(
         {
           contentEditable: true,
-          class: "content editor",
+          class: "editor",
           oninput: (e: Event) => {
             journalEntry.content = (e.target as HTMLElement).textContent ?? "";
           },

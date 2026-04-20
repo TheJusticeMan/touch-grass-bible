@@ -67,31 +67,17 @@
       }
     }
 
-    .entry {
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      border: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
-      border-radius: var(--border-radius-medium);
-      background: var(--color-surface, rgb(255 255 255 / 0.06));
-      padding: 0.55rem 0.62rem 1.35rem;
+    .entry.is-text {
+      padding: none;
 
-      .time {
-        position: absolute;
-        right: 0.62rem;
-        bottom: 0.42rem;
-        font-size: 0.68rem;
-        color: var(--color-text-muted, rgb(255 255 255 / 0.62));
-      }
-
-      .content {
-        white-space: pre-wrap;
-        line-height: 1.45;
+      &:focus-within {
+        box-shadow: var(--shadow-focus-ring);
       }
 
       .editor {
-        border: 1px dashed transparent;
+        white-space: pre-wrap;
+        line-height: 1.45;
+        border: none;
         border-radius: 0.35rem;
         padding: 0.25rem 0.3rem;
         min-height: 1.7rem;
@@ -100,13 +86,31 @@
 
       .editor:focus {
         outline: none;
-        border-color: var(--color-accent, #9ed0ff);
-        background: rgb(0 0 0 / 0.18);
+        box-shadow: none;
       }
 
       .editor:empty::after {
         content: "Start typing your journal entry...";
         color: var(--color-text-muted, rgb(255 255 255 / 0.45));
+      }
+    }
+
+    .entry {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      border: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
+      border-radius: var(--border-radius-medium);
+      background: var(--color-surface, rgb(255 255 255 / 0.06));
+      padding: 0.55rem 0.62rem;
+
+      .time {
+        position: absolute;
+        right: 0.62rem;
+        bottom: 0.42rem;
+        font-size: 0.68rem;
+        color: var(--color-text-muted, rgb(255 255 255 / 0.62));
       }
     }
 

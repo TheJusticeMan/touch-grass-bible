@@ -17,8 +17,9 @@
  */
 
 import { readFileSync, writeFileSync } from "fs";
+import type { DataBibleTranslationFile } from "../src/models/DataTypes";
 
-type BibleData = Record<string, Array<Array<string | null> | null>>;
+type BibleData = DataBibleTranslationFile;
 
 type EmbeddingMetaOutput = {
   provider: "ollama";

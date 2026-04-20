@@ -10,8 +10,8 @@
  *   EMBED_META           path to verse .meta.json  (default: qwen3 verse file)
  *   EMBED_BIN            path to verse .bin        (default: qwen3 verse file)
  *   TRANSLATION_PATH     KJV source JSON           (default: data/translations/KJV.json)
- *   VERSE_TOPICS_OUTPUT  output JSON path          (default: dist/data/bible-verse-topics.json)
- *   TOPIC_CENTERS_OUTPUT center verses JSON path   (default: dist/data/bible-topic-centers.json)
+ *   VERSE_TOPICS_OUTPUT  output JSON path          (default: data/bible-verse-topics.json)
+ *   TOPIC_CENTERS_OUTPUT center verses JSON path   (default: data/bible-topic-centers.json)
  *   VERSE_TOPIC_COUNT    number of k-means topics  (default: 200)
  *   PCA_COMPONENTS       PCA output dimensions     (default: 64)
  *   PCA_ENABLED          use PCA before kmeans     (default: true)
@@ -21,8 +21,14 @@
 import { readFileSync, writeFileSync } from "fs";
 import { kmeans } from "ml-kmeans";
 import { PCA } from "ml-pca";
+import type {
+  DataBibleTranslationFile,
+  DataTopicCentersFile,
+  DataVerseRefWithText,
+  DataVerseTopicEntry,
+} from "../src/models/DataTypes";
 
-type BibleData = Record<string, Array<Array<string | null> | null>>;
+type BibleData = DataBibleTranslationFile;
 
 type EmbeddingMeta = {
   provider: string;
@@ -32,43 +38,18 @@ type EmbeddingMeta = {
   quantScale?: number;
 };
 
-type VerseRef = {
-  book: string;
-  chapter: number;
-  verse: number;
-};
+type VerseRecord = DataVerseRefWithText;
 
-type VerseRecord = VerseRef & {
-  text: string;
-};
+type VerseTopic = DataVerseTopicEntry;
 
-type VerseTopic = VerseRef & {
-  topic: number;
-};
-
-type TopicCenterVerse = VerseRecord & {
-  distance: number;
-};
-
-type TopicCentersOutput = {
-  provider: string;
-  model: string;
-  centerCount: number;
-  pcaEnabled: boolean;
-  pcaComponents: number | null;
-  topics: Array<{
-    topic: number;
-    size: number;
-    centerVerses: TopicCenterVerse[];
-  }>;
-};
+type TopicCentersOutput = DataTopicCentersFile;
 
 const META_PATH =
   process.env.EMBED_META ?? "processing/bible-embeddings.ollama.qwen3-embedding-0-6b.meta.json";
 const BIN_PATH = process.env.EMBED_BIN ?? "processing/bible-embeddings.ollama.qwen3-embedding-0-6b.bin";
 const TRANSLATION_PATH = process.env.TRANSLATION_PATH ?? "data/translations/KJV.json";
-const OUTPUT_PATH = process.env.VERSE_TOPICS_OUTPUT ?? "dist/data/bible-verse-topics.json";
-const CENTERS_OUTPUT_PATH = process.env.TOPIC_CENTERS_OUTPUT ?? "dist/data/bible-topic-centers.json";
+const OUTPUT_PATH = process.env.VERSE_TOPICS_OUTPUT ?? "data/bible-verse-topics.json";
+const CENTERS_OUTPUT_PATH = process.env.TOPIC_CENTERS_OUTPUT ?? "data/bible-topic-centers.json";
 const VERSE_TOPIC_COUNT = Math.max(2, parseInt(process.env.VERSE_TOPIC_COUNT ?? "200", 10));
 const PCA_COMPONENTS = Math.max(2, parseInt(process.env.PCA_COMPONENTS ?? "64", 10));
 const PCA_ENABLED = (process.env.PCA_ENABLED ?? "true").toLowerCase() !== "false";
