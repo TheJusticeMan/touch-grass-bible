@@ -3,13 +3,14 @@
 .workspace-root-host,
 .workspace-dialog-layer {
   /* Panel chrome tokens */
-  --workspace-border: var(--color-border, rgb(255 255 255 / 0.14));
+  --workspace-border: var(--color-border);
   --workspace-surface: rgb(0 0 0 / 0.5);
-  --workspace-surface-2: var(--color-surface, rgb(255 255 255 / 0.06));
+  --workspace-surface-2: var(--color-surface);
   --workspace-surface-3: var(--color-surface-strong, rgb(255 255 255 / 0.12));
   --workspace-tab-text: var(--color-text, rgb(255 255 255 / 0.94));
   --workspace-tab-muted: var(--color-text-muted, rgb(255 255 255 / 0.62));
   --workspace-glow: var(--shadow-focus-ring);
+  --workspace-glow-inset: var(--shadow-focus-ring-inset);
   --workspace-tab-gap: 0.45rem;
   --workspace-tab-strip-padding: 0.3rem;
   --workspace-tab-padding-y: 0.2rem;
@@ -155,12 +156,12 @@
 }
 
 .panel-tabs::-webkit-scrollbar-thumb {
-  background: var(--color-border, rgb(255 255 255 / 0.14));
+  background: var(--color-border);
   border-radius: var(--radius-circle);
 }
 
 .panel.is-active-panel .panel-tabs {
-  background: var(--color-surface, rgb(255 255 255 / 0.06));
+  background: var(--color-surface);
 }
 
 .panel-tabs.is-hidden {
@@ -400,15 +401,12 @@
 }
 
 .panel-tab:hover {
-  background: var(--workspace-surface-3);
-  color: var(--workspace-tab-text);
+  box-shadow: var(--workspace-glow-inset);
 }
 
 .panel.is-active-panel .panel-tab.is-active {
-  border: 1px solid var(--color-surface-strong, rgb(255 255 255 / 0.12));
   border-radius: var(--border-radius-medium);
   color: var(--color-text, #fff);
-  background: var(--color-surface-strong, rgb(255 255 255 / 0.12));
   box-shadow: var(--workspace-glow);
 }
 
@@ -444,27 +442,27 @@
   inset: 0;
   pointer-events: none;
   border-radius: var(--border-radius-small);
-  border: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
+  border: 1px solid var(--color-accent);
 }
 
 .panel.drop-edge-center::after {
-  box-shadow: inset 0 0 0 1px var(--color-border, rgb(255 255 255 / 0.14));
+  box-shadow: inset 0 0 10px var(--color-accent);
 }
 
 .panel.drop-edge-left::after {
-  background: linear-gradient(to right, var(--color-surface, rgb(255 255 255 / 0.06)) 0%, transparent 28%);
+  background: linear-gradient(to right, var(--color-accent) 0%, transparent 28%);
 }
 
 .panel.drop-edge-right::after {
-  background: linear-gradient(to left, var(--color-surface, rgb(255 255 255 / 0.06)) 0%, transparent 28%);
+  background: linear-gradient(to left, var(--color-accent) 0%, transparent 28%);
 }
 
 .panel.drop-edge-top::after {
-  background: linear-gradient(to bottom, var(--color-surface, rgb(255 255 255 / 0.06)) 0%, transparent 28%);
+  background: linear-gradient(to bottom, var(--color-accent) 0%, transparent 28%);
 }
 
 .panel.drop-edge-bottom::after {
-  background: linear-gradient(to top, var(--color-surface, rgb(255 255 255 / 0.06)) 0%, transparent 28%);
+  background: linear-gradient(to top, var(--color-accent) 0%, transparent 28%);
 }
 
 .panel-content {

@@ -1,12 +1,9 @@
 import levenshtein from "js-levenshtein";
 import { ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, X } from "lucide";
+import van from "vanjs-core";
 import { App } from "./App";
+import { CMD, CMDType } from "./Comands";
 import "./CommandPalette.css";
-import { ETarget, touchDraggerEvents } from "./Event";
-import { PaletteState, PaletteStateController } from "./PaletteStateController";
-import { IconActionComponent, inputMode, Item, TextInput, UIComponent } from "./UIComponents";
-import { WorkspaceDialog } from "./Workspace";
-
 import {
   COMMAND_PALETTE_CONFIG_NAME,
   DEFAULT_COMMAND_PALETTE_SETTINGS,
@@ -14,10 +11,15 @@ import {
 } from "./CommandPaletteSettings";
 import { Commands } from "./Commands";
 import { escapeRegExp } from "./escapeRegExp";
+import { ETarget, touchDraggerEvents } from "./Event";
 import { Highlighter } from "./highlighter";
 import { BrowserConsole } from "./MyBrowserConsole";
+import { PaletteState, PaletteStateController } from "./PaletteStateController";
 import { SettingsStore } from "./SettingsStore";
-import { CMD, CMDType } from "./Comands";
+import { icon, inputMode, Item, TextInput, UIComponent } from "./UIComponents";
+import { WorkspaceDialog } from "./Workspace";
+
+const { div, button } = van.tags;
 
 /**
  * Lazy wrapper for a command category factory.
@@ -594,7 +596,7 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
 
 class CommandPaletteDialog extends WorkspaceDialog {
   private searchInput?: TextInput;
-  private headerComponent?: CommandPaletteHeader;
+  private headerEl?: HTMLElement;
   private contentComponent?: CommandPaletteContent;
   private touchHideKeyboardBound = false;
   private commandItems: CommandItem<unknown>[] = [];
@@ -698,28 +700,32 @@ class CommandPaletteDialog extends WorkspaceDialog {
     this.bindTouchHideKeyboard();
     this.resetContent();
     this.contentEl.addClass("palette");
-    this.headerComponent = new CommandPaletteHeader(this.contentEl.element);
 
-    new IconActionComponent(this.headerComponent.element)
-      .setAction(ChevronLeft, "Back to previous context")
-      .on("click", () => this.palette.handleBack());
+    const expanded = van.state(this.palette.state.expanded);
 
-    new IconActionComponent(this.headerComponent.element)
-      .setAction(this.palette.state.expanded ? ChevronsDownUp : ChevronsUpDown, "Toggle expanded view")
-      .next(btn =>
-        btn.on("click", () => {
-          this.palette.state.expanded = !this.palette.state.expanded;
-          this.contentComponent?.setExpanded(this.palette.state.expanded);
-          btn.setAction(
-            this.palette.state.expanded ? ChevronsDownUp : ChevronsUpDown,
-            "Toggle expanded view",
-          );
-        }),
-      );
+    this.headerEl = div(
+      { class: "palette-header" },
+      button(
+        { class: "icon-action", title: "Back to previous context", onclick: () => this.palette.handleBack() },
+        icon(ChevronLeft),
+      ),
+      button(
+        {
+          class: "icon-action",
+          title: "Toggle expanded view",
+          onclick: () => {
+            expanded.val = !expanded.val;
+            this.contentComponent?.setExpanded(expanded.val);
+            this.palette.state.expanded = expanded.val;
+          },
+        },
+        () => icon(expanded.val ? ChevronsDownUp : ChevronsUpDown),
+      ),
+      button({ class: "icon-action", title: "Close Palette", onclick: () => this.palette.close() }, icon(X)),
+    );
 
-    new IconActionComponent(this.headerComponent.element)
-      .setAction(X, "Close Palette")
-      .on("click", () => this.palette.close());
+    this.contentEl.element.appendChild(this.headerEl);
+
 
     this.searchInput = new TextInput(this.contentEl.element)
       .addClass("palette-search")
@@ -756,8 +762,6 @@ class CommandPaletteDialog extends WorkspaceDialog {
   private resetContent(): void {
     this.searchInput?.remove();
     this.searchInput = undefined;
-    this.headerComponent?.remove();
-    this.headerComponent = undefined;
     this.contentComponent?.remove();
     this.contentComponent = undefined;
     this.contentEl.element.empty();
@@ -1004,12 +1008,6 @@ class CommandPaletteDialog extends WorkspaceDialog {
   }
 }
 
-class CommandPaletteHeader extends UIComponent<"div"> {
-  constructor(parent: Node) {
-    super(parent, "div");
-    this.addClass("palette-header");
-  }
-}
 
 class CommandPaletteContent extends UIComponent<"div"> {
   readonly overviewEl: HTMLDivElement;

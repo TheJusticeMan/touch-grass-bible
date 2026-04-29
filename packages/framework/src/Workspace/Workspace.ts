@@ -2032,7 +2032,7 @@ class EmptyView extends View {
 }
 
 monkeypatchAllWorkspaceMethods([
-  /* ["WorkspaceTabButton", WorkspaceTabButton],
+  ["WorkspaceTabButton", WorkspaceTabButton],
   ["WorkspacePlaceholder", WorkspacePlaceholder],
   ["WorkspacePanelContainer", WorkspacePanelContainer],
   ["WorkspacePanelTabs", WorkspacePanelTabs],
@@ -2040,5 +2040,5 @@ monkeypatchAllWorkspaceMethods([
   ["Workspace", Workspace],
   ["Panel", LayoutNode],
   ["View", View],
-  ["EmptyView", EmptyView], */
+  ["EmptyView", EmptyView],
 ]);

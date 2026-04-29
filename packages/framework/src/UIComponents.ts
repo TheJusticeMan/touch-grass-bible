@@ -349,26 +349,6 @@ export class Button extends UIComponent<"button"> {
   }
 }
 
-export class IconActionComponent extends Button {
-  constructor(parent: Node) {
-    super(parent);
-    this.addClass("icon-action");
-    this.setAttr("type", "button");
-  }
-
-  setAction(icon: IconNode, tooltip: string) {
-    this.setIcon(icon);
-    this.setTooltip(tooltip);
-    return this;
-  }
-
-  setPressed(pressed: boolean) {
-    this.setAria({ pressed });
-    this.toggleClass("is-pressed", pressed);
-    return this;
-  }
-}
-
 export class IconButton extends UIComponent<"div"> {
   constructor(parent: Node) {
     super(parent, "div");
@@ -1078,4 +1058,8 @@ export class Menu extends ETarget {
     this.items = [];
     return this;
   }
+}
+
+export function icon(icon: IconNode): SVGElement {
+  return createElement(icon, { "stroke-width": 1 });
 }

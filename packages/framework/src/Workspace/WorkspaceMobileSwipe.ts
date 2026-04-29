@@ -8,6 +8,7 @@ const SNAP_THRESHOLD = 25;
 const TOUCH_SCALE_FACTOR = 200;
 const MOUSE_SCALE_FACTOR = 100;
 const MIN_HORIZONTAL_RATIO = 2; // Ignore swipes that are more vertical than horizontal
+const MOBILE_BREAKPOINT_MEDIA_QUERY = "(max-width: 600px)";
 
 const RIGHT_PANEL_CLOSED = -100;
 const LEFT_PANEL_CLOSED = 100;
@@ -19,6 +20,7 @@ export class GlobalSwipeHandler {
   screenWidth: number = 0;
   private _state: SwipeState = "none";
   private isTrackingGesture: boolean = false;
+  private mobileBreakpointMql: MediaQueryList;
 
   public get state(): SwipeState {
     return this._state;
@@ -52,6 +54,8 @@ export class GlobalSwipeHandler {
     private WorkspaceRoot: HTMLElement,
     private workspace?: Workspace,
   ) {
+    this.mobileBreakpointMql = window.matchMedia(MOBILE_BREAKPOINT_MEDIA_QUERY);
+    this.mobileBreakpointMql.addEventListener("change", this.handleBreakpointChange);
     document.addEventListener("touchstart", this.handleTouchStart, false);
     document.addEventListener("touchmove", this.handleTouchMove, false);
     document.addEventListener("touchend", this.handleTouchEnd, false);
@@ -61,6 +65,7 @@ export class GlobalSwipeHandler {
   }
 
   destroy() {
+    this.mobileBreakpointMql.removeEventListener("change", this.handleBreakpointChange);
     document.removeEventListener("touchstart", this.handleTouchStart, false);
     document.removeEventListener("touchmove", this.handleTouchMove, false);
     document.removeEventListener("touchend", this.handleTouchEnd, false);
@@ -93,6 +98,11 @@ export class GlobalSwipeHandler {
     this.startPosition = null;
     this.currentPosition = null;
     this.isTrackingGesture = false;
+  }
+
+  private isEnabled(): boolean {
+    // Keep breakpoint logic in sync with Workspace.css (@media (max-width: 600px)).
+    return this.mobileBreakpointMql.matches;
   }
 
   private shouldIgnoreGestureTarget(target: EventTarget | null): boolean {
@@ -180,7 +190,17 @@ export class GlobalSwipeHandler {
     this.cancelGesture();
   }
 
+  private handleBreakpointChange = () => {
+    if (this.isEnabled()) return;
+    this.cancelGesture();
+    this.state = "none";
+  };
+
   handleTouchStart = (e: TouchEvent) => {
+    if (!this.isEnabled()) {
+      this.cancelGesture();
+      return;
+    }
     if (e.touches.length !== 1 || this.shouldIgnoreGestureTarget(e.target)) {
       this.cancelGesture();
       return;
@@ -190,6 +210,10 @@ export class GlobalSwipeHandler {
   };
 
   handleTouchMove = (e: TouchEvent) => {
+    if (!this.isEnabled()) {
+      this.cancelGesture();
+      return;
+    }
     if (e.touches.length !== 1) {
       this.cancelGesture();
       return;
@@ -201,12 +225,20 @@ export class GlobalSwipeHandler {
   };
 
   handleTouchEnd = () => {
+    if (!this.isEnabled()) {
+      this.cancelGesture();
+      return;
+    }
     if (!this.isTrackingGesture) return;
     this.endGesture(TOUCH_SCALE_FACTOR);
     // Handle touch end
   };
 
   handleMouseDown = (e: MouseEvent) => {
+    if (!this.isEnabled()) {
+      this.cancelGesture();
+      return;
+    }
     if (this.shouldIgnoreGestureTarget(e.target)) {
       this.cancelGesture();
       return;
@@ -217,12 +249,20 @@ export class GlobalSwipeHandler {
   };
 
   handleMouseMove = (e: MouseEvent) => {
+    if (!this.isEnabled()) {
+      this.cancelGesture();
+      return;
+    }
     if (!this.isTrackingGesture) return;
     this.updateGesture(e.clientX, e.clientY, MOUSE_SCALE_FACTOR);
     // Handle mouse move, e.g., determine swipe direction and distance
   };
 
   handleMouseUp = (e: MouseEvent) => {
+    if (!this.isEnabled()) {
+      this.cancelGesture();
+      return;
+    }
     if (!this.isTrackingGesture) return;
     this.currentPosition = new Offset(e.clientX, e.clientY);
     this.endGesture(MOUSE_SCALE_FACTOR);
