@@ -46,6 +46,19 @@ function touchEvent(points: Array<[number, number]>): TouchEvent {
   } as unknown as TouchEvent;
 }
 
+function matchMediaMock(query: string): MediaQueryList {
+  return {
+    matches: true,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  } as MediaQueryList;
+}
+
 describe("GlobalSwipeHandler click behavior", () => {
   let originalDocument: Document | undefined;
   let originalWindow: Window & typeof globalThis;
@@ -66,7 +79,7 @@ describe("GlobalSwipeHandler click behavior", () => {
     });
 
     Object.defineProperty(globalThis, "window", {
-      value: { innerWidth: 1000 },
+      value: { innerWidth: 1000, matchMedia: matchMediaMock },
       configurable: true,
       writable: true,
     });

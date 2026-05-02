@@ -152,7 +152,7 @@ class VerseListCategory extends CommandCategory<VerseRef> {
       this.isediting ? "Stop Editing Bookmark Tag" : "Edit Bookmark Tag",
       "",
       item =>
-        void item.on("click", () => {
+        void item.onClick(() => {
           this.isediting = !this.isediting;
           this.commandPalette.update({ topCategory: VerseListCategoryID }).display();
         }),
@@ -161,7 +161,7 @@ class VerseListCategory extends CommandCategory<VerseRef> {
       "Merge verses from the same chapter",
       "",
       item =>
-        void item.on("click", () => {
+        void item.onClick(() => {
           const versesToKeep = this.plugin.Bookmarks.get(this.plugin.tag.get())
             .reverse()
             .reduce((acc: VerseRef[], v) => {
@@ -263,7 +263,7 @@ class BookmarkCategory extends CommandCategory<string> {
       `Delete ${verse.toString()} from "${tag}"`,
       "Delete a verse from a bookmark tag",
       item =>
-        void item.on("click", () => {
+        void item.onClick(() => {
           const tag = this.plugin.tag.get();
           const verse = this.plugin.app.verseState.get();
           this.plugin.Bookmarks.remove(tag, verse);
@@ -276,7 +276,7 @@ class BookmarkCategory extends CommandCategory<string> {
       `Delete tag: ${this.plugin.tag.get()}`,
       "Delete a bookmark tag",
       item =>
-        void item.on("click", () => {
+        void item.onClick(() => {
           const tag = this.plugin.tag.get();
           this.plugin.Bookmarks.delete(tag);
           this.commandPalette.display();
@@ -287,7 +287,7 @@ class BookmarkCategory extends CommandCategory<string> {
       `Save ${verse.toString()} to new tag`,
       "Save the current verse to a bookmark tag",
       item =>
-        void item.on("click", () => {
+        void item.onClick(() => {
           this.console.log("Prompting for new bookmark tag for", verse.toString());
           this.plugin.app.commandPalette.prompt("Enter new bookmark tag").then(st => {
             this.console.log("Adding bookmark", verse.toString(), "to tag", st);

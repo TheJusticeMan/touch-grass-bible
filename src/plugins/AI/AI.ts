@@ -109,7 +109,7 @@ class AICommandPalette extends CommandCategory<string> {
         this.plugin.settings.aiApiKey ? " Key is currently set." : " No key set."
       }`,
       item =>
-        void item.on("click", () =>
+        void item.onClick(() =>
           this.plugin.app.commandPalette.prompt("Enter your OpenAI-compatible API key:").then(key => {
             if (key === null) return;
             this.plugin.settings.aiApiKey = key.trim();
@@ -123,9 +123,7 @@ class AICommandPalette extends CommandCategory<string> {
       "Open semantic embedding search",
       "Search semantically similar verses using precomputed embeddings + Orama",
       item =>
-        void item.on("click", () =>
-          this.commandPalette.display({ topCategory: AIEmbeddingSearchCategoryID }),
-        ),
+        void item.onClick(() => this.commandPalette.display({ topCategory: AIEmbeddingSearchCategoryID })),
     );
 
     if (this.inFlightResponse) {

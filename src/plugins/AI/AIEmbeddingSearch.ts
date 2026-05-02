@@ -42,7 +42,7 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
     this.defaultCMD.addCMD(
       "Back to AI chat",
       "Return to AI Q&A mode",
-      item => void item.on("click", () => this.commandPalette.display({ topCategory: AICategoryID })),
+      item => void item.onClick(() => this.commandPalette.display({ topCategory: AICategoryID })),
     );
 
     if (!this.plugin.settings.aiApiKey) {
@@ -50,9 +50,7 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
         "No OpenAI API key set",
         "OpenAI embeddings need a key. Ollama fallback is used if local server is available.",
         item =>
-          void item.on("click", () =>
-            this.plugin.app.openCommandPalette({ topCategory: SettingsCategoryID }),
-          ),
+          void item.onClick(() => this.plugin.app.openCommandPalette({ topCategory: SettingsCategoryID })),
       );
     }
 

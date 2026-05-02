@@ -513,7 +513,7 @@ describe("Workspace dialog manager", () => {
     const promptPromise = palette.prompt("Type something");
 
     expect(palette.isOpen).toBe(true);
-    expect(palette.state.topCategory).toBe("prompt");
+    expect(palette.getState().topCategory).toBe("prompt");
     expect(historyPushCount).toBe(0);
 
     palette.close();

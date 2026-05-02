@@ -1,7 +1,10 @@
 import { createElement, IconNode } from "lucide";
+import van, { Props, PropsWithKnownKeys } from "vanjs-core";
 import { ETarget } from "./Event";
-import { Highlighter, HighlightType } from "./highlighter";
+import { highlight, HighlightType } from "./highlighter";
 import "./UIComponents.css";
+
+const { div } = van.tags;
 
 type UIComponentInit = {
   detached?: boolean;
@@ -500,7 +503,7 @@ export class ToggleInput extends AbstractInput<"input", boolean> {
   }
 }
 
-export class sliderInput extends AbstractInput<"input", number> {
+export class SliderInput extends AbstractInput<"input", number> {
   constructor(parent: Node) {
     super(parent, "input", false);
     this.element.type = "range";
@@ -782,25 +785,84 @@ export abstract class ScrollBubble extends UIComponent<
  * @see CommandCategory
  * @see CommandPaletteState
  */
-export class Item extends UIComponent<
-  "div",
-  {
-    click: MouseEvent;
-    contextmenu: MouseEvent;
-    hover: MouseEvent;
-    mousemove: MouseEvent;
-    [key: string]: unknown;
-  }
-> {
-  protected infoEl: HTMLDivElement;
-  protected titleEl!: HTMLDivElement;
-  protected descriptionEl!: HTMLDivElement;
-  protected componentWrapper!: HTMLDivElement;
-  components: Array<{ element: HTMLElement; remove(): unknown }> = []; // Array to hold additional components like buttons
-  private highlighter: Highlighter = new Highlighter([]); // Highlighter for the category
+export class Item {
+  element: HTMLDivElement;
+  description = van.state("");
+  title = van.state("");
+  components = van.state([] as Array<{ element: HTMLElement; remove(): unknown }>);
+  hidden = van.state(true);
 
-  constructor(parent: HTMLElement) {
-    super(parent, "div");
+  private highlighter = van.state<HighlightType[]>([]); // Highlighter for the description
+  constructor(l: Props & PropsWithKnownKeys<HTMLDivElement> = {}) {
+    this.element = div(
+      { class: "command-item", ...l },
+      div(
+        { class: "command-item-info" },
+        () => div({ class: "command-title" }, highlight(this.title.val, this.highlighter.val)),
+        () =>
+          div(
+            { class: () => `command-description ${this.hidden.val ? "hidden" : ""}` },
+            highlight(this.description.val, this.highlighter.val),
+          ),
+      ),
+      () =>
+        div(
+          { class: "command-comp" },
+          this.components.val.map(comp => comp.element),
+        ),
+    );
+  }
+
+  setName = this.setTitle;
+
+  setHidden(hide: boolean) {
+    this.hidden.val = hide;
+    return this;
+  }
+
+  highlight(args: HighlightType[]) {
+    this.highlighter.val = args;
+    return this;
+  }
+
+  setTitle(title: string) {
+    this.title.val = title;
+    return this;
+  }
+
+  setDescription(text: string) {
+    this.description.val = text;
+    return this;
+  }
+
+  addComponent<ComponentType extends { element: HTMLElement; remove(): unknown }>(
+    ComponentCtor: new (parent: Node) => ComponentType,
+    cb?: (el: ComponentType) => void,
+  ) {
+    const compInstance = new ComponentCtor(this.element);
+    this.components.val = [...this.components.val, compInstance];
+    cb?.(compInstance);
+    return this;
+  }
+
+  prependComponent<ComponentType extends { element: HTMLElement; remove(): unknown }>(
+    ComponentCtor: new (parent: Node) => ComponentType,
+    cb?: (el: ComponentType) => void,
+  ) {
+    const compInstance = new ComponentCtor(this.element);
+    this.components.val = [compInstance, ...this.components.val];
+    cb?.(compInstance);
+    return this;
+  }
+
+  addIconButton = (cb: (el: IconButton) => void) => this.prependComponent(IconButton, cb);
+  addButton = (cb: (el: Button) => void) => this.addComponent(Button, cb);
+  addTextInput = (cb: (el: TextInput) => void) => this.addComponent(TextInput, cb);
+  addTextArea = (cb: (el: TextArea) => void) => this.addComponent(TextArea, cb);
+  addToggleInput = (cb: (el: ToggleInput) => void) => this.addComponent(ToggleInput, cb);
+  addSliderInput = (cb: (el: SliderInput) => void) => this.addComponent(SliderInput, cb);
+
+  /* 
     this.addClass("command-item");
     this.infoEl = this.createChild("div", { cls: "command-item-info" }, infoEl => {
       this.titleEl = infoEl.createEl("div", { cls: "command-title" });
@@ -815,84 +877,7 @@ export class Item extends UIComponent<
       this.emit("contextmenu", e);
     });
     this.listen("mouseenter", e => this.emit("hover", e));
-    this.listen("mousemove", e => this.emit("mousemove", e));
-  }
-
-  highlight(args: HighlightType[] | Highlighter) {
-    if (args instanceof Highlighter) {
-      this.highlighter = args;
-      return this;
-    }
-    this.highlighter = new Highlighter({ ...args });
-    return this;
-  }
-
-  addIconButton(cb: (el: IconButton) => void) {
-    this.addComponent(IconButton, cb);
-    const lastComp = this.components.at(-1);
-    if (lastComp) this.componentWrapper.prepend(lastComp.element);
-    return this;
-  }
-
-  addButton(cb: (el: Button) => void) {
-    this.addComponent(Button, cb);
-    return this;
-  }
-
-  addTextInput(cb: (el: TextInput) => void) {
-    this.addComponent(TextInput, cb);
-    return this;
-  }
-
-  addTextArea(cb: (el: TextArea) => void) {
-    this.addComponent(TextArea, cb);
-    return this;
-  }
-
-  addToggleInput(cb: (el: ToggleInput) => void) {
-    this.addComponent(ToggleInput, cb);
-    return this;
-  }
-
-  addSliderInput(cb: (el: sliderInput) => void) {
-    this.addComponent(sliderInput, cb);
-    return this;
-  }
-
-  addComponent<
-    T extends {
-      element: HTMLElement;
-      remove(): unknown;
-    },
-  >(ComponentCtor: new (parent: Node) => T, cb?: (el: T) => void) {
-    const compInstance = new ComponentCtor(this.componentWrapper);
-    this.components.push(compInstance);
-    cb?.(compInstance);
-    return this;
-  }
-
-  removeComponents() {
-    this.components.forEach(comp => comp.remove());
-    this.components = [];
-    return this;
-  }
-
-  setTitle(title: string | DocumentFragment) {
-    this.titleEl.replaceChildren(typeof title === "string" ? this.highlighter.highlight(title) : title);
-    return this;
-  }
-
-  setName = this.setTitle;
-
-  setDescription(text: string | DocumentFragment) {
-    this.descriptionEl.replaceChildren(typeof text === "string" ? this.highlighter.highlight(text) : text);
-    return this;
-  }
-
-  setHidden(hide: boolean) {
-    this.descriptionEl.classList.toggle("hidden", hide);
-    return this;
-  }
+    this.listen("mousemove", e => this.emit("mousemove", e)); */
 }
 
 /**

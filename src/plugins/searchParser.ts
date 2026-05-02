@@ -72,7 +72,7 @@ export function parseGoToVerseQuery(
       if (!strictVerseMatch) return [];
 
       const verse = parseInt(strictVerseMatch[1], 10);
-      if (verse < 1 || verse >= bible[book][chapter].length) return [];
+      if (verse < 1 || verse >= bible[book]![chapter]!.length) return [];
 
       // Any trailing non-delimiter content after verse makes this query invalid.
       if (normalizeQuerySegment(strictVerseMatch[2]).length > 0) return [];
@@ -94,7 +94,9 @@ export function parseGoToVerseQuery(
         return [{ book, chapter }];
       }
 
-      const verseList = Array.from({ length: bible[book][chapter].length - 1 }, (_, i) => (i + 1).toString());
+      const verseList = Array.from({ length: bible[book]![chapter]!.length - 1 }, (_, i) =>
+        (i + 1).toString(),
+      );
       const verseMatches = eat(verseRemaining, verseList);
 
       if (!verseMatches.length) return verseList.map(v => ({ book, chapter, verse: parseInt(v, 10) }));

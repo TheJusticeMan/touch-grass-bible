@@ -1,122 +1,136 @@
-/**
- * Defines the structure for highlighting configuration.
- * - `regEXP`: Regular expression used to find matches in the text.
- * - `elTag`: HTML element tag name for wrapping matched text.
- * - `cls`: Optional CSS class name to apply to the wrapping element.
- * - `replace?: string`: Optional string for replacing matched groups (uses regex replacement syntax).
- * - `children?: HighlightType[]`: Optional array of nested highlight configurations for further processing of matched text.
- */
-export interface HighlightType {
-  regEXP: RegExp; // Must include 'g' for global matching
-  elTag?: string;
-  cls?: string;
-  replace?: string; // Optional replacement string, supports regex groups
-  children?: HighlightType[]; // Optional nested highlights
+/* eslint-disable security/detect-non-literal-regexp */
+import { ChildDom } from "vanjs-core";
+
+// Strict Discriminated Union
+export type HighlightType =
+  | {
+      regEXP: RegExp;
+      children?: never;
+      callback: (content: string) => ChildDom;
+    }
+  | {
+      regEXP: RegExp;
+      children: HighlightType[];
+      callback: (content: ChildDom) => ChildDom;
+    };
+
+export function highlight(text: string, patterns: HighlightType[]): ChildDom {
+  // 1. Clone regexes ONCE per function call for performance and render safety.
+  // We cast back to HighlightType[] because mapping spreads the union,
+  // but we know we are strictly preserving the original structure.
+  const safePatterns = patterns.map(p => {
+    const flags = p.regEXP.flags.includes("g") ? p.regEXP.flags : `${p.regEXP.flags}g`;
+    return {
+      ...p,
+      regEXP: new RegExp(p.regEXP.source, flags),
+    };
+  }) as HighlightType[];
+
+  const result: ChildDom[] = [];
+  let cursor = 0;
+
+  while (cursor < text.length) {
+    let bestMatch: RegExpExecArray | null = null;
+    let bestType: HighlightType | undefined;
+
+    for (const p of safePatterns) {
+      // lastIndex mutation is now perfectly safe because safePatterns is
+      // scoped strictly to this specific execution of highlight().
+      p.regEXP.lastIndex = cursor;
+      const match = p.regEXP.exec(text);
+
+      if (match && (!bestMatch || match.index < bestMatch.index)) {
+        bestMatch = match;
+        bestType = p;
+      }
+    }
+
+    if (!bestMatch || !bestType) break;
+
+    // Push preceding text
+    if (bestMatch.index > cursor) {
+      result.push(text.slice(cursor, bestMatch.index));
+    }
+
+    const matchText = bestMatch[0];
+    const rawText = bestMatch[1] ?? matchText;
+
+    // TypeScript safely discriminates the callback signature based on the presence of children
+    if (bestType.children) {
+      result.push(bestType.callback(highlight(rawText, bestType.children)));
+    } else {
+      result.push(bestType.callback(rawText));
+    }
+
+    // Advance cursor (Math.max prevents infinite loops on zero-length matches)
+    cursor = bestMatch.index + Math.max(1, matchText.length);
+  }
+
+  return (cursor < text.length ? [...result, text.slice(cursor)] : result) as ChildDom;
 }
 
-/**
- * Provides functionality to highlight parts of a text based on multiple regular expressions,
- * wrapping matches in specified HTML elements with optional classes.
- */
+// Legacy HighlightType
+export interface HighlightTypeLegacy {
+  regEXP: RegExp;
+  elTag?: string;
+  cls?: string;
+  replace?: string;
+  children?: HighlightTypeLegacy[];
+}
+
 export class Highlighter {
-  /**
-   * Creates a new Highlighter instance.
-   * @param args - An array of highlight configurations defining how to match and wrap text segments.
-   */
-  constructor(public args: HighlightType[]) {}
+  private patterns: HighlightType[];
 
-  /**
-   * Highlights matching segments in the provided text according to configured patterns.
-   * This version processes matches sequentially without merging overlaps.
-   * @param text - The input string to process for highlighting.
-   * @returns A DocumentFragment containing the styled and unstyled segments of text.
-   */
-  highlight = (text: string): DocumentFragment => {
-    // Internal interface for match details
-    interface MatchInfo {
-      start: number;
-      end: number;
-      type: HighlightType;
-      matchText: string; // matched substring
-    }
+  constructor(public args: HighlightTypeLegacy[]) {
+    const mapPatterns = (patterns: HighlightTypeLegacy[]): HighlightType[] =>
+      patterns.map((p): HighlightType => {
+        if (p.children) {
+          // Branch Node
+          return {
+            regEXP: p.regEXP,
+            children: mapPatterns(p.children),
+            callback: (content: ChildDom) => {
+              const el = document.createElement(p.elTag || "span");
+              if (p.cls) el.className = p.cls;
 
-    // Collect all matches from all patterns
-    const allMatches: MatchInfo[] = [];
+              if (Array.isArray(content)) el.append(...content);
+              else el.append(content as string | Node);
 
-    for (const patternConfig of this.args) {
-      const regex = patternConfig.regEXP;
+              return el;
+            },
+          };
+        } else {
+          // Leaf Node (Stricter string callback)
+          return {
+            regEXP: p.regEXP,
+            callback: (content: string) => {
+              const el = document.createElement(p.elTag || "span");
+              if (p.cls) el.className = p.cls;
 
-      let match: RegExpExecArray | null;
-      if (regex.global)
-        while ((match = regex.exec(text)) !== null) {
-          allMatches.push({
-            start: match.index,
-            end: match.index + match[0].length,
-            type: patternConfig,
-            matchText: match[0],
-          });
-          // To prevent infinite loops with zero-length matches
-          if (match[0].length === 0) {
-            regex.lastIndex++;
-          }
+              // Emulate legacy `replace` logic perfectly natively in the callback
+              if (p.replace !== undefined) {
+                // Allows replacing static strings (like \u00B6) or swapping $1
+                el.textContent = p.replace.replace("$1", content);
+              } else {
+                el.textContent = content;
+              }
+
+              return el;
+            },
+          };
         }
-      else if ((match = regex.exec(text)) !== null) {
-        allMatches.push({
-          start: match.index,
-          end: match.index + match[0].length,
-          type: patternConfig,
-          matchText: match[0],
-        });
-      }
-    }
+      });
 
-    // Sort matches by their start position to process sequentially
-    allMatches.sort((a, b) => a.start - b.start);
+    this.patterns = mapPatterns(args);
+  }
 
-    // Build DocumentFragment
+  highlight = (text: string): DocumentFragment => {
     const fragment = document.createDocumentFragment();
-    let currentIndex = 0;
+    const result = highlight(text, this.patterns);
 
-    for (const match of allMatches) {
-      if (match.start > currentIndex) {
-        // Append unstyled text before the match
-        fragment.appendChild(document.createTextNode(text.substring(currentIndex, match.start)));
-      }
-      if (match.start === match.end) continue; // Skip zero-length matches
-      if (match.start < currentIndex) continue; // Skip matches that overlap with previous ones
-
-      // Create the element for the match
-      const element = document.createElement(match.type.elTag || "span");
-      if (match.type.cls) {
-        element.className = match.type.cls;
-      }
-
-      // Use replace string if provided; else, default to the matched text
-      const content = match.matchText.replace(match.type.regEXP, match.type.replace || "$1");
-      if (match.type.children) {
-        element.append(new Highlighter(match.type.children).highlight(content));
-      } else {
-        element.textContent = content;
-      }
-      fragment.appendChild(element);
-      currentIndex = match.end;
-    }
-
-    // Append remaining unstyled text
-    if (currentIndex < text.length) {
-      fragment.appendChild(document.createTextNode(text.substring(currentIndex)));
-    }
+    if (Array.isArray(result)) fragment.append(...result);
+    else fragment.append(result as string | Node);
 
     return fragment;
   };
 }
-
-/**
- * Example usage:
- * const highlighter = new Highlighter([
- *   { regEXP: /\bimportant\b/g, elTag: "strong", cls: "highlight-important" },
- *   { regEXP: /\bnote\b/g, elTag: "em", cls: "highlight-note" },
- * ]);
- * const highlightedFragment = highlighter.highlight("This is an important note.");
- * document.body.appendChild(highlightedFragment);
- */

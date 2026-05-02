@@ -35,8 +35,8 @@ class BibleSearchCategory extends CommandCategory<VerseRef> {
   }
 
   getCommands(query: string): VerseRef[] {
-    const maxResults = this.commandPalette.state.maxResults - this.commandPalette.length; // Limit the number of results to avoid performance issues
-    if (!query && this.commandPalette.state.topCategory !== GoToVerseCategoryID) return [];
+    const maxResults = this.commandPalette.maxResults - this.commandPalette.length; // Limit the number of results to avoid performance issues
+    if (!query && this.commandPalette.getState().topCategory !== GoToVerseCategoryID) return [];
     //testLevenshtein(this.bible, query);
 
     const results: VerseRef[] = [];
@@ -46,8 +46,8 @@ class BibleSearchCategory extends CommandCategory<VerseRef> {
       const chapters = this.bible[book];
       for (let chapter = 1; chapter < chapters.length; chapter++) {
         const verses = chapters[chapter];
-        for (let verse = 1; verse < verses.length; verse++) {
-          if (verses[verse].toLowerCase().includes(quarylcase)) {
+        for (let verse = 1; verse < verses!.length; verse++) {
+          if (verses![verse]!.toLowerCase().includes(quarylcase)) {
             results.push(new VerseRef(book, chapter, verse));
             if (results.length > maxResults) return results;
           }

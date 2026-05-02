@@ -136,9 +136,7 @@ abstract class App extends ETarget<
   };
   private unload = (): boolean => {
     const shouldUnload = this.onunload();
-    if (shouldUnload) {
-      this.workspace.shutdown();
-    }
+    if (shouldUnload) this.workspace.shutdown();
     return shouldUnload;
   };
 

@@ -51,7 +51,7 @@ class SettingsCategory extends CommandCategory<string> {
       "Download settings",
       "Download your current settings as a JSON file",
       item =>
-        void item.on("click", () => {
+        void item.onClick(() => {
           this.plugin.app.settingsStore.save();
           this.plugin.app.files.downloadFile("TouchGrassBibleSettings.json", this.plugin.app.settings);
         }),
@@ -60,7 +60,7 @@ class SettingsCategory extends CommandCategory<string> {
       "Upload settings",
       "Upload a JSON file to update your settings",
       item =>
-        void item.on("click", () => {
+        void item.onClick(() => {
           this.plugin.app.files.uploadFile(
             ".json",
             newSettings => {
@@ -77,7 +77,7 @@ class SettingsCategory extends CommandCategory<string> {
       "Reset settings",
       "Reset settings to default values",
       item =>
-        void item.on("click", () => {
+        void item.onClick(() => {
           this.plugin.app.commandPalette
             .confirm("Are you sure you want to delete all your data including bookmarks?")
             .then(confirmed => {
@@ -97,7 +97,7 @@ class SettingsCategory extends CommandCategory<string> {
         "Install plugin",
         "Upload a JavaScript plugin file (.js)",
         item =>
-          void item.on("click", () => {
+          void item.onClick(() => {
             this.plugin.app.files.uploadTextFile(
               ".js",
               jsCode => {
@@ -119,7 +119,7 @@ class SettingsCategory extends CommandCategory<string> {
         "Manage plugins",
         "View and manage installed plugins",
         item =>
-          void item.on("click", async () => {
+          void item.onClick(async () => {
             const installedPlugins = await this.plugin.app.externalPlugins!.getInstalledPlugins();
             if (installedPlugins.length === 0) {
               this.plugin.app.console.log("No plugins installed");
@@ -131,7 +131,7 @@ class SettingsCategory extends CommandCategory<string> {
                 `Uninstall: ${filename}`,
                 "Remove this plugin",
                 item =>
-                  void item.on("click", async () => {
+                  void item.onClick(async () => {
                     const confirmed = await this.plugin.app.commandPalette.confirm(
                       `Uninstall plugin: ${filename}?`,
                     );

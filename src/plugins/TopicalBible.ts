@@ -70,7 +70,7 @@ class topicListCategory extends CommandCategory<VerseRef | string> {
         "Clear topic filter",
         "",
         item =>
-          void item.on("click", () => {
+          void item.onClick(() => {
             this.topic.set("");
             this.commandPalette.display();
           }),

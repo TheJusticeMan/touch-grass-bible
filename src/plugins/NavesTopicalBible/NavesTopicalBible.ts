@@ -193,7 +193,7 @@ class NavesTopicCategory extends CommandCategory<NaveCommand> {
         "Browse all Nave topics",
         "",
         item =>
-          void item.on("click", () => {
+          void item.onClick(() => {
             this.plugin.selectedTopicId.set("");
             this.plugin.focusedTopicIds.set([]);
             this.commandPalette.display({ topCategory: NavesTopicListCategoryID });
@@ -205,7 +205,7 @@ class NavesTopicCategory extends CommandCategory<NaveCommand> {
           "Go to parent topic",
           "",
           item =>
-            void item.on("click", () => {
+            void item.onClick(() => {
               this.plugin.selectedTopicId.set(selectedTopic.parentId ?? "");
               this.commandPalette.display({ topCategory: NavesTopicListCategoryID });
             }),
@@ -236,7 +236,7 @@ class NavesTopicCategory extends CommandCategory<NaveCommand> {
         "Browse all Nave topics",
         "",
         item =>
-          void item.on("click", () => {
+          void item.onClick(() => {
             this.plugin.focusedTopicIds.set([]);
             this.commandPalette.display({ topCategory: NavesTopicListCategoryID });
           }),
