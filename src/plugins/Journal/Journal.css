@@ -113,23 +113,22 @@
         color: var(--color-text-muted, rgb(255 255 255 / 0.62));
       }
     }
+  }
 
-    .add-button {
-      align-self: flex-end;
-      border: 1px solid var(--color-border, rgb(255 255 255 / 0.2));
-      border-radius: var(--border-radius-small);
-      background: rgb(255 255 255 / 0.09);
-      color: var(--color-text, rgb(255 255 255 / 0.94));
-      padding: 0.38rem 0.72rem;
-      cursor: pointer;
-    }
+  .add-button {
+    align-self: flex-end;
+    background: rgb(255 255 255 / 0.09);
+    color: var(--color-text, rgb(255 255 255 / 0.94));
+    padding: 0.38rem 0.72rem;
+    margin: 0.2em;
+    cursor: pointer;
+  }
 
-    .add-button:hover {
-      background: rgb(255 255 255 / 0.16);
-    }
+  .add-button:hover {
+    box-shadow: var(--shadow-focus-ring-inset);
+  }
 
-    .add-button:active {
-      transform: translateY(1px);
-    }
+  .add-button:active {
+    transform: translateY(1px);
   }
 }

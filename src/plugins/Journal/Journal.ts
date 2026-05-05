@@ -1,9 +1,10 @@
 import { LayoutNode, Menu, View } from "@touchgrass/framework";
 import { Plus, Trash } from "lucide";
-import van, { State } from "node_modules/vanjs-core/src/van";
 import Plugin from "src/core/Plugin";
 import { VerseRef } from "src/models/VerseRef";
+import van, { State } from "vanjs-core";
 import "./Journal.css";
+
 const { div, button, img } = van.tags;
 
 export const JournalViewID = "journal-panel";
