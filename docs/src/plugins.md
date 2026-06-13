@@ -2,13 +2,27 @@
 
 This page covers the feature layer under `src/plugins/`, where most user-facing behaviors are packaged as plugins that register command-palette categories, verse actions, and workspace views.
 
-## `src/plugins/AI.ts`
+## `src/plugins/AI/AI.ts`
 
-- Purpose: AI-assisted verse explanation and question answering
-- Key APIs: `AIPlugin`, internal `AICommandPalette`, `AIPluginSettings`, `defaultAISettings`
-- Registers the AI palette category and stores an API key in plugin settings.
-- Adds a verse action that asks `AIchat` to explain the selected verse in context.
-- Redirects users toward Settings when no API key is configured.
+- Purpose: current AI plugin implementation entrypoint
+- Key APIs: `AIPlugin`, AI category wiring, verse explain action handlers
+- Integrates the AI chat and embedding-search utilities under the plugin namespace.
+
+## `src/plugins/AI/AIchat.ts`
+
+- Purpose: chat request/stream client used by the AI plugin.
+
+## `src/plugins/AI/AIEmbeddingSearch.ts`
+
+- Purpose: semantic embedding search integration for AI-assisted lookup.
+
+## `src/plugins/AI/AIEmbeddingSearchDB.ts`
+
+- Purpose: embedding index/data access helpers for AI search flows.
+
+## `src/plugins/AI/index.ts`
+
+- Purpose: AI plugin module exports.
 
 ## `src/plugins/Bookmarks.test.ts`
 
@@ -48,6 +62,10 @@ This page covers the feature layer under `src/plugins/`, where most user-facing 
 - Styles grouped daily entries, editable text/verse cards, and action buttons used by the journal view.
 - Supports the UI defined in `src/plugins/Journal/Journal.ts`.
 
+## `src/plugins/Journal/index.ts`
+
+- Purpose: Journal plugin export surface.
+
 ## `src/plugins/Notes/Notes.ts`
 
 - Purpose: verse-linked notes and note vault management
@@ -71,6 +89,10 @@ This page covers the feature layer under `src/plugins/`, where most user-facing 
 - Renders searchable note previews, sorting, and note creation flows.
 - Includes editor and tag-management helpers that save back through `NotesPlugin`.
 
+## `src/plugins/Notes/index.ts`
+
+- Purpose: Notes plugin export surface.
+
 ## `src/plugins/Search.ts`
 
 - Purpose: full-text Bible search and go-to-verse navigation
@@ -78,6 +100,10 @@ This page covers the feature layer under `src/plugins/`, where most user-facing 
 - Registers one category for full-text search and another for structured verse lookup.
 - Parses book/chapter/verse input incrementally and returns `VerseRef` results.
 - Routes selections into the TSK cross-reference category.
+
+## `src/plugins/Search.test.ts`
+
+- Purpose: tests for Bible search/query parsing behavior.
 
 ## `src/plugins/Settings.ts`
 
@@ -102,6 +128,22 @@ This page covers the feature layer under `src/plugins/`, where most user-facing 
 - Adds a verse action showing topics linked to the current verse.
 - Registers a category that can show all topics or the verses for the selected topic.
 
+## `src/plugins/NavesTopicalBible/NavesTopicalBible.ts`
+
+- Purpose: Nave's topical index plugin implementation.
+
+## `src/plugins/NavesTopicalBible/NavesTopicalBibleData.ts`
+
+- Purpose: Nave data parsing/lookup helpers.
+
+## `src/plugins/NavesTopicalBible/NavesTopicalBibleData.test.ts`
+
+- Purpose: tests for Nave topical data behavior.
+
+## `src/plugins/NavesTopicalBible/index.ts`
+
+- Purpose: Nave plugin export surface.
+
 ## `src/plugins/Translations.ts`
 
 - Purpose: translation switching
@@ -117,3 +159,39 @@ This page covers the feature layer under `src/plugins/`, where most user-facing 
 - Loads `crossrefs.json` and keeps an in-memory OSIS cross-reference map.
 - Adds a verse action and palette category for cross references.
 - Serves as a navigation hub for bookmarks, notes, search, and topical browsing.
+
+## `src/plugins/Appearance.ts`
+
+- Purpose: appearance/theme-oriented plugin commands and settings hooks.
+
+## `src/plugins/BibleMap/BibleMapPlugin.ts`
+
+- Purpose: map-focused plugin entrypoint for Bible geography features.
+
+## `src/plugins/BibleMap/BibleMapView.ts`
+
+- Purpose: workspace view implementation used by the Bible map plugin.
+
+## `src/plugins/BibleMap/BibleMap.css`
+
+- Purpose: map view styling.
+
+## `src/plugins/GestureCommands/GestureCommands.ts`
+
+- Purpose: gesture-based command integrations for mobile/touch input.
+
+## `src/plugins/GestureCommands/GestureCommands.css`
+
+- Purpose: gesture command UI styling.
+
+## `src/plugins/GestureCommands/index.ts`
+
+- Purpose: gesture plugin export surface.
+
+## `src/plugins/searchParser.ts`
+
+- Purpose: shared parsing utilities used by search-related plugins.
+
+## `src/plugins/index.ts`
+
+- Purpose: plugin module barrel exports for app startup registration.

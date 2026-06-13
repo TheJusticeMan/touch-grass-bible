@@ -18,8 +18,17 @@ export interface PlatformFileAdapter {
   saveFile(filename: string, content: string, mimeType?: string): Promise<void>;
 }
 
+export interface PlatformWindowControls {
+  minimize(): Promise<void>;
+  maximize(): Promise<void>;
+  close(): Promise<void>;
+  isMaximized(): Promise<boolean>;
+  onMaximizedChange(callback: (isMaximized: boolean) => void): () => void;
+}
+
 export interface PlatformBridge {
   target: PlatformTarget;
   storage: PlatformStorageAdapter;
   files: PlatformFileAdapter;
+  windowControls?: PlatformWindowControls;
 }

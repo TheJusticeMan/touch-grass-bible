@@ -1,13 +1,12 @@
-import { LayoutNode, Menu, View } from "@touchgrass/framework";
+import { MenuVan, State, van, View } from "@touchgrass/framework";
 import { Plus, Trash } from "lucide";
 import Plugin from "src/core/Plugin";
 import { VerseRef } from "src/models/VerseRef";
-import van, { State } from "vanjs-core";
 import "./Journal.css";
 
 const { div, button, img } = van.tags;
 
-export const JournalViewID = "journal-panel";
+const JournalViewID = "journal-panel";
 
 type JournalEntry = {
   type: "text";
@@ -65,7 +64,7 @@ export default class JournalPlugin extends Plugin {
   async onload(): Promise<void> {
     this.settings = await this.loadSettings(defaultJournalSettings);
 
-    this.registerView(JournalViewID, panel => new JournalPanel(panel, this));
+    this.registerView(JournalViewID, () => new JournalPanel(this));
 
     this.addVerseAction({
       id: "add-journal-verse-entry",
@@ -73,10 +72,12 @@ export default class JournalPlugin extends Plugin {
       description: "Add a verse reference as a journal entry.",
       icon: Plus,
       isAvailable: () => true,
-      onTrigger: info => (
-        info.render(),
-        this.app.workspace.getActiveViewOfType<JournalPanel>(JournalViewID)?.addVerseEntry(info.verse)
-      ),
+      onTrigger: info => {
+        const activeView = this.app.workspace.layoutController.activeView.val;
+        if (activeView instanceof JournalPanel) {
+          activeView.addVerseEntry(info.verse);
+        }
+      },
     });
   }
 
@@ -94,31 +95,41 @@ export default class JournalPlugin extends Plugin {
 }
 
 class JournalPanel extends View {
+  readonly viewTypeId = JournalViewID;
   lastContent: HTMLElement | null = null;
   verse: State<VerseRef>;
   imageStateByPath: Map<string, State<string>> = new Map();
   imageObjectUrlByPath: Map<string, string> = new Map();
   loadingImagePaths: Set<string> = new Set();
-  constructor(
-    panel: LayoutNode,
-    public plugin: JournalPlugin,
-  ) {
-    super(panel);
-    this.title = "Journal";
-    this.verse = van.state(this.plugin.app.verseState.get());
-    this.plugin.registerStateChange(
-      this.plugin.app.verseState,
-      value => (this.verse.val = value) /* , void this.onAttach() */,
-    );
+
+  constructor(public plugin: JournalPlugin) {
+    super("Journal", {});
+    this.verse = van.state(this.plugin.app.verseState.val);
+    this.plugin.registerUnload(this.plugin.app.onVerseStateChange(value => (this.verse.val = value)));
   }
 
-  onActivate(): void {
+  create(): HTMLElement {
+    const container = document.createElement("div");
+    container.classList.add("journal-panel");
+    return container;
+  }
+
+  onMount(): void {
+    this.renderEntries();
+  }
+
+  focus(): void {
+    this.renderEntries();
     this.lastContent?.focus();
   }
 
-  onAttach(): void {
-    this.containerEl.empty();
-    this.containerEl.addClass("journal-panel");
+  onUnmount(): void {
+    this.imageObjectUrlByPath.forEach(url => URL.revokeObjectURL(url));
+    this.imageObjectUrlByPath.clear();
+  }
+
+  private renderEntries(): void {
+    this.el.replaceChildren();
 
     const groupedEntries = this.plugin.journalGroups;
     const content = div(
@@ -148,7 +159,7 @@ class JournalPanel extends View {
         () => `Add ${this.verse.val.toString()}`,
       ),
     );
-    this.containerEl.appendChild(content);
+    this.el.appendChild(content);
     this.lastContent = Array.from(content.querySelectorAll(".editor")).at(-1) as HTMLElement;
     this.lastContent?.focus();
   }
@@ -231,7 +242,7 @@ class JournalPanel extends View {
     const dayGroup = this.getOrCreateTodayGroup();
     dayGroup.entries.push(entry);
     void this.plugin.saveSettings();
-    this.onAttach();
+    this.renderEntries();
   }
 
   entry(journalEntry: JournalEntry): HTMLDivElement {
@@ -265,7 +276,7 @@ class JournalPanel extends View {
     return div(
       { class: "entry is-verse", oncontextmenu: e => this.contextMenuHandler(e, journalEntry) },
       div({ class: "ref" }, verse.toString()),
-      div({ class: "text" }, verse.text(this.plugin.app.translationState.get())),
+      div({ class: "text" }, verse.text(this.plugin.app.translationState.val)),
       div({ class: "time" }, journalEntry.time),
     );
   }
@@ -287,14 +298,13 @@ class JournalPanel extends View {
     );
   }
 
-  contextMenuHandler(e: MouseEvent, entry: JournalAnyEntry): Menu {
+  contextMenuHandler(e: MouseEvent, entry: JournalAnyEntry): void {
     e.preventDefault();
-    return new Menu()
-      .addItem(item => {
-        item
-          .setTitle("Remove Entry")
-          .setIcon(Trash)
-          .onClick(() => this.pruneEntry(entry));
+    return new MenuVan()
+      .addItem({
+        title: "Remove Entry",
+        icon: Trash,
+        onClick: () => this.pruneEntry(entry),
       })
       .showAtMouseEvent(e);
   }
@@ -330,7 +340,7 @@ class JournalPanel extends View {
           }
 
           void this.plugin.saveSettings();
-          this.onAttach();
+          this.renderEntries();
           return;
         }
       }

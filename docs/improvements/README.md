@@ -31,9 +31,9 @@ This folder captures potential improvements and enhancements found during a code
 ## File groups
 
 - `core.md` - app boot, Bible models, settings, reading surface, and navigation
-- `framework.md` - command palette, workspace, events, DOM helpers, components, and shared CSS
+- `framework.md` - framework package internals (command palette, workspace, events, DOM helpers, and shared CSS)
 - `plugins.md` - AI, bookmarks, notes, journal, search, settings, translations, sharing, and TSK
-- `platform.md` - platform bridges, Electron shell, web shell, manifest, service worker, and packaging
+- `platform.md` - platform bridges, Electron shell, runtime adapters, and packaging
 
 ## Suggested implementation order
 

@@ -1,138 +1,73 @@
 # Framework Improvements
 
-This page focuses on the shared framework under `src/external/`: workspace, command palette, events, DOM helpers, components, and shared CSS.
+This page focuses on shared framework code in `packages/framework/src/`.
 
-## `src/external/App.ts`
+## `packages/framework/src/App.ts`
 
-- High: fix `beforeunload` handling so it uses the browser contract correctly and makes shutdown persistence more explicit
-- High: tear down global listeners and helpers on unload
-- Medium: use `this.doc` consistently instead of global `document`
-- Medium: make history entries more meaningful if browser history integration remains enabled
+- High: tighten unload cleanup for global listeners and history integration.
+- High: verify beforeunload contract handling and persistence ordering.
+- Medium: prefer injected document/context handles over globals.
 
-## `src/external/App.css`
+## `packages/framework/src/CommandPalette.ts`
 
-- High: remove or narrow global rules like `touch-action: none`, `user-select: none`, and pointer cursors on text inputs
-- Medium: use viewport-safe sizing and safe-area handling for mobile shells
-- Medium: add consistent base `:focus-visible` styles for inputs and buttons
+- High: stabilize state transitions to avoid duplicate emissions.
+- High: improve dialog semantics (focus trap, focus restore, ARIA labels).
+- Medium: reduce full re-render work during category/context switches.
 
-## `src/external/CommandPalette.ts`
+## `packages/framework/src/CommandPalette.css`
 
-- High: fix duplicate or stale state emissions during `state` updates and `display()` flows
-- High: add real dialog behavior with focus trap, focus restore, and ARIA dialog semantics
-- Medium: stop rebuilding the entire palette container for every display/context switch
-- Medium: reduce noisy browser-history integration for internal palette navigation
+- Medium: strengthen keyboard-visible states and reduced-motion coverage.
+- Medium: improve long-title overflow behavior.
 
-## `src/external/CommandPalette.css`
+## `packages/framework/src/UIComponents.ts`
 
-- Medium: add clear keyboard focus styling for header actions and command rows
-- Medium: improve sizing and safe-area handling across desktop and mobile
-- Low: improve overflow handling for long titles and descriptions
+- High: remove auto-focus side effects from constructor paths.
+- High: ensure non-button clickables have button semantics or real buttons.
+- Medium: make menus viewport-aware and consistently escapable.
 
-## `src/external/UIComponents.ts`
+## `packages/framework/src/UIComponents.css`
 
-- High: fix `Item.highlight()` so it passes valid highlight configuration into `Highlighter`
-- High: remove auto-focus side effects from input constructors
-- High: replace clickable non-semantic `div` controls with buttons or full keyboard semantics
-- Medium: make menus viewport-aware and closable with Escape
+- Medium: normalize focus/disabled states across reusable controls.
+- Medium: improve touch sizing for high-frequency controls.
 
-## `src/external/UIComponents.css`
+## `packages/framework/src/Event.ts`
 
-- Medium: add z-index and viewport-safe behavior for context menus
-- Medium: add visible focus and disabled states that match semantic controls
-- Low: enlarge and retune `.scroll-bubble` for touch-heavy use
+- High: make `emit()` robust to handler exceptions and mutation during iteration.
+- High: improve ergonomic subscription helpers (`once`, disposer-first APIs).
+- Medium: tighten `Openable` stack ownership checks.
 
-## `src/external/Event.ts`
+## `packages/framework/src/MyHTML.ts`
 
-- High: make `emit()` exception-safe and iterate over a copied handler list
-- High: add better unsubscribe ergonomics such as `once`, disposer returns, and `offAny`
-- High: make `Openable` pop the target stack only when it owns the top entry
-- Medium: move `touchDragger` toward pointer events and a real destroy lifecycle
+- High: reduce/replace global prototype mutation where practical.
+- Medium: align declared helper options with implemented behavior.
 
-## `src/external/MyBrowserConsole.ts`
+## `packages/framework/src/PaletteStateController.ts`
 
-- Low: consider centralizing log-level policy so debug output can be toggled per subsystem instead of ad hoc booleans
+- High: deepen snapshot semantics so nested state cannot leak across contexts.
+- Medium: add pruning/disposal strategies for long sessions.
 
-## `src/external/MyHTML.ts`
+## `packages/framework/src/Workspace.ts`
 
-- High: stop patching global `Node`, `HTMLElement`, and `String` prototypes and export helpers instead
-- Medium: either implement or remove `createEl()` options that are declared but ignored
-- Medium: make `setIcon()` replace children instead of appending endlessly
-- Low: move `toTitleCase()` to a plain utility module
+- High: improve drop insertion logic to use pointer midpoint and panel intent.
+- High: keep tracing/dev instrumentation opt-in.
+- Medium: serialize saves and handle persistence failures explicitly.
 
-## `src/external/PaletteStateController.ts`
+## `packages/framework/src/Workspace.css`
 
-- High: use deeper clone semantics for snapshots so nested state does not bleed across contexts
-- Medium: cap or prune the context stack during long sessions
-- Medium: add disposal/unregistration for atom states that are no longer needed
+- Medium: reduce DOM-order assumptions in mobile panel behavior.
+- Medium: strengthen resize-handle keyboard/focus affordances.
 
-## `src/external/Workspace.ts`
+## `packages/framework/src/SettingsStore.ts`
 
-- High: make tab insertion pointer-aware so drops can distinguish before and after positions correctly
-- High: gate `WorkspaceTrace` behind a development flag instead of patching methods in production
-- Medium: serialize layout saves and handle persistence failures explicitly
-- Medium: harden splitter cleanup for `pointercancel` and lost capture, and use more practical pane minimums
+- High: support schema/default handling and nested updates cleanly.
+- Medium: avoid excessive churn from fresh proxy/object wrappers on each read.
 
-## `src/external/Workspace.css`
+## `packages/framework/src/highlighter.ts`
 
-- High: replace mobile `first-of-type` and `last-of-type` assumptions with explicit panel-role classes
-- [x] Medium: add `:focus-visible` styles for tabs, close buttons, and window controls
-- Medium: add `:focus-visible` styles for resize handles
-- Medium: respect `prefers-reduced-motion`
-
-## `src/external/WorkspaceDom.ts`
-
-- Medium: ensure tab buttons and close controls expose full semantic button behavior and keyboard support
-- Medium: standardize unresolved-placeholder states so they are easier to debug and recover from
-
-## `src/external/WorkspaceDragDrop.ts`
-
-- High: compute insertion from pointer position and tab midpoint instead of only the hovered tab
-- High: clean up drag state on `pointercancel`, blur, and lost capture
-- Medium: allow dropping into empty tab groups and persistent placeholders
-- Medium: throttle hover hit-testing work with `requestAnimationFrame`
-
-## `src/external/WorkspaceLayoutModel.ts`
-
-- Medium: add more validation around malformed or partially upgraded layouts and surface actionable errors when restore fails
-
-## `src/external/WorkspaceMobileSwipe.ts`
-
-- High: scope gestures to the workspace root and only enable them on touch/mobile layouts
-- High: move to pointer events and handle cancel paths explicitly
-- Medium: replace fixed scaling constants with width-aware thresholds
-- Medium: ignore gestures from interactive elements and preserve normal scrolling
-
-## `src/external/WorkspaceTrace.ts`
-
-- High: keep tracing opt-in and dev-only to avoid runtime overhead and console noise in production
-- Medium: make traces easier to sample or cap so long sessions do not grow logs indefinitely
-
-## `src/external/escapeRegExp.ts`
-
-- Low: add a focused test file because the helper is small but foundational for query safety
-
-## `src/external/highlighter.ts`
-
-- High: preserve the full match by default instead of assuming a capture group exists
-- Medium: define deterministic overlap precedence rules for multiple highlight specs
-- Medium: skip unnecessary regex replacement work when plain text output is enough
-- Medium: add focused tests for overlap, nested children, and zero-length matches
-
-## `src/external/settings.ts`
-
-- High: support schema/default handling and nested changes instead of only top-level proxy writes
-- Medium: return a stable settings object instead of a fresh proxy on every getter
-- Medium: replace per-property console logging with optional debug and persistence hooks
-- Medium: add direct tests for nested updates and single-emission behavior
+- Medium: document overlap precedence and zero-length match behavior.
+- Medium: add focused tests for nested/overlapping highlight specs.
 
 ## Test gaps
 
-- High: add direct tests for `src/external/CommandPalette.ts`, `src/external/PaletteStateController.ts`, `src/external/Event.ts`, `src/external/settings.ts`, `src/external/highlighter.ts`, `src/external/MyHTML.ts`, and `src/external/UIComponents.ts`
-- High: expand workspace drag/drop tests to cover midpoint insertion and cancel cleanup
-- Medium: expand swipe tests to cover actual swipe thresholds, vertical rejection, and destroy cleanup
-
-## Cross-cutting framework themes
-
-- High: introduce one shared disposable/listener abstraction for app shell, overlays, swipe, drag, and menu cleanup
-- High: improve accessibility defaults across all shared UI primitives before adding more product features
-- Medium: consolidate design tokens and motion/focus rules across `App.css`, `Workspace.css`, `CommandPalette.css`, and `Components.css`
+- High: expand direct tests for `CommandPalette.ts`, `PaletteStateController.ts`, and `SettingsStore.ts`.
+- Medium: add coverage for workspace drag/drop midpoint behavior and cancel cleanup paths.

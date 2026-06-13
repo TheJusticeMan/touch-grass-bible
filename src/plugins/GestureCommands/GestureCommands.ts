@@ -1,19 +1,22 @@
-import { Terminal } from "lucide";
-import Plugin from "src/core/Plugin";
 import {
-  Button,
   CategoryLoader,
   Command,
   CommandCategory,
   CommandItem,
-  CommandPaletteState,
+  CommandPaletteDialog,
+  CommandPaletteViewState,
   GestureCommand,
   GestureHandler,
   Offset,
-  UnifiedCommandPalette,
+  renderIcon,
+  van,
 } from "@touchgrass/framework";
-import "./GestureCommands.css";
+import { Terminal } from "lucide";
+import Plugin from "src/core/Plugin";
 import { GestureAddCommandsCategoryID } from "../categoryIDs";
+import "./GestureCommands.css";
+
+const { button } = van.tags;
 
 type GestureCommandsSettings = {
   commandGestures: GestureCommand[];
@@ -28,13 +31,14 @@ export default class GesturePlugin extends Plugin {
   lastLine: Offset[] = [];
   async onload(): Promise<void> {
     this.settings = await this.loadSettings(defaultSettings);
-    const el = new Button(this.app.contentEl)
-      .addClass("gesture-button")
-      .setIcon(Terminal)
-      .on("click", () => this.app.openCommandPalette({}));
+    const el = button(
+      { class: "gesture-button", onclick: () => this.app.openCommandPalette({}) },
+      renderIcon(Terminal),
+    );
 
+    van.add(this.app.contentEl, el);
     new GestureHandler(
-      el.element,
+      el,
       this.settings.commandGestures,
       line => {
         this.lastLine = line;
@@ -43,10 +47,7 @@ export default class GesturePlugin extends Plugin {
       ({ id }) => this.app.commandPalette.commands.executeCommand(id),
     );
 
-    this.registerHiddenPalette(
-      () => new AddGesture(this.app.commandPalette, this),
-      GestureAddCommandsCategoryID,
-    );
+    this.registerHiddenPalette(dialog => new AddGesture(dialog, this), GestureAddCommandsCategoryID);
   }
 
   saveGestures() {
@@ -61,19 +62,19 @@ class AddGesture extends CommandCategory<Command> {
   icon = Terminal;
   siblings: CategoryLoader<unknown>[] = [];
   constructor(
-    public commandPalette: UnifiedCommandPalette,
+    public dialog: CommandPaletteDialog,
     public plugin: GesturePlugin,
   ) {
-    super(commandPalette);
+    super(dialog);
   }
 
-  onTrigger(state: CommandPaletteState): void {
+  onTrigger(state: CommandPaletteViewState): void {
     void state;
     // No category-level action
   }
 
   getCommands(query: string): Command[] {
-    return this.commandPalette.commands.commands.filter(cmd =>
+    return this.dialog.palette.commands.commands.filter(cmd =>
       cmd.name.toLowerCase().includes(query.toLowerCase()),
     );
   }
@@ -81,8 +82,8 @@ class AddGesture extends CommandCategory<Command> {
   renderCommand(
     command: Command,
     el: CommandItem<Command>,
-  ): Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState) {
-    el.setName(`Add Gesture for: ${command.name}`);
+  ): Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) {
+    el.setTitle(`Add Gesture for: ${command.name}`);
     return {};
   }
 
@@ -95,6 +96,6 @@ class AddGesture extends CommandCategory<Command> {
       ),
     });
     this.plugin.saveGestures();
-    this.commandPalette.close();
+    this.dialog.palette.close();
   }
 }

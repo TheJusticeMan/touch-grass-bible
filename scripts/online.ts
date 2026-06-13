@@ -1,8 +1,7 @@
 import { createWriteStream, readFileSync, unlinkSync, writeFileSync } from "fs";
 import { get } from "https";
-import { dirname, join } from "path";
+import { join } from "path";
 import { Open } from "unzipper";
-import { fileURLToPath } from "url";
 
 interface FileConfig {
   url: string;
@@ -17,7 +16,7 @@ interface CrossReferences {
   [key: string]: Array<[string, number]>;
 }
 
-const _dirname = typeof __dirname !== "undefined" ? __dirname : dirname(fileURLToPath(import.meta.url));
+const _dirname = typeof __dirname === "string" ? __dirname : process.cwd();
 const _dest = "./dist";
 const files: FileConfig[] = [
   {

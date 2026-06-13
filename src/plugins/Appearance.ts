@@ -1,14 +1,15 @@
-import Plugin from "src/core/Plugin";
 import {
   CommandCategory,
   CommandItem,
-  CommandPaletteState,
-  UnifiedCommandPalette,
+  CommandPaletteDialog,
+  CommandPaletteViewState,
+  slider
 } from "@touchgrass/framework";
+import Plugin from "src/core/Plugin";
 
 export default class AppearancePlugin extends Plugin {
   async onload(): Promise<void> {
-    this.registerPalette(() => new AppearanceCategory(this.app.commandPalette, this), "appearance");
+    this.registerPalette((dialog) => new AppearanceCategory(dialog, this), "appearance");
   }
 }
 
@@ -17,19 +18,20 @@ class AppearanceCategory extends CommandCategory<string> {
   readonly description = "Customize the appearance of Touch Grass Bible";
 
   constructor(
-    public commandPalette: UnifiedCommandPalette,
+    public dialog: CommandPaletteDialog,
     public plugin: AppearancePlugin,
   ) {
-    super(commandPalette);
+    super(dialog);
   }
 
-  onTrigger(_state: CommandPaletteState): void {
+  onTrigger(_state: CommandPaletteViewState): void {
     void _state;
     this.defaultCMD.addCMD("Font Size", "Adjust the font size of the Bible text", item => {
-      item.addSliderInput(slider =>
-        slider
-          .setValue(this.plugin.app.settings.style.fontSize)
-          .on("change", (value: number) => this.plugin.app.setFontSize(value, true)),
+      item.addComponent(
+        slider({
+          value: this.plugin.app.settings.style.fontSize,
+          onchange: (value: number) => this.plugin.app.setFontSize(value, true),
+        }),
       );
       return {};
     });
@@ -43,7 +45,7 @@ class AppearanceCategory extends CommandCategory<string> {
   renderCommand(
     command: string,
     el: CommandItem<string>,
-  ): Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState) {
+  ): Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) {
     el.setTitle(command).setDescription("No appearance settings available yet").setHidden(false);
     return {};
   }

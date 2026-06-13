@@ -2,9 +2,10 @@ import info from "@build-info";
 import {
   CommandCategory,
   CommandItem,
-  CommandPaletteState,
+  CommandPaletteDialog,
+  CommandPaletteViewState,
   pluginOptions,
-  UnifiedCommandPalette,
+  toggle,
 } from "@touchgrass/framework";
 import { DEFAULT_SETTINGS } from "../config/TGAppSettings";
 import Plugin from "../core/Plugin";
@@ -12,11 +13,8 @@ import { PluginOptionsCategoryID, SettingsCategoryID } from "./categoryIDs";
 
 export default class SettingsPlugin extends Plugin {
   async onload(): Promise<void> {
-    this.registerPalette(() => new SettingsCategory(this.app.commandPalette, this), SettingsCategoryID);
-    this.registerPalette(
-      () => new pluginOptions(this.app.commandPalette, this.app.plugins),
-      PluginOptionsCategoryID,
-    );
+    this.registerPalette(dialog => new SettingsCategory(dialog, this), SettingsCategoryID);
+    this.registerPalette(dialog => new pluginOptions(dialog, this.app.plugins), PluginOptionsCategoryID);
   }
 }
 
@@ -25,27 +23,29 @@ class SettingsCategory extends CommandCategory<string> {
   readonly description = "Configure Touch Grass Bible settings";
 
   constructor(
-    public commandPalette: UnifiedCommandPalette,
+    public dialog: CommandPaletteDialog,
     public plugin: SettingsPlugin,
   ) {
-    super(commandPalette);
+    super(dialog);
   }
 
-  onTrigger(_state: CommandPaletteState): void {
+  onTrigger(_state: CommandPaletteViewState): void {
     void _state;
     this.defaultCMD.addCMD(
       "Enable debug console",
       "Toggle the in-app debug console for logging and debugging purposes",
       item =>
-        void item
-          .addToggleInput(toggle =>
-            toggle.setValue(this.plugin.app.settings.enableLogging).on("change", v => {
-              this.plugin.app.console.enabled = v;
-              this.plugin.app.settings.enableLogging = v;
+        void item.setTitle("Debug console").addComponent(
+          toggle({
+            checked: this.plugin.app.console.enabled,
+            onclick: (e: Event, state) => {
+              e.stopPropagation();
+              this.plugin.app.console.enabled = state.val;
+              this.plugin.app.settings.enableLogging = this.plugin.app.console.enabled;
               this.plugin.app.settingsStore.save();
-            }),
-          )
-          .setName("Debug console"),
+            },
+          }),
+        ),
     );
     this.defaultCMD.addCMD(
       "Download settings",
@@ -86,7 +86,7 @@ class SettingsCategory extends CommandCategory<string> {
 
               this.plugin.app.settingsStore.save();
 
-              this.commandPalette.display({ topCategory: "" });
+              this.dialog.palette.display({ topCategory: "" });
             });
         }),
     );
@@ -169,7 +169,7 @@ class SettingsCategory extends CommandCategory<string> {
     return [];
   }
 
-  renderCommand(_command: string, _Item: CommandItem<string>): Partial<CommandPaletteState> {
+  renderCommand(_command: string, _Item: CommandItem<string>): Partial<CommandPaletteViewState> {
     void _command;
     void _Item;
     return { topCategory: SettingsCategoryID };

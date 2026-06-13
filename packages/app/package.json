@@ -8,8 +8,5 @@
     "build": "cd ../.. && npm run build",
     "test": "cd ../.. && npm run test",
     "lint": "cd ../.. && npm run lint"
-  },
-  "dependencies": {
-    "@touchgrass/framework": "*"
   }
 }

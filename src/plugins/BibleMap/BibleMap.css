@@ -12,42 +12,42 @@
   width: 100%;
   padding: 12px;
   box-sizing: border-box;
+
+  .bible-map-status {
+    position: absolute;
+    top: 18px;
+    left: 20px;
+    z-index: 1;
+    font-size: 0.82rem;
+    color: var(--color-text-muted, rgb(255 255 255 / 0.7));
+    background: rgb(0 0 0 / 0.24);
+    border: 1px solid var(--color-border, rgb(255 255 255 / 0.16));
+    border-radius: var(--border-radius-medium, 8px);
+    padding: 4px 8px;
+    backdrop-filter: blur(4px);
+    pointer-events: none;
+  }
+
+  .bible-map-canvas {
+    width: 100%;
+    height: 100%;
+    border: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
+    border-radius: var(--border-radius-large, 12px);
+    background-color: #005f92;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.08),
+      0 12px 30px rgb(0 0 0 / 0.35);
+  }
 }
 
-.bible-map-status {
-  position: absolute;
-  top: 18px;
-  left: 20px;
-  z-index: 1;
-  font-size: 0.82rem;
-  color: var(--color-text-muted, rgb(255 255 255 / 0.7));
-  background: rgb(0 0 0 / 0.24);
-  border: 1px solid var(--color-border, rgb(255 255 255 / 0.16));
-  border-radius: var(--border-radius-medium, 8px);
-  padding: 4px 8px;
-  backdrop-filter: blur(4px);
-  pointer-events: none;
-}
+.bible-map-land-shelves {
+  path {
+    paint-order: stroke;
 
-.bible-map-canvas {
-  width: 100%;
-  height: 100%;
-  border: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
-  border-radius: var(--border-radius-large, 12px);
-  background-color: #005f92;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.08),
-    0 12px 30px rgb(0 0 0 / 0.35);
-}
-
-.bible-map-land-shelves path {
-  paint-order: stroke;
-}
-
-.bible-map-land-shelves path {
-  /* This creates a subtle 'elevation' effect */
-  filter: drop-shadow(1px 1.5px 1px rgba(0, 0, 0, 0.5)) drop-shadow(0.5px 0.5px 0 rgb(0, 0, 0));
-  transition: filter 0.2s ease;
+    /* This creates a subtle 'elevation' effect */
+    filter: drop-shadow(1px 1.5px 1px rgba(0, 0, 0, 0.5)) drop-shadow(0.5px 0.5px 0 rgb(0, 0, 0));
+    transition: filter 0.2s ease;
+  }
 }
 
 /* /* Optional: Make the peaks pop more * /
@@ -55,8 +55,10 @@
   filter: drop-shadow(2px 3px 2px rgba(0, 0, 0, 0.6));
 }
  */
-.bible-map-countries path {
-  paint-order: stroke;
+.bible-map-countries {
+  path {
+    paint-order: stroke;
+  }
 }
 
 .bible-map-coastline {
@@ -64,70 +66,81 @@
   stroke-linecap: round;
 }
 
-.bible-map-chapter-dots path {
-  transition: opacity 120ms ease;
+.bible-map-chapter-dots {
+  path {
+    transition: opacity 120ms ease;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
 }
 
-.bible-map-chapter-dots path:hover {
-  opacity: 1;
+.bible-map-hit-areas {
+  path {
+    pointer-events: all;
+
+    &:hover {
+      fill: rgb(255 255 255 / 0.12);
+    }
+
+    &.is-active {
+      fill: rgba(255, 245, 157, 0.24);
+    }
+  }
 }
 
-.bible-map-hit-areas path {
-  pointer-events: all;
+.bible-map-book-labels,
+.bible-map-chapter-labels {
+  text {
+    paint-order: stroke;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    text-rendering: geometricPrecision;
+    pointer-events: none;
+
+    &.is-active {
+      fill: #fff4a8;
+      stroke: rgb(58 37 0 / 0.72);
+    }
+  }
 }
 
-.bible-map-hit-areas path:hover {
-  fill: rgb(255 255 255 / 0.12);
+.bible-map-book-labels {
+  text {
+    fill: var(--color-text, rgb(255 255 255 / 0.94));
+    font-size: calc(var(--map-label-font-size, 8px) * 1.15);
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    stroke: rgb(0 0 0 / 0.5);
+    stroke-width: calc(var(--map-label-font-size, 8px) * 0.3);
+  }
 }
 
-.bible-map-hit-areas path.is-active {
-  fill: rgba(255, 245, 157, 0.24);
-}
-
-.bible-map-book-labels text {
-  fill: var(--color-text, rgb(255 255 255 / 0.94));
-  font-size: calc(var(--map-label-font-size, 8px) * 1.15);
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  paint-order: stroke;
-  stroke: rgb(0 0 0 / 0.5);
-  stroke-width: calc(var(--map-label-font-size, 8px) * 0.3);
-  stroke-linejoin: round;
-  stroke-linecap: round;
-  text-rendering: geometricPrecision;
-  pointer-events: none;
-}
-
-.bible-map-book-labels text.is-active,
-.bible-map-chapter-labels text.is-active {
-  fill: #fff4a8;
-  stroke: rgb(58 37 0 / 0.72);
-}
-
-.bible-map-chapter-labels text {
-  fill: rgb(255 255 255 / 0.82);
-  font-size: var(--map-label-font-size, 8px);
-  paint-order: stroke;
-  stroke: rgb(0 0 0 / 0.4);
-  stroke-width: calc(var(--map-label-font-size, 8px) * 0.3);
-  stroke-linejoin: round;
-  stroke-linecap: round;
-  text-rendering: geometricPrecision;
-  pointer-events: none;
+.bible-map-chapter-labels {
+  text {
+    fill: rgb(255 255 255 / 0.82);
+    font-size: var(--map-label-font-size, 8px);
+    stroke: rgb(0 0 0 / 0.4);
+    stroke-width: calc(var(--map-label-font-size, 8px) * 0.3);
+  }
 }
 
 .bible-map-active-chapter {
   pointer-events: none;
 }
 
-.bible-map-active-chapter-glow {
+.bible-map-active-chapter-glow,
+.bible-map-active-chapter-core {
   fill: none;
+}
+
+.bible-map-active-chapter-glow {
   stroke: rgb(255 241 166 / 0.45);
   stroke-width: 3px;
 }
 
 .bible-map-active-chapter-core {
-  fill: none;
   stroke: rgb(255 247 191 / 0.95);
   stroke-width: 2px;
 }
@@ -140,21 +153,23 @@
 @media (max-width: 900px) {
   .bible-map-root {
     padding: 8px;
-  }
 
-  .bible-map-status {
-    font-size: 0.75rem;
-    top: 12px;
-    left: 12px;
+    .bible-map-status {
+      font-size: 0.75rem;
+      top: 12px;
+      left: 12px;
+    }
   }
 }
 
 @media (pointer: coarse), (max-width: 900px) {
-  .bible-map-status {
-    backdrop-filter: none;
-  }
+  .bible-map-root {
+    .bible-map-status {
+      backdrop-filter: none;
+    }
 
-  .bible-map-canvas {
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+    .bible-map-canvas {
+      box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+    }
   }
 }

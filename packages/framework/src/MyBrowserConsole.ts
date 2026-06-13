@@ -66,7 +66,7 @@ export class BrowserConsole {
   }
 
   header(...args: unknown[]): void {
-    if (this.enabled) console.log("%c" + this.consoleName, ...args);
+    if (this.enabled) console.log(`%c${this.consoleName}`, ...args);
     //console.log("%cDeveloper Console", "color:#7f6df2; font-size:40px; font-weight:bold;");
   }
 }

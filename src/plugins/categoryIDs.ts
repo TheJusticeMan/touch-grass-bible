@@ -12,4 +12,3 @@ export const TranslationsCategoryID = "translations";
 export const TSKCrossRefCategoryID = "tsk-cross-ref";
 export const VerseListCategoryID = "verse-list";
 export const GestureAddCommandsCategoryID = "gesture-add-commands";
-export const JournalCategoryID = "journal";

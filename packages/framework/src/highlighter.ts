@@ -2,7 +2,7 @@
 import { ChildDom } from "vanjs-core";
 
 // Strict Discriminated Union
-export type HighlightType =
+export type HighlightRule =
   | {
       regEXP: RegExp;
       children?: never;
@@ -10,13 +10,13 @@ export type HighlightType =
     }
   | {
       regEXP: RegExp;
-      children: HighlightType[];
+      children: HighlightRule[];
       callback: (content: ChildDom) => ChildDom;
     };
 
-export function highlight(text: string, patterns: HighlightType[]): ChildDom {
+export function highlight(text: string, patterns: HighlightRule[]): ChildDom {
   // 1. Clone regexes ONCE per function call for performance and render safety.
-  // We cast back to HighlightType[] because mapping spreads the union,
+  // We cast back to HighlightRule[] because mapping spreads the union,
   // but we know we are strictly preserving the original structure.
   const safePatterns = patterns.map(p => {
     const flags = p.regEXP.flags.includes("g") ? p.regEXP.flags : `${p.regEXP.flags}g`;
@@ -24,14 +24,14 @@ export function highlight(text: string, patterns: HighlightType[]): ChildDom {
       ...p,
       regEXP: new RegExp(p.regEXP.source, flags),
     };
-  }) as HighlightType[];
+  }) as HighlightRule[];
 
   const result: ChildDom[] = [];
   let cursor = 0;
 
   while (cursor < text.length) {
     let bestMatch: RegExpExecArray | null = null;
-    let bestType: HighlightType | undefined;
+    let bestType: HighlightRule | undefined;
 
     for (const p of safePatterns) {
       // lastIndex mutation is now perfectly safe because safePatterns is
@@ -79,11 +79,11 @@ export interface HighlightTypeLegacy {
 }
 
 export class Highlighter {
-  private patterns: HighlightType[];
+  private patterns: HighlightRule[];
 
   constructor(public args: HighlightTypeLegacy[]) {
-    const mapPatterns = (patterns: HighlightTypeLegacy[]): HighlightType[] =>
-      patterns.map((p): HighlightType => {
+    const mapPatterns = (patterns: HighlightTypeLegacy[]): HighlightRule[] =>
+      patterns.map((p): HighlightRule => {
         if (p.children) {
           // Branch Node
           return {

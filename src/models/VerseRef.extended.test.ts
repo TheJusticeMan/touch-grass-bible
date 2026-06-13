@@ -12,6 +12,10 @@ import { VerseRef } from "./VerseRef";
 
 // Book data: bookData[chapter][verse] — index 0 is unused placeholder
 type MockBible = { [book: string]: string[][] };
+type VerseRefPrivateCache = {
+  _verseCount?: number;
+  _versesBeforeIndex?: { [book: string]: number[] };
+};
 
 const makeMockBible = (): MockBible => ({
   // GENESIS: 3 chapters, up to 3 verses each
@@ -195,6 +199,30 @@ describe("VerseRef.nextChapter", () => {
     const next = ref.nextChapter;
     expect(next.book).toBe("EXODUS");
     expect(next.chapter).toBe(1);
+  });
+});
+
+describe("VerseRef.distance", () => {
+  test("recomputes against loaded bible data after an empty start", () => {
+    const originalTranslations = VerseRef.bibleTranslations;
+    const verseRefCache = VerseRef as unknown as VerseRefPrivateCache;
+    const originalVerseCount = verseRefCache._verseCount;
+    const originalVersesBeforeIndex = verseRefCache._versesBeforeIndex;
+
+    try {
+      VerseRef.bibleTranslations = {};
+      verseRefCache._verseCount = undefined;
+      verseRefCache._versesBeforeIndex = undefined;
+
+      expect(VerseRef.distance(0)).toEqual(new VerseRef("GENESIS", 1, 1));
+
+      VerseRef.bibleTranslations = { KJV: makeMockBible() };
+      expect(VerseRef.distance(1)).toEqual(new VerseRef("REVELATION", 2, 1));
+    } finally {
+      VerseRef.bibleTranslations = originalTranslations;
+      verseRefCache._verseCount = originalVerseCount;
+      verseRefCache._versesBeforeIndex = originalVersesBeforeIndex;
+    }
   });
 });
 

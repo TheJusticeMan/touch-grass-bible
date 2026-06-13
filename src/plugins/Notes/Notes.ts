@@ -1,24 +1,26 @@
-import { SquarePen } from "lucide";
 import {
   CommandCategory,
   CommandItem,
-  CommandPaletteState,
-  TextArea,
-  UnifiedCommandPalette,
+  CommandPaletteDialog,
+  CommandPaletteViewState,
+  van,
 } from "@touchgrass/framework";
+import { SquarePen } from "lucide";
 import Plugin from "../../core/Plugin";
 import { OSIS, VerseRef } from "../../models/VerseRef";
 import { myNotesCategoryID, TSKCrossRefCategoryID } from "../categoryIDs";
-import { Note, NotesPanel, NoteVault } from "./NotesPanel";
+import {
+  NoteEditorFloatingView,
+  NoteEditorFloatingViewID,
+  NotesPanel,
+  NoteVault,
+  type SerializedNote,
+} from "./NotesPanel.ts";
+const { textarea } = van.tags;
 
 interface NotesPluginSettings {
   myNotes: [string, string][];
-  ExtraNotes: {
-    name: string;
-    content: string;
-    dateCreated: string;
-    dateModified: string;
-  }[];
+  ExtraNotes: SerializedNote[];
 }
 
 const defaultNotesSettings: NotesPluginSettings = {
@@ -45,26 +47,30 @@ export default class NotesPlugin extends Plugin {
       delete this.app.settings.ExtraNotes;
       this.app.settingsStore.save();
     }
-    this.Vault.loadNotes(this.settings.ExtraNotes.map(nj => Note.fromJSON(nj)));
+    this.Vault.loadNotes(this.settings.ExtraNotes);
 
-    this.registerPalette(() => new myNotesCategory(this.app.commandPalette, this), myNotesCategoryID);
-    this.registerView("notes-panel", panel => new NotesPanel(panel, this));
+    this.registerPalette(dialog => new myNotesCategory(dialog, this), myNotesCategoryID);
+    this.registerView("notes-panel", () => new NotesPanel(this));
+    this.registerView(NoteEditorFloatingViewID, () => new NoteEditorFloatingView(this));
     this.addVerseAction({
       id: "add-note",
       name: "Add/edit note for this verse",
       description: "Create or edit a personal note for this verse",
       icon: SquarePen,
       onTrigger: verseInfo => {
-        const noteInput = new TextArea(verseInfo.element)
-          .setValue(this.myNotes.get(verseInfo.verse) || "")
-          .addClass("note-area")
-          .setPlaceholder(" - Add your note here...")
-          .on("click", e => e.stopPropagation())
-          .on("input", (value: string) => {
+        const noteTextarea = textarea({
+          class: "note-area",
+          placeholder: " - Add your note here...",
+          value: this.myNotes.get(verseInfo.verse) || "",
+          onclick: (e: Event) => e.stopPropagation(),
+          oninput: (e: Event) => {
+            const value = (e.target as HTMLTextAreaElement).value;
             this.myNotes.set(verseInfo.verse, value);
             this.app.settingsStore.saveAfterDelay();
-          });
-        noteInput.focus(); // Auto-focus for better UX
+          },
+        });
+        van.add(verseInfo.element, noteTextarea);
+        noteTextarea.focus();
       },
     });
   }
@@ -74,19 +80,20 @@ export default class NotesPlugin extends Plugin {
     await super.saveSettings(this.settings);
   }
 }
+
 class myNotesCategory extends CommandCategory<VerseRef> {
   readonly name = "Notes";
   readonly description = "List of your personal notes on verses";
   notes: VerseRef[] = [];
 
   constructor(
-    public commandPalette: UnifiedCommandPalette,
+    public dialog: CommandPaletteDialog,
     public plugin: NotesPlugin,
   ) {
-    super(commandPalette);
+    super(dialog);
   }
 
-  onTrigger(_state: CommandPaletteState): void {
+  onTrigger(_state: CommandPaletteViewState): void {
     void _state;
     this.notes = Array.from(this.plugin.myNotes.keys())
 
@@ -98,19 +105,22 @@ class myNotesCategory extends CommandCategory<VerseRef> {
     return this.getcompatible(query, this.notes, verse => this.plugin.myNotes.get(verse) || "");
   }
 
-  renderCommand(verse: VerseRef, Item: CommandItem<VerseRef>) {
+  renderCommand(
+    verse: VerseRef,
+    Item: CommandItem<VerseRef>,
+  ): Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) {
     Item.setTitle(verse.toString())
       .setDescription(this.plugin.myNotes.get(verse) || "No note")
       .addctx();
-    return (state: CommandPaletteState) => {
-      this.plugin.app.verseState.set(verse);
-      return state.update({ topCategory: TSKCrossRefCategoryID });
+    return () => {
+      this.plugin.app.verseState.val = verse;
+      return { topCategory: TSKCrossRefCategoryID };
     };
   }
 
   executeCommand(_command: VerseRef): void {
     void _command;
-    this.commandPalette.close();
+    this.dialog.palette.close();
   }
 }
 

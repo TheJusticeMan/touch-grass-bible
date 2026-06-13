@@ -1,8 +1,8 @@
 import {
   CommandCategory,
   CommandItem,
-  CommandPaletteState,
-  UnifiedCommandPalette,
+  CommandPaletteDialog,
+  CommandPaletteViewState,
 } from "@touchgrass/framework";
 import Plugin from "../core/Plugin";
 import { VerseRef, bibleData } from "../models/VerseRef";
@@ -11,8 +11,8 @@ import { BibleMatch, parseGoToVerseQuery } from "./searchParser.ts";
 
 export default class BibleSearchPlugin extends Plugin {
   async onload(): Promise<void> {
-    this.registerPalette(() => new BibleSearchCategory(this.app.commandPalette, this), BibleSearchCategoryID);
-    this.registerPalette(() => new GoToVerseCategory(this.app.commandPalette, this), GoToVerseCategoryID);
+    this.registerPalette(dialog => new BibleSearchCategory(dialog, this), BibleSearchCategoryID);
+    this.registerPalette(dialog => new GoToVerseCategory(dialog, this), GoToVerseCategoryID);
   }
 }
 
@@ -23,20 +23,20 @@ class BibleSearchCategory extends CommandCategory<VerseRef> {
   bible: bibleData = {}; // Default to an empty object
 
   constructor(
-    public commandPalette: UnifiedCommandPalette,
+    public dialog: CommandPaletteDialog,
     public plugin: BibleSearchPlugin,
   ) {
-    super(commandPalette);
+    super(dialog);
   }
 
-  onTrigger(_state: CommandPaletteState): void {
+  onTrigger(_state: CommandPaletteViewState): void {
     void _state;
     this.bible = VerseRef.bible;
   }
 
   getCommands(query: string): VerseRef[] {
-    const maxResults = this.commandPalette.maxResults - this.commandPalette.length; // Limit the number of results to avoid performance issues
-    if (!query && this.commandPalette.getState().topCategory !== GoToVerseCategoryID) return [];
+    const maxResults = this.dialog.palette.maxResults - this.dialog.palette.length; // Limit the number of results to avoid performance issues
+    if (!query && this.dialog.palette.dialog?.state.topCategory.val !== GoToVerseCategoryID) return [];
     //testLevenshtein(this.bible, query);
 
     const results: VerseRef[] = [];
@@ -60,17 +60,17 @@ class BibleSearchCategory extends CommandCategory<VerseRef> {
   renderCommand(
     verse: VerseRef,
     Item: CommandItem<VerseRef>,
-  ): (state: CommandPaletteState) => CommandPaletteState {
+  ): Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) {
     Item.setTitle(verse.toString()).setDescription(verse.vTXT).addctx().setHidden(false);
-    return state => {
-      this.plugin.app.verseState.set(verse);
-      return state.update({ topCategory: TSKCrossRefCategoryID });
+    return () => {
+      this.plugin.app.verseState.val = verse;
+      return { topCategory: TSKCrossRefCategoryID };
     };
   }
 
   executeCommand(_command: VerseRef): void {
     void _command;
-    this.commandPalette.close();
+    this.dialog.palette.close();
   }
 }
 
@@ -94,19 +94,16 @@ class GoToVerseCategory extends CommandCategory<BibleMatch> {
   readonly description = "Navigate to a specific verse in the Bible";
 
   constructor(
-    public commandPalette: UnifiedCommandPalette,
+    public dialog: CommandPaletteDialog,
     public plugin: BibleSearchPlugin,
   ) {
-    super(commandPalette);
+    super(dialog);
   }
   onTrigger(): void {}
   getCommands(query: string): BibleMatch[] {
     return parseGoToVerseQuery(query, VerseRef.booksOfTheBible, VerseRef.bible);
   }
-  renderCommand(
-    command: BibleMatch,
-    el: CommandItem<BibleMatch>,
-  ): Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState) {
+  renderCommand(command: BibleMatch, el: CommandItem<BibleMatch>) {
     const { book, chapter, verse } = command;
     el.setTitle(book + (chapter ? ` ${chapter}` : "") + (verse ? `:${verse}` : ""));
     return { topCategory: TSKCrossRefCategoryID };
@@ -114,7 +111,7 @@ class GoToVerseCategory extends CommandCategory<BibleMatch> {
   executeCommand(command: BibleMatch): void {
     const { book, chapter, verse } = command;
     const verseRef = new VerseRef(book, chapter ?? 1, verse ?? 1);
-    this.plugin.app.verseState.set(verseRef);
-    this.commandPalette.close();
+    this.plugin.app.verseState.val = verseRef;
+    this.dialog.palette.close();
   }
 }

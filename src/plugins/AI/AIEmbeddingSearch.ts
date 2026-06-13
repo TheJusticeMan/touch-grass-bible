@@ -1,8 +1,8 @@
 import {
   CommandCategory,
   CommandItem,
-  CommandPaletteState,
-  UnifiedCommandPalette,
+  CommandPaletteDialog,
+  CommandPaletteViewState
 } from "@touchgrass/framework";
 import { VerseRef } from "src/models/VerseRef";
 import { AICategoryID, SettingsCategoryID, TSKCrossRefCategoryID } from "src/plugins/categoryIDs";
@@ -31,18 +31,18 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
   private queuedQuery = "";
 
   constructor(
-    public commandPalette: UnifiedCommandPalette,
+    public dialog: CommandPaletteDialog,
     public plugin: AIPlugin,
     private dbService: AIEmbeddingSearchDB,
   ) {
-    super(commandPalette);
+    super(dialog);
   }
 
   onTrigger(): void {
     this.defaultCMD.addCMD(
       "Back to AI chat",
       "Return to AI Q&A mode",
-      item => void item.onClick(() => this.commandPalette.display({ topCategory: AICategoryID })),
+      item => void item.onClick(() => this.dialog.palette.display({ topCategory: AICategoryID })),
     );
 
     if (!this.plugin.settings.aiApiKey) {
@@ -104,7 +104,7 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
   renderCommand(
     command: EmbeddingSearchCommand,
     item: CommandItem<EmbeddingSearchCommand>,
-  ): Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState) {
+  ): Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) {
     if (command.type === "query") {
       let status = "Generate query embedding, then search nearest verses";
 
@@ -117,7 +117,7 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
       }
 
       item.setTitle(`Semantic search: ${command.query}`).setDescription(status);
-      return state => state;
+      return () => ({});
     }
 
     item
@@ -133,8 +133,8 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
       return;
     }
 
-    this.plugin.app.verseState.set(command.hit.verse);
-    this.commandPalette.close();
+    this.plugin.app.verseState.val = command.hit.verse;
+    this.dialog.palette.close();
   }
 
   private requestSearch(query: string, immediate = false): void {
@@ -216,7 +216,7 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
     } finally {
       this.inFlight = false;
       this.inFlightQuery = "";
-      this.commandPalette.refresh({
+      this.dialog.palette.refresh({
         query: this.query || this.lastQuery,
       });
 

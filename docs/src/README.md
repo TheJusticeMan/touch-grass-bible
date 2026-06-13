@@ -1,14 +1,15 @@
 # Source Documentation
 
-This scaffold summarizes `src/` in grouped, file-by-file notes.
+This scaffold summarizes the current code layout in grouped, file-by-file notes.
 
-- `core.md` - root app files, models, styles, and tests
-- `external.md` - reusable framework and workspace internals
-- `plugins.md` - app features implemented as plugins
-- `platform-shells.md` - platform bridges, Electron/web entry shells, and packaged assets
+- `core.md` - app entry, models, configuration, UI, and core tests
+- `external.md` - shared framework internals in `packages/framework/src`
+- `plugins.md` - user-facing feature plugins in `src/plugins`
+- `platform-shells.md` - platform bridges and Electron shell files
+- `Highlighter.md` - detailed API notes for the recursive text highlighter
 
 Suggested next expansion areas:
 
-- add architecture diagrams for app startup and workspace layout flow
-- add request/response examples for AI and platform bridges
-- add migration notes for settings, bookmarks, notes, and journal storage
+- add startup and plugin-lifecycle diagrams
+- add data-flow notes for settings, notes, bookmarks, and journal persistence
+- add end-to-end examples for platform file APIs across Electron and Capacitor

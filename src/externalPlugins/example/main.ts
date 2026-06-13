@@ -10,6 +10,6 @@ export const manifest = {
 
 export default class SimplePlugin extends Plugin {
   async onload(): Promise<void> {
-    this.registerView("test-view", leaf => new TestView(leaf));
+    this.registerView("test-view", () => new TestView());
   }
 }

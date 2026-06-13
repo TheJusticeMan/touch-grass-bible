@@ -1,15 +1,26 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": ["src/main.ts"],
-  "project": ["src/**/*.ts"],
-  "ignore": ["processing/**", "src/externalPlugins/example/**"],
-  "ignoreDependencies": [
-    "path",
-    "https",
-    "cli-progress",
-    "@capacitor/ios",
-    "@capacitor/status-bar",
-    "@touch-grass-bible",
-    "@vitest/coverage-v8"
-  ]
+  "ignoreIssues": {
+    "src/core/ExternalHostApi.ts": ["exports", "types"]
+  },
+  "workspaces": {
+    ".": {
+      "entry": ["src/main.ts", "scripts/**/*.ts", "scripts/**/*.js"],
+      "project": ["src/**/*.ts", "scripts/**/*.ts", "scripts/**/*.js"],
+      "ignore": ["src/externalPlugins/example/**"],
+      "ignoreDependencies": [
+        "path",
+        "https",
+        "cli-progress",
+        "@aws-sdk/client-s3",
+        "@build-info",
+        "@capacitor/ios",
+        "@capacitor/status-bar",
+        "@touch-grass-bible"
+      ]
+    },
+    "packages/framework": {
+      "project": ["src/**/*.ts"]
+    }
+  }
 }

@@ -1,36 +1,18 @@
 /* Components.css — shared primitive components */
 
-.scroll-bubble {
-  position: fixed;
-  right: 0;
-  z-index: var(--z-overlay, 300);
-  /* Minimum 44 px touch target (width × height) */
-  width: 2.75rem;
-  height: 4rem;
-  background-color: var(--color-surface-strong, rgb(255 255 255 / 0.12));
-  border-radius: var(--border-radius-medium);
-  box-shadow: var(--shadow-soft, 0 4px 8px rgb(0 0 0 / 0.2));
-  cursor: grab;
-  touch-action: none;
-}
-
-.scroll-bubble.active {
-  cursor: grabbing;
-}
-
 /* ── Layout helpers ─────────────────────────────────────────── */
 
 .ui-stack {
   display: flex;
   gap: var(--ui-gap, var(--space-2, 0.5rem));
-}
 
-.ui-stack.is-column {
-  flex-direction: column;
-}
+  &.is-column {
+    flex-direction: column;
+  }
 
-.ui-stack.is-row {
-  flex-direction: row;
+  &.is-row {
+    flex-direction: row;
+  }
 }
 
 .ui-row {
@@ -44,15 +26,15 @@
   border-radius: var(--border-radius-medium);
   border: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
   background: var(--color-surface, rgb(255 255 255 / 0.06));
-}
 
-.ui-surface.tone-subtle {
-  background: rgb(255 255 255 / 0.04);
-}
+  &.tone-subtle {
+    background: rgb(255 255 255 / 0.04);
+  }
 
-.ui-surface.tone-strong {
-  background: var(--color-surface-strong, rgb(255 255 255 / 0.12));
-  border-color: rgb(255 255 255 / 0.2);
+  &.tone-strong {
+    background: var(--color-surface-strong, rgb(255 255 255 / 0.12));
+    border-color: rgb(255 255 255 / 0.2);
+  }
 }
 
 /* ── Icon action ─────────────────────────────────────────────── */
@@ -80,33 +62,33 @@
   transition:
     background-color 0.18s ease,
     border-color 0.18s ease;
-}
 
-.ui-toggle-input::after {
-  content: "";
-  position: absolute;
-  top: 1px;
-  left: 1px;
-  width: calc(1.5rem - 4px);
-  height: calc(1.5rem - 4px);
-  border-radius: 25% 50%;
-  background: var(--color-text, rgb(255 255 255 / 0.94));
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
-  transition: transform 0.18s ease;
-}
+  &::after {
+    content: "";
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: calc(1.5rem - 4px);
+    height: calc(1.5rem - 4px);
+    border-radius: 25% 50%;
+    background: var(--color-text, rgb(255 255 255 / 0.94));
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+    transition: transform 0.18s ease;
+  }
 
-.ui-toggle-input:checked {
-  background: var(--color-accent, #3a7afe);
-  border-color: var(--color-accent, #3a7afe);
-}
+  &:checked {
+    background: var(--color-accent, #3a7afe);
+    border-color: var(--color-accent, #3a7afe);
 
-.ui-toggle-input:checked::after {
-  transform: translateX(1rem);
-}
+    &::after {
+      transform: translateX(1rem);
+    }
+  }
 
-.ui-toggle-input:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
 }
 
 /* ── Context menu ────────────────────────────────────────────── */
@@ -117,6 +99,11 @@
   top: var(--menu-y, 0px);
   min-width: 180px;
   max-width: 320px;
+
+  /* Fallback for extremely long lists on desktop */
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+
   background: rgb(0 0 0 / 0.5);
   color: var(--color-text-muted, rgb(255 255 255 / 0.62));
   border: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
@@ -125,79 +112,118 @@
   backdrop-filter: blur(6px);
   font-family: inherit;
   z-index: var(--z-menu, 400);
+
+  .menu-item {
+    display: flex;
+    align-items: center;
+    padding: 0.25em;
+    cursor: pointer;
+    border: none;
+    border-radius: var(--border-radius-medium);
+    background: none;
+    transition:
+      background-color 0.15s ease,
+      color 0.13s ease;
+    user-select: none;
+
+    &:hover,
+    &:focus-visible {
+      background: var(--color-surface-strong, rgb(255 255 255 / 0.12));
+      color: var(--color-text, rgb(255 255 255 / 0.94));
+      outline: none;
+    }
+
+    &:focus-visible {
+      box-shadow: var(--shadow-focus-ring-inset);
+    }
+
+    &:active {
+      background: var(--color-surface, rgb(255 255 255 / 0.06));
+      color: var(--color-text, rgb(255 255 255 / 0.94));
+    }
+
+    &:disabled,
+    &.is-disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    svg {
+      flex: 0 0 auto;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 0.5em;
+      color: inherit;
+      width: 1.1em;
+      height: 1.1em;
+      opacity: 0.89;
+    }
+
+    &:active svg,
+    &:hover svg {
+      color: var(--color-text, rgb(255 255 255 / 0.94));
+      opacity: 1;
+    }
+  }
+
+  .menu-title {
+    font-weight: 500;
+    font-size: 1rem;
+    flex: 1 1 auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .context-menu-separator {
+    border: none;
+    border-top: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
+    margin: 4px 0;
+    height: 0;
+  }
 }
 
-.menu-item {
-  display: flex;
-  align-items: center;
-  padding: 0.25em;
-  cursor: pointer;
-  border: none;
-  border-radius: var(--border-radius-medium);
-  background: none;
-  transition:
-    background-color 0.15s ease,
-    color 0.13s ease;
-  user-select: none;
+/* ── Desktop: Directional Modifiers & Animations ─────────────── */
+
+@media (pointer: fine) {
+  .context-menu {
+    /* Default: Opens down and to the right */
+    &.is-bottom.is-right {
+      transform-origin: top left;
+    }
+
+    /* Hit the right edge: Opens down and to the left */
+    &.is-bottom.is-left {
+      transform-origin: top right;
+    }
+
+    /* Hit the bottom edge: Opens up and to the right */
+    &.is-top.is-right {
+      transform-origin: bottom left;
+    }
+
+    /* Hit both bottom and right edges: Opens up and to the left */
+    &.is-top.is-left {
+      transform-origin: bottom right;
+    }
+
+    animation: context-menu-pop 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
 }
 
-.menu-item:hover,
-.menu-item:focus-visible {
-  background: var(--color-surface-strong, rgb(255 255 255 / 0.12));
-  color: var(--color-text, rgb(255 255 255 / 0.94));
-  outline: none;
+@keyframes context-menu-pop {
+  from {
+    opacity: 0;
+    transform: scale(1);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
-.menu-item:focus-visible {
-  box-shadow: var(--shadow-focus-ring-inset);
-}
-
-.menu-item:active {
-  background: var(--color-surface, rgb(255 255 255 / 0.06));
-  color: var(--color-text, rgb(255 255 255 / 0.94));
-}
-
-.menu-item:disabled,
-.menu-item.is-disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-
-.menu-title {
-  font-weight: 500;
-  font-size: 1rem;
-  flex: 1 1 auto;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.menu-item svg {
-  flex: 0 0 auto;
-  display: inline-block;
-  vertical-align: middle;
-  margin-right: 0.5em;
-  color: inherit;
-  width: 1.1em;
-  height: 1.1em;
-  opacity: 0.89;
-}
-
-.menu-item:active svg,
-.menu-item:hover svg {
-  color: var(--color-text, rgb(255 255 255 / 0.94));
-  opacity: 1;
-}
-
-.context-menu-separator {
-  border: none;
-  border-top: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
-  margin: 4px 0;
-  height: 0;
-}
-
-/* ── Mobile: bottom sheet ────────────────────────────────────── */
+/* ── Mobile: Bottom Sheet ────────────────────────────────────── */
 
 @media (pointer: coarse) {
   .context-menu {
@@ -216,38 +242,45 @@
     padding-right: calc(0.5rem + var(--safe-area-right, 0px));
     background: rgb(12 12 14 / 0.97);
     backdrop-filter: blur(16px);
+
     /* large spread acts as a scrim/backdrop */
     box-shadow:
       0 -4px 24px rgb(0 0 0 / 0.4),
       0 0 0 100vmax rgb(0 0 0 / 0.5);
     animation: context-menu-slide-up 0.24s cubic-bezier(0.32, 0.72, 0, 1) both;
-  }
 
-  /* drag handle */
-  .context-menu::before {
-    content: "";
-    display: block;
-    width: 2.5rem;
-    height: 0.22rem;
-    border-radius: 999px;
-    background: rgb(255 255 255 / 0.25);
-    margin: 0.65rem auto 0.75rem;
-  }
+    /* Mobile-specific scrolling and safe areas */
+    max-height: calc(100dvh - 1rem - var(--safe-area-top, 0px) - var(--safe-area-bottom, 0px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
 
-  .menu-item {
-    padding: 0.85rem 0.75rem;
-    min-height: 3rem;
-    border-radius: 0.5rem;
-    font-size: 1rem;
-  }
+    /* drag handle */
+    &::before {
+      content: "";
+      display: block;
+      width: 2.5rem;
+      height: 0.22rem;
+      border-radius: 999px;
+      background: rgb(255 255 255 / 0.25);
+      margin: 0.65rem auto 0.75rem;
+    }
 
-  .menu-item svg {
-    width: 1.25em;
-    height: 1.25em;
-  }
+    .menu-item {
+      padding: 0.85rem 0.75rem;
+      min-height: 3rem;
+      border-radius: 0.5rem;
+      font-size: 1rem;
 
-  .context-menu-separator {
-    margin: 6px 0;
+      svg {
+        width: 1.25em;
+        height: 1.25em;
+      }
+    }
+
+    .context-menu-separator {
+      margin: 6px 0;
+    }
   }
 }
 

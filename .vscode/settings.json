@@ -7,5 +7,7 @@
   "prettier.arrowParens": "avoid",
   "liveServer.settings.file": "./dist/index.html",
   "liveServer.settings.port": 5501,
-  "java.configuration.updateBuildConfiguration": "automatic"
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "ts.preferences.autoImportFileExcludePatterns": ["**/packages/framework/node_modules/**"],
+  "js.preferences.autoImportFileExcludePatterns": ["**/packages/framework/node_modules/**"]
 }

@@ -1,5 +1,8 @@
 import { HelpCircle, IconNode } from "lucide";
+import van from "vanjs-core";
 import { Offset } from "./Offset";
+
+const { div } = van.tags;
 
 /**
  * Represents a command that can be triggered by a gesture.
@@ -103,19 +106,16 @@ export class GestureHandler {
   };
 
   static drawTempline(start: Offset, end: Offset, lifeTime = 1000): void {
-    const line = document.body.createEl("div", { cls: "mobile-fab-dragline" });
     const delta = end.subtract(start);
     const length = Math.sqrt(delta.x * delta.x + delta.y * delta.y);
     const angle = Math.atan2(delta.y, delta.x) * (180 / Math.PI);
-    setCssProps(line, {
-      width: `${length}px`,
-      height: "8px",
-      transform: `rotate(${angle}deg)`,
-      left: `${start.x}px`,
-      top: `${start.y}px`,
-      transition: `opacity ${lifeTime}ms, height ${lifeTime}ms`,
+
+    const line = div({
+      class: "mobile-fab-dragline",
+      style: `width: ${length}px; height: 8px; transform: rotate(${angle}deg); left: ${start.x}px; top: ${start.y}px; transition: opacity ${lifeTime}ms, height ${lifeTime}ms;`,
     });
-    requestAnimationFrame(() => requestAnimationFrame(() => line.addClass("is-fading")));
+    document.body.appendChild(line);
+    requestAnimationFrame(() => requestAnimationFrame(() => line.classList.add("is-fading")));
     setTimeout(() => line.remove(), lifeTime);
   }
 
@@ -165,9 +165,9 @@ export class GestureHandler {
       // Animate FAB to indicate success
       this.element.classList.remove("gesture-animating");
       requestAnimationFrame(() => {
-        this.element.addClass("gesture-success");
+        this.element.classList.add("gesture-success");
         requestAnimationFrame(() => {
-          this.element.addClass("gesture-animating");
+          this.element.classList.add("gesture-animating");
           this.element.classList.remove("gesture-success");
         });
       });

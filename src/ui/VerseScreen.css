@@ -1,52 +1,193 @@
-.icon-button {
-  display: inline;
+.verse-screen {
+  .content {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font);
+    font-size: var(--font-size);
+    /* Scrollbar hidden — a visual cue (scroll-bubble) exists for drag-scroll.
+       The scrollbar-width:none approach is intentional for this reading view. */
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+    .chapter {
+      margin: 2em auto;
+      max-width: var(--reading-width);
+      word-spacing: 0.5em;
+      letter-spacing: 0.1em;
+      line-height: 1.5;
+
+      .verse-container {
+        .info-container {
+          .buttons {
+            display: flex;
+            flex-direction: row;
+            gap: 0.5em;
+
+            .icon-button {
+              display: inline;
+              padding: var(--space-2, 0.5em);
+            }
+          }
+
+          .note-area {
+            display: block;
+            box-sizing: border-box;
+            width: 100%;
+            background-color: transparent;
+            color: var(--color-text-muted, rgb(255 255 255 / 0.62));
+            font-family: inherit;
+            font-size: inherit;
+            border: none;
+            padding: 1em;
+            resize: vertical;
+          }
+
+          .bookmark-not-added {
+            color: var(--color-text, #fff);
+          }
+
+          .bookmark-added {
+            color: var(--color-accent-bookmark, #f0f);
+          }
+
+          &.is-highlighted {
+            border-left: 1px solid rgb(255 255 255 / 0.5);
+            padding-left: 0.35rem;
+          }
+        }
+
+        &.active {
+          .verse .number {
+            color: var(--color-accent);
+          }
+        }
+        .verse {
+          text-indent: 1em;
+          text-align: justify;
+          padding: 0.4em;
+          display: var(--text-display);
+          cursor: pointer;
+
+          &:hover {
+            text-shadow: 0 0 5px rgb(255 255 255 / 0.25);
+          }
+
+          .paragraph-break {
+            color: rgb(255 255 255 / 0.5);
+          }
+
+          .number {
+            color: rgb(255 255 255 / 0.5);
+            padding: 0.5em;
+          }
+        }
+      }
+
+      .chapter-title {
+        position: sticky;
+        top: 0;
+        text-align: center;
+        color: rgb(255 255 255 / 0.5);
+        backdrop-filter: blur(4px);
+        font-size: 1.5em;
+        font-weight: bold;
+        margin: 1em auto;
+        max-width: var(--reading-width);
+
+        &.active {
+          position: static;
+        }
+      }
+    }
+
+    &.wrap {
+      .chapter {
+        text-align: justify;
+        .verse,
+        .verse-container,
+        .info-container,
+        div {
+          display: inline;
+        }
+
+        .info-container {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          width: 100%;
+          background: rgb(0 0 0 / 0.75);
+          color: var(--foreground);
+        }
+
+        div.paragraph-break::before {
+          display: block;
+          content: "";
+        }
+
+        .paragraph-break .number,
+        .chapter-title + .verse-container .number,
+        > .verse-container:first-of-type .number {
+          font-size: 2em;
+          text-transform: capitalize;
+          float: left;
+          line-height: 0.8;
+          padding: 0.2em 0.1em 0 0;
+        }
+
+        .paragraph-break .paragraph-break {
+          display: none;
+        }
+      }
+    }
+  }
 }
 
-.note-area {
-  display: block;
-  box-sizing: border-box;
-  width: 100%;
-  background-color: transparent;
-  color: var(--color-text-muted, rgb(255 255 255 / 0.62));
-  font-family: inherit;
-  font-size: inherit;
-  border: none;
-  padding: 1em;
-  resize: vertical;
-}
+/* 2.0 bubble: circular grab handle with verse text floating outside it. */
+.scroll-bubble {
+  position: fixed;
+  right: 0.6rem;
+  transform: translateY(-50%);
+  z-index: 50;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  cursor: ns-resize;
 
-.info-container {
-  display: none;
-}
+  .scroll-bubble-label {
+    opacity: 0;
+    transform: translateX(0.2rem);
+    transition: opacity 120ms ease;
+    pointer-events: none;
 
-.bookmark-not-added {
-  color: var(--color-text, #fff);
-}
+    &.scroll-bubble-label-visible {
+      opacity: 1;
+      transform: translateX(0);
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--foreground);
+      background: rgb(0 0 0 / 0.4);
+      border-radius: 0.5rem;
+      padding: 0.2rem 0.45rem;
+    }
+  }
 
-.bookmark-added {
-  color: var(--color-accent-bookmark, #f0f);
-}
+  .scroll-bubble-handle {
+    display: block;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    border: 1px solid rgb(255 255 255 / 0.3);
+    background: rgb(0 0 0 / 0.45);
+  }
 
-.active .info-container {
-  display: block;
-}
-
-.active .info-container.is-highlighted {
-  display: block;
-  border-left: 1px solid rgb(255 255 255 / 0.5);
-  padding-left: 0.35rem;
-}
-
-.content {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: var(--font);
-  font-size: var(--font-size);
-  /* Scrollbar hidden — a visual cue (scroll-bubble) exists for drag-scroll.
-     The scrollbar-width:none approach is intentional for this reading view. */
-  scrollbar-width: none;
-}
-
-.content::-webkit-scrollbar {
-  display: none;
+  &:active .scroll-bubble-handle {
+    transform: scale(0.97);
+  }
 }

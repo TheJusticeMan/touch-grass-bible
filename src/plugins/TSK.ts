@@ -1,12 +1,11 @@
-import { Waypoints } from "lucide";
 import {
   CommandCategory,
   CommandItem,
-  CommandPaletteState,
-  UnifiedCommandPalette,
+  CommandPaletteDialog,
+  CommandPaletteViewState
 } from "@touchgrass/framework";
+import { Waypoints } from "lucide";
 import { VerseRef } from "src/models/VerseRef";
-import { VerseInfoComponent } from "src/ui/VerseScreen";
 import Plugin from "../core/Plugin";
 import { TSKCrossRefCategoryID } from "./categoryIDs";
 
@@ -22,7 +21,7 @@ export default class TSK extends Plugin {
     } catch (e) {
       this.console.error("Failed to load crossrefs.json. Cross references will be unavailable.", e);
     }
-    this.registerPalette(() => new CrossRefCategory(this.app.commandPalette, this), TSKCrossRefCategoryID);
+    this.registerPalette((dialog) => new CrossRefCategory(dialog, this), TSKCrossRefCategoryID);
 
     this.addVerseAction({
       id: "cross-ref",
@@ -31,11 +30,11 @@ export default class TSK extends Plugin {
         "View cross references for this verse from the Treasury of Scripture Knowledge and related resources",
       icon: Waypoints,
       isAvailable: verseInfo => this.crossRefsForVerse(verseInfo.verse).length > 0,
-      onTrigger: (verseInfo: VerseInfoComponent) => {
-        this.app.verseState.set(verseInfo.verse);
+      onTrigger: verseInfo => {
+        this.app.verseState.val = verseInfo.verse;
         this.app.openCommandPalette({
           topCategory: TSKCrossRefCategoryID,
-        } as CommandPaletteState);
+        } as CommandPaletteViewState);
       },
     });
   }
@@ -56,14 +55,14 @@ class CrossRefCategory extends CommandCategory<VerseRef> {
   verses: VerseRef[] = [];
 
   constructor(
-    public commandPalette: UnifiedCommandPalette,
+    public dialog: CommandPaletteDialog,
     public plugin: TSK,
   ) {
-    super(commandPalette);
+    super(dialog);
   }
 
   onTrigger(): void {
-    const verse = this.plugin.app.verseState.get();
+    const verse = this.plugin.app.verseState.val;
     if (verse)
       void ((this.verses = this.plugin.crossRefsForVerse(verse)),
       (this.title = `Cross references for ${verse.toString()}`));
@@ -81,16 +80,16 @@ class CrossRefCategory extends CommandCategory<VerseRef> {
   renderCommand(
     verse: VerseRef,
     Item: CommandItem<VerseRef>,
-  ): (state: CommandPaletteState) => CommandPaletteState {
+  ): Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) {
     Item.setTitle(verse.toString()).setDescription(verse.vTXT).addctx();
 
-    return state => {
-      this.plugin.app.verseState.set(verse);
-      return state.update({ topCategory: TSKCrossRefCategoryID });
+    return () => {
+      this.plugin.app.verseState.val = verse;
+      return { topCategory: TSKCrossRefCategoryID };
     };
   }
 
   executeCommand(): void {
-    this.commandPalette.close();
+    this.dialog.palette.close();
   }
 }

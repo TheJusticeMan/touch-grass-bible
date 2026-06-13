@@ -1,13 +1,12 @@
-import { GitCompare } from "lucide";
 import {
-  Button,
   CommandCategory,
   CommandItem,
-  CommandPaletteState,
-  UnifiedCommandPalette,
+  CommandPaletteDialog,
+  CommandPaletteViewState,
+  MenuVan,
 } from "@touchgrass/framework";
+import { GitCompare } from "lucide";
 import { VerseRef } from "src/models/VerseRef";
-import { VerseInfoComponent } from "src/ui/VerseScreen";
 import Plugin from "../../core/Plugin";
 import { NavesTopicListCategoryID, TSKCrossRefCategoryID } from "../categoryIDs";
 import {
@@ -56,8 +55,8 @@ function formatTopicDescription(topic: NaveTopicNode, relationLabel?: string): s
 
 export default class NavesTopicalBiblePlugin extends Plugin {
   index: NaveIndex = buildNaveIndex([]);
-  selectedTopicId = this.app.commandPalette.useState("");
-  focusedTopicIds = this.app.commandPalette.useState<string[]>([]);
+  selectedTopicId = this.app.commandPalette.useVanState("");
+  focusedTopicIds = this.app.commandPalette.useVanState<string[]>([]);
 
   getAutoExpandedTopicId(topicId: string): string {
     let currentTopicId = topicId;
@@ -88,10 +87,7 @@ export default class NavesTopicalBiblePlugin extends Plugin {
       this.console.error("Failed to load parsed-nave.json. Nave's Topical Bible will be unavailable.", e);
     }
 
-    this.registerPalette(
-      () => new NavesTopicCategory(this.app.commandPalette, this),
-      NavesTopicListCategoryID,
-    );
+    this.registerPalette(dialog => new NavesTopicCategory(dialog, this), NavesTopicListCategoryID);
 
     this.addVerseAction({
       id: "naves-topic",
@@ -99,27 +95,26 @@ export default class NavesTopicalBiblePlugin extends Plugin {
       description: "Find Nave topics that include this verse and open them in the command palette",
       icon: GitCompare,
       isAvailable: verseInfo => this.topicsForVerse(verseInfo.verse).length > 0,
-      onTrigger: (verseInfo: VerseInfoComponent) => {
+      onTrigger: verseInfo => {
         const matches = this.topicsForVerse(verseInfo.verse);
 
-        if (matches.length === 0) {
-          verseInfo.element.createEl("p", {
-            text: "No Nave topics found for this verse.",
-          });
-          return;
-        }
-
-        matches.slice(0, 10).forEach(topic => {
-          new Button(verseInfo.element)
-            .setButtonText(formatTopicPath(topic.path))
-            .on("click", () => this.openTopic(topic.id));
-        });
-
-        if (matches.length > 10) {
-          new Button(verseInfo.element)
-            .setButtonText(`Open all ${matches.length} Nave topics`)
-            .on("click", () => this.openTopicsForVerse(verseInfo.verse));
-        }
+        new MenuVan()
+          .addItems([
+            ...matches.slice(0, 5).map(topic => ({
+              title: formatTopicPath(topic.path),
+              onClick: () => this.openTopic(topic.id),
+            })),
+            matches.length > 5
+              ? {
+                  title: `Open all ${matches.length} Nave topics for this verse`,
+                  onClick: () => this.openTopicsForVerse(verseInfo.verse),
+                }
+              : {
+                  title: `Open command palette with Nave topics for this verse`,
+                  onClick: () => this.openTopicsForVerse(verseInfo.verse),
+                },
+          ])
+          .showAtMouseEvent(verseInfo.event);
       },
     });
   }
@@ -133,16 +128,16 @@ export default class NavesTopicalBiblePlugin extends Plugin {
   }
 
   openTopic(topicId: string): void {
-    this.selectedTopicId.set(this.getAutoExpandedTopicId(topicId));
-    this.focusedTopicIds.set([]);
+    this.selectedTopicId.val = this.getAutoExpandedTopicId(topicId);
+    this.focusedTopicIds.val = [];
     this.app.openCommandPalette({
       topCategory: NavesTopicListCategoryID,
     });
   }
 
   openTopicsForVerse(verse: VerseRef): void {
-    this.selectedTopicId.set("");
-    this.focusedTopicIds.set(this.topicsForVerse(verse).map(topic => topic.id));
+    this.selectedTopicId.val = "";
+    this.focusedTopicIds.val = this.topicsForVerse(verse).map(topic => topic.id);
     this.app.openCommandPalette({
       topCategory: NavesTopicListCategoryID,
     });
@@ -155,15 +150,15 @@ class NavesTopicCategory extends CommandCategory<NaveCommand> {
   commands: NaveCommand[] = [];
 
   constructor(
-    public commandPalette: UnifiedCommandPalette,
+    public dialog: CommandPaletteDialog,
     public plugin: NavesTopicalBiblePlugin,
   ) {
-    super(commandPalette);
+    super(dialog);
   }
 
   onTrigger(): void {
-    const selectedTopicId = this.plugin.selectedTopicId.get();
-    const focusedTopicIds = this.plugin.focusedTopicIds.get();
+    const selectedTopicId = this.plugin.selectedTopicId.val;
+    const focusedTopicIds = this.plugin.focusedTopicIds.val;
     const selectedTopic = selectedTopicId ? this.plugin.topicById(selectedTopicId) : undefined;
 
     if (selectedTopic) {
@@ -194,9 +189,9 @@ class NavesTopicCategory extends CommandCategory<NaveCommand> {
         "",
         item =>
           void item.onClick(() => {
-            this.plugin.selectedTopicId.set("");
-            this.plugin.focusedTopicIds.set([]);
-            this.commandPalette.display({ topCategory: NavesTopicListCategoryID });
+            this.plugin.selectedTopicId.val = "";
+            this.plugin.focusedTopicIds.val = [];
+            this.dialog.palette.display({ topCategory: NavesTopicListCategoryID });
           }),
       );
 
@@ -206,8 +201,8 @@ class NavesTopicCategory extends CommandCategory<NaveCommand> {
           "",
           item =>
             void item.onClick(() => {
-              this.plugin.selectedTopicId.set(selectedTopic.parentId ?? "");
-              this.commandPalette.display({ topCategory: NavesTopicListCategoryID });
+              this.plugin.selectedTopicId.val = selectedTopic.parentId ?? "";
+              this.dialog.palette.display({ topCategory: NavesTopicListCategoryID });
             }),
         );
       }
@@ -230,15 +225,15 @@ class NavesTopicCategory extends CommandCategory<NaveCommand> {
     }
 
     if (focusedTopicIds.length > 0) {
-      const verse = this.plugin.app.verseState.get();
+      const verse = this.plugin.app.verseState.val;
       this.title = `Nave topics for ${verse.toString()}`;
       this.defaultCMD.addCMD(
         "Browse all Nave topics",
         "",
         item =>
           void item.onClick(() => {
-            this.plugin.focusedTopicIds.set([]);
-            this.commandPalette.display({ topCategory: NavesTopicListCategoryID });
+            this.plugin.focusedTopicIds.val = [];
+            this.dialog.palette.display({ topCategory: NavesTopicListCategoryID });
           }),
       );
 
@@ -265,13 +260,12 @@ class NavesTopicCategory extends CommandCategory<NaveCommand> {
   }
 
   getCommands(query: string): NaveCommand[] {
-    if (!query && !this.plugin.selectedTopicId.get() && this.plugin.focusedTopicIds.get().length === 0)
-      return [];
-    const selectedTopicId = this.plugin.selectedTopicId.get();
+    if (!query && !this.plugin.selectedTopicId.val && this.plugin.focusedTopicIds.val.length === 0) return [];
+    const selectedTopicId = this.plugin.selectedTopicId.val;
     const sourceCommands =
       !query && !selectedTopicId
         ? this.commands
-        : selectedTopicId || this.plugin.focusedTopicIds.get().length > 0
+        : selectedTopicId || this.plugin.focusedTopicIds.val.length > 0
           ? this.commands
           : this.plugin.index.nodes.map(topic => ({
               kind: "topic" as const,
@@ -290,14 +284,14 @@ class NavesTopicCategory extends CommandCategory<NaveCommand> {
   renderCommand(
     command: NaveCommand,
     Item: CommandItem<NaveCommand>,
-  ): (state: CommandPaletteState) => CommandPaletteState {
+  ): Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) {
     if (command.kind === "topic") {
       Item.setTitle(formatTopicPath(command.topic.path)).setDescription(command.description).addctx();
 
-      return state => {
-        this.plugin.selectedTopicId.set(this.plugin.getAutoExpandedTopicId(command.topic.id));
-        this.plugin.focusedTopicIds.set([]);
-        return state.update({ topCategory: NavesTopicListCategoryID });
+      return () => {
+        this.plugin.selectedTopicId.val = this.plugin.getAutoExpandedTopicId(command.topic.id);
+        this.plugin.focusedTopicIds.val = [];
+        return { topCategory: NavesTopicListCategoryID };
       };
     }
 
@@ -305,15 +299,15 @@ class NavesTopicCategory extends CommandCategory<NaveCommand> {
       .setDescription(`${command.reference} · ${command.verse.vTXT}`)
       .addctx();
 
-    return state => {
-      this.plugin.app.verseState.set(command.verse);
-      return state.update({ topCategory: TSKCrossRefCategoryID });
+    return () => {
+      this.plugin.app.verseState.val = command.verse;
+      return { topCategory: TSKCrossRefCategoryID };
     };
   }
 
   executeCommand(command: NaveCommand): void {
-    if (command.kind === "topic") this.commandPalette.display();
-    else this.commandPalette.close();
+    if (command.kind === "topic") this.dialog.palette.display();
+    else this.dialog.palette.close();
   }
 
   private commandLabel(command: NaveCommand): string {

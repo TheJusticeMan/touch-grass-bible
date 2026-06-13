@@ -97,8 +97,20 @@ async function writeFilesystemBinary(path: string, content: Uint8Array, director
   });
 }
 
-function getStoragePath(key: string): string {
-  return `.tg-storage/${encodeURIComponent(key)}.txt`;
+function getStoragePath(key: string, extension: "json" | "txt" = "json"): string {
+  return `.tg-storage/${encodeURIComponent(key)}.${extension}`;
+}
+
+async function readStorageItem(key: string): Promise<string | null> {
+  try {
+    return await readFilesystemText(getStoragePath(key, "json"), Directory.Data);
+  } catch {
+    try {
+      return await readFilesystemText(getStoragePath(key, "txt"), Directory.Data);
+    } catch {
+      return null;
+    }
+  }
 }
 
 async function fetchAssetText(path: string): Promise<string> {
@@ -114,14 +126,10 @@ export function createPlatformBridge(): PlatformBridge {
     target: "capacitor",
     storage: {
       async getItem(key: string): Promise<string | null> {
-        try {
-          return await readFilesystemText(getStoragePath(key), Directory.Data);
-        } catch {
-          return null;
-        }
+        return readStorageItem(key);
       },
       async setItem(key: string, value: string): Promise<void> {
-        await writeFilesystemText(getStoragePath(key), value, Directory.Data);
+        await writeFilesystemText(getStoragePath(key, "json"), value, Directory.Data);
       },
     },
     files: {

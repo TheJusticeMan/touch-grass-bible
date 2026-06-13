@@ -1,10 +1,13 @@
 /* CommandPalette.css */
 
+.workspace-container .floating-views-container .floating-view-wrapper .floating-view.command-palette,
 .command-palette {
   width: calc(100% - 2em);
   max-width: 72rem;
-  height: min(46rem, calc(100dvh - 2em));
+  height: calc(100dvh - 2em);
   font-family: var(--font-sans, system-ui, sans-serif);
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 @media (max-width: 600px) {
@@ -23,175 +26,193 @@
   box-sizing: border-box;
   color: var(--foreground);
   background-color: transparent;
-}
 
-.palette-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background-color: var(--color-surface, rgb(255 255 255 / 0.06));
-  border-radius: var(--border-radius-small);
-  color: var(--foreground);
-}
+  .palette-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background-color: var(--color-surface, rgb(255 255 255 / 0.06));
+    border-radius: var(--border-radius-small);
+    color: var(--foreground);
 
-.palette-header button:focus-visible {
-  outline: none;
-  box-shadow: var(--shadow-focus-ring-strong);
-}
+    button {
+      &:focus-visible {
+        outline: none;
+        box-shadow: var(--shadow-focus-ring-strong);
+      }
 
-.palette-header button.active {
-  background-color: var(--accent1);
-  color: #000;
-}
+      &.active {
+        background-color: var(--accent1);
+        color: #000;
+      }
+    }
+  }
 
-.palette-search {
-  padding: 10px 14px;
-  border: none;
-  border-radius: var(--border-radius-small);
-  background-color: var(--color-surface, rgb(255 255 255 / 0.06));
-  color: var(--foreground);
-  font-size: 1rem;
-  transition: background-color 0.2s ease;
-  width: 100%;
-  box-sizing: border-box;
-  /* Allow text selection in the search box */
-  user-select: text;
-}
+  .palette-search {
+    padding: 10px 14px;
+    border: none;
+    border-radius: var(--border-radius-small);
+    background-color: var(--color-surface, rgb(255 255 255 / 0.06));
+    color: var(--foreground);
+    font-size: 1rem;
+    transition: background-color 0.2s ease;
+    width: 100%;
+    box-sizing: border-box;
+    /* Allow text selection in the search box */
+    user-select: text;
 
-.palette-search::placeholder {
-  color: var(--color-text-muted, rgb(255 255 255 / 0.62));
-}
+    &::placeholder {
+      color: var(--color-text-muted, rgb(255 255 255 / 0.62));
+    }
 
-.palette-search:focus {
-  background-color: var(--color-surface-strong, rgb(255 255 255 / 0.12));
-}
+    &:focus {
+      background-color: var(--color-surface-strong, rgb(255 255 255 / 0.12));
+    }
+  }
 
-.palette-content {
-  display: flex;
-  flex-direction: row;
-  box-sizing: border-box;
-  margin-top: 8px;
-  flex: 1;
-  gap: 1em;
-  overflow: hidden;
-}
+  .palette-content {
+    display: flex;
+    flex-direction: row;
+    box-sizing: border-box;
+    margin-top: 8px;
+    flex: 1;
+    gap: 1em;
+    overflow: hidden;
 
-.palette-content-over {
-  width: 100px;
-  flex: 0.5;
-  overflow-y: auto;
-  display: block;
-  border-right: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
-  padding-right: 1em;
-}
+    .palette-content-inner {
+      display: flex;
+      flex: 1;
+      min-width: 0;
+      gap: 1em;
+    }
 
-@media (max-width: 800px) {
-  .palette-content-over {
-    display: none;
+    .palette-content-over {
+      width: 100px;
+      flex: 0.5;
+      overflow-y: auto;
+      display: block;
+      border-right: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
+      padding-right: 1em;
+    }
+
+    .category-title {
+      position: sticky;
+      top: 0;
+      background: rgb(0 0 0 / 0.5);
+      backdrop-filter: blur(2px);
+      border-bottom: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
+      padding: 12px 12px 8px;
+      color: var(--color-text-muted, rgb(255 255 255 / 0.62));
+      text-align: end;
+      cursor: pointer;
+
+      &:hover,
+      &:focus-visible {
+        color: var(--color-text, rgb(255 255 255 / 0.94));
+        outline: none;
+      }
+
+      &:focus-visible {
+        box-shadow: var(--shadow-focus-ring-inset);
+      }
+
+      + .command-item {
+        border-top: none;
+      }
+    }
+
+    &:not(.expanded) {
+      .command-item .command-description.hidden {
+        display: none;
+      }
+    }
+
+    .command-item.selected .command-description.hidden {
+      display: block;
+    }
+  }
+
+  .palette-content-main {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    transform: translateZ(0);
+  }
+
+  .command-item {
+    display: flex;
+    align-items: center;
+    line-height: 1.25;
+    border-top: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
+    cursor: pointer;
+    transition:
+      background-color 0.2s ease,
+      transform 0.1s ease;
+    color: var(--foreground);
+
+    &.selected {
+      background-color: var(--color-surface-strong, rgb(255 255 255 / 0.12));
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--shadow-focus-ring-inset);
+    }
+
+    &:not(.extras-item) + &.extras-item {
+      padding-top: 1em;
+      border-top: none;
+    }
+
+    .command-item-info {
+      display: block;
+      padding: 8px 12px;
+      flex: 1 1 auto;
+      /* Allow text selection in command descriptions */
+      user-select: text;
+    }
+
+    .command-description {
+      display: block;
+      color: var(--color-text-muted, rgb(255 255 255 / 0.62));
+
+      .highlighted-query {
+        color: var(--color-text-muted, rgb(255 255 255 / 0.62));
+      }
+    }
+
+    .command-title {
+      .highlighted-query {
+        color: var(--color-text-muted, rgb(255 255 255 / 0.62));
+      }
+    }
+
+    .command-comp {
+      padding: 0;
+      color: var(--color-text-muted, rgb(255 255 255 / 0.62));
+      align-self: stretch;
+      display: flex;
+      align-items: center;
+
+      *:hover {
+        color: var(--color-text, rgb(255 255 255 / 0.94));
+      }
+    }
+  }
+
+  .icon-button {
+    display: flex;
+    padding: var(--space-2, 0.5em);
   }
 }
 
-.palette-content-main {
-  flex: 1;
-  min-width: 0;
-  overflow-y: auto;
-}
-
-.palette-content .category-title {
-  position: sticky;
-  top: 0;
-  background: rgb(0 0 0 / 0.5);
-  backdrop-filter: blur(2px);
-  border-bottom: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
-  padding: 12px 12px 8px;
-  color: var(--color-text-muted, rgb(255 255 255 / 0.62));
-  text-align: end;
-  cursor: pointer;
-}
-
-.palette-content .category-title:hover,
-.palette-content .category-title:focus-visible {
-  color: var(--color-text, rgb(255 255 255 / 0.94));
-  outline: none;
-}
-
-.palette-content .category-title:focus-visible {
-  box-shadow: var(--shadow-focus-ring-inset);
-}
-
-.command-item {
-  display: flex;
-  align-items: center;
-  line-height: 1.25;
-  border-top: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
-  cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    transform 0.1s ease;
-  color: var(--foreground);
-}
-
-.category-title + .command-item {
-  border-top: none;
-}
-
-.command-item:not(.extras-item) + .command-item.extras-item {
-  padding-top: 1em;
-  border-top: none;
-}
-
-.command-item.selected {
-  background-color: var(--color-surface-strong, rgb(255 255 255 / 0.12));
-}
-
-.command-item:focus-visible {
-  outline: none;
-  box-shadow: var(--shadow-focus-ring-inset);
-}
-
-.command-item-info {
-  display: block;
-  padding: 8px 12px;
-  flex: 1 1 auto;
-  /* Allow text selection in command descriptions */
-  user-select: text;
-}
-
-.command-item .command-description {
-  display: block;
-  color: var(--color-text-muted, rgb(255 255 255 / 0.62));
-}
-
-.palette-content:not(.expanded) .command-item .command-description.hidden {
-  display: none;
-}
-
-.palette-content .command-item.selected .command-description.hidden {
-  display: block;
-}
-
-.command-item .command-comp {
-  padding: 0;
-  color: var(--color-text-muted, rgb(255 255 255 / 0.62));
-  align-self: stretch;
-  display: flex;
-  align-items: center;
-}
-
-.command-item .command-comp *:hover {
-  color: var(--color-text, rgb(255 255 255 / 0.94));
-}
-
-.command-description .highlighted-query {
-  color: var(--color-text-muted, rgb(255 255 255 / 0.62));
-}
-
-.command-title .highlighted-query {
-  color: var(--color-text-muted, rgb(255 255 255 / 0.62));
-}
-
-.icon-button {
-  display: flex;
-  padding: var(--space-2, 0.5em);
+@media (max-width: 800px) {
+  .palette {
+    .palette-content {
+      .palette-content-over {
+        display: none;
+      }
+    }
+  }
 }

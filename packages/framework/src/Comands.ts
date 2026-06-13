@@ -1,4 +1,4 @@
-import { CommandItem, CommandPaletteState } from "./CommandPalette";
+import { CommandItem, CommandPaletteViewState } from "./CommandPalette";
 
 export abstract class CMDType {
   abstract name: string;
@@ -6,7 +6,7 @@ export abstract class CMDType {
   abstract render: (
     command: CMDType,
     el: CommandItem<CMDType>,
-  ) => Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState);
+  ) => Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>);
 }
 
 export function CMD(
@@ -14,7 +14,7 @@ export function CMD(
   description: string,
   cb: (
     cmd: CommandItem<CMDType>,
-  ) => Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState) | void,
+  ) => Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) | void,
 ): CMDType {
   return new (class extends CMDType {
     name = name;
@@ -22,7 +22,7 @@ export function CMD(
     render = (
       _command: CMDType,
       el: CommandItem<CMDType>,
-    ): Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState) => {
+    ): Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) => {
       el.setTitle(this.name).setDescription(this.description);
       return cb(el) || {};
     };

@@ -1,10 +1,15 @@
+import van from "vanjs-core";
 import "./App.css";
 import { UnifiedCommandPalette } from "./CommandPalette";
-import { ETarget, touchDragger, touchDraggerEvents } from "./Event";
+import { ETarget } from "./Event";
 import { BrowserConsole } from "./MyBrowserConsole";
-import "./MyHTML";
 import type { PlatformBridge } from "./PlatformBridge.ts";
-import { Workspace, WorkspaceLayout } from "./Workspace/Workspace";
+import "./toTitleCase.ts";
+import { Workspace } from "./Workspace";
+import { PanelContainerSerialized } from "./Workspace/Types.ts";
+import { CommandPaletteV2 } from "./CommandPaletteV2.0.ts";
+
+const { div } = van.tags;
 
 export { App };
 
@@ -48,15 +53,13 @@ export { App };
  * - Integrates with browser history and prevents accidental page unloads.
  * - Provides utility methods for data import/export and persistence.
  */
-abstract class App extends ETarget<
-  {
-    keydown: { key: string; event: KeyboardEvent };
-    historypop: object;
-    open: void;
-    close: void;
-    [key: string]: unknown;
-  } & touchDraggerEvents
-> {
+abstract class App extends ETarget<{
+  keydown: { key: string; event: KeyboardEvent };
+  historypop: object;
+  open: void;
+  close: void;
+  [key: string]: unknown;
+}> {
   /** Console instance for app-level logs and diagnostics. */
   console: BrowserConsole;
 
@@ -71,6 +74,7 @@ abstract class App extends ETarget<
 
   /** Shared command palette instance used across the app shell. */
   commandPalette: UnifiedCommandPalette;
+  commandPaletteV2: CommandPaletteV2;
 
   files: Files;
 
@@ -85,16 +89,21 @@ abstract class App extends ETarget<
     private doc: Document,
     private _title: string,
     platformBridge: PlatformBridge,
+    layout: PanelContainerSerialized,
   ) {
     super();
     this.platformBridge = platformBridge;
     this.console = new BrowserConsole(true, `${this._title || "App"}:`);
     this.console.header("color:#f0f; font-size:40px; font-weight:bold;");
-    this.contentEl = this.doc.body.createEl("div", { cls: "app-shell-element" });
-    this.workspace = new Workspace(this);
+    this.contentEl = div({ class: "app-shell-element" });
+    van.add(document.body, this.contentEl);
     this.files = new Files(this.platformBridge);
+    this.workspace = new Workspace(this.contentEl, layout, this);
+
+    this.commandPaletteV2 = new CommandPaletteV2(this);
+
+    this.workspace.layoutController.registerView("command-palette-v2", () => this.commandPaletteV2);
     this.commandPalette = new UnifiedCommandPalette(this);
-    new touchDragger(this.contentEl).onany((name, e) => this.workspace.emit(name, e));
 
     this.title = this._title;
 
@@ -104,7 +113,6 @@ abstract class App extends ETarget<
     // Handle page unload attempts
     window.addEventListener("beforeunload", () => this.unload());
     // Handle browser history navigation
-    window.addEventListener("popstate", () => this.workspace.emit("historypop", {}));
   }
 
   async init() {
@@ -131,12 +139,10 @@ abstract class App extends ETarget<
   }
 
   private load = async () => {
-    await this.workspace.initialize();
     await this.onload();
   };
   private unload = (): boolean => {
     const shouldUnload = this.onunload();
-    if (shouldUnload) this.workspace.shutdown();
     return shouldUnload;
   };
 
@@ -162,7 +168,7 @@ abstract class App extends ETarget<
   /**
    * Supplies the fallback workspace layout for invalid or absent saved layouts.
    */
-  abstract getDefaultWorkspaceLayout(): WorkspaceLayout;
+  abstract getDefaultWorkspaceLayout(): PanelContainerSerialized;
 
   /**
    * Called when persisted workspace layout JSON cannot be parsed or validated.

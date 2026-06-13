@@ -1,594 +1,407 @@
+import { IconActionItem } from "@touch-grass-bible";
+import { highlight, HighlightRule, renderIcon, State, van, View } from "@touchgrass/framework";
 import apocalypseThrottle from "apocalypse-throttle";
-import {
-  Highlighter,
-  IconButton,
-  LayoutNode,
-  PaletteState,
-  pdsp,
-  UIComponent,
-  View,
-} from "@touchgrass/framework";
 import TouchGrassBibleApp from "../main";
 import { VerseRef, type translation } from "../models/VerseRef";
-import { getPinchDistance } from "./pinchZoom";
-import { BookScroll, ChapterScroll } from "./Scroll";
+import { PinchZoomHandler } from "./pinchZoom";
 import "./VerseScreen.css";
 
-const VerseHighlight: Highlighter = new Highlighter([
-  { regEXP: /\[(.+?)\]/gi, elTag: "i" },
-  { regEXP: /(LORD|God)/gi, elTag: "b" },
-  { regEXP: /^(\d+)/gi, cls: "number" },
-  { regEXP: /#/gi, cls: "paragraph-break", replace: "\u00B6" },
-]);
+const { div, h2, i, b, span } = van.tags;
 
-type VerseScreenState = {
-  version: 1;
+const VerseHighlightPatterns: HighlightRule[] = [
+  { regEXP: /\[(.+?)\]/gi, callback: s => i(s) },
+  { regEXP: /(LORD|God)/gi, callback: s => b(s) },
+  { regEXP: /^(\d+)/gi, callback: s => span({ class: "number" }, s) },
+  { regEXP: /#/gi, callback: () => span({ class: "paragraph-break" }, "\u00B6") },
+];
+
+type SerializedVerseScreenState = {
   verse: {
     book: string;
     chapter: number;
     verse: number;
   };
-  translation?: string;
+  translation?: translation;
 };
 
-/**
- * Represents a UI component for displaying a chapter of verses in the TouchGrass Bible application.
- *
- * This component renders a chapter header and a list of verses, each as a clickable element.
- * Clicking a verse updates the application's main screen to focus on the selected verse.
- * Right-clicking (context menu) on a verse opens the command palette with cross-reference options.
- *
- * @template "div" - The HTML element type for the root of this component.
- *
- * @extends UIComponent<"div">
- *
- * @property verses - An array of HTMLDivElement references for each verse in the chapter.
- * @property verse - The reference to the current chapter (and optionally verse) being displayed.
- * @property app - The main application instance, used for navigation and command palette actions.
- *
- * @constructor
- * @param parent - The parent HTML element to which this component will be attached.
- * @param ref - The reference object containing book, chapter, and verse data.
- * @param app - The main application instance.
- *
- * @method removeActive - Removes the "active" class from any currently active verse element.
- * @method scrollTo - Smoothly scrolls to the specified verse and marks it as active.
- * @method scrollToInstant - Instantly scrolls to the specified verse and marks it as active.
- */
-class ChapterComponent extends UIComponent<"div"> {
+type VerseScreenState = {
   verse: VerseRef;
-  verses: HTMLDivElement[] = [];
-  verseInfos: VerseInfoComponent[] = []; // New: Array of components instead of raw elements
+  translation: translation;
+};
+
+export class VerseScreen extends View<VerseScreenState> {
+  readonly viewTypeId = "verse-screen";
+  chapters: HTMLElement[] = [];
+
+  private scrollBubbleLifecycle: ScrollBubbleLifecycle | null = null;
+
+  cacheStart: VerseRef | null = null;
+  cacheEnd: VerseRef | null = null;
+
+  minimumNumberOfScreensToCache = 20; // the number of screen hights worth of verses to cache above and below the current scroll position
+  numberOfChaptersToLoadAtATime = 5; // when loading more chapters, load this many at a time to reduce the number of loads while scrolling
+  maxChaptersToCache = 100; // the maximum number of chapters to keep in the DOM at once
 
   constructor(
-    parent: HTMLElement,
-    ref: VerseRef,
-    private app: TouchGrassBibleApp,
-    translation: translation,
+    public app: TouchGrassBibleApp,
+    public verseActions = van.state<IconActionItem[]>([]),
   ) {
-    super(parent, "div");
-    this.verse = ref;
-    const { book, chapter } = ref;
-    this.addClass("chapter");
-    this.createChild("h2", {
-      text: VerseHighlight.highlight(ref.toChapterString()),
-      cls: "chapter-title",
-    });
-    ref.chapterData(translation).forEach((text: string, v: number) => {
-      if (v === 0) return;
-      const newVerse = new VerseRef(book, chapter, v);
-      this.verses[v] = this.createChild("div", {}, (el: HTMLElement) => {
-        el.createEl(
-          "div",
-          { text: VerseHighlight.highlight(`${v} ${text}`), cls: "verse" },
-          (el: HTMLElement) => {
-            if (text.includes("#")) el.addClass("paragraph-break");
-
-            el.addEventListener("click", () => this.app.verseState.set(newVerse));
-            el.addEventListener(
-              "contextmenu",
-              pdsp(
-                () => (
-                  app.verseState.set(newVerse),
-                  this.app.openCommandPalette({ topCategory: "tsk-cross-ref" })
-                ),
-              ),
-            );
-          },
-        );
-        // Replace raw div creation with the new component
-        this.verseInfos[v] = new VerseInfoComponent(el, newVerse, this.app);
-      });
-    });
+    super("Verse Screen 2", { verse: app.verseState.val, translation: app.translationState.val });
+    this.state.verse = this.app.commandPalette.useVanState(this.app.verseState.val);
+    this.state.translation = this.app.commandPalette.useVanState<translation>(this.app.translationState.val);
+    van.derive(() => (this.title.val = `${this.state.verse.val.toString()} - ${this.state.translation.val}`));
   }
 
-  removeActive() {
-    this.element.querySelector(".active")?.classList.remove("active");
-  }
+  create(): HTMLElement {
+    let isLoading = false;
 
-  setActive(verse: VerseRef) {
-    this.verses[verse.verse]?.classList.add("active");
-    this.verseInfos[verse.verse]?.render(); // Render the info container when active
-  }
+    this.cacheStart = this.state.verse.val;
+    this.cacheEnd = this.state.verse.val;
+    this.scrollBubbleLifecycle = new ScrollBubbleLifecycle(this.state.verse);
 
-  scrollTo(verse: VerseRef) {
-    this.removeActive();
-    this.verses[verse.verse]?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-    this.setActive(verse);
-  }
+    const listen = () => {
+      const verse = this.state.verse.val;
+      let foundInCache = false;
 
-  scrollToInstant(verse: VerseRef) {
-    this.removeActive();
-    this.verses[verse.verse]?.scrollIntoView({ block: "start" });
-    this.setActive(verse);
-  }
-}
+      let current = this.cacheStart;
 
-/**
- * Represents the main view for displaying Bible verses and chapters in the TouchGrassBibleApp.
- * Handles rendering, scrolling, and navigation between chapters and books.
- *
- * @remarks
- * - Maintains a buffer of rendered chapters for smooth scrolling and navigation.
- * - Integrates with command palette for verse selection and history.
- * - Handles scroll events to dynamically load previous/next chapters and update the current verse reference.
- * - Provides UI controls for navigating chapters and updating the screen title.
- *
- * @property {VerseRef} _verse - The current verse reference being displayed.
- * @property {HTMLElement} chapterContainer - The container element for chapter components.
- * @property {ChapterComponent[]} renderedChapters - Array of currently rendered chapter components.
- * @property {number} maxRenderedChapters - Maximum number of chapters to render at once (should be odd).
- * @property {number} scrollTriggerThreshold - Threshold for triggering chapter loading on scroll.
- * @property {number} _delayBeforeScroll - Timestamp for delaying scroll actions.
- * @property {ChapterScroll} chapterScroll - Handles chapter-level scrolling logic.
- * @property {BookScroll} bookScroll - Handles book-level scrolling logic.
- *
- * @method onload - Initializes the view, event listeners, and scroll handlers.
- * @method set delayBeforeScroll - Sets the delay before scroll actions are allowed.
- * @method get verse - Gets the current verse reference.
- * @method set verse - Sets the current verse reference and updates UI accordingly.
- * @method get title - Gets the current screen title.
- * @method set title - Sets the screen title and updates UI controls.
- * @method goprevChapter - Navigates to the previous chapter.
- * @method gonextChapter - Navigates to the next chapter.
- * @method updateTitle - Updates the screen title based on the current verse.
- * @method renderInitialChapters - Renders the initial buffer of chapters around the current verse.
- * @method highlightVerse - Scrolls to and highlights the current verse.
- * @method handleScroll - Handles scroll events to load chapters and update verse reference.
- * @method loadPreviousChapter - Loads and prepends the previous chapter to the view.
- * @method loadNextChapter - Loads and appends the next chapter to the view.
- */
-export class VerseScreen extends View {
-  content: HTMLElement;
-  verseState: PaletteState<VerseRef>;
-  translationState: PaletteState<translation>;
-  chapterContainer!: HTMLElement;
-  renderedChapters: ChapterComponent[] = [];
-  maxRenderedChapters = 11; // Keep this an odd number
-  scrollTriggerThreshold = 4;
-  isScrolling = false;
-  chapterScroll!: ChapterScroll;
-  bookScroll!: BookScroll;
-  private highlightedVerse: VerseRef | null = null;
-  private pinchStartDistance: number | null = null;
-  private pinchStartFontSize: number | null = null;
-  private isPinching = false;
-
-  private isVerseScreenState(state: unknown): state is VerseScreenState {
-    if (!state || typeof state !== "object") return false;
-    const candidate = state as Partial<VerseScreenState>;
-    if (candidate.version !== 1 || !candidate.verse) return false;
-    const { book, chapter, verse } = candidate.verse;
-    return (
-      typeof book === "string" &&
-      Number.isInteger(chapter) &&
-      chapter > 0 &&
-      Number.isInteger(verse) &&
-      verse > 0
-    );
-  }
-
-  constructor(
-    panel: LayoutNode,
-    protected app: TouchGrassBibleApp,
-  ) {
-    super(panel);
-    this.containerEl.classList.add("screen-view", "content");
-    this.verseState = this.app.commandPalette.useState(new VerseRef("GENESIS", 1, 1));
-    this.translationState = this.app.commandPalette.useState<translation>(this.app.translationState.get());
-    this.translationState.onChange(() => this.updateTitle());
-    this.content = this.containerEl; //.createEl("div", { cls: "content" });
-  }
-
-  private ensureTranslationLoaded(t: translation): void {
-    VerseRef.defaultTranslation = t;
-    void this.app.translationManager.loadTranslation(t);
-  }
-
-  onAttach(): void {
-    this.translationState.onChange(t => {
-      this.ensureTranslationLoaded(t);
-      this.requestStateSave();
-    });
-
-    this.ensureTranslationLoaded(this.translationState.get());
-
-    this.verseState.onChange(verse => {
-      this.updateTitle();
-      this.chapterScroll?.setRef(verse);
-      this.bookScroll?.setRef(verse);
-
-      if (!this.renderedChapters.some(c => c.verse.isSameChapter(verse))) {
-        this.renderInitialChapters();
-      } else {
-        this.highlightVerse(false);
-      }
-
-      this.requestStateSave();
-    });
-
-    this.chapterContainer = this.content;
-    this.content.addEventListener("touchstart", this.handlePinchStart, { passive: true });
-    this.content.addEventListener("touchmove", this.handlePinchMove, { passive: false });
-    this.content.addEventListener("touchend", this.handlePinchEnd, { passive: true });
-    this.content.addEventListener("touchcancel", this.handlePinchEnd, { passive: true });
-    this.content.addEventListener("scroll", this.handleScroll, { passive: true });
-
-    this.bookScroll = new BookScroll(this.content, v => (this.chapterScroll.show(v), (this.verse = v)));
-    this.chapterScroll = new ChapterScroll(this.content, v => (this.bookScroll.show(v), (this.verse = v)));
-
-    this.app.on("verse-actions-change", () => this.refreshActiveVerseInfo());
-    this.app.on("translation-loaded", t => {
-      if (t === this.translationState.get()) this.renderInitialChapters();
-    });
-
-    this.app.on(
-      "verse-info-highlight",
-      verse => verse instanceof VerseRef && this.highlightVerseInfoButton(verse),
-    );
-  }
-
-  onDetach(): void {
-    this.resetPinchZoom();
-    this.content.removeEventListener("touchstart", this.handlePinchStart);
-    this.content.removeEventListener("touchmove", this.handlePinchMove);
-    this.content.removeEventListener("touchend", this.handlePinchEnd);
-    this.content.removeEventListener("touchcancel", this.handlePinchEnd);
-  }
-
-  /**
-   * Called when this view is activated (becomes the visible view).
-   * Checks if this view is already the active verse screen to avoid redundant setup.
-   */
-  onActivate(): void {
-    const t = this.translationState.get();
-    if (!VerseRef.bibleTranslations[t]) return;
-    VerseRef.defaultTranslation = t;
-    this.updateTitle();
-    this.chapterScroll?.setRef(this.verse);
-    this.bookScroll?.setRef(this.verse);
-
-    if (!this.renderedChapters.some(c => c.verse.isSameChapter(this.verse))) {
-      this.renderInitialChapters();
-    } else {
-      this.highlightVerse(true);
-    }
-  }
-
-  private get verse(): VerseRef {
-    return this.verseState.get();
-  }
-
-  private set verse(value: VerseRef) {
-    //if (value.isSame(this.verse)) return;
-    this.verseState.set(value);
-  }
-
-  updateTitle() {
-    this.title = `${this.verse.toString()} - ${this.translationState.get()}`;
-  }
-
-  private shouldIgnorePinchTarget(target: EventTarget | null): boolean {
-    const element = target instanceof Element ? target : null;
-    if (!element) return false;
-    return Boolean(
-      element.closest("textarea, input, select, button, [contenteditable='true'], .icon-button, .note-area"),
-    );
-  }
-
-  private resetPinchZoom(): void {
-    this.isPinching = false;
-    this.pinchStartDistance = null;
-    this.pinchStartFontSize = null;
-  }
-
-  private handlePinchStart = (event: TouchEvent): void => {
-    if (event.touches.length !== 2 || this.shouldIgnorePinchTarget(event.target)) {
-      this.resetPinchZoom();
-      return;
-    }
-
-    this.isPinching = true;
-    this.pinchStartDistance = getPinchDistance(event.touches[0], event.touches[1]);
-    this.pinchStartFontSize = this.app.settings.style.fontSize;
-  };
-
-  private handlePinchMove = (event: TouchEvent): void => {
-    if (!this.isPinching) return;
-    if (
-      event.touches.length !== 2 ||
-      this.pinchStartDistance === null ||
-      this.pinchStartDistance <= 0 ||
-      this.pinchStartFontSize === null
-    ) {
-      this.resetPinchZoom();
-      return;
-    }
-
-    event.preventDefault();
-    const nextDistance = getPinchDistance(event.touches[0], event.touches[1]);
-    const nextFontSize = this.pinchStartFontSize * (nextDistance / this.pinchStartDistance);
-    this.app.setFontSize(nextFontSize, false, false);
-  };
-
-  private handlePinchEnd = (): void => {
-    if (!this.isPinching) return;
-    this.app.setFontSize(this.app.settings.style.fontSize, true, true);
-    this.resetPinchZoom();
-  };
-
-  renderInitialChapters() {
-    const t = this.translationState.get();
-    if (!VerseRef.bibleTranslations[t]) return;
-
-    this.renderedChapters.forEach(c => c.remove());
-
-    this.renderedChapters = [];
-
-    const centerRef = this.verse;
-    const chaptersToRender: VerseRef[] = [centerRef];
-
-    let prev = centerRef;
-    let next = centerRef;
-    const buffer = Math.floor((this.maxRenderedChapters - 1) / 2);
-
-    for (let i = 0; i < buffer; i++) {
-      prev = prev.prevChapterIn(t);
-      chaptersToRender.unshift(prev);
-      next = next.nextChapterIn(t);
-      chaptersToRender.push(next);
-    }
-
-    for (const ref of chaptersToRender) {
-      const component = new ChapterComponent(this.chapterContainer, ref, this.app, t);
-      this.renderedChapters.push(component);
-    }
-
-    this.waitFullUpdate(() => this.highlightVerse(true));
-  }
-
-  removeActive() {
-    this.renderedChapters.forEach(c => c.removeActive());
-  }
-
-  highlightVerse(instant = false) {
-    this.removeActive();
-    const component = this.renderedChapters.find(c => c.verse.isSameChapter(this.verse));
-    if (component) {
-      if (instant) {
-        component.scrollToInstant(this.verse);
-      } else {
-        component.scrollTo(this.verse);
-      }
-      this.highlightVerseInfoButton(this.verse);
-    }
-  }
-
-  private refreshActiveVerseInfo(): void {
-    const component = this.renderedChapters.find(c => c.verse.isSameChapter(this.verse));
-    component?.verseInfos[this.verse.verse]?.render();
-    this.highlightVerseInfoButton(this.verse);
-  }
-
-  private highlightVerseInfoButton(verse: VerseRef): void {
-    this.clearHighlightedVerseInfo();
-    const component = this.renderedChapters.find(c => c.verse.isSameChapter(verse));
-    const info = component?.verseInfos[verse.verse];
-    if (!info) {
-      this.highlightedVerse = null;
-      return;
-    }
-    info.element.classList.add("is-highlighted");
-    this.highlightedVerse = verse;
-  }
-
-  private clearHighlightedVerseInfo(): void {
-    if (!this.highlightedVerse) return;
-    const component = this.renderedChapters.find(c => c.verse.isSameChapter(this.highlightedVerse!));
-    component?.verseInfos[this.highlightedVerse.verse]?.element.classList.remove("is-highlighted");
-    this.highlightedVerse = null;
-  }
-
-  handleScroll = apocalypseThrottle(() => {
-    if (this.chapterScroll.isGrabbed || this.bookScroll.isGrabbed) return;
-    const { scrollTop, scrollHeight, clientHeight } = this.content;
-
-    if (scrollTop < clientHeight * this.scrollTriggerThreshold) {
-      this.loadPreviousChapter();
-    } else if (scrollHeight - scrollTop - clientHeight < clientHeight * this.scrollTriggerThreshold) {
-      this.loadNextChapter();
-    }
-
-    this.showScrollIndicators(this.CurrentVisibleChapter);
-  }, 100);
-
-  get CurrentVisibleChapter(): VerseRef {
-    // get the last chapter starting above the top of the view
-    const viewTop = this.content.scrollTop;
-    const chapter = this.renderedChapters.findLast(c => c.element.offsetTop < viewTop);
-    return chapter?.verse || this.renderedChapters[0].verse;
-  }
-
-  get midViewChapter(): VerseRef {
-    // Alternatively, get the chapter closest to the midpoint of the view
-    const viewMidpoint = this.content.scrollTop + this.content.clientHeight / 2;
-    return this.renderedChapters.reduce(
-      (closest, chapter) =>
-        Math.abs(viewMidpoint - (chapter.element.offsetTop + chapter.element.offsetHeight / 2)) <
-        Math.abs(viewMidpoint - (closest.element.offsetTop + closest.element.offsetHeight / 2))
-          ? chapter
-          : closest,
-      this.renderedChapters[0],
-    ).verse;
-  }
-
-  loadPreviousChapter() {
-    const firstChapter = this.renderedChapters[0];
-    if (!firstChapter) return;
-
-    const t = this.translationState.get();
-    const prevRef = firstChapter.verse.prevChapterIn(t);
-    if (this.renderedChapters.some(c => c.verse.isSameChapter(prevRef))) return;
-
-    const component = new ChapterComponent(this.chapterContainer, prevRef, this.app, t);
-    this.chapterContainer.prepend(component.element);
-    this.renderedChapters.unshift(component);
-
-    this.content.scrollTop += component.element.offsetHeight;
-
-    if (this.renderedChapters.length > this.maxRenderedChapters) {
-      const removed = this.renderedChapters.pop();
-      removed?.remove();
-    }
-  }
-
-  loadNextChapter() {
-    const lastChapter = this.renderedChapters[this.renderedChapters.length - 1];
-    if (!lastChapter) return;
-
-    const t = this.translationState.get();
-    const nextRef = lastChapter.verse.nextChapterIn(t);
-    if (this.renderedChapters.some(c => c.verse.isSameChapter(nextRef))) return;
-
-    const component = new ChapterComponent(this.chapterContainer, nextRef, this.app, t);
-    this.renderedChapters.push(component);
-
-    if (this.renderedChapters.length > this.maxRenderedChapters) {
-      const removed = this.renderedChapters.shift();
-      removed?.remove();
-    }
-  }
-
-  showScrollIndicators(v: VerseRef): this {
-    this.chapterScroll?.show(v);
-    this.bookScroll?.show(v);
-    if (!v.isSameChapter(this.verse)) this.title = v.toChapterString();
-    else this.updateTitle();
-    return this;
-  }
-
-  waitFullUpdate(cb: () => void): void {
-    window.requestAnimationFrame(() => window.requestAnimationFrame(() => cb()));
-  }
-
-  getViewState(): unknown {
-    const current = this.verse;
-    return {
-      version: 1,
-      verse: {
-        book: current.book,
-        chapter: current.chapter,
-        verse: current.verse,
-      },
-      translation: this.translationState.get(),
-    } satisfies VerseScreenState;
-  }
-
-  setViewState(state: unknown): void {
-    if (!this.isVerseScreenState(state)) return;
-    if (!VerseRef.booksOfTheBible.includes(state.verse.book)) return;
-    this.verseState.set(new VerseRef(state.verse.book, state.verse.chapter, state.verse.verse));
-    if (
-      state.translation &&
-      this.app.translationManager.availableTranslations.includes(state.translation as translation)
-    ) {
-      this.translationState.set(state.translation as translation);
-      this.ensureTranslationLoaded(state.translation as translation);
-      return;
-    }
-    this.ensureTranslationLoaded(this.translationState.get());
-  }
-}
-
-/**
- * A component for displaying and managing verse-specific information (e.g., notes, bookmarks, topics).
- * Encapsulates the logic for rendering an info container below each verse.
- *
- * This replaces the raw `info-container[v]` div and the `renderNoteArea` method,
- * promoting reusability and modularity. It handles dynamic rendering of notes (as a textarea),
- * bookmarks, and topics based on the provided VerseRef.
- *
- * @extends UIComponent<"div">
- *
- * @property verse - The VerseRef associated with this info container.
- * @property app - The main TouchGrassBibleApp instance for navigation and state management.
- *
- * @method render - Updates and renders the info container's contents (notes, buttons) based on the current verse state.
- */
-export class VerseInfoComponent extends UIComponent<"div"> {
-  constructor(
-    parent: HTMLElement,
-    public verse: VerseRef,
-    private app: TouchGrassBibleApp,
-  ) {
-    super(parent, "div");
-    this.addClass("info-container");
-    // Initial render can be empty; it will be populated via render() when the verse is active.
-  }
-
-  /**
-   * Renders the info container's contents, including notes, bookmark buttons, and topic buttons.
-   * Mirrors the logic from the original renderNoteArea, but encapsulated here.
-   */
-  render() {
-    this.clearChildren(); // Clear previous contents to re-render
-
-    for (const action of this.app.getVerseActions()) {
-      if (action.isAvailable) {
-        try {
-          if (!action.isAvailable(this)) continue;
-        } catch (error) {
-          this.app.console.error(`Error evaluating verse action availability: ${action.id}`, error);
-          continue;
+      for (let i = 0; i < this.maxChaptersToCache; i++) {
+        if (!current) break;
+        if (verse.isSameChapter(current)) {
+          foundInCache = true;
+          break;
         }
+        if (this.cacheEnd?.isSameChapter(current)) break;
+        current = current.nextChapterIn(this.state.translation.val);
       }
 
-      new IconButton(this.element)
-        .setIcon(action.icon)
-        .setTooltip(action.name)
-        .on("click", e => {
-          e.stopPropagation();
-          this.app.emit("verse-info-highlight", this.verse);
-          this.initiateRenderReset();
-          action.onTrigger(this);
-        });
-    }
-  }
+      if (!foundInCache || this.state.translation.val !== this.state.translation.oldVal) {
+        this.cacheStart = this.state.verse.val;
+        this.cacheEnd = this.state.verse.val;
+        this.el.replaceChildren(this.chapter(verse));
+        this.loadMoreChapters("down");
+        this.loadMoreChapters("up");
+      }
 
-  private initiateRenderReset() {
-    this.clearChildren();
-    const reset = (e: Event) => {
-      e.stopPropagation();
-      // do not proceed if the click is inside the element
-      if (this.element.contains(e.target as Node))
-        return this.listenOn(document, "click", reset, { once: true });
-      else this.initiateRenderReset(); // Clear and wait for next click to reset
-      this.render(); // Re-render to restore original state
+      // Scroll to the verse after a short delay to ensure the DOM has updated with the new chapters if needed.
+      setTimeout(() => {
+        const scroll = this.el.scrollTop;
+        this.el
+          .querySelector(".verse-container.active")
+          ?.scrollIntoView({ behavior: "instant", block: "start" });
+        if (foundInCache && Math.abs(this.el.scrollTop - scroll) < window.innerHeight) {
+          this.el.style.transform = `translateY(${this.el.scrollTop - scroll}px)`;
+          requestAnimationFrame(() => {
+            this.el.style.transition = "transform 0.3s ease";
+            this.el.style.transform = "";
+            setTimeout(() => (this.el.style.transition = ""), 300);
+          });
+        }
+      });
+      return "alive";
     };
 
-    this.listenOn(document, "click", reset, { once: true });
+    const pinchZoomHandler = new PinchZoomHandler(scale => {
+      const size = this.app.setFontSize(scale, false, false);
+      this.el
+        .querySelector(".verse-container.active")
+        ?.scrollIntoView({ behavior: "instant", block: "start" });
+      return size;
+    }, this.app.settings.style.fontSize);
+
+    return div(
+      {
+        class: "screen-view content",
+        style: "overflow: auto;",
+        ontouchstart: pinchZoomHandler.handlePinchStart,
+        ontouchmove: pinchZoomHandler.handlePinchMove,
+        ontouchend: pinchZoomHandler.handlePinchEnd,
+        ontouchcancel: pinchZoomHandler.handlePinchEnd,
+        onscroll: (e: Event) => {
+          if (isLoading) return;
+
+          this.scrollBubbleLifecycle?.touch();
+
+          isLoading = true;
+          try {
+            const target = e.currentTarget as HTMLElement;
+            const { scrollTop, scrollHeight, clientHeight } = target;
+
+            if (scrollTop < clientHeight * this.minimumNumberOfScreensToCache) {
+              this.loadMoreChapters("up");
+            } else if (
+              scrollHeight - scrollTop - clientHeight <
+              clientHeight * this.minimumNumberOfScreensToCache
+            ) {
+              this.loadMoreChapters("down");
+            }
+          } finally {
+            setTimeout(() => (isLoading = false));
+          }
+        },
+        dataset: listen,
+      },
+      this.chapter(this.state.verse.val),
+    );
+  }
+
+  onUnmount(): void {
+    this.scrollBubbleLifecycle?.destroy();
+    this.scrollBubbleLifecycle = null;
+  }
+
+  chapter(ref: VerseRef) {
+    return div(
+      { class: () => "chapter" },
+      h2(
+        { class: () => `chapter-title${this.state.verse.val.isSameChap(ref) ? " active" : ""}` },
+        `${ref.book} ${ref.chapter}`,
+      ),
+      ref
+        .chapterData(this.state.translation.val)
+        .slice(1)
+        .map((text, v) => {
+          const verse = new VerseRef(ref.book, ref.chapter, v + 1);
+          return div(
+            {
+              class: () =>
+                this.state.verse.val.isSame(verse) ? "active verse-container" : "verse-container",
+            },
+            div(
+              {
+                class: `verse${text?.includes("#") ? " paragraph-break" : ""}`,
+                onclick: () => (this.state.verse.val = verse),
+                oncontextmenu: (e: MouseEvent) => {
+                  e.preventDefault();
+                  this.app.verseState.val = verse;
+                  this.app.openCommandPalette({ topCategory: "tsk-cross-ref" });
+                },
+              },
+              highlight(`${v + 1} ${text}`, VerseHighlightPatterns),
+            ),
+            () =>
+              this.state.verse.val.isSame(verse)
+                ? div(
+                    { class: "info-container" },
+                    div(
+                      { class: "buttons" },
+                      this.verseActions.val
+                        .filter(action => !action.isAvailable || action.isAvailable({ verse }))
+                        .map(action =>
+                          div(
+                            {
+                              class: "icon-button",
+                              title: action.name,
+                              onclick: (event: MouseEvent) => {
+                                event.stopPropagation();
+                                const element = ((event.currentTarget as HTMLElement)
+                                  .closest(".info-container")
+                                  ?.querySelector(".content-placeholder") ||
+                                  event.currentTarget) as HTMLElement;
+                                element.textContent = "";
+
+                                element.focus();
+
+                                action.onTrigger({ verse, event, element });
+                                document.body.addEventListener(
+                                  "click",
+                                  (e: MouseEvent) => {
+                                    e.stopPropagation();
+                                    this.verseActions.val = [...this.verseActions.val]; // trigger reactivity to reset the buttons
+                                  },
+                                  { once: true },
+                                );
+                              },
+                            },
+                            renderIcon(action.icon),
+                          ),
+                        ),
+                    ),
+                    div({ class: "content-placeholder" }),
+                  )
+                : div(),
+          );
+        }),
+    );
+  }
+
+  loadMoreChapters(direction: "up" | "down") {
+    const current = direction === "up" ? this.cacheStart : this.cacheEnd;
+    if (!current) return;
+
+    const newChapters: HTMLElement[] = [];
+    let nextRef: VerseRef | null = current;
+    for (let i = 0; i < this.numberOfChaptersToLoadAtATime; i++) {
+      nextRef =
+        direction === "up"
+          ? nextRef.prevChapterIn(this.state.translation.val)
+          : nextRef.nextChapterIn(this.state.translation.val);
+      newChapters.push(this.chapter(nextRef));
+    }
+
+    if (direction === "up") {
+      this.el.prepend(...newChapters.reverse());
+      this.cacheStart = nextRef;
+    } else {
+      this.el.append(...newChapters);
+      this.cacheEnd = nextRef;
+    }
+    this.trimCache(direction);
+  }
+
+  trimCache(direction: "up" | "down") {
+    const chapters = Array.from(this.el.children);
+    if (chapters.length > this.maxChaptersToCache) {
+      const excess = chapters.length - this.maxChaptersToCache;
+      for (let i = 0; i < excess; i++) {
+        if (direction === "up") {
+          this.el.removeChild(chapters[chapters.length - 1 - i]);
+          this.cacheEnd = this.cacheEnd?.prevChapterIn(this.state.translation.val) || null;
+        } else {
+          this.el.removeChild(chapters[i]);
+          this.cacheStart = this.cacheStart?.nextChapterIn(this.state.translation.val) || null;
+        }
+      }
+    }
+  }
+
+  serializeState(): string {
+    return JSON.stringify({
+      verse: {
+        book: this.state.verse.val.book,
+        chapter: this.state.verse.val.chapter,
+        verse: this.state.verse.val.verse,
+      },
+      translation: this.state.translation.val,
+    } satisfies SerializedVerseScreenState);
+  }
+
+  deserializeState(str: string): VerseScreenState {
+    try {
+      const state = JSON.parse(str) as SerializedVerseScreenState;
+      const verse = new VerseRef(state.verse.book, state.verse.chapter, state.verse.verse);
+      const translation = state.translation || this.state.translation.val;
+      return { verse, translation };
+    } catch (error) {
+      this.app.console.error("Failed to deserialize VerseScreen state", error);
+      return this.getState();
+    }
+  }
+}
+
+class ScrollBubbleLifecycle {
+  private bubble: HTMLElement | null = null;
+  private hideTimer: number | null = null;
+  private isHolding = van.state(false);
+
+  constructor(
+    private verse: State<VerseRef>,
+    private hideDelayMs = 3000,
+    private mountTarget: HTMLElement = document.body,
+  ) {}
+
+  touch(): void {
+    if (!this.bubble) {
+      this.bubble = this.createBubble();
+      this.mountTarget.appendChild(this.bubble);
+    }
+
+    if (this.isHolding.val) return;
+
+    if (this.hideTimer !== null) {
+      window.clearTimeout(this.hideTimer);
+      this.hideTimer = null;
+    }
+
+    this.hideTimer = window.setTimeout(() => {
+      this.hideTimer = null;
+      this.removeBubble();
+    }, this.hideDelayMs);
+  }
+
+  destroy(): void {
+    if (this.hideTimer !== null) {
+      window.clearTimeout(this.hideTimer);
+      this.hideTimer = null;
+    }
+    this.removeBubble();
+  }
+
+  private removeBubble(): void {
+    this.bubble?.remove();
+    this.bubble = null;
+  }
+
+  private createBubble(): HTMLElement {
+    const dragVerse = van.state(this.verse.val);
+    let isDragging = false;
+
+    const onpointerdown = (e: PointerEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+
+      isDragging = true;
+      this.isHolding.val = true;
+      if (this.hideTimer !== null) {
+        window.clearTimeout(this.hideTimer);
+        this.hideTimer = null;
+      }
+      dragVerse.val = this.verse.val;
+
+      const height = window.innerHeight;
+      const width = window.innerWidth;
+
+      const sections = 4;
+
+      const sectionPositions = new Array(sections).fill(0);
+
+      const pointermove = apocalypseThrottle((moveEvent: PointerEvent) => {
+        const y = moveEvent.clientY / 0.8 - height * 0.1; // allow dragging slightly above the bubble for easier use
+        const x = moveEvent.clientX;
+        const csection = Math.max(0, Math.min(sections - 1, Math.floor((1 - x / width) * sections)));
+        sectionPositions[csection] = y / height - 0.5;
+        for (let i = csection + 1; i < sections; i++) if (i !== csection) sectionPositions[i] = 0;
+        const distance =
+          0.5 + sectionPositions.reduce((acc, newVal, idx) => acc + (newVal || 0) / Math.pow(4, idx), 0);
+
+        const ref = VerseRef.distance(distance);
+        ref.verse = 1;
+
+        dragVerse.val = ref;
+      }, 50);
+
+      const pointerup = () => {
+        isDragging = false;
+        this.isHolding.val = false;
+        this.verse.val = dragVerse.val;
+        document.body.removeEventListener("pointermove", pointermove);
+        this.touch();
+      };
+
+      document.body.addEventListener("pointermove", pointermove);
+      document.body.addEventListener("pointerup", pointerup, { once: true });
+      document.body.addEventListener("pointercancel", pointerup, { once: true });
+      document.body.addEventListener("pointerleave", pointerup, { once: true });
+    };
+
+    return div(
+      {
+        class: "scroll-bubble",
+        style: () => `top: ${10 + dragVerse.val.getDistance() * 80}vh`,
+        onpointerdown,
+      },
+      span(
+        {
+          class: () =>
+            this.isHolding.val ? "scroll-bubble-label scroll-bubble-label-visible" : "scroll-bubble-label",
+        },
+        () => dragVerse.val.toString(),
+      ),
+      span({
+        class: "scroll-bubble-handle",
+        "aria-hidden": "true",
+        dataset: () => !isDragging && (dragVerse.val = this.verse.val),
+      }),
+    );
   }
 }

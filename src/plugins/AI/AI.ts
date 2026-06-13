@@ -1,17 +1,19 @@
-import { BrainCircuit } from "lucide";
 import {
-  Button,
   CommandCategory,
   CommandItem,
-  CommandPaletteState,
-  UnifiedCommandPalette,
+  CommandPaletteDialog,
+  CommandPaletteViewState,
+  MenuVan,
+  van,
 } from "@touchgrass/framework";
-import { VerseInfoComponent } from "src/ui/VerseScreen";
+import { BrainCircuit } from "lucide";
 import Plugin from "../../core/Plugin";
 import { AICategoryID, AIEmbeddingSearchCategoryID, SettingsCategoryID } from "../categoryIDs";
 import { AIchat } from "./AIchat";
 import { AIEmbeddingSearchCategory } from "./AIEmbeddingSearch";
 import { AIEmbeddingSearchDB } from "./AIEmbeddingSearchDB";
+
+const { div } = van.tags;
 
 interface AIPluginSettings {
   aiApiKey: string;
@@ -28,50 +30,50 @@ export default class AIPlugin extends Plugin {
 
   async onload() {
     this.settings = await this.loadSettings(defaultAISettings);
-    this.registerPalette(() => new AICommandPalette(this.app.commandPalette, this), AICategoryID);
-    // Initialize in background without blocking plugin load
-    //requestIdleCallback(() => {
+    this.registerPalette(dialog => new AICommandPalette(dialog, this), AICategoryID);
     this.embeddingSearchDB
       .initialize()
       .then(() => {
         this.registerPalette(
-          palette => new AIEmbeddingSearchCategory(palette, this, this.embeddingSearchDB),
+          dialog => new AIEmbeddingSearchCategory(dialog, this, this.embeddingSearchDB),
           AIEmbeddingSearchCategoryID,
         );
       })
       .catch(err => this.app.console.error(`Error loading embedding search database`, err));
-    //});
 
     this.addVerseAction({
       id: "ai-ask",
       name: "Ask AI about this verse",
       icon: BrainCircuit,
-      onTrigger: (verseInfo: VerseInfoComponent) => {
+      onTrigger: verseInfo => {
         if (!this.settings.aiApiKey) {
-          new Button(verseInfo.element)
-            .setButtonText("Set API key in Settings")
-            .on("click", () => this.app.openCommandPalette({ topCategory: SettingsCategoryID }));
+          new MenuVan([
+            {
+              title: "AI API key not set",
+              icon: BrainCircuit,
+              onClick: () => this.app.openCommandPalette({ topCategory: SettingsCategoryID }),
+            },
+          ]).showAtMouseEvent(verseInfo.event);
           return;
         }
         const verse = verseInfo.verse;
         const verseText = verse.vTXT;
         const prompt = `Explain the following Bible verse in context: "${verse.toString()} — ${verseText}"`;
         this.chat.endpoint.apiKey = this.settings.aiApiKey;
-        const responseEl = verseInfo.element.createEl("div", {
-          cls: "ai-response",
-        });
-        responseEl.textContent = "Asking AI…";
+
+        const text = van.state("Asking AI…");
+
+        const responseEl = div({ class: "ai-response" }, text);
+        van.add(verseInfo.element, responseEl);
         this.chat
           .request(prompt, delta => {
             if (delta.content) {
-              if (responseEl.textContent === "Asking AI…") responseEl.textContent = "";
-              responseEl.textContent += delta.content;
+              if (text.val === "Asking AI…") text.val = "";
+              text.val += delta.content;
             }
             return true;
           })
-          .catch(
-            err => (responseEl.textContent = `Error: ${err instanceof Error ? err.message : String(err)}`),
-          );
+          .catch(err => (text.val = `Error: ${err instanceof Error ? err.message : String(err)}`));
       },
     });
   }
@@ -88,10 +90,10 @@ class AICommandPalette extends CommandCategory<string> {
   private inFlightResponse: { question: string; answer: string; error?: string } | null = null;
 
   constructor(
-    public commandPalette: UnifiedCommandPalette,
+    public dialog: CommandPaletteDialog,
     public plugin: AIPlugin,
   ) {
-    super(commandPalette);
+    super(dialog);
   }
 
   onTrigger(): void {
@@ -114,7 +116,7 @@ class AICommandPalette extends CommandCategory<string> {
             if (key === null) return;
             this.plugin.settings.aiApiKey = key.trim();
             this.plugin.saveSettings();
-            this.commandPalette.display({ topCategory: AICategoryID });
+            this.dialog.palette.display({ topCategory: AICategoryID });
           }),
         ),
     );
@@ -123,7 +125,7 @@ class AICommandPalette extends CommandCategory<string> {
       "Open semantic embedding search",
       "Search semantically similar verses using precomputed embeddings + Orama",
       item =>
-        void item.onClick(() => this.commandPalette.display({ topCategory: AIEmbeddingSearchCategoryID })),
+        void item.onClick(() => this.dialog.palette.display({ topCategory: AIEmbeddingSearchCategoryID })),
     );
 
     if (this.inFlightResponse) {
@@ -153,9 +155,9 @@ class AICommandPalette extends CommandCategory<string> {
   renderCommand(
     command: string,
     Item: CommandItem<string>,
-  ): (state: CommandPaletteState) => CommandPaletteState {
+  ): Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) {
     Item.setTitle(`Ask: ${command}`).setDescription("Send this question to the AI assistant");
-    return state => state;
+    return {};
   }
 
   executeCommand(command: string): void {
@@ -165,13 +167,13 @@ class AICommandPalette extends CommandCategory<string> {
       return;
     }
     this.plugin.chat.endpoint.apiKey = apiKey;
-    const verse = this.plugin.app.verseState.get();
+    const verse = this.plugin.app.verseState.val;
     const contextPrompt = verse
       ? `[Current verse: ${verse.toString()} — "${verse.vTXT}"]\n\n${command}`
       : command;
 
     this.inFlightResponse = { question: command, answer: "" };
-    this.commandPalette.display({ topCategory: AICategoryID });
+    this.dialog.palette.display({ topCategory: AICategoryID });
 
     this.plugin.chat
       .request(contextPrompt, delta => {
@@ -180,7 +182,7 @@ class AICommandPalette extends CommandCategory<string> {
             this.inFlightResponse = { question: command, answer: "" };
           }
           this.inFlightResponse.answer += delta.content;
-          this.commandPalette.display({ topCategory: AICategoryID });
+          this.dialog.palette.display({ topCategory: AICategoryID });
         }
         return true;
       })
@@ -189,7 +191,7 @@ class AICommandPalette extends CommandCategory<string> {
           this.responses.push({ question: command, answer: this.inFlightResponse.answer });
           this.inFlightResponse = null;
         }
-        this.commandPalette.display({ topCategory: AICategoryID });
+        this.dialog.palette.display({ topCategory: AICategoryID });
       })
       .catch(err => {
         const message = err instanceof Error ? err.message : String(err);
@@ -198,7 +200,7 @@ class AICommandPalette extends CommandCategory<string> {
         } else {
           this.inFlightResponse.error = message;
         }
-        this.commandPalette.display({ topCategory: AICategoryID });
+        this.dialog.palette.display({ topCategory: AICategoryID });
       });
   }
 }

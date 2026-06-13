@@ -1,21 +1,20 @@
-import { GitCompare } from "lucide";
 import {
-  Button,
   CommandCategory,
   CommandItem,
-  CommandPaletteState,
-  UnifiedCommandPalette,
+  CommandPaletteDialog,
+  CommandPaletteViewState,
+  MenuVan,
+  State,
 } from "@touchgrass/framework";
-import { VerseInfoComponent } from "src/ui/VerseScreen";
+import { GitCompare } from "lucide";
 import Plugin from "../core/Plugin";
-import { PaletteState } from "@touchgrass/framework";
 import { BibleTopics, BibleTopicsType } from "../models/BibleTopics";
 import { VerseRef } from "../models/VerseRef";
 import { TopicListCategoryID, TSKCrossRefCategoryID } from "./categoryIDs";
 
 export default class TopicalBiblePlugin extends Plugin {
   topics: BibleTopics = new BibleTopics({}); // Initialize with empty topics
-  topic = this.app.commandPalette.useState(""); // State to track the currently selected topic
+  topic = this.app.commandPalette.useVanState(""); // State to track the currently selected topic
 
   async onload(): Promise<void> {
     try {
@@ -24,7 +23,7 @@ export default class TopicalBiblePlugin extends Plugin {
       this.console.error("Failed to load topics.json. Topical Bible will be unavailable.", e);
     }
 
-    this.registerPalette(() => new topicListCategory(this.app.commandPalette, this), TopicListCategoryID);
+    this.registerPalette(dialog => new topicListCategory(dialog, this), TopicListCategoryID);
 
     this.addVerseAction({
       id: "topic",
@@ -32,16 +31,19 @@ export default class TopicalBiblePlugin extends Plugin {
       description: "View topics associated with this verse from OpenBible.info",
       icon: GitCompare,
       isAvailable: verseInfo => this.topics.getTopicsFromVerse(verseInfo.verse).length > 0,
-      onTrigger: (verseInfo: VerseInfoComponent) => {
+      onTrigger: verseInfo => {
+        const menu = new MenuVan();
         const topicList = this.topics.getTopicsFromVerse(verseInfo.verse);
         topicList.forEach(topic => {
-          new Button(verseInfo.element).setButtonText(`${topic.toTitleCase()}`).on("click", () => {
-            this.topic.set(topic);
-            this.app.openCommandPalette({
-              topCategory: TopicListCategoryID,
-            });
+          menu.addItem({
+            title: topic.toTitleCase(),
+            onClick: () => {
+              this.topic.val = topic;
+              this.app.openCommandPalette({ topCategory: TopicListCategoryID });
+            },
           });
         });
+        menu.showAtMouseEvent(verseInfo.event);
       },
     });
   }
@@ -51,18 +53,18 @@ class topicListCategory extends CommandCategory<VerseRef | string> {
   list: string[] | VerseRef[] = [];
   name = "Topics (www.openbible.info)";
   description = "List of topics from OpenBible.info";
-  topic: PaletteState<string>; // State to track the currently selected topic
+  topic: State<string>; // State to track the currently selected topic
 
   constructor(
-    public commandPalette: UnifiedCommandPalette,
+    public dialog: CommandPaletteDialog,
     public plugin: TopicalBiblePlugin,
   ) {
-    super(commandPalette);
+    super(dialog);
     this.topic = this.plugin.topic; // Initialize the topic state
   }
 
   onTrigger(): void {
-    const topic = this.topic.get();
+    const topic = this.topic.val;
     if (topic) {
       this.list = this.plugin.topics.get(topic);
       this.title = `Topic: ${topic.toTitleCase()}`;
@@ -71,8 +73,8 @@ class topicListCategory extends CommandCategory<VerseRef | string> {
         "",
         item =>
           void item.onClick(() => {
-            this.topic.set("");
-            this.commandPalette.display();
+            this.topic.val = "";
+            this.dialog.palette.display();
           }),
       );
     } else {
@@ -97,24 +99,24 @@ class topicListCategory extends CommandCategory<VerseRef | string> {
   renderCommand(
     command: VerseRef | string,
     Item: CommandItem<VerseRef | string>,
-  ): (state: CommandPaletteState) => CommandPaletteState {
+  ): Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) {
     if (typeof command === "string") {
       Item.setTitle(command.toTitleCase()).addctx();
-      return state => {
-        this.topic.set(command);
-        return state.update({ ...state, topCategory: TopicListCategoryID });
+      return () => {
+        this.topic.val = command;
+        return { topCategory: TopicListCategoryID };
       };
     } else {
       Item.setTitle(command.toString()).setDescription(command.vTXT).addctx();
-      return state => {
-        this.plugin.app.verseState.set(command);
-        return state.update({ ...state, topCategory: TSKCrossRefCategoryID });
+      return () => {
+        this.plugin.app.verseState.val = command;
+        return { topCategory: TSKCrossRefCategoryID };
       };
     }
   }
 
   executeCommand(command: VerseRef | string): void {
-    if (typeof command === "string") this.commandPalette.display();
-    else this.commandPalette.close();
+    if (typeof command === "string") this.dialog.palette.display();
+    else this.dialog.palette.close();
   }
 }

@@ -1,6 +1,6 @@
 import levenshtein from "js-levenshtein";
 import { ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, X } from "lucide";
-import van, { Props, PropsWithKnownKeys } from "vanjs-core";
+import van, { Props, PropsWithKnownKeys, type State } from "vanjs-core";
 import { App } from "./App";
 import { CMD, CMDType } from "./Comands";
 import "./CommandPalette.css";
@@ -11,15 +11,17 @@ import {
 } from "./CommandPaletteSettings";
 import { Commands } from "./Commands";
 import { escapeRegExp } from "./escapeRegExp";
-import { ETarget, touchDraggerEvents } from "./Event";
-import { HighlightType } from "./highlighter";
+import { touchDragger } from "./Event";
+import { HighlightRule } from "./highlighter";
+import { renderIcon } from "./Icons";
 import { BrowserConsole } from "./MyBrowserConsole";
-import { PaletteState, PaletteStateController } from "./PaletteStateController";
 import { SettingsStore } from "./SettingsStore";
-import { icon, inputMode, Item } from "./UIComponents";
-import { WorkspaceDialog } from "./Workspace";
+import { Item, toggle } from "./UIComponents";
+import { View, viewStateController } from "./Workspace";
 
 const { div, button, input, span, br } = van.tags;
+
+const COMMAND_PALETTE_VIEW_ID = "command-palette";
 
 /**
  * Lazy wrapper for a command category factory.
@@ -44,11 +46,11 @@ export class CategoryLoader<T> {
   /**
    * Returns this loader's category instance, creating it on first access.
    *
-   * @param commandPalette - Palette runtime used by the category factory.
+   * @param dialog - Palette runtime used by the category factory.
    * @returns Cached command category instance.
    */
-  public getPalette(commandPalette: UnifiedCommandPalette): CommandCategory<T> {
-    return this._palette || (this._palette = this.load(commandPalette));
+  public getPalette(dialog: CommandPaletteDialog): CommandCategory<T> {
+    return this._palette || (this._palette = this.load(dialog));
   }
 }
 
@@ -56,16 +58,10 @@ export class CategoryLoader<T> {
  * Factory signature used to register command categories.
  *
  * @typeParam T - Command item type represented by the returned category.
- * @param commandPalette - Palette runtime that owns the category.
+ * @param dialog - Palette runtime that owns the category.
  * @returns A command category instance.
  */
-export type CategoryLoaderFunc<T> = (commandPalette: UnifiedCommandPalette) => CommandCategory<T>;
-
-type UnifiedCommandPaletteEvents = {
-  close: void;
-  keydown: { key: string };
-  historypop: CommandPaletteState;
-} & touchDraggerEvents;
+export type CategoryLoaderFunc<T> = (dialog: CommandPaletteDialog) => CommandCategory<T>;
 
 /**
  * Abstract base class for a unified command palette UI component.
@@ -77,7 +73,6 @@ type UnifiedCommandPaletteEvents = {
  * @typeParam  - The application type, extending `App`, that this palette is bound to.
  *
  * @template
- * @extends ETarget
  *
  * @remarks
  * - Supports multiple command categories and dynamic context switching.
@@ -110,44 +105,41 @@ type UnifiedCommandPaletteEvents = {
  * @example
  * const palette = new UnifiedCommandPalette(app);
  */
-export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> {
-  private dialog: CommandPaletteDialog | null = null;
-  private _state: CommandPaletteState = new CommandPaletteState("");
+export class UnifiedCommandPalette {
+  dialog: CommandPaletteDialog = new CommandPaletteDialog(this);
+
+  state = new viewStateController({});
   get maxResults(): number {
-    return this.dialog?.maxResults.val ?? 100;
+    return this.dialog?.state.maxResults.val ?? 100;
   }
   freezeScrollOnRender: boolean = false; // Flag to control scroll freezing on render
 
   private categories: CategoryLoader<unknown>[] = [];
-  private hiddenCategories: CategoryLoader<unknown>[] = []; // Hidden categories
+  hiddenCategories: CategoryLoader<unknown>[] = []; // Hidden categories
   private _disabledPalettes: Set<string> = new Set();
-  private stateController: PaletteStateController<CommandPaletteState>;
   private categoryOrder: string[] = [];
   private settingsInitialized = false;
   private applyingSettings = false;
   private readonly settingsStore: SettingsStore<CommandPaletteSettings>;
   commands: Commands = new Commands();
-  highlighter: HighlightType[] = []; // Highlighter instance for query highlighting
-
-  inputMode: inputMode = "search"; // Default input type
+  highlighter: HighlightRule[] = []; // Highlighter instance for query highlighting
 
   constructor(public readonly app: App) {
-    super();
     this.settingsStore = new SettingsStore<CommandPaletteSettings>({
       defaultValue: DEFAULT_COMMAND_PALETTE_SETTINGS,
       defaultSaveDelayMs: 500,
       fileManager: this.app.files,
       fileName: COMMAND_PALETTE_CONFIG_NAME,
     });
-    this.stateController = new PaletteStateController<CommandPaletteState>(
-      () => this.getState(),
-      state => {
-        this._state = state;
-        this.dialog?.setState(state);
-      },
-    );
-    this.addHiddenPalette(() => new CategoryNavigator(this), "navigator");
-    this.addHiddenPalette(() => new PromptCategory(this), "prompt");
+    this.state = new viewStateController<CommandPaletteViewState>({
+      query: "",
+      topCategory: "",
+      expanded: true,
+      maxResults: 100,
+    });
+    this.app.workspace.layoutController.registerView(COMMAND_PALETTE_VIEW_ID, () => this.dialog);
+    this.addHiddenPalette(() => new CategoryNavigator(this.dialog!), "navigator");
+    this.addHiddenPalette(() => new PromptCategory(this.dialog!), "prompt");
   }
 
   async initializeSettings(): Promise<void> {
@@ -174,25 +166,7 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
   }
 
   get isOpen(): boolean {
-    return this.dialog?.isOpen ?? false;
-  }
-
-  private getOrCreateDialog(): CommandPaletteDialog {
-    if (!this.dialog) {
-      this.dialog = new CommandPaletteDialog(this);
-      this.dialog.setState(this._state);
-    }
-    return this.dialog;
-  }
-
-  onDialogOpened(): void {}
-
-  onDialogClosed(dialog: CommandPaletteDialog): void {
-    if (this.dialog === dialog) {
-      this._state = dialog.getState();
-      this.dialog = null;
-    }
-    this.emit("close", undefined);
+    return this.dialog.isCreated;
   }
 
   open(): this {
@@ -202,13 +176,11 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
 
   close(): this {
     if (!this.isOpen) return this;
-    this.update({
-      query: "",
-      topCategory: "",
-    });
-    this.stateController.clearContexts();
-    this.inputMode = "search";
-    this.dialog?.destroy();
+    const dialog = this.dialog;
+    this.state.clearStateHistory();
+    if (dialog) {
+      this.app.workspace.layoutController.removeViewInstance(dialog);
+    }
     return this;
   }
 
@@ -227,14 +199,14 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
   }
 
   /**
-   * Creates palette-scoped reactive state storage.
+   * Creates palette-scoped native Van state storage.
    *
    * @typeParam T - State value type.
    * @param initialValue - Initial value for the state holder.
-   * @returns A reactive state handle managed by the palette state controller.
+   * @returns A native `van.state` atom managed by the Van state controller.
    */
-  useState<T>(initialValue: T): PaletteState<T> {
-    return this.stateController.useState(initialValue);
+  useVanState<T>(initialValue: T): State<T> {
+    return this.state.useState(initialValue);
   }
 
   /**
@@ -258,24 +230,13 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
   }
 
   private getPromptCategory(): PromptCategory | undefined {
-    const promptCategory = this.getCategory("prompt")?.getPalette(this);
+    const promptCategory = this.getCategory("prompt")?.getPalette(this.dialog!);
     if (promptCategory instanceof PromptCategory) return promptCategory;
   }
 
   /** Number of rendered command items in the current view. */
   get length(): number {
     return this.dialog?.length ?? 0;
-  }
-
-  /**
-   * Current top category loader.
-   *
-   * Falls back to the first visible category when no explicit top category is set.
-   */
-  get topCategory(): CategoryLoader<unknown> | undefined {
-    const topCategory = this.getCategory(this.getState().topCategory);
-    if (topCategory && !this.isCategoryDisabled(topCategory.id)) return topCategory;
-    return this.palettes[0];
   }
 
   /** Visible command categories in registration order. */
@@ -306,7 +267,7 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
     if (this._disabledPalettes.has(id)) return;
     if (!this.categories.some(category => category.id === id)) return;
     this._disabledPalettes.add(id);
-    if (this.getState().topCategory === id) {
+    if (this.dialog?.state.topCategory.val === id) {
       this.freezeScrollOnRender = true; // Prevent scroll reset on next render
       this.update({ topCategory: "" });
     }
@@ -323,11 +284,6 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
 
   getDisabledPalettes(): string[] {
     return [...this._disabledPalettes];
-  }
-
-  /** Currently selected command item, or `null` when no item is selected. */
-  get selCMD(): CommandItem<unknown> | null {
-    return this.dialog?.selCMD ?? null; // Return the currently selected command item or null if none
   }
 
   /**
@@ -454,19 +410,9 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
    * @param context - Partial state updates.
    * @returns The current palette instance for method chaining.
    */
-  update(context: Partial<CommandPaletteState> = {}) {
-    this.stateController.update(context);
+  update(context: Partial<CommandPaletteViewState> = {}) {
+    this.dialog?.updateViewState(context);
     return this;
-  }
-
-  getState(): CommandPaletteState {
-    return this.dialog?.getState() ?? this._state.update({});
-  }
-
-  applyStateTransition(toState: (state: CommandPaletteState) => CommandPaletteState): CommandPaletteState {
-    const nextState = toState(this.getState());
-    this.stateController.update(nextState);
-    return this.getState();
   }
 
   /**
@@ -475,26 +421,28 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
    * @param context - Partial state update applied before rendering.
    * @param shouldSaveHistory - When true, pushes app history for back navigation.
    */
-  display(context: Partial<CommandPaletteState> = {}, shouldSaveHistory = true) {
+  display(context: Partial<CommandPaletteViewState> = {}, shouldSaveHistory = true) {
     if (!this.isOpen) {
-      this.stateController.clearContexts();
+      this.state.clearStateHistory();
       this.update({ query: "" });
     }
     this.update(context);
     if (shouldSaveHistory) this.saveStateHistory();
-    this.stateController.pushCurrentContext();
-    this.inputMode = "search";
-    const dialog = this.getOrCreateDialog();
-    dialog.open();
-    dialog.display();
+    this.state.saveState();
+    this.dialog?.updateViewState(context);
+    if (!this.isOpen) {
+      this.app.workspace.layoutController.addFloatingView(COMMAND_PALETTE_VIEW_ID);
+    }
+    this.dialog?.requestRender(true);
     return this;
   }
 
   handleBack = () => {
-    const previous = this.stateController.popPreviousContext();
-    if (previous)
-      this.display(previous, false); // Display previous context
-    else {
+    const previous = this.state.undo();
+    if (previous) {
+      this.dialog?.undo();
+      this.display({}, false); // Display previous context
+    } else {
       this.close(); // Close if no previous context
     }
   };
@@ -520,32 +468,11 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
    * @param context - Optional partial state updates to apply before refresh.
    * @returns The current palette instance for method chaining.
    */
-  refresh(context: Partial<CommandPaletteState> = {}): this {
+  refresh(context: Partial<CommandPaletteViewState> = {}): this {
     if (!this.isOpen) return this.display(context, false);
-    this.triggerCategoryData();
     this.update(context);
-    this.dialog?.setValue(this.getState().query);
+    this.dialog?.requestRender(true);
     return this;
-  }
-
-  /**
-   * Ordered categories for the current display pass.
-   *
-   * This respects top-category focus and sibling-category overrides.
-   */
-  get categoriesToShow(): CategoryLoader<unknown>[] {
-    const visibleCategories = this.palettes;
-    const { topCategory } = this.getState();
-    const top = this.topCategory;
-    const siblings = top?.getPalette(this).siblings;
-    // If SiblingCategories is set (even if empty)
-    if (topCategory && siblings)
-      return [top, ...siblings.map(catfn => this.getCategory(catfn.id))].filter(
-        (category): category is CategoryLoader<unknown> =>
-          category !== undefined && !this.isCategoryDisabled(category.id),
-      );
-    if (topCategory && top) return [top, ...visibleCategories.filter(cat => cat !== top)];
-    return visibleCategories;
   }
 
   /**
@@ -563,214 +490,190 @@ export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> 
   get hiddenPalettes(): CategoryLoader<unknown>[] {
     return this.hiddenCategories;
   }
-
-  triggerCategoryData(): void {
-    const state = this.getState();
-    this.palettes.forEach(cat => cat.getPalette(this).tryTrigger(state));
-    this.hiddenCategories.forEach(cat => cat.getPalette(this).tryTrigger(state));
-  }
-
-  popPreviousContext(): CommandPaletteState | null {
-    return this.stateController.popPreviousContext();
-  }
 }
 
-class CommandPaletteDialog extends WorkspaceDialog {
-  private searchInput?: HTMLInputElement;
-  private _domBuilt = false;
+export type CommandPaletteViewState = {
+  query: string;
+  topCategory: string;
+  expanded: boolean;
+  maxResults: number;
+};
+
+export class CommandPaletteDialog extends View<CommandPaletteViewState> {
+  readonly viewTypeId = COMMAND_PALETTE_VIEW_ID;
   private displayHash = van.state(0);
-  private query = van.state("");
-  readonly maxResults = van.state(100);
-  private topCategory = van.state("");
   private mainElScale = van.state(1);
   private touchHideKeyboardBound = false;
   private commandItems: CommandItem<unknown>[] = [];
   private selectedIndex = van.state(-1);
   private visualViewport: VisualViewport | null = null;
+  private isFocusedSearchInput = true;
 
-  private readonly handleWorkspaceKeyDown = (e: { key: string }) => {
-    if (!this.isOpen) return;
-    this.palette.emit("keydown", e);
-    this.handleKey(e);
-  };
+  get searchInput(): HTMLInputElement | undefined {
+    return (this.el?.querySelector(".palette-search") as HTMLInputElement) ?? undefined;
+  }
 
-  private readonly handleHistoryPop = () => {
-    this.palette.emit("historypop", this.palette.getState());
+  private readonly handleWindowPopState = () => {
+    // this.palette.emit("historypop", this.palette.getState());
     this.palette.handleBack();
   };
 
-  private readonly handleDragX = (e: { deltaX: number }) => {
-    this.palette.emit("dragX", e);
-    this.mainElScale.val = 1;
-    if (e.deltaX > 0) this.palette.display({ topCategory: "navigator" });
-  };
-
-  private readonly handleDraggingX = (e: { deltaX: number }) => {
-    this.palette.emit("draggingX", e);
-    if (e.deltaX > 0) this.mainElScale.val = 1 - Math.min(Math.abs(e.deltaX) / 1000, 0.1);
-  };
-
-  private readonly handleDragXCancel = () => {
-    this.palette.emit("dragXcancel", { deltaX: 0, deltaY: 0 });
-    this.mainElScale.val = 1;
-  };
-
-  private readonly handleTouchMove = () => this.searchInput?.blur();
+  private readonly handleTouchMove = () => (this.searchInput?.blur(), (this.isFocusedSearchInput = false));
 
   private readonly handleViewportResize = () => this.applyMobileResize();
-  private expanded = van.state(true);
 
-  constructor(private readonly palette: UnifiedCommandPalette) {
-    super(
-      "command-palette",
-      {
-        title: "",
-        modal: true,
-        closeOnEscape: true,
-        closeOnBackdrop: true,
-        showCloseButton: false,
-        className: "command-palette",
-        ariaLabel: "Command palette",
-      },
-      () => this.palette.close(),
-    );
-    this.dialogEl.element.querySelector(".workspace-dialog-header")?.remove();
+  constructor(public readonly palette: UnifiedCommandPalette) {
+    super("", { query: "", topCategory: "", expanded: true, maxResults: 100 });
   }
 
   get length(): number {
     return this.commandItems.length;
   }
 
-  getState(): CommandPaletteState {
-    return new CommandPaletteState(this.query.val, this.topCategory.val, this.expanded.val);
-  }
-
-  setState(state: CommandPaletteState): void {
-    this.query.val = state.query;
-    this.topCategory.val = state.topCategory;
-    this.expanded.val = state.expanded;
-  }
-
-  private updateState(context: Partial<CommandPaletteState>): void {
-    this.setState(this.getState().update(context));
+  focus(): void {
+    if (!this.isFocusedSearchInput) return;
+    console.log("Focusing search input");
+    this.searchInput?.focus();
   }
 
   get selCMD(): CommandItem<unknown> | null {
     return this.commandItems[this.selectedIndex.val] || null;
   }
 
-  open(): this {
-    if (this.isOpen) return this;
-    this.mount(this.palette.app.workspace.ensureDialogLayer());
-    this.bindWorkspaceEvents();
-    this.palette.onDialogOpened();
-    return this;
+  get topCategory(): CategoryLoader<unknown> | undefined {
+    const topCategory = this.palette.getCategory(this.state.topCategory.val);
+    if (topCategory && !this.palette.isCategoryDisabled(topCategory.id)) return topCategory;
+    return undefined;
   }
 
-  override destroy(): void {
-    if (!this.isOpen) return;
-    this.unbindWorkspaceEvents();
-    this.resetContent();
-    this._domBuilt = false;
-    this.commandItems = [];
-    this.selectedIndex.val = -1;
-    this.unbindTouchHideKeyboard();
-    this.unbindViewportResize();
-    super.destroy();
-    this.palette.onDialogClosed(this);
+  triggerCategoryData(state: CommandPaletteViewState): void {
+    this.palette.palettes.forEach(cat => cat.getPalette(this).tryTrigger(state));
+    this.palette.hiddenCategories.forEach(cat => cat.getPalette(this).tryTrigger(state));
   }
 
-  display(): this {
-    this.displayHash.val += 1;
-    this.palette.triggerCategoryData();
-    if (!this.isOpen || this._domBuilt) return this;
-    this._domBuilt = true;
-    this.applyMobileResize();
-    this.bindTouchHideKeyboard();
-    this.contentEl.addClass("palette");
+  /**
+   * Ordered categories for the current display pass.
+   *
+   * This respects top-category focus and sibling-category overrides.
+   */
+  get categoriesToShow(): CategoryLoader<unknown>[] {
+    const visibleCategories = this.palette.palettes;
+    const { topCategory } = this.getState();
+    const top = this.topCategory;
+    const siblings = top?.getPalette(this).siblings;
+    // If SiblingCategories is set (even if empty)
+    if (topCategory && siblings)
+      return [top, ...siblings.map(catfn => this.palette.getCategory(catfn.id))].filter(
+        (category): category is CategoryLoader<unknown> =>
+          category !== undefined && !this.palette.isCategoryDisabled(category.id),
+      );
+    if (topCategory && top) return [top, ...visibleCategories.filter(cat => cat !== top)];
+    return visibleCategories;
+  }
 
-    this.searchInput = input({
-      value: this.query,
-      placeholder: () =>
-        `Search ${this.topCategory.val ? this.palette.topCategory?.getPalette(this.palette).title : "all"}...`,
-      type: this.palette.inputMode,
-      class: "palette-search",
-      oninput: (e: Event) => {
-        const target = e.target as HTMLInputElement;
-        this.updateState({ query: target.value });
-        this.maxResults.val = 100; // Reset max results on new input to allow dynamic loading
+  create(): HTMLElement {
+    return div(
+      {
+        class: "palette",
+        ...touchDragger({
+          ondragx: ({ deltaX }) => {
+            if (deltaX > 0) this.palette.menu();
+          },
+          stylesetter: ({ deltaX, isX }) =>
+            isX
+              ? `transform: scale(${1 - Math.min(Math.max(deltaX.val, 0) / 1000, this.state.topCategory.val === "navigator" ? 0 : 0.1)});`
+              : "",
+        }),
       },
-    });
-
-    van.add(
-      this.contentEl.element,
       div(
-        { class: "palette-header" },
+        {
+          class: "palette-header",
+        },
         button(
           {
             class: "icon-action",
             title: "Back to previous context",
             onclick: () => this.palette.handleBack(),
           },
-          icon(ChevronLeft),
+          renderIcon(ChevronLeft),
         ),
         button(
           {
             class: "icon-action",
             title: "Toggle expanded view",
-            onclick: () => this.updateState({ expanded: !this.expanded.val }),
+            onclick: () => this.updateViewState({ expanded: !this.state.expanded.val }),
           },
-          () => icon(this.expanded.val ? ChevronsDownUp : ChevronsUpDown),
+          () => renderIcon(this.state.expanded.val ? ChevronsDownUp : ChevronsUpDown),
         ),
         button(
           { class: "icon-action", title: "Close Palette", onclick: () => this.palette.close() },
-          icon(X),
+          renderIcon(X),
         ),
       ),
-      this.searchInput,
+      input({
+        value: this.state.query,
+        placeholder: () =>
+          `Search ${this.state.topCategory.val ? this.topCategory?.getPalette(this).title : "all"}...`,
+        type: "search",
+        class: "palette-search",
+        oninput: (e: Event) => {
+          this.updateViewState({ query: (e.target as HTMLInputElement).value, maxResults: 100 });
+        },
+        onfocus: () => (this.isFocusedSearchInput = true),
+      }),
       this.renderPaletteContainer(),
     );
+  }
 
-    this.searchInput.focus();
-    return this;
+  onMount(): void {
+    this.isFocusedSearchInput = true;
+    window.addEventListener("popstate", this.handleWindowPopState);
+    this.applyMobileResize();
+    this.bindTouchHideKeyboard();
+    this.requestRender(true);
+  }
+
+  onUnmount(): void {
+    window.removeEventListener("popstate", this.handleWindowPopState);
+    this.commandItems = [];
+    this.selectedIndex.val = -1;
+    this.unbindTouchHideKeyboard();
+    this.unbindViewportResize();
+  }
+
+  requestRender(defer = false): void {
+    if (!defer) {
+      this.triggerCategoryData(this.getState());
+      this.displayHash.val += 1;
+      return;
+    }
+
+    // Two RAFs ensure we repaint after floating-view enter animation starts.
+    window.requestAnimationFrame(() => {
+      this.triggerCategoryData(this.getState());
+      this.displayHash.val += 1;
+      window.requestAnimationFrame(() => {
+        this.triggerCategoryData(this.getState());
+        this.displayHash.val += 1;
+      });
+    });
   }
 
   setValue(value: string, select = false): void {
-    this.query.val = value;
+    this.updateViewState({ query: value });
     if (select) this.searchInput?.select();
-  }
-
-  private resetContent(): void {
-    this.searchInput?.remove();
-    this.searchInput = undefined;
-    this.contentEl.element.empty();
-  }
-
-  private bindWorkspaceEvents(): void {
-    this.palette.app.workspace.on("keydown", this.handleWorkspaceKeyDown);
-    this.palette.app.workspace.on("historypop", this.handleHistoryPop);
-    this.palette.app.workspace.on("dragX", this.handleDragX);
-    this.palette.app.workspace.on("draggingX", this.handleDraggingX);
-    this.palette.app.workspace.on("dragXcancel", this.handleDragXCancel);
-  }
-
-  private unbindWorkspaceEvents(): void {
-    this.palette.app.workspace.off("keydown", this.handleWorkspaceKeyDown);
-    this.palette.app.workspace.off("historypop", this.handleHistoryPop);
-    this.palette.app.workspace.off("dragX", this.handleDragX);
-    this.palette.app.workspace.off("draggingX", this.handleDraggingX);
-    this.palette.app.workspace.off("dragXcancel", this.handleDragXCancel);
   }
 
   private bindTouchHideKeyboard(): void {
     if (this.touchHideKeyboardBound) return;
+    if (!this.el) return;
     this.touchHideKeyboardBound = true;
-    this.dialogEl.element.addEventListener("touchmove", this.handleTouchMove, { passive: true });
+    this.el.addEventListener("touchmove", this.handleTouchMove, { passive: true });
   }
 
   private unbindTouchHideKeyboard(): void {
     if (!this.touchHideKeyboardBound) return;
-    this.dialogEl.element.removeEventListener("touchmove", this.handleTouchMove);
+    this.el?.removeEventListener("touchmove", this.handleTouchMove);
     this.touchHideKeyboardBound = false;
   }
 
@@ -779,7 +682,9 @@ class CommandPaletteDialog extends WorkspaceDialog {
     if (!visual) return;
     this.visualViewport?.removeEventListener("resize", this.handleViewportResize);
     this.visualViewport = visual;
-    this.dialogEl.element.style.height = `calc(${visual.height}px - 2em)`;
+    if (this.el) {
+      this.el.style.height = `calc(${visual.height}px - 2em)`;
+    }
     visual.addEventListener("resize", this.handleViewportResize, { passive: true });
   }
 
@@ -790,14 +695,25 @@ class CommandPaletteDialog extends WorkspaceDialog {
 
   private readonly handleScroll = () => {
     window.requestAnimationFrame(() => {
-      if (this.maxResults.val < 1000) {
+      if (this.state.maxResults.val < 1000) {
         const currentselection = this.selectedIndex.val;
-        this.maxResults.val = 1000;
+        this.state.maxResults.val = 1000;
         this.selectedIndex.val = currentselection;
         this.scrollSelectedIntoView();
       }
     });
   };
+
+  handleKeyDown(event: KeyboardEvent, meaning: string): void {
+    if (
+      ["ArrowDown", "ArrowUp", "Enter", "ArrowRight", "ArrowLeft", "Tab", "Shift+Tab", "Escape"].includes(
+        meaning,
+      )
+    ) {
+      event.preventDefault();
+    }
+    this.handleKey({ key: meaning });
+  }
 
   private handleKey(e: { key: string }): void {
     const key = e.key;
@@ -817,9 +733,9 @@ class CommandPaletteDialog extends WorkspaceDialog {
         break;
       case "ArrowLeft":
       case "Shift+Tab": {
-        const previous = this.palette.popPreviousContext();
-        if (!previous) return;
-        this.palette.display(previous, false);
+        this.undo();
+        this.palette.state.undo();
+        this.palette.display({}, false);
         break;
       }
       case "Escape":
@@ -830,42 +746,46 @@ class CommandPaletteDialog extends WorkspaceDialog {
 
   private activateContextFromCommand(command: CommandItem<unknown> | undefined): void {
     if (command?.contextMenuAllowed) {
-      this.updateState({ query: "" });
-      this.palette.display(command.toState(this.getState()));
+      this.updateViewState({ query: "", ...command.toState() });
+      this.saveState();
+      this.palette.display(command.toState());
     }
   }
 
   private renderPaletteContainer(): HTMLDivElement {
-    return div({ class: () => (this.expanded.val ? "palette-content expanded" : "palette-content") }, () => {
-      void this.displayHash.val;
-      const state = this.getState();
-      this.palette.highlighter = [
-        // Only insert the query highlighter if state.query actually exists
-        ...(state.query
-          ? [
-              {
-                // eslint-disable-next-line security/detect-non-literal-regexp
-                regEXP: new RegExp(`(${escapeRegExp(state.query)})`, "ig"),
-                callback: (match: string) => span({ class: "highlighted-query" }, match),
-              },
-            ]
-          : []),
-        { regEXP: /\n/g, callback: () => br() },
-      ];
+    return div(
+      { class: () => (this.state.expanded.val ? "palette-content expanded" : "palette-content") },
+      () => {
+        void this.displayHash.val;
+        this.palette.highlighter = [
+          // Only insert the query highlighter if state.query actually exists
+          ...(this.state.query.val
+            ? [
+                {
+                  // eslint-disable-next-line security/detect-non-literal-regexp
+                  regEXP: new RegExp(`(${escapeRegExp(this.state.query.val)})`, "ig"),
+                  callback: (match: string) => span({ class: "highlighted-query" }, match),
+                },
+              ]
+            : []),
+          { regEXP: /\n/g, callback: () => br() },
+        ];
 
-      this.commandItems = [];
-      this.selectedIndex.val = 0;
+        this.commandItems = [];
+        this.selectedIndex.val = 0;
 
-      return div({ style: "display: contents" }, this.renderOverview(), this.renderMain(state));
-    });
+        return div({ class: "palette-content-inner" }, this.renderOverview(), this.renderMain());
+      },
+    );
   }
 
   private renderOverview(): HTMLDivElement {
     return div({ class: "palette-content-over" }, () => {
-      const navigator = this.palette.getCategory("navigator")?.getPalette(this.palette);
+      const navigator = this.palette.getCategory("navigator")?.getPalette(this);
       if (!navigator || window.matchMedia("(max-width: 800px)").matches) return;
 
-      const commands = navigator.trygetCommands(this.query.val);
+      navigator.dialog = this; // Ensure navigator has dialog reference for command rendering
+      const commands = navigator.trygetCommands(this.state.query.val);
       this.selectedIndex.val = commands.length;
       /* if (commands.length === 0) return; */
 
@@ -876,27 +796,32 @@ class CommandPaletteDialog extends WorkspaceDialog {
           navigator.title,
         ),
         commands
-          .slice(0, this.maxResults.val - this.commandItems.length)
+          .slice(0, this.state.maxResults.val - this.commandItems.length)
           .map(command => this.commandToEl(command, navigator)),
       );
     });
   }
 
-  private renderMain(state: CommandPaletteState): HTMLDivElement {
+  private renderMain(): HTMLDivElement {
     return div(
       {
         class: "palette-content-main",
         style: () => (this.mainElScale.val !== 1 ? `transform: scale(${this.mainElScale.val});` : ""),
         onscroll: this.handleScroll,
+        onscrollend: (e: Event) => (
+          (e.currentTarget as HTMLElement).scrollTop === 0 && (this.isFocusedSearchInput = true),
+          this.focus()
+        ),
       },
-      this.palette.categoriesToShow
-        .map(cat => ({ cat: cat.getPalette(this.palette), id: cat.id }))
+      this.categoriesToShow
+        .map(cat => ({ cat: cat.getPalette(this), id: cat.id }))
         .map(({ cat, id }) => {
-          if (this.commandItems.length >= this.maxResults.val) return;
-          const commands = cat.trygetCommands(this.query.val);
-          const extras = cat.extraCMD?.trygetCommands(this.query.val) || [];
+          if (this.commandItems.length >= this.state.maxResults.val) return;
+          cat.dialog = this; // Ensure category has dialog reference for command rendering
+          const commands = cat.trygetCommands(this.state.query.val);
+          const extras = cat.extraCMD?.trygetCommands(this.state.query.val) || [];
 
-          if (commands.length === 0 && extras.length === 0 && state.topCategory !== id) return;
+          if (commands.length === 0 && extras.length === 0 && this.state.topCategory.val !== id) return;
 
           return div(
             { class: "category" },
@@ -905,23 +830,21 @@ class CommandPaletteDialog extends WorkspaceDialog {
               cat.title,
             ),
             commands
-              .slice(0, this.maxResults.val - this.commandItems.length)
+              .slice(0, this.state.maxResults.val - this.commandItems.length)
               .map(command => this.commandToEl(command, cat)),
-            extras.slice(0, this.maxResults.val - this.commandItems.length).map(command => {
-              const commandEl = this.commandToEl(command, cat.extraCMD!);
-              commandEl.classList.add("extras-item");
-              return commandEl;
-            }),
-            state.topCategory === id
+            extras
+              .slice(0, this.state.maxResults.val - this.commandItems.length)
+              .map(command => this.commandToEl(command, cat.extraCMD!, true)),
+            this.state.topCategory.val === id
               ? new Item()
                   .setTitle("No results found")
-                  .setDescription(this.query.val ? "Try something else." : "Type to search...")
+                  .setDescription(this.state.query.val ? "Try something else." : "Type to search...")
                   .setHidden(false).element
               : undefined,
           );
         }),
-      this.commandItems.length >= this.maxResults.val
-        ? new Item({ onclick: () => (this.maxResults.val = 40000) })
+      this.commandItems.length >= this.state.maxResults.val
+        ? new Item({ onclick: () => (this.state.maxResults.val = 40000) })
             .setTitle("Are you kidding me?")
             .setDescription("Seriously, you want to load more results?")
             .setHidden(false).element
@@ -929,19 +852,21 @@ class CommandPaletteDialog extends WorkspaceDialog {
     );
   }
 
-  commandToEl(command: unknown, cat: CommandCategory<unknown>) {
-    if (this.commandItems.length > this.maxResults.val)
+  commandToEl(command: unknown, cat: CommandCategory<unknown>, isextra = false): HTMLDivElement {
+    if (this.commandItems.length > this.state.maxResults.val)
       throw new Error("Too many commands, stopping render. This should never happen.");
     const cmdindex = this.commandItems.length;
     const itemEl = new CommandItem(
       {
-        onclick: () => cat.tryexecute(command, itemEl.toState),
+        onclick: () => cat.tryexecute(command, itemEl.toState, this),
         onmousemove: () => (this.selectedIndex.val = cmdindex),
-        class: () => (this.selectedIndex.val === cmdindex ? "command-item selected" : "command-item"),
+        class: () =>
+          (this.selectedIndex.val === cmdindex ? "command-item selected" : "command-item") +
+          (isextra ? " extras-item" : ""),
       },
       command,
       cat,
-    ).onContext(() => this.activateContextFromCommand(this.commandItems[cmdindex]));
+    ).onContext(() => this.activateContextFromCommand(itemEl));
 
     itemEl.toState = cat.tryrender(command, itemEl);
     this.commandItems.push(itemEl);
@@ -964,30 +889,6 @@ class CommandPaletteDialog extends WorkspaceDialog {
 
   private activateSelected(): void {
     this.selCMD?.element.click();
-  }
-}
-
-/**
- * Represents the state of a command palette, including the current query,
- * the maximum number of results to display, and the currently selected top category.
- *
- * @typeParam  - The type of the application instance.
- */
-export class CommandPaletteState {
-  constructor(
-    public query: string = "",
-    public topCategory: string = "",
-    public expanded: boolean = true,
-  ) {}
-
-  /**
-   * Returns an immutable-like cloned state with partial updates applied.
-   *
-   * @param partial - Partial state values to override.
-   * @returns New state object preserving prototype behavior.
-   */
-  update(partial: Partial<this> = {}): this {
-    return Object.assign(Object.create(this), this, partial);
   }
 }
 
@@ -1041,7 +942,7 @@ export abstract class CommandCategory<T> {
   protected commands: T[] = [];
   //query: string = ""; // Current query string for filtering commands
   get query(): string {
-    return this.commandPalette.getState().query;
+    return this.dialog.getState().query ?? "";
   }
   siblings?: CategoryLoader<unknown>[];
   console: BrowserConsole = new BrowserConsole(true, `${this.constructor.name}:`); // Console for logging
@@ -1053,7 +954,7 @@ export abstract class CommandCategory<T> {
     return this._extraCMD;
   }
 
-  constructor(public commandPalette: UnifiedCommandPalette) {
+  constructor(public dialog: CommandPaletteDialog) {
     this.onInit?.(); // Call onInit if defined
   }
 
@@ -1062,7 +963,7 @@ export abstract class CommandCategory<T> {
    *
    * @param state - Current palette state.
    */
-  abstract onTrigger(state: CommandPaletteState): void;
+  abstract onTrigger(state: CommandPaletteViewState): void;
 
   /**
    * Returns commands matching the supplied query.
@@ -1080,7 +981,7 @@ export abstract class CommandCategory<T> {
   abstract renderCommand(
     command: T,
     el: CommandItem<T>,
-  ): Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState);
+  ): Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>);
 
   /**
    * Executes a command when selected.
@@ -1088,7 +989,7 @@ export abstract class CommandCategory<T> {
    * @param command - Command to execute.
    */
   abstract executeCommand(command: T): void;
-  onForward?: (state: CommandPaletteState) => CommandPaletteState; // Optional function to modify state when navigating forward
+  onForward?: () => Partial<CommandPaletteViewState>; // Optional function to modify state when navigating forward
 
   onInit?(): void; // Called when the category is initialized
 
@@ -1098,7 +999,7 @@ export abstract class CommandCategory<T> {
    * @param state - Current palette state.
    * @returns The current category instance for method chaining.
    */
-  tryTrigger(state: CommandPaletteState): this {
+  tryTrigger(state: CommandPaletteViewState): this {
     this.title = this.name;
     try {
       this.extraCMD?.resetCommands();
@@ -1118,7 +1019,11 @@ export abstract class CommandCategory<T> {
    */
   trygetCommands(query: string): T[] {
     try {
-      return this.getCommands(query);
+      const commands = this.getCommands(query);
+      if (!commands) {
+        throw new Error("getCommands returned null or undefined");
+      }
+      return commands;
     } catch (e) {
       this.console.error(`Error in ${this.constructor.name}.getCommands`, e);
       return [];
@@ -1132,14 +1037,14 @@ export abstract class CommandCategory<T> {
    * @param el - UI item element for mutation.
    * @returns A state transition callback.
    */
-  tryrender(command: T, el: CommandItem<T>): (state: CommandPaletteState) => CommandPaletteState {
+  tryrender(command: T, el: CommandItem<T>): () => Partial<CommandPaletteViewState> {
     try {
       const result = this.renderCommand(command, el);
-      return typeof result === "function" ? result : state => state.update(result);
+      return typeof result === "function" ? result : () => result;
     } catch (e) {
       this.console.error(`Error in ${this.constructor.name}.renderCommand`, e);
     }
-    return state => state.update({});
+    return () => ({});
   }
 
   /**
@@ -1149,9 +1054,14 @@ export abstract class CommandCategory<T> {
    * @param toState - State transition function from render phase.
    * @returns The current category instance for method chaining.
    */
-  tryexecute(command: T, toState: (state: CommandPaletteState) => CommandPaletteState): this {
-    this.commandPalette.update({ query: "" });
-    this.commandPalette.applyStateTransition(toState);
+  tryexecute(
+    command: T,
+    toState: () => Partial<CommandPaletteViewState>,
+    dialog: CommandPaletteDialog,
+  ): this {
+    this.dialog.palette.update({ query: "" });
+    dialog.updateViewState(toState());
+    dialog.saveState();
     try {
       this.executeCommand(command);
     } catch (e) {
@@ -1207,11 +1117,7 @@ export abstract class CommandCategory<T> {
           .map((item, index) =>
             matchedIndices.has(index)
               ? { d: maxdiff, item, index }
-              : {
-                  d: levenshtein(lowerQuery, cb(item).toLowerCase()),
-                  item,
-                  index,
-                },
+              : { d: levenshtein(lowerQuery, cb(item).toLowerCase()), item, index },
           )
           .filter(item => item.d < maxdiff) // Filter items within the max distance
           .sort((a, b) => a.d - b.d) // Sort by distance
@@ -1226,7 +1132,7 @@ export abstract class CommandCategory<T> {
    * @returns The default command category instance.
    */
   get defaultCMD(): CMDCategory {
-    if (!this._extraCMD) this._extraCMD = new CMDCategory(this.commandPalette);
+    if (!this._extraCMD) this._extraCMD = new CMDCategory(this.dialog);
     return this._extraCMD;
   }
 }
@@ -1254,12 +1160,12 @@ export abstract class CommandCategory<T> {
  * ```
  *
  * @see CommandCategory
- * @see CommandPaletteState
+ * @see CommandPaletteViewState
  */
 export class CommandItem<T> extends Item {
   private allowsContextMenu: boolean = false;
   private contextCallback?: (e: Event) => void;
-  toState: (state: CommandPaletteState) => CommandPaletteState;
+  toState: () => Partial<CommandPaletteViewState> = () => ({});
 
   constructor(
     l: Props & PropsWithKnownKeys<HTMLDivElement> = {},
@@ -1267,8 +1173,8 @@ export class CommandItem<T> extends Item {
     PaletteCat: CommandCategory<T>,
   ) {
     super(l);
-    this.highlight(PaletteCat.commandPalette.highlighter);
-    this.toState = state => state.update({});
+    this.highlight(PaletteCat.dialog.palette.highlighter);
+    this.toState = () => ({});
   }
 
   /**
@@ -1277,15 +1183,16 @@ export class CommandItem<T> extends Item {
    * @returns The current command item instance for method chaining.
    */
   addctx() {
-    this.addIconButton(btn => {
-      btn
-        .setIcon(ChevronRight)
-        .setTooltip("Open context menu")
-        .on("click", e => {
-          e.stopPropagation(); // Prevent triggering the main click
-          this.contextCallback?.(e); // Call context menu callback if set
-        });
-    });
+    this.prependComponent(
+      div(
+        {
+          class: "icon-button",
+          title: "Open context menu",
+          onclick: e => (e.stopPropagation(), this.contextCallback?.(e)),
+        },
+        renderIcon(ChevronRight),
+      ),
+    );
     this.allowsContextMenu = true;
     return this;
   }
@@ -1308,39 +1215,40 @@ export class CommandItem<T> extends Item {
 class CategoryNavigator extends CommandCategory<CategoryLoader<unknown>> {
   readonly name = "Quick access";
   readonly description = "List of all command categories";
-  names!: CategoryLoader<unknown>[];
+  names: CategoryLoader<unknown>[] = [];
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onTrigger(_state: CommandPaletteState): void {
-    this.names = this.commandPalette.allPalettes;
+  onTrigger(_state: CommandPaletteViewState): void {
+    this.names = this.dialog.palette.allPalettes;
   }
   getCommands(query: string): CategoryLoader<unknown>[] {
-    return this.getcompatible(query, this.names, category => category.getPalette(this.commandPalette).name);
+    const names = this.names.length ? this.names : this.dialog.palette.allPalettes;
+    return this.getcompatible(query, names, category => category.getPalette(this.dialog).name);
   }
   renderCommand(
     command: CategoryLoader<unknown>,
     Item: CommandItem<CategoryLoader<unknown>>,
-  ): Partial<CommandPaletteState> {
-    const disabled = this.commandPalette.isCategoryDisabled(command.id);
-    Item.setTitle(command.getPalette(this.commandPalette).name)
-      .setDescription(
-        `${command.getPalette(this.commandPalette).description}${disabled ? " (disabled)" : ""}`,
-      )
-      .addToggleInput(btn =>
-        btn
-          .setValue(!disabled)
-          .on("change", v =>
-            v
-              ? this.commandPalette.enableCategory(command.id)
-              : this.commandPalette.disableCategory(command.id),
-          ),
+  ): Partial<CommandPaletteViewState> {
+    const disabled = this.dialog.palette.isCategoryDisabled(command.id);
+    Item.setTitle(command.getPalette(this.dialog).name)
+      .setDescription(`${command.getPalette(this.dialog).description}${disabled ? " (disabled)" : ""}`)
+      .addComponent(
+        toggle({
+          checked: !disabled,
+          onclick: (e: Event, state) => {
+            e.stopPropagation();
+            void (state.val
+              ? this.dialog.palette.enableCategory(command.id)
+              : this.dialog.palette.disableCategory(command.id));
+          },
+        }),
       );
 
     return { topCategory: command.id };
   }
 
   executeCommand(): void {
-    this.commandPalette.display();
+    this.dialog.palette.display();
   }
 }
 
@@ -1353,17 +1261,16 @@ class PromptCategory extends CommandCategory<string> {
   wasopen!: boolean;
   currentTopCategory: string = "";
 
-  constructor(UnifiedCommandPalette: UnifiedCommandPalette) {
-    super(UnifiedCommandPalette);
+  constructor(dialog: CommandPaletteDialog) {
+    super(dialog);
   }
 
   show(cb: (prompt: string | null) => void = () => {}, text: string): void {
     this.cb = cb;
     this._prompt = text;
-    this.wasopen = this.commandPalette.isOpen;
-    this.currentTopCategory = this.commandPalette.getState().topCategory; // Save current top category
-    this.commandPalette.display({ topCategory: "prompt" }, false);
-    this.commandPalette.on("close", this.invokeCallbackOnClose);
+    this.wasopen = this.dialog.palette.isOpen;
+    this.currentTopCategory = this.dialog?.getState().topCategory ?? ""; // Save current top category
+    this.dialog.palette.display({ topCategory: "prompt" }, false);
   }
 
   prompt(text: string): Promise<string | null> {
@@ -1374,26 +1281,21 @@ class PromptCategory extends CommandCategory<string> {
     return new Promise(resolve => this.show(prompt => resolve(prompt !== null), text));
   }
 
-  private invokeCallbackOnClose = () => {
-    this.cleanup();
-    this.cb(null); // Call callback with null on close
-  };
-
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onTrigger(_state: CommandPaletteState): void {}
+  onTrigger(_state: CommandPaletteViewState): void {}
 
   getCommands(): string[] {
     return ["Ok", "Cancel"];
   }
 
-  renderCommand(command: string, Item: CommandItem<string>): Partial<CommandPaletteState> {
+  renderCommand(command: string, Item: CommandItem<string>): Partial<CommandPaletteViewState> {
     Item.setTitle(command);
     if (command === "Ok") Item.setDescription(this._prompt);
     return { topCategory: this.currentTopCategory };
   }
 
   executeCommand(command: string): void {
-    const query = this.commandPalette.getState().query;
+    const query = this.dialog?.getState().query ?? "";
     this.cleanup(); // Cleanup on cancel
     if (command === "Ok") this.cb(query);
     else if (command === "Cancel") this.cb(null);
@@ -1401,10 +1303,9 @@ class PromptCategory extends CommandCategory<string> {
 
   cleanup() {
     this.commands = []; // Clear commands on cleanup
-    this.commandPalette.off("close", this.invokeCallbackOnClose); // Remove event listener
     if (!this.wasopen)
-      this.commandPalette.close(); // Close palette if it was not open before
-    else this.commandPalette.display({ topCategory: this.currentTopCategory }, false); // Restore previous context
+      this.dialog.palette.close(); // Close palette if it was not open before
+    else this.dialog.palette.display({ topCategory: this.currentTopCategory }, false); // Restore previous context
   }
 }
 
@@ -1418,7 +1319,7 @@ export class CMDCategory extends CommandCategory<CMDType> {
     this.commands = [];
   }
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onTrigger(_state: CommandPaletteState) {
+  onTrigger(_state: CommandPaletteViewState) {
     return;
   }
 
@@ -1445,7 +1346,7 @@ export class CMDCategory extends CommandCategory<CMDType> {
   renderCommand(
     command: CMDType,
     el: CommandItem<CMDType>,
-  ): Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState) {
+  ): Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) {
     return command.render(command, el);
   }
 
@@ -1469,7 +1370,7 @@ export class CMDCategory extends CommandCategory<CMDType> {
     description: string,
     cb: (
       cmd: CommandItem<CMDType>,
-    ) => Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState) | void,
+    ) => Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) | void,
   ): CMDCategory {
     const command = CMD(name, description, cb);
     this.commands.push(command);

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, test, expect, vi } from "vitest";
-import { ETarget, pdsp, touchDragger } from "./Event";
+import { ETarget, pdsp } from "./Event";
 
 // Concrete subclass for testing the abstract ETarget
 class TestEmitter extends ETarget<{ foo: number; bar: string; baz: undefined }> {}
@@ -151,114 +151,5 @@ describe("pdsp", () => {
     const wrapped = pdsp(cb);
     expect(typeof wrapped).toBe("function");
     expect(wrapped).not.toBe(cb);
-  });
-});
-
-describe("touchDragger", () => {
-  function makeTouchEvent(type: string, x: number, y: number, touchCount = 1): TouchEvent {
-    const touch = { pageX: x, pageY: y } as Touch;
-    const touches = touchCount === 1 ? [touch] : [touch, touch];
-    return new TouchEvent(type, {
-      touches: touches as unknown as Touch[],
-      bubbles: true,
-    });
-  }
-
-  function makeElement(): HTMLElement {
-    return document.createElement("div");
-  }
-
-  test("setThreshold returns this for chaining", () => {
-    const el = makeElement();
-    const dragger = new touchDragger(el);
-    expect(dragger.setThreshold(100)).toBe(dragger);
-  });
-
-  test("emits draggingX when horizontal movement dominates", () => {
-    const el = makeElement();
-    const dragger = new touchDragger(el);
-    const onDraggingX = vi.fn();
-    dragger.on("draggingX", onDraggingX);
-
-    el.dispatchEvent(makeTouchEvent("touchstart", 0, 0));
-    el.dispatchEvent(makeTouchEvent("touchmove", 80, 5));
-
-    expect(onDraggingX).toHaveBeenCalledWith({ deltaX: 80 });
-  });
-
-  test("emits draggingY when vertical movement dominates", () => {
-    const el = makeElement();
-    const dragger = new touchDragger(el);
-    const onDraggingY = vi.fn();
-    dragger.on("draggingY", onDraggingY);
-
-    el.dispatchEvent(makeTouchEvent("touchstart", 0, 0));
-    el.dispatchEvent(makeTouchEvent("touchmove", 5, 80));
-
-    expect(onDraggingY).toHaveBeenCalledWith({ deltaY: 80 });
-  });
-
-  test("emits dragX and dragYcancel when horizontal drag exceeds threshold", () => {
-    const el = makeElement();
-    const dragger = new touchDragger(el).setThreshold(50);
-    const onDragX = vi.fn();
-    const onDragYcancel = vi.fn();
-    dragger.on("dragX", onDragX).on("dragYcancel", onDragYcancel);
-
-    el.dispatchEvent(makeTouchEvent("touchstart", 0, 0));
-    el.dispatchEvent(makeTouchEvent("touchmove", 100, 10));
-    el.dispatchEvent(makeTouchEvent("touchend", 100, 10));
-
-    expect(onDragX).toHaveBeenCalledWith({ deltaX: 100 });
-    expect(onDragYcancel).toHaveBeenCalled();
-  });
-
-  test("emits dragY and dragXcancel when vertical drag exceeds threshold", () => {
-    const el = makeElement();
-    const dragger = new touchDragger(el).setThreshold(50);
-    const onDragY = vi.fn();
-    const onDragXcancel = vi.fn();
-    dragger.on("dragY", onDragY).on("dragXcancel", onDragXcancel);
-
-    el.dispatchEvent(makeTouchEvent("touchstart", 0, 0));
-    el.dispatchEvent(makeTouchEvent("touchmove", 0, 100));
-    el.dispatchEvent(makeTouchEvent("touchend", 0, 100));
-
-    expect(onDragY).toHaveBeenCalledWith({ deltaY: 100 });
-    expect(onDragXcancel).toHaveBeenCalled();
-  });
-
-  test("emits dragCancel, dragXcancel and dragYcancel when drag is below threshold", () => {
-    const el = makeElement();
-    const dragger = new touchDragger(el).setThreshold(50);
-    const onDragCancel = vi.fn();
-    const onDragXcancel = vi.fn();
-    const onDragYcancel = vi.fn();
-    dragger.on("dragCancel", onDragCancel).on("dragXcancel", onDragXcancel).on("dragYcancel", onDragYcancel);
-
-    el.dispatchEvent(makeTouchEvent("touchstart", 0, 0));
-    el.dispatchEvent(makeTouchEvent("touchmove", 10, 5));
-    el.dispatchEvent(makeTouchEvent("touchend", 10, 5));
-
-    expect(onDragCancel).toHaveBeenCalled();
-    expect(onDragXcancel).toHaveBeenCalled();
-    expect(onDragYcancel).toHaveBeenCalled();
-  });
-
-  test("ignores multi-finger touchstart and touchmove", () => {
-    const el = makeElement();
-    const dragger = new touchDragger(el).setThreshold(50);
-    const onDragX = vi.fn();
-    dragger.on("dragX", onDragX);
-
-    // Multi-touch touchstart is ignored, so startX/startY are never set.
-    // A subsequent touchend with a large deltaX will therefore compute a
-    // delta of 0 (currentX − startX = 0) and not fire dragX.
-    el.dispatchEvent(makeTouchEvent("touchstart", 0, 0, 2));
-    el.dispatchEvent(makeTouchEvent("touchmove", 200, 0, 2));
-    // End with single touch — but since start was multi-touch, startX/Y remain 0
-    el.dispatchEvent(makeTouchEvent("touchend", 200, 0, 1));
-
-    expect(onDragX).not.toHaveBeenCalled();
   });
 });

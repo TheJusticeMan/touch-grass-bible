@@ -1,16 +1,17 @@
-import { Terminal } from "lucide";
 import { App } from "./App";
 import {
   CategoryLoaderFunc,
   CommandCategory,
   CommandItem,
-  CommandPaletteState,
-  UnifiedCommandPalette,
+  CommandPaletteDialog,
+  CommandPaletteViewState,
 } from "./CommandPalette";
+import { CommandPaletteState } from "./CommandPaletteV2.0";
 import { Command } from "./Commands";
 import { ETarget } from "./Event";
 import { BrowserConsole } from "./MyBrowserConsole";
-import { LayoutNode, View } from "./Workspace";
+import { toggle } from "./UIComponents";
+import { stateMapping, View } from "./Workspace";
 
 type StateTargetLike<T> = {
   onChange(listener: (value: T, previous: T) => void): () => void;
@@ -226,7 +227,7 @@ export class ePlugin<AppType extends App = App> extends Component {
     this.app.commandPalette.addPalette(load, id);
     this.registerUnload(() => this.app.commandPalette.removePalette(load, id));
 
-    // Get the palette name and description to create a well-named command
+    /*     // Get the palette name and description to create a well-named command
     const category = this.app.commandPalette.getCategory(id);
     const palette = category?.getPalette(this.app.commandPalette);
 
@@ -237,7 +238,19 @@ export class ePlugin<AppType extends App = App> extends Component {
       icon: Terminal,
       description: palette?.description || `Open the ${id} category in the command palette`,
       callback: () => this.app.commandPalette.display({ topCategory: id }),
-    });
+    }); */
+  }
+
+  registerPaletteV2<T>(
+    id: string,
+    cfn: (args: {
+      id: string;
+      state: stateMapping<CommandPaletteState>;
+    }) => import("./CommandPaletteV2.0").CommandCategory<T>,
+    hidden = false,
+  ) {
+    this.app.commandPaletteV2.registerPalette<T>(id, cfn, hidden);
+    this.registerUnload(() => this.app.commandPaletteV2.unregisterPalette(id));
   }
 
   registerHiddenPalette(load: CategoryLoaderFunc<unknown>, id: string) {
@@ -261,11 +274,11 @@ export class ePlugin<AppType extends App = App> extends Component {
    * Registers a workspace view factory with automatic unload cleanup.
    *
    * @param id - View id used by the workspace layout system.
-   * @param view - Factory that creates a view for a layout panel node.
+   * @param view - Factory that creates a workspace view instance.
    */
-  registerView(id: string, view: (panel: LayoutNode) => View) {
-    this.app.workspace.registerView(id, view);
-    this.registerUnload(() => this.app.workspace.unregisterView(id));
+  registerView(id: string, view: () => View) {
+    this.app.workspace.layoutController.registerView(id, view);
+    this.registerUnload(() => this.app.workspace.layoutController.unregisterView(id));
     return this;
   }
 
@@ -470,12 +483,12 @@ export class pluginOptions<AppType extends App = App> extends CommandCategory<eP
   readonly description = "Enable, disable, and configure plugins";
   enabled: Map<string, boolean> = new Map();
   constructor(
-    public commandPalette: UnifiedCommandPalette,
+    public dialog: CommandPaletteDialog,
     public pluginManager: eInternalPlugins<AppType>,
   ) {
-    super(commandPalette);
+    super(dialog);
   }
-  onTrigger(state: CommandPaletteState): void {
+  onTrigger(state: CommandPaletteViewState): void {
     void state;
     this.pluginManager.plugins.forEach((plugin, id) => {
       void plugin;
@@ -494,18 +507,21 @@ export class pluginOptions<AppType extends App = App> extends CommandCategory<eP
   renderCommand(
     command: ePlugin<AppType>,
     el: CommandItem<ePlugin<AppType>>,
-  ): Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState) {
+  ): Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) {
     const isEnabled =
       this.enabled.get(command.manifest.id) ?? this.pluginManager.isEnabled(command.manifest.id);
-    el.setName(`${isEnabled ? "Disable" : "Enable"}: ${command.manifest.name}`)
+    el.setTitle(`${isEnabled ? "Disable" : "Enable"}: ${command.manifest.name}`)
       .setDescription(command.manifest.description)
-      .addToggleInput(toggle => {
-        toggle.setValue(isEnabled);
-        toggle.on("change", value => {
-          this.enabled.set(command.manifest.id, value);
-          this.pluginManager.toggle(command.manifest.id, value);
-        });
-      });
+      .addComponent(
+        toggle({
+          checked: isEnabled,
+          onclick: (e: Event, state) => {
+            e.stopPropagation();
+            this.enabled.set(command.manifest.id, state.val);
+            this.pluginManager.toggle(command.manifest.id, state.val);
+          },
+        }),
+      );
     return {};
   }
   executeCommand(command: ePlugin<AppType>): void {

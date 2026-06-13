@@ -1,7 +1,7 @@
-import { IconNode } from "lucide";
+import { VerseRef } from "@touch-grass-bible";
 import { eInternalPlugins, ePlugin } from "@touchgrass/framework";
+import { IconNode } from "lucide";
 import TouchGrassBibleApp from "../main";
-import { VerseInfoComponent } from "../ui/VerseScreen";
 
 /**
  * Action definition rendered in verse-level action areas.
@@ -24,14 +24,14 @@ export type IconActionItem = {
    *
    * Return `true` to render the icon for the current verse, `false` to hide it.
    */
-  isAvailable?: (verseInfo: VerseInfoComponent) => boolean;
+  isAvailable?: (verseInfo: { verse: VerseRef }) => boolean;
 
   /**
    * Action handler executed with the active verse context.
    *
    * @param verseInfo - Current verse information component.
    */
-  onTrigger: (verseInfo: VerseInfoComponent) => void;
+  onTrigger: (verseInfo: { verse: VerseRef; event: MouseEvent; element: HTMLElement }) => void;
 };
 
 /**

@@ -88,6 +88,10 @@
   color-scheme: dark;
 }
 
+.lucide {
+  stroke-width: 1px;
+}
+
 /* ============================================================
    Global accessibility helpers
    ============================================================ */
@@ -117,36 +121,36 @@ body,
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
-}
 
-*::-webkit-scrollbar {
-  width: var(--scrollbar-size);
-  height: var(--scrollbar-size);
-}
+  &::-webkit-scrollbar {
+    width: var(--scrollbar-size);
+    height: var(--scrollbar-size);
+  }
 
-*::-webkit-scrollbar-track {
-  background: var(--scrollbar-track);
-  border-radius: var(--radius-circle);
-}
+  &::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+    border-radius: var(--radius-circle);
+  }
 
-*::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
-  border: 2px solid transparent;
-  border-radius: var(--radius-circle);
-  background-clip: padding-box;
-  box-shadow: inset 0 0 0 1px var(--scrollbar-border);
-}
+  &::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border: 2px solid transparent;
+    border-radius: var(--radius-circle);
+    background-clip: padding-box;
+    box-shadow: inset 0 0 0 1px var(--scrollbar-border);
 
-*::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb-hover);
-}
+    &:hover {
+      background: var(--scrollbar-thumb-hover);
+    }
 
-*::-webkit-scrollbar-thumb:active {
-  background: var(--scrollbar-thumb-active);
-}
+    &:active {
+      background: var(--scrollbar-thumb-active);
+    }
+  }
 
-*::-webkit-scrollbar-corner {
-  background: transparent;
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 }
 
 /* ============================================================
@@ -155,77 +159,4 @@ body,
 
 .highlighted-query {
   color: rgb(240 0 255 / 0.8);
-}
-
-.content .verse {
-  text-indent: 1em;
-  text-align: justify;
-  padding: 0.4em;
-  display: var(--text-display);
-  cursor: pointer;
-}
-
-.content .verse:hover {
-  text-shadow: 0 0 5px rgb(255 255 255 / 0.25);
-}
-
-.content .verse:focus-visible {
-  border-radius: var(--radius-shift-sm);
-}
-
-.content .verse .number {
-  color: rgb(255 255 255 / 0.5);
-  padding: 0.5em;
-}
-
-.content .active .verse .number {
-  color: var(--color-accent);
-}
-
-.content .verse .paragraph-break {
-  color: rgb(255 255 255 / 0.5);
-}
-
-.content .chapter-title {
-  text-align: center;
-  color: rgb(255 255 255 / 0.5);
-  font-size: 1.5em;
-  font-weight: bold;
-  margin: 1em auto;
-  max-width: var(--reading-width);
-}
-
-.content .chapter {
-  margin: 2em auto;
-  max-width: var(--reading-width);
-  word-spacing: 0.5em;
-  letter-spacing: 0.1em;
-  line-height: 1.5;
-}
-
-.content .chapter:last-of-type .verse:last-of-type {
-  /* avoid awkward whitespace on mobile; use padding instead */
-  padding-bottom: 4rem;
-}
-
-.wrap .chapter .verse {
-  display: inline;
-}
-
-.wrap .chapter div.paragraph-break::before {
-  display: block;
-  content: "";
-}
-
-.wrap .chapter .paragraph-break .number,
-.wrap .chapter > .verse:first-of-type .number {
-  font-size: 2em;
-  text-transform: capitalize;
-  float: left;
-  line-height: 0.8;
-  padding: 0.2em 0.1em 0 0;
-}
-
-.wrap .chapter .paragraph-break .paragraph-break {
-  display: none;
 }

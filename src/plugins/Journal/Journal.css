@@ -68,7 +68,7 @@
     }
 
     .entry.is-text {
-      padding: none;
+      padding: 0;
 
       &:focus-within {
         box-shadow: var(--shadow-focus-ring);

@@ -1,3 +1,5 @@
+import van, { State } from "vanjs-core";
+
 class Chainable {
   next(callback: (a: this) => void): this {
     callback(this); // Use setTimeout to ensure the callback is executed in the next event loop cycle
@@ -123,15 +125,6 @@ export abstract class ETarget<E extends Record<string, unknown> = Record<string,
   }
 }
 
-export type touchDraggerEvents = {
-  draggingX: { deltaX: number };
-  draggingY: { deltaY: number };
-  dragX: { deltaX: number };
-  dragY: { deltaY: number };
-  dragCancel: { deltaX: number; deltaY: number };
-  dragXcancel: { deltaX: number; deltaY: number };
-  dragYcancel: { deltaX: number; deltaY: number };
-};
 /**
  * A class that handles touch-based drag gestures on a given HTMLElement.
  *
@@ -161,74 +154,95 @@ export type touchDraggerEvents = {
  *
  * @method setThreshold Sets the minimum distance (in pixels) required to trigger a drag event.
  */
-export class touchDragger extends ETarget<touchDraggerEvents> {
-  private startX: number = 0;
-  private startY: number = 0;
-  private currentX: number = 0;
-  private currentY: number = 0;
-  private threshold: number = 50;
+export function touchDragger({
+  ondraggingx,
+  ondraggingy,
+  ondragx,
+  ondragy,
+  ondragcancel,
+  ondragxcancel,
+  ondragycancel,
+  threshold = 50,
+  stylesetter = () => "",
+}: {
+  ondraggingx?: (e: { deltaX: number }) => void;
+  ondraggingy?: (e: { deltaY: number }) => void;
+  ondragx?: (e: { deltaX: number }) => void;
+  ondragy?: (e: { deltaY: number }) => void;
+  ondragcancel?: (e: { deltaX: number; deltaY: number }) => void;
+  ondragxcancel?: (e: { deltaX: number; deltaY: number }) => void;
+  ondragycancel?: (e: { deltaX: number; deltaY: number }) => void;
+  threshold?: number;
+  stylesetter?: ({
+    deltaX,
+    deltaY,
+    isX,
+    isY,
+  }: {
+    deltaX: State<number>;
+    deltaY: State<number>;
+    isX: boolean;
+    isY: boolean;
+  }) => string;
+}) {
+  let startX: number = 0;
+  let startY: number = 0;
+  const currentX: State<number> = van.state(0);
+  const currentY: State<number> = van.state(0);
+  const deltaX: State<number> = van.derive(() => currentX.val - startX);
+  const deltaY: State<number> = van.derive(() => currentY.val - startY);
 
-  constructor(element: HTMLElement) {
-    super();
-    element.addEventListener("touchstart", this.onTouchStart, {
-      passive: true,
-    });
-    element.addEventListener("touchmove", this.onTouchMove, { passive: true });
-    element.addEventListener("touchend", this.onTouchEnd, { passive: true });
-  }
-
-  private onTouchStart = (event: TouchEvent): void => {
+  const ontouchstart = (event: TouchEvent): void => {
     if (event.touches.length > 1) return; // Only handle single-finger touches
-    this.startX = event.touches[0].pageX;
-    this.startY = event.touches[0].pageY;
-    this.currentX = this.startX;
-    this.currentY = this.startY;
+    startX = event.touches[0].pageX;
+    startY = event.touches[0].pageY;
+    currentX.val = startX;
+    currentY.val = startY;
   };
 
-  private onTouchMove = (event: TouchEvent): void => {
+  const ontouchmove = (event: TouchEvent): void => {
     if (event.touches.length > 1) return; // Only handle single-finger touches
-    this.currentX = event.touches[0].pageX;
-    this.currentY = event.touches[0].pageY;
+    currentX.val = event.touches[0].pageX;
+    currentY.val = event.touches[0].pageY;
 
-    const deltaX = this.currentX - this.startX;
-    const deltaY = this.currentY - this.startY;
-
-    // Apply translation to the element
-    if (Math.abs(deltaY) < Math.abs(deltaX)) {
-      this.emit("draggingX", { deltaX });
+    if (Math.abs(deltaY.val) < Math.abs(deltaX.val)) {
+      ondraggingx?.({ deltaX: deltaX.val });
     } else {
-      this.emit("draggingY", { deltaY });
+      ondraggingy?.({ deltaY: deltaY.val });
     }
   };
 
-  private onTouchEnd = (): void => {
-    // Reset the element's position after dragging
-    const deltaX = this.currentX - this.startX;
-    const deltaY = this.currentY - this.startY;
+  const ontouchend = (): void => {
+    startX = 0;
+    startY = 0;
+    currentX.val = 0;
+    currentY.val = 0;
 
-    if (Math.abs(deltaX) > this.threshold && Math.abs(deltaY) < Math.abs(deltaX)) {
-      this.emit("dragX", { deltaX });
-      this.emit("dragYcancel", { deltaX: 0, deltaY: 0 });
-    } else if (Math.abs(deltaY) > this.threshold) {
-      this.emit("dragY", { deltaY });
-      this.emit("dragXcancel", { deltaX: 0, deltaY: 0 });
+    if (Math.abs(deltaX.val) > threshold && Math.abs(deltaY.val) < Math.abs(deltaX.val)) {
+      ondragx?.({ deltaX: deltaX.val });
+      ondragycancel?.({ deltaX: 0, deltaY: 0 });
+    } else if (Math.abs(deltaY.val) > threshold) {
+      ondragy?.({ deltaY: deltaY.val });
+      ondragxcancel?.({ deltaX: 0, deltaY: 0 });
     } else {
-      this.emit("dragCancel", { deltaX: 0, deltaY: 0 });
-      this.emit("dragXcancel", { deltaX: 0, deltaY: 0 });
-      this.emit("dragYcancel", { deltaX: 0, deltaY: 0 });
+      ondragcancel?.({ deltaX: 0, deltaY: 0 });
+      ondragxcancel?.({ deltaX: 0, deltaY: 0 });
+      ondragycancel?.({ deltaX: 0, deltaY: 0 });
     }
   };
 
-  /**
-   * Sets the threshold value for the current instance.
-   *
-   * @param value - The new threshold value to be set.
-   * @returns The current instance for method chaining.
-   */
-  setThreshold(value: number): this {
-    this.threshold = value;
-    return this;
-  }
+  return {
+    ontouchstart,
+    ontouchmove,
+    ontouchend,
+    style: () =>
+      stylesetter({
+        deltaX,
+        deltaY,
+        isX: Math.abs(deltaX.val) > Math.abs(deltaY.val),
+        isY: Math.abs(deltaY.val) > Math.abs(deltaX.val),
+      }),
+  };
 }
 
 export function pdsp(cb: (e: Event) => void): (e: Event) => void {
