@@ -1,13 +1,12 @@
 import van from "vanjs-core";
 import "./App.css";
-import { UnifiedCommandPalette } from "./CommandPalette";
+import { CommandPaletteV2 } from "./CommandPaletteV2.0.ts";
 import { ETarget } from "./Event";
 import { BrowserConsole } from "./MyBrowserConsole";
 import type { PlatformBridge } from "./PlatformBridge.ts";
 import "./toTitleCase.ts";
 import { Workspace } from "./Workspace";
 import { PanelContainerSerialized } from "./Workspace/Types.ts";
-import { CommandPaletteV2 } from "./CommandPaletteV2.0.ts";
 
 const { div } = van.tags;
 
@@ -29,7 +28,7 @@ export { App };
  * @property {HTMLElement} contentEl - The main content element for the application UI.
  * @property {AppState} state - The current application state.
  * @property {ETarget[]} target - Stack of event targets for keyboard and command events.
- * @property {UnifiedCommandPalette<App>} commandPalette - The application's command palette.
+ * @property {CommandPaletteV2<App>} commandPalette - The application's command palette.
  *
  * @constructor
  * @param {Document} doc - The document object for DOM manipulation.
@@ -73,8 +72,7 @@ abstract class App extends ETarget<{
   readonly platformBridge: PlatformBridge;
 
   /** Shared command palette instance used across the app shell. */
-  commandPalette: UnifiedCommandPalette;
-  commandPaletteV2: CommandPaletteV2;
+  commandPalette: CommandPaletteV2;
 
   files: Files;
 
@@ -100,10 +98,10 @@ abstract class App extends ETarget<{
     this.files = new Files(this.platformBridge);
     this.workspace = new Workspace(this.contentEl, layout, this);
 
-    this.commandPaletteV2 = new CommandPaletteV2(this);
+    this.commandPalette = new CommandPaletteV2(this);
 
-    this.workspace.layoutController.registerView("command-palette-v2", () => this.commandPaletteV2);
-    this.commandPalette = new UnifiedCommandPalette(this);
+    this.workspace.layoutController.registerView("command-palette", () => this.commandPalette);
+    // this.commandPalette = new UnifiedCommandPalette(this);
 
     this.title = this._title;
 

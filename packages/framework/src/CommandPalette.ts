@@ -782,7 +782,7 @@ export class CommandPaletteDialog extends View<CommandPaletteViewState> {
   private renderOverview(): HTMLDivElement {
     return div({ class: "palette-content-over" }, () => {
       const navigator = this.palette.getCategory("navigator")?.getPalette(this);
-      if (!navigator || window.matchMedia("(max-width: 800px)").matches) return;
+      if (!navigator || window.matchMedia("(max-width: 700px)").matches) return;
 
       navigator.dialog = this; // Ensure navigator has dialog reference for command rendering
       const commands = navigator.trygetCommands(this.state.query.val);

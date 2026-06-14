@@ -1,10 +1,4 @@
-import {
-  CommandCategory,
-  CommandItem,
-  CommandPaletteDialog,
-  CommandPaletteViewState,
-  van,
-} from "@touchgrass/framework";
+import { CommandCategory, CommandPaletteState, stateMapping, van } from "@touchgrass/framework";
 import { SquarePen } from "lucide";
 import Plugin from "../../core/Plugin";
 import { OSIS, VerseRef } from "../../models/VerseRef";
@@ -49,7 +43,7 @@ export default class NotesPlugin extends Plugin {
     }
     this.Vault.loadNotes(this.settings.ExtraNotes);
 
-    this.registerPalette(dialog => new myNotesCategory(dialog, this), myNotesCategoryID);
+    this.registerPalette(myNotesCategoryID, ({ state }) => new myNotesCategory(state, this));
     this.registerView("notes-panel", () => new NotesPanel(this));
     this.registerView(NoteEditorFloatingViewID, () => new NoteEditorFloatingView(this));
     this.addVerseAction({
@@ -82,45 +76,39 @@ export default class NotesPlugin extends Plugin {
 }
 
 class myNotesCategory extends CommandCategory<VerseRef> {
-  readonly name = "Notes";
-  readonly description = "List of your personal notes on verses";
-  notes: VerseRef[] = [];
+  allItems = van.state<VerseRef[]>([]);
+  criteria: Array<(item: VerseRef) => string> = [
+    verse => verse.toString(),
+    verse => this.plugin.myNotes.get(verse) || "",
+  ];
 
   constructor(
-    public dialog: CommandPaletteDialog,
+    state: stateMapping<CommandPaletteState>,
     public plugin: NotesPlugin,
   ) {
-    super(dialog);
+    super(state, "Notes", "List of your personal notes on verses");
+    this.allItems = van.derive(() => {
+      this.title.val = "Notes";
+      return Array.from(this.plugin.myNotes.keys()).sort((a, b) => a.toString().localeCompare(b.toString()));
+    });
   }
 
-  onTrigger(_state: CommandPaletteViewState): void {
-    void _state;
-    this.notes = Array.from(this.plugin.myNotes.keys())
-
-      .sort((a, b) => a.toString().localeCompare(b.toString()));
-    this.title = "Notes";
-  }
-
-  getCommands(query: string): VerseRef[] {
-    return this.getcompatible(query, this.notes, verse => this.plugin.myNotes.get(verse) || "");
-  }
-
-  renderCommand(
-    verse: VerseRef,
-    Item: CommandItem<VerseRef>,
-  ): Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) {
-    Item.setTitle(verse.toString())
-      .setDescription(this.plugin.myNotes.get(verse) || "No note")
-      .addctx();
-    return () => {
+  renderItem(verse: VerseRef) {
+    const openCrossRef = this.context(() => {
       this.plugin.app.verseState.val = verse;
       return { topCategory: TSKCrossRefCategoryID };
+    });
+
+    return {
+      title: verse.toString(),
+      description: this.plugin.myNotes.get(verse) || "No note",
+      ...openCrossRef,
+      click: openCrossRef.context,
     };
   }
 
-  executeCommand(_command: VerseRef): void {
-    void _command;
-    this.dialog.palette.close();
+  executeCommand(): void {
+    return;
   }
 }
 

@@ -487,8 +487,15 @@
         backdrop-filter: blur(6px);
       }
     }
+    .floating-views-container .floating-view-wrapper .floating-view {
+      width: 100vw;
+      height: 100dvh;
+      max-width: none;
+      border-radius: 0;
+    }
   }
 }
+
 .drag-indicator {
   display: block;
   position: absolute;

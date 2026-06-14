@@ -1,11 +1,4 @@
-import {
-  CommandCategory,
-  CommandItem,
-  CommandPaletteDialog,
-  CommandPaletteViewState,
-  MenuVan,
-  van,
-} from "@touchgrass/framework";
+import { CommandCategory, CommandPaletteState, MenuVan, stateMapping, van } from "@touchgrass/framework";
 import { BrainCircuit } from "lucide";
 import Plugin from "../../core/Plugin";
 import { AICategoryID, AIEmbeddingSearchCategoryID, SettingsCategoryID } from "../categoryIDs";
@@ -30,13 +23,13 @@ export default class AIPlugin extends Plugin {
 
   async onload() {
     this.settings = await this.loadSettings(defaultAISettings);
-    this.registerPalette(dialog => new AICommandPalette(dialog, this), AICategoryID);
+    this.registerPalette(AICategoryID, ({ state }) => new AICommandPalette(state, this));
     this.embeddingSearchDB
       .initialize()
       .then(() => {
         this.registerPalette(
-          dialog => new AIEmbeddingSearchCategory(dialog, this, this.embeddingSearchDB),
           AIEmbeddingSearchCategoryID,
+          ({ state }) => new AIEmbeddingSearchCategory(state, this, this.embeddingSearchDB),
         );
       })
       .catch(err => this.app.console.error(`Error loading embedding search database`, err));
@@ -51,7 +44,7 @@ export default class AIPlugin extends Plugin {
             {
               title: "AI API key not set",
               icon: BrainCircuit,
-              onClick: () => this.app.openCommandPalette({ topCategory: SettingsCategoryID }),
+              onClick: () => this.app.commandPalette.open({ topCategory: SettingsCategoryID }),
             },
           ]).showAtMouseEvent(verseInfo.event);
           return;
@@ -84,86 +77,101 @@ export default class AIPlugin extends Plugin {
 }
 
 class AICommandPalette extends CommandCategory<string> {
-  readonly name = "AI Bible Assistant";
-  readonly description = "Ask the AI assistant questions about Bible verses and theology.";
-  private responses: { question: string; answer: string }[] = [];
-  private inFlightResponse: { question: string; answer: string; error?: string } | null = null;
+  allItems = van.state<string[]>([]);
+  criteria: Array<(item: string) => string> = [item => item];
+  private responses = van.state<{ question: string; answer: string }[]>([]);
+  private inFlightResponse = van.state<{ question: string; answer: string; error?: string } | null>(null);
 
   constructor(
-    public dialog: CommandPaletteDialog,
+    state: stateMapping<CommandPaletteState>,
     public plugin: AIPlugin,
   ) {
-    super(dialog);
-  }
+    super(state, "AI Bible Assistant", "Ask the AI assistant questions about Bible verses and theology.");
+    this.deriveExtraCMDs(() => {
+      void this.state.topCategory.val;
 
-  onTrigger(): void {
-    if (!this.plugin.settings.aiApiKey) {
-      this.defaultCMD.addCMD(
-        "No API key set",
-        "Go to Settings → Set AI API key to enable the AI assistant.",
-        () => ({}),
-      );
-      return;
-    }
-    this.defaultCMD.addCMD(
-      "Set AI API key",
-      `Store your OpenAI-compatible API key (saved locally in localStorage — keep it private).${
-        this.plugin.settings.aiApiKey ? " Key is currently set." : " No key set."
-      }`,
-      item =>
-        void item.onClick(() =>
-          this.plugin.app.commandPalette.prompt("Enter your OpenAI-compatible API key:").then(key => {
-            if (key === null) return;
-            this.plugin.settings.aiApiKey = key.trim();
-            this.plugin.saveSettings();
-            this.dialog.palette.display({ topCategory: AICategoryID });
+      const items: Array<{
+        title: string;
+        description: string;
+        cb?: (item: { title: string; description: string }) => Partial<{
+          title: string;
+          description: string;
+          click?: () => boolean;
+          extras?: HTMLElement;
+        }> | void;
+      }> = [];
+
+      if (!this.plugin.settings.aiApiKey) {
+        items.push({
+          title: "No API key set",
+          description: "Go to Settings → Set AI API key to enable the AI assistant.",
+        });
+      } else {
+        items.push({
+          title: "Set AI API key",
+          description: `Store your OpenAI-compatible API key (saved locally in localStorage - keep it private).${
+            this.plugin.settings.aiApiKey ? " Key is currently set." : " No key set."
+          }`,
+          cb: () => ({
+            click: () => {
+              void this.plugin.app.commandPalette
+                .prompt("Enter your OpenAI-compatible API key:")
+                .then(key => {
+                  if (key === null) return;
+                  this.plugin.settings.aiApiKey = key.trim();
+                  void this.plugin.saveSettings();
+                  this.updateViewState({ topCategory: AICategoryID });
+                });
+              return false;
+            },
           }),
-        ),
-    );
+        });
+      }
 
-    this.defaultCMD.addCMD(
-      "Open semantic embedding search",
-      "Search semantically similar verses using precomputed embeddings + Orama",
-      item =>
-        void item.onClick(() => this.dialog.palette.display({ topCategory: AIEmbeddingSearchCategoryID })),
-    );
+      items.push({
+        title: "Open semantic embedding search",
+        description: "Search semantically similar verses using precomputed embeddings + Orama",
+        cb: () => ({
+          click: () => (this.updateViewState({ topCategory: AIEmbeddingSearchCategoryID }), false),
+        }),
+      });
 
-    if (this.inFlightResponse) {
-      const { question, answer, error } = this.inFlightResponse;
-      this.defaultCMD.addCMD(
-        error ? "AI error" : "AI: thinking…",
-        error ? error : answer || `Working on: ${question}`,
-        () => ({}),
-      );
-    }
+      if (this.inFlightResponse.val) {
+        const { question, answer, error } = this.inFlightResponse.val;
+        items.push({
+          title: error ? "AI error" : "AI: thinking…",
+          description: error ? error : answer || `Working on: ${question}`,
+        });
+      }
 
-    if (this.responses.length > 0) {
-      const latest = this.responses[this.responses.length - 1];
-      this.defaultCMD.addCMD(
-        "Latest AI response",
-        latest.answer || `No content returned for: ${latest.question}`,
-        () => ({}),
-      );
-    }
+      if (this.responses.val.length > 0) {
+        const latest = this.responses.val[this.responses.val.length - 1];
+        items.push({
+          title: "Latest AI response",
+          description: latest.answer || `No content returned for: ${latest.question}`,
+        });
+      }
+
+      return items;
+    });
+
+    this.allItems = van.derive(() => {
+      const query = this.state.query.val.trim();
+      return query ? [query] : [];
+    });
   }
 
-  getCommands(query: string): string[] {
-    if (!query.trim()) return [];
-    return [query];
-  }
-
-  renderCommand(
-    command: string,
-    Item: CommandItem<string>,
-  ): Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) {
-    Item.setTitle(`Ask: ${command}`).setDescription("Send this question to the AI assistant");
-    return {};
+  renderItem(command: string) {
+    return {
+      title: `Ask: ${command}`,
+      description: "Send this question to the AI assistant",
+    };
   }
 
   executeCommand(command: string): void {
     const apiKey = this.plugin.settings.aiApiKey;
     if (!apiKey) {
-      this.plugin.app.openCommandPalette({ topCategory: SettingsCategoryID });
+      this.updateViewState({ topCategory: SettingsCategoryID });
       return;
     }
     this.plugin.chat.endpoint.apiKey = apiKey;
@@ -172,35 +180,34 @@ class AICommandPalette extends CommandCategory<string> {
       ? `[Current verse: ${verse.toString()} — "${verse.vTXT}"]\n\n${command}`
       : command;
 
-    this.inFlightResponse = { question: command, answer: "" };
-    this.dialog.palette.display({ topCategory: AICategoryID });
+    this.inFlightResponse.val = { question: command, answer: "" };
 
     this.plugin.chat
       .request(contextPrompt, delta => {
         if (delta.content) {
-          if (!this.inFlightResponse || this.inFlightResponse.question !== command) {
-            this.inFlightResponse = { question: command, answer: "" };
+          if (!this.inFlightResponse.val || this.inFlightResponse.val.question !== command) {
+            this.inFlightResponse.val = { question: command, answer: "" };
           }
-          this.inFlightResponse.answer += delta.content;
-          this.dialog.palette.display({ topCategory: AICategoryID });
+          this.inFlightResponse.val.answer += delta.content;
         }
         return true;
       })
       .then(() => {
-        if (this.inFlightResponse && this.inFlightResponse.question === command) {
-          this.responses.push({ question: command, answer: this.inFlightResponse.answer });
-          this.inFlightResponse = null;
+        if (this.inFlightResponse.val && this.inFlightResponse.val.question === command) {
+          this.responses.val = [
+            ...this.responses.val,
+            { question: command, answer: this.inFlightResponse.val.answer },
+          ];
+          this.inFlightResponse.val = null;
         }
-        this.dialog.palette.display({ topCategory: AICategoryID });
       })
       .catch(err => {
         const message = err instanceof Error ? err.message : String(err);
-        if (!this.inFlightResponse || this.inFlightResponse.question !== command) {
-          this.inFlightResponse = { question: command, answer: "", error: message };
+        if (!this.inFlightResponse.val || this.inFlightResponse.val.question !== command) {
+          this.inFlightResponse.val = { question: command, answer: "", error: message };
         } else {
-          this.inFlightResponse.error = message;
+          this.inFlightResponse.val.error = message;
         }
-        this.dialog.palette.display({ topCategory: AICategoryID });
       });
   }
 }

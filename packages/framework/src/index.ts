@@ -1,5 +1,5 @@
 export * from "./App";
-export * from "./CommandPalette";
+export * from "./CommandPaletteV2.0";
 export * from "./CommandPaletteSettings";
 export * from "./Commands";
 export * from "./Comands";

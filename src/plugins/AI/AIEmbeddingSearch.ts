@@ -1,11 +1,6 @@
-import {
-  CommandCategory,
-  CommandItem,
-  CommandPaletteDialog,
-  CommandPaletteViewState
-} from "@touchgrass/framework";
+import { CommandCategory, CommandPaletteState, stateMapping, van } from "@touchgrass/framework";
 import { VerseRef } from "src/models/VerseRef";
-import { AICategoryID, SettingsCategoryID, TSKCrossRefCategoryID } from "src/plugins/categoryIDs";
+import { AICategoryID, SettingsCategoryID } from "src/plugins/categoryIDs";
 import type AIPlugin from "./AI";
 import { AIEmbeddingSearchDB } from "./AIEmbeddingSearchDB";
 
@@ -18,113 +13,140 @@ type EmbeddingSearchHit = {
 };
 
 export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCommand> {
-  readonly name = "AI Semantic Verse Search";
-  readonly description =
-    "Semantic search over verse embeddings using Orama. Requires a generated embeddings JSON file.";
+  allItems = van.state<EmbeddingSearchCommand[]>([]);
+  criteria: Array<(item: EmbeddingSearchCommand) => string> = [
+    item => (item.type === "query" ? item.query : item.hit.verse.toString()),
+    item => (item.type === "query" ? item.query : item.hit.text),
+  ];
 
-  private inFlight = false;
-  private lastQuery = "";
-  private inFlightQuery = "";
-  private lastResults: EmbeddingSearchHit[] = [];
-  private errorMessage = "";
+  private inFlight = van.state(false);
+  private lastQuery = van.state("");
+  private inFlightQuery = van.state("");
+  private lastResults = van.state<EmbeddingSearchHit[]>([]);
+  private errorMessage = van.state("");
   private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private queuedQuery = "";
 
   constructor(
-    public dialog: CommandPaletteDialog,
+    state: stateMapping<CommandPaletteState>,
     public plugin: AIPlugin,
     private dbService: AIEmbeddingSearchDB,
   ) {
-    super(dialog);
-  }
-
-  onTrigger(): void {
-    this.defaultCMD.addCMD(
-      "Back to AI chat",
-      "Return to AI Q&A mode",
-      item => void item.onClick(() => this.dialog.palette.display({ topCategory: AICategoryID })),
+    super(
+      state,
+      "AI Semantic Verse Search",
+      "Semantic search over verse embeddings using Orama. Requires a generated embeddings JSON file.",
     );
+    this.deriveExtraCMDs(() => {
+      const items: Array<{
+        title: string;
+        description: string;
+        cb?: (item: { title: string; description: string }) => Partial<{
+          title: string;
+          description: string;
+          click?: () => boolean;
+          extras?: HTMLElement;
+        }> | void;
+      }> = [
+        {
+          title: "Back to AI chat",
+          description: "Return to AI Q&A mode",
+          cb: () => ({
+            click: () => (this.updateViewState({ topCategory: AICategoryID }), false),
+          }),
+        },
+      ];
 
-    if (!this.plugin.settings.aiApiKey) {
-      this.defaultCMD.addCMD(
-        "No OpenAI API key set",
-        "OpenAI embeddings need a key. Ollama fallback is used if local server is available.",
-        item =>
-          void item.onClick(() => this.plugin.app.openCommandPalette({ topCategory: SettingsCategoryID })),
-      );
-    }
+      if (!this.plugin.settings.aiApiKey) {
+        items.push({
+          title: "No OpenAI API key set",
+          description: "OpenAI embeddings need a key. Ollama fallback is used if local server is available.",
+          cb: () => ({
+            click: () => (this.updateViewState({ topCategory: SettingsCategoryID }), false),
+          }),
+        });
+      }
 
-    if (this.inFlight) {
-      this.defaultCMD.addCMD("Searching embeddings…", `Working on: ${this.inFlightQuery}`, () => ({}));
-    }
+      if (this.inFlight.val) {
+        items.push({
+          title: "Searching embeddings...",
+          description: `Working on: ${this.inFlightQuery.val}`,
+        });
+      }
 
-    if (this.errorMessage) {
-      this.defaultCMD.addCMD("Embedding search error", this.errorMessage, () => ({}));
-    }
+      if (this.errorMessage.val) {
+        items.push({
+          title: "Embedding search error",
+          description: this.errorMessage.val,
+        });
+      }
 
-    if (!this.inFlight && this.lastResults.length > 0) {
-      this.defaultCMD.addCMD(
-        "Latest semantic search",
-        `Found ${this.lastResults.length} result(s) for: ${this.lastQuery}`,
-        () => ({}),
-      );
-    }
+      if (!this.inFlight.val && this.lastResults.val.length > 0) {
+        items.push({
+          title: "Latest semantic search",
+          description: `Found ${this.lastResults.val.length} result(s) for: ${this.lastQuery.val}`,
+        });
+      }
 
-    if (this.dbService.errorMessage) {
-      this.defaultCMD.addCMD("Embedding setup error", this.dbService.errorMessage, () => ({}));
-    }
+      if (this.dbService.errorMessage) {
+        items.push({
+          title: "Embedding setup error",
+          description: this.dbService.errorMessage,
+        });
+      }
 
-    if (this.dbService.sourceProvider && this.dbService.sourceModel) {
-      this.defaultCMD.addCMD(
-        "Embedding source",
-        `${this.dbService.sourceProvider}:${this.dbService.sourceModel}`,
-        () => ({}),
-      );
-    }
+      if (this.dbService.sourceProvider && this.dbService.sourceModel) {
+        items.push({
+          title: "Embedding source",
+          description: `${this.dbService.sourceProvider}:${this.dbService.sourceModel}`,
+        });
+      }
+
+      return items;
+    });
+
+    van.derive(() => {
+      this.requestSearch(this.state.query.val.trim());
+    });
+
+    this.allItems = van.derive(() => {
+      const trimmed = this.state.query.val.trim();
+      const commands: EmbeddingSearchCommand[] = [];
+      if (trimmed) {
+        commands.push({ type: "query", query: trimmed });
+      }
+
+      const shouldShowResults = this.lastResults.val.length > 0 && !!trimmed;
+      if (shouldShowResults) {
+        commands.push(...this.lastResults.val.map((hit): EmbeddingSearchCommand => ({ type: "hit", hit })));
+      }
+
+      return commands;
+    });
   }
 
-  getCommands(query: string): EmbeddingSearchCommand[] {
-    const trimmed = query.trim();
-    const commands: EmbeddingSearchCommand[] = [];
-
-    this.requestSearch(trimmed);
-
-    if (trimmed) {
-      commands.push({ type: "query", query: trimmed });
-    }
-
-    const shouldShowResults = this.lastResults.length > 0 && !!trimmed;
-    if (shouldShowResults) {
-      commands.push(...this.lastResults.map((hit): EmbeddingSearchCommand => ({ type: "hit", hit })));
-    }
-
-    return commands;
-  }
-
-  renderCommand(
-    command: EmbeddingSearchCommand,
-    item: CommandItem<EmbeddingSearchCommand>,
-  ): Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) {
+  renderItem(command: EmbeddingSearchCommand) {
     if (command.type === "query") {
       let status = "Generate query embedding, then search nearest verses";
 
-      if (this.inFlight) {
-        status = `Searching embeddings for: ${this.inFlightQuery || command.query}`;
-      } else if (this.errorMessage && this.lastQuery === command.query) {
-        status = `Search failed: ${this.errorMessage}`;
-      } else if (this.lastQuery === command.query) {
-        status = `Search finished: ${this.lastResults.length} result(s)`;
+      if (this.inFlight.val) {
+        status = `Searching embeddings for: ${this.inFlightQuery.val || command.query}`;
+      } else if (this.errorMessage.val && this.lastQuery.val === command.query) {
+        status = `Search failed: ${this.errorMessage.val}`;
+      } else if (this.lastQuery.val === command.query) {
+        status = `Search finished: ${this.lastResults.val.length} result(s)`;
       }
 
-      item.setTitle(`Semantic search: ${command.query}`).setDescription(status);
-      return () => ({});
+      return {
+        title: `Semantic search: ${command.query}`,
+        description: status,
+      };
     }
 
-    item
-      .setTitle(command.hit.verse.toString())
-      .setDescription(`${command.hit.text} ${(command.hit.score * 100).toFixed(1)}%`)
-      .addctx();
-    return { topCategory: TSKCrossRefCategoryID };
+    return {
+      title: command.hit.verse.toString(),
+      description: `${command.hit.text} ${(command.hit.score * 100).toFixed(1)}%`,
+    };
   }
 
   executeCommand(command: EmbeddingSearchCommand): void {
@@ -134,7 +156,7 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
     }
 
     this.plugin.app.verseState.val = command.hit.verse;
-    this.dialog.palette.close();
+    this.plugin.app.commandPalette.close();
   }
 
   private requestSearch(query: string, immediate = false): void {
@@ -144,15 +166,15 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
         clearTimeout(this.searchDebounceTimer);
         this.searchDebounceTimer = null;
       }
-      this.errorMessage = "";
+      this.errorMessage.val = "";
       return;
     }
 
-    if (query === this.lastQuery || query === this.inFlightQuery || query === this.queuedQuery) {
+    if (query === this.lastQuery.val || query === this.inFlightQuery.val || query === this.queuedQuery) {
       return;
     }
 
-    if (this.inFlight) {
+    if (this.inFlight.val) {
       this.queuedQuery = query;
       return;
     }
@@ -179,14 +201,14 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
 
   private async runSearch(query: string): Promise<void> {
     if (!query.trim()) return;
-    if (this.inFlight) {
+    if (this.inFlight.val) {
       this.queuedQuery = query;
       return;
     }
 
-    this.inFlight = true;
-    this.inFlightQuery = query;
-    this.errorMessage = "";
+    this.inFlight.val = true;
+    this.inFlightQuery.val = query;
+    this.errorMessage.val = "";
 
     try {
       const isReady = await this.dbService.initialize(this.plugin.settings.aiApiKey);
@@ -209,19 +231,16 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
         })
         .filter((hit): hit is EmbeddingSearchHit => hit !== null);
 
-      this.lastQuery = query;
-      this.lastResults = results;
+      this.lastQuery.val = query;
+      this.lastResults.val = results;
     } catch (error) {
-      this.errorMessage = error instanceof Error ? error.message : String(error);
+      this.errorMessage.val = error instanceof Error ? error.message : String(error);
     } finally {
-      this.inFlight = false;
-      this.inFlightQuery = "";
-      this.dialog.palette.refresh({
-        query: this.query || this.lastQuery,
-      });
+      this.inFlight.val = false;
+      this.inFlightQuery.val = "";
 
       const nextQuery = this.queuedQuery.trim();
-      if (nextQuery && nextQuery !== this.lastQuery) {
+      if (nextQuery && nextQuery !== this.lastQuery.val) {
         this.queuedQuery = "";
         void this.runSearch(nextQuery);
       }

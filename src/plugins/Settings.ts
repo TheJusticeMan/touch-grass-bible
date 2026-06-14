@@ -1,181 +1,205 @@
 import info from "@build-info";
 import {
   CommandCategory,
-  CommandItem,
-  CommandPaletteDialog,
-  CommandPaletteViewState,
+  CommandPaletteState,
   pluginOptions,
+  stateMapping,
   toggle,
 } from "@touchgrass/framework";
+import van from "vanjs-core";
 import { DEFAULT_SETTINGS } from "../config/TGAppSettings";
 import Plugin from "../core/Plugin";
 import { PluginOptionsCategoryID, SettingsCategoryID } from "./categoryIDs";
 
+type SettingsItem = {
+  id: string;
+  title: string;
+  description: string;
+  keywords?: string[];
+  click?: () => void | Promise<void>;
+  extras?: HTMLElement;
+};
+
 export default class SettingsPlugin extends Plugin {
   async onload(): Promise<void> {
-    this.registerPalette(dialog => new SettingsCategory(dialog, this), SettingsCategoryID);
-    this.registerPalette(dialog => new pluginOptions(dialog, this.app.plugins), PluginOptionsCategoryID);
+    this.registerPalette(SettingsCategoryID, ({ state }) => new SettingsCategory(state, this));
+    this.registerPalette(PluginOptionsCategoryID, ({ state }) => new pluginOptions(state, this.app.plugins));
   }
 }
 
-class SettingsCategory extends CommandCategory<string> {
-  readonly name = "Settings";
-  readonly description = "Configure Touch Grass Bible settings";
+class SettingsCategory extends CommandCategory<SettingsItem> {
+  allItems = van.state<SettingsItem[]>([]);
+  criteria: Array<(item: SettingsItem) => string> = [
+    item => item.title,
+    item => item.description,
+    item => item.keywords?.join(" ") ?? "",
+  ];
+
+  private readonly installedPlugins = van.state<string[]>([]);
 
   constructor(
-    public dialog: CommandPaletteDialog,
+    state: stateMapping<CommandPaletteState>,
     public plugin: SettingsPlugin,
   ) {
-    super(dialog);
+    super(state, "Settings", "Configure Touch Grass Bible settings");
+    this.allItems = van.derive(() => {
+      void this.installedPlugins.val;
+      return this.buildItems();
+    });
   }
 
-  onTrigger(_state: CommandPaletteViewState): void {
-    void _state;
-    this.defaultCMD.addCMD(
-      "Enable debug console",
-      "Toggle the in-app debug console for logging and debugging purposes",
-      item =>
-        void item.setTitle("Debug console").addComponent(
-          toggle({
-            checked: this.plugin.app.console.enabled,
-            onclick: (e: Event, state) => {
-              e.stopPropagation();
-              this.plugin.app.console.enabled = state.val;
-              this.plugin.app.settings.enableLogging = this.plugin.app.console.enabled;
-              this.plugin.app.settingsStore.save();
-            },
-          }),
-        ),
-    );
-    this.defaultCMD.addCMD(
-      "Download settings",
-      "Download your current settings as a JSON file",
-      item =>
-        void item.onClick(() => {
+  renderItem(item: SettingsItem) {
+    return {
+      title: item.title,
+      description: item.description,
+      click: item.click
+        ? () => {
+            void item.click?.();
+            return false;
+          }
+        : undefined,
+      extras: item.extras,
+    };
+  }
+
+  private buildItems(): SettingsItem[] {
+    const items: SettingsItem[] = [
+      {
+        id: "debug-console",
+        title: "Debug console",
+        description: "Toggle the in-app debug console for logging and debugging purposes",
+        keywords: ["logging", "console"],
+        extras: toggle({
+          checked: this.plugin.app.console.enabled,
+          onclick: (e: MouseEvent, state) => {
+            e.stopPropagation();
+            this.plugin.app.console.enabled = state.val;
+            this.plugin.app.settings.enableLogging = state.val;
+            this.plugin.app.settingsStore.save();
+          },
+        }),
+      },
+      {
+        id: "download-settings",
+        title: "Download settings",
+        description: "Download your current settings as a JSON file",
+        click: () => {
           this.plugin.app.settingsStore.save();
           this.plugin.app.files.downloadFile("TouchGrassBibleSettings.json", this.plugin.app.settings);
-        }),
-    );
-    this.defaultCMD.addCMD(
-      "Upload settings",
-      "Upload a JSON file to update your settings",
-      item =>
-        void item.onClick(() => {
+        },
+      },
+      {
+        id: "upload-settings",
+        title: "Upload settings",
+        description: "Upload a JSON file to update your settings",
+        click: () => {
           this.plugin.app.files.uploadFile(
             ".json",
             newSettings => {
               this.plugin.app.settings = Object.assign({}, DEFAULT_SETTINGS, newSettings as object);
-
               this.plugin.app.settingsStore.save();
             },
             error => this.plugin.app.console.error("Failed to parse settings file:", error),
             message => this.plugin.app.console.warn(message),
           );
-        }),
-    );
-    this.defaultCMD.addCMD(
-      "Reset settings",
-      "Reset settings to default values",
-      item =>
-        void item.onClick(() => {
-          this.plugin.app.commandPalette
-            .confirm("Are you sure you want to delete all your data including bookmarks?")
-            .then(confirmed => {
-              if (!confirmed) return;
-              this.plugin.app.settings = { ...DEFAULT_SETTINGS };
+        },
+      },
+      {
+        id: "reset-settings",
+        title: "Reset settings",
+        description: "Reset settings to default values",
+        click: async () => {
+          const confirmed = await this.plugin.app.commandPalette.confirm(
+            "Are you sure you want to delete all your data including bookmarks?",
+          );
+          if (!confirmed) return;
+          this.plugin.app.settings = { ...DEFAULT_SETTINGS };
+          this.plugin.app.settingsStore.save();
+        },
+      },
+    ];
 
-              this.plugin.app.settingsStore.save();
-
-              this.dialog.palette.display({ topCategory: "" });
-            });
-        }),
-    );
-
-    // Plugin management section
     if (this.plugin.app.externalPlugins) {
-      this.defaultCMD.addCMD(
-        "Install plugin",
-        "Upload a JavaScript plugin file (.js)",
-        item =>
-          void item.onClick(() => {
+      items.push(
+        {
+          id: "install-plugin",
+          title: "Install plugin",
+          description: "Upload a JavaScript plugin file (.js)",
+          keywords: ["external", "js"],
+          click: () => {
             this.plugin.app.files.uploadTextFile(
               ".js",
               jsCode => {
-                // Generate filename from timestamp or ask user
                 const filename = `plugin-${Date.now()}.js`;
                 void this.plugin.app.externalPlugins!.installPlugin(jsCode, filename).then(() => {
                   this.plugin.app.console.log(`Plugin installed: ${filename}`);
-                  // Reload plugins to get the newly installed one
                   void this.plugin.app.externalPlugins!.loadAll();
+                  this.installedPlugins.val = [...new Set([...this.installedPlugins.val, filename])];
                 });
               },
               error => this.plugin.app.console.error("Failed to upload plugin:", error),
               message => this.plugin.app.console.warn(message),
             );
-          }),
-      );
-
-      this.defaultCMD.addCMD(
-        "Manage plugins",
-        "View and manage installed plugins",
-        item =>
-          void item.onClick(async () => {
+          },
+        },
+        {
+          id: "manage-plugins",
+          title: "Manage plugins",
+          description: "View and manage installed plugins",
+          keywords: ["external", "uninstall"],
+          click: async () => {
             const installedPlugins = await this.plugin.app.externalPlugins!.getInstalledPlugins();
             if (installedPlugins.length === 0) {
               this.plugin.app.console.log("No plugins installed");
+              this.installedPlugins.val = [];
               return;
             }
 
-            for (const filename of installedPlugins) {
-              this.defaultCMD.addCMD(
-                `Uninstall: ${filename}`,
-                "Remove this plugin",
-                item =>
-                  void item.onClick(async () => {
-                    const confirmed = await this.plugin.app.commandPalette.confirm(
-                      `Uninstall plugin: ${filename}?`,
-                    );
-                    if (!confirmed) return;
-                    await this.plugin.app.externalPlugins!.uninstallPlugin(filename);
-                    this.plugin.app.console.log(`Plugin uninstalled: ${filename}`);
-                  }),
-              );
-            }
-          }),
+            this.installedPlugins.val = installedPlugins;
+          },
+        },
+      );
+
+      items.push(
+        ...this.installedPlugins.val.map(filename => ({
+          id: `uninstall-${filename}`,
+          title: `Uninstall: ${filename}`,
+          description: "Remove this plugin",
+          keywords: [filename, "plugin", "external"],
+          click: async () => {
+            const confirmed = await this.plugin.app.commandPalette.confirm(`Uninstall plugin: ${filename}?`);
+            if (!confirmed) return;
+            await this.plugin.app.externalPlugins!.uninstallPlugin(filename);
+            this.plugin.app.console.log(`Plugin uninstalled: ${filename}`);
+            this.installedPlugins.val = this.installedPlugins.val.filter(item => item !== filename);
+          },
+        })),
       );
     }
 
-    this.defaultCMD.addCMD(
-      "Keyboard shortcuts",
-      "Ctrl+Enter → Open command palette\n" +
-        "Escape → Close palette\n" +
-        "Arrow Up/Down → Navigate palette items\n" +
-        "Enter → Select item\n" +
-        "Backspace → Go back in navigation\n" +
-        "Arrow Right → Open navigation panel",
-      () => ({}),
+    items.push(
+      {
+        id: "keyboard-shortcuts",
+        title: "Keyboard shortcuts",
+        description:
+          "Ctrl+Enter → Open command palette\n" +
+          "Escape → Close palette\n" +
+          "Arrow Up/Down → Navigate palette items\n" +
+          "Enter → Select item\n" +
+          "Backspace → Go back in navigation\n" +
+          "Arrow Right → Open navigation panel",
+        keywords: ["shortcuts", "keyboard", "help"],
+      },
+      {
+        id: "app-info",
+        title: info.name,
+        description: `Version: ${info.version}\nAuthor: ${info.author}\nBuilt: ${new Date(
+          info.build,
+        ).toString()}\nLicense: ${info.license}\n\n${info.description}`,
+        keywords: ["version", "about", "license"],
+      },
     );
-    this.defaultCMD.addCMD(
-      info.name,
-      `Version: ${info.version}\nAuthor: ${info.author}\nBuilt: ${new Date(
-        info.build,
-      ).toString()}\nLicense: ${info.license}\n\n${info.description}`,
-      () => ({}),
-    );
-  }
 
-  getCommands(_query: string): string[] {
-    void _query;
-    return [];
-  }
-
-  renderCommand(_command: string, _Item: CommandItem<string>): Partial<CommandPaletteViewState> {
-    void _command;
-    void _Item;
-    return { topCategory: SettingsCategoryID };
-  }
-
-  executeCommand(_command: string): void {
-    void _command;
+    return items;
   }
 }

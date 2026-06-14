@@ -1,9 +1,4 @@
-import {
-  CommandCategory,
-  CommandItem,
-  CommandPaletteDialog,
-  CommandPaletteViewState
-} from "@touchgrass/framework";
+import { CommandCategory, CommandPaletteState, stateMapping, van } from "@touchgrass/framework";
 import { Waypoints } from "lucide";
 import { VerseRef } from "src/models/VerseRef";
 import Plugin from "../core/Plugin";
@@ -21,7 +16,7 @@ export default class TSK extends Plugin {
     } catch (e) {
       this.console.error("Failed to load crossrefs.json. Cross references will be unavailable.", e);
     }
-    this.registerPalette((dialog) => new CrossRefCategory(dialog, this), TSKCrossRefCategoryID);
+    this.registerPalette(TSKCrossRefCategoryID, ({ state }) => new CrossRefCategory(state, this));
 
     this.addVerseAction({
       id: "cross-ref",
@@ -32,9 +27,9 @@ export default class TSK extends Plugin {
       isAvailable: verseInfo => this.crossRefsForVerse(verseInfo.verse).length > 0,
       onTrigger: verseInfo => {
         this.app.verseState.val = verseInfo.verse;
-        this.app.openCommandPalette({
+        this.app.commandPalette.open({
           topCategory: TSKCrossRefCategoryID,
-        } as CommandPaletteViewState);
+        });
       },
     });
   }
@@ -50,46 +45,42 @@ export default class TSK extends Plugin {
 }
 
 class CrossRefCategory extends CommandCategory<VerseRef> {
-  readonly name = "Cross references (TSK+)";
-  readonly description = "Cross references for the selected verse";
-  verses: VerseRef[] = [];
+  allItems = van.state<VerseRef[]>([]);
+  criteria: Array<(item: VerseRef) => string> = [verse => verse.toString(), verse => verse.vTXT];
 
   constructor(
-    public dialog: CommandPaletteDialog,
+    state: stateMapping<CommandPaletteState>,
     public plugin: TSK,
   ) {
-    super(dialog);
+    super(state, "Cross references (TSK+)", "Cross references for the selected verse");
+    this.allItems = van.derive(() => {
+      const verse = this.plugin.app.verseState.val;
+
+      if (verse) {
+        this.title.val = `Cross references for ${verse.toString()}`;
+        return this.plugin.crossRefsForVerse(verse);
+      }
+
+      this.title.val = "Cross references (TSK+)";
+      return [];
+    });
   }
 
-  onTrigger(): void {
-    const verse = this.plugin.app.verseState.val;
-    if (verse)
-      void ((this.verses = this.plugin.crossRefsForVerse(verse)),
-      (this.title = `Cross references for ${verse.toString()}`));
-    else this.verses = [];
-  }
-  getCommands(query: string): VerseRef[] {
-    return this.getcompatible(
-      query,
-      this.verses,
-      verse => verse.toString(),
-      verse => verse.vTXT,
-    );
-  }
-
-  renderCommand(
-    verse: VerseRef,
-    Item: CommandItem<VerseRef>,
-  ): Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) {
-    Item.setTitle(verse.toString()).setDescription(verse.vTXT).addctx();
-
-    return () => {
+  renderItem(verse: VerseRef) {
+    const openCrossRef = this.context(() => {
       this.plugin.app.verseState.val = verse;
       return { topCategory: TSKCrossRefCategoryID };
+    });
+
+    return {
+      title: verse.toString(),
+      description: verse.vTXT,
+      ...openCrossRef,
+      click: openCrossRef.context,
     };
   }
 
   executeCommand(): void {
-    this.dialog.palette.close();
+    return;
   }
 }

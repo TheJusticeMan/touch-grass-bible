@@ -1,12 +1,6 @@
+import van from "vanjs-core";
 import { App } from "./App";
-import {
-  CategoryLoaderFunc,
-  CommandCategory,
-  CommandItem,
-  CommandPaletteDialog,
-  CommandPaletteViewState,
-} from "./CommandPalette";
-import { CommandPaletteState } from "./CommandPaletteV2.0";
+import { CommandCategory, CommandPaletteState } from "./CommandPaletteV2.0";
 import { Command } from "./Commands";
 import { ETarget } from "./Event";
 import { BrowserConsole } from "./MyBrowserConsole";
@@ -223,25 +217,7 @@ export class ePlugin<AppType extends App = App> extends Component {
    * }, "my-plugin-category");
    * ```
    */
-  registerPalette(load: CategoryLoaderFunc<unknown>, id: string) {
-    this.app.commandPalette.addPalette(load, id);
-    this.registerUnload(() => this.app.commandPalette.removePalette(load, id));
-
-    /*     // Get the palette name and description to create a well-named command
-    const category = this.app.commandPalette.getCategory(id);
-    const palette = category?.getPalette(this.app.commandPalette);
-
-    // Auto-register a command that opens the command palette with this category on top
-    this.registerCommand({
-      id: `open-palette-${id}`,
-      name: palette ? `Open: ${palette.name}` : `Open: ${id}`,
-      icon: Terminal,
-      description: palette?.description || `Open the ${id} category in the command palette`,
-      callback: () => this.app.commandPalette.display({ topCategory: id }),
-    }); */
-  }
-
-  registerPaletteV2<T>(
+  registerPalette<T>(
     id: string,
     cfn: (args: {
       id: string;
@@ -249,13 +225,19 @@ export class ePlugin<AppType extends App = App> extends Component {
     }) => import("./CommandPaletteV2.0").CommandCategory<T>,
     hidden = false,
   ) {
-    this.app.commandPaletteV2.registerPalette<T>(id, cfn, hidden);
-    this.registerUnload(() => this.app.commandPaletteV2.unregisterPalette(id));
+    this.app.commandPalette.registerPalette<T>(id, cfn, hidden);
+    this.registerUnload(() => this.app.commandPalette.unregisterPalette(id));
   }
 
-  registerHiddenPalette(load: CategoryLoaderFunc<unknown>, id: string) {
-    this.app.commandPalette.addHiddenPalette(load, id);
-    this.registerUnload(() => this.app.commandPalette.removeHiddenPalette(load, id));
+  registerHiddenPalette<T>(
+    id: string,
+    cfn: (args: {
+      id: string;
+      state: stateMapping<CommandPaletteState>;
+    }) => import("./CommandPaletteV2.0").CommandCategory<T>,
+  ) {
+    this.app.commandPalette.registerPalette<T>(id, cfn, true);
+    this.registerUnload(() => this.app.commandPalette.unregisterPalette(id));
   }
 
   /**
@@ -265,8 +247,13 @@ export class ePlugin<AppType extends App = App> extends Component {
    * @returns The current instance for method chaining.
    */
   registerCommand(command: Command): this {
-    this.app.commandPalette.commands.addCommand(command);
-    this.registerUnload(() => this.app.commandPalette.commands.removeCommand(command.id));
+    void command;
+    /* this.app.commandPaletteV2.commands.addCommand(command);
+    this.registerUnload(() => this.app.commandPaletteV2.commands.removeCommand(command.id)); */
+
+    console.error(
+      "registerCommand is deprecated. Use registerPalette to add commands to the CommandPaletteV2 instead.",
+    );
     return this;
   }
 
@@ -479,52 +466,44 @@ export class eInternalPlugins<AppType extends App = App> extends Component {
 export class InternalPlugins<AppType extends App = App> extends eInternalPlugins<AppType> {}
 
 export class pluginOptions<AppType extends App = App> extends CommandCategory<ePlugin<AppType>> {
-  readonly name = "Plugin Options";
-  readonly description = "Enable, disable, and configure plugins";
+  allItems = van.state<ePlugin<AppType>[]>([]);
+  criteria: Array<(item: ePlugin<AppType>) => string> = [
+    plugin => plugin.manifest.name,
+    plugin => plugin.manifest.description,
+  ];
   enabled: Map<string, boolean> = new Map();
   constructor(
-    public dialog: CommandPaletteDialog,
+    state: stateMapping<CommandPaletteState>,
     public pluginManager: eInternalPlugins<AppType>,
   ) {
-    super(dialog);
+    super(state, "Plugin Options", "Enable, disable, and configure plugins");
   }
-  onTrigger(state: CommandPaletteViewState): void {
-    void state;
+
+  getItems(): ePlugin<AppType>[] {
+    this.allItems.val = Array.from(this.pluginManager.plugins.values());
     this.pluginManager.plugins.forEach((plugin, id) => {
       void plugin;
       this.enabled.set(id, this.pluginManager.isEnabled(id));
     });
+    return super.getItems();
   }
-  getCommands(query: string): ePlugin<AppType>[] {
-    const plugins = Array.from(this.pluginManager.plugins.values());
-    return this.getcompatibleWithLevenshtein(
-      query,
-      plugins,
-      plugin => plugin.manifest.name,
-      plugin => plugin.manifest.description,
-    );
-  }
-  renderCommand(
-    command: ePlugin<AppType>,
-    el: CommandItem<ePlugin<AppType>>,
-  ): Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) {
+
+  renderItem(command: ePlugin<AppType>) {
     const isEnabled =
       this.enabled.get(command.manifest.id) ?? this.pluginManager.isEnabled(command.manifest.id);
-    el.setTitle(`${isEnabled ? "Disable" : "Enable"}: ${command.manifest.name}`)
-      .setDescription(command.manifest.description)
-      .addComponent(
-        toggle({
-          checked: isEnabled,
-          onclick: (e: Event, state) => {
-            e.stopPropagation();
-            this.enabled.set(command.manifest.id, state.val);
-            this.pluginManager.toggle(command.manifest.id, state.val);
-          },
-        }),
-      );
-    return {};
-  }
-  executeCommand(command: ePlugin<AppType>): void {
-    void command;
+
+    return {
+      title: `${isEnabled ? "Disable" : "Enable"}: ${command.manifest.name}`,
+      description: command.manifest.description,
+      click: () => false,
+      extras: toggle({
+        checked: isEnabled,
+        onclick: (e: MouseEvent, state) => {
+          e.stopPropagation();
+          this.enabled.set(command.manifest.id, state.val);
+          this.pluginManager.toggle(command.manifest.id, state.val);
+        },
+      }),
+    };
   }
 }

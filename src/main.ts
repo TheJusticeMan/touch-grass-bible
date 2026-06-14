@@ -3,7 +3,7 @@ import info from "@build-info";
 import { createPlatformBridge } from "@platform";
 import {
   App,
-  CommandPaletteViewState,
+  CommandPaletteState,
   SettingsStore,
   State,
   van,
@@ -65,8 +65,8 @@ export default class TouchGrassBibleApp extends App {
   firstLoad = true;
   readonly settingsStore: SettingsStore<TGAppSettings>;
   readonly translationManager: TranslationManager;
-  readonly verseState = this.commandPalette.useVanState(new VerseRef("GENESIS", 1, 1));
-  readonly translationState = this.commandPalette.useVanState<translation>("KJV");
+  readonly verseState = this.commandPalette.useState(new VerseRef("GENESIS", 1, 1));
+  readonly translationState = this.commandPalette.useState<translation>("KJV");
   private readonly verseStateListeners: Set<(value: VerseRef, previous: VerseRef) => void> = new Set();
   lastOpenedVerseScreen: VerseScreen | null = null;
 
@@ -360,8 +360,12 @@ export default class TouchGrassBibleApp extends App {
     return this;
   }
 
-  openCommandPalette(CommandPalettestate: Partial<CommandPaletteViewState> = {}): void {
-    this.commandPalette.update(CommandPalettestate).open();
+  openCommandPalette(CommandPalettestate: Partial<CommandPaletteState> = {}): void {
+    this.commandPalette.updateViewState(CommandPalettestate);
+    console.error(
+      "openCommandPalette is not implemented yet. Command palette state would be:",
+      this.commandPalette.state,
+    );
     if (this.settings.showHelp && this.firstLoad) {
       this.firstLoad = false;
     }

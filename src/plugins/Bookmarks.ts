@@ -1,11 +1,4 @@
-import {
-  CommandCategory,
-  CommandItem,
-  CommandPaletteDialog,
-  CommandPaletteViewState,
-  renderIcon,
-  van,
-} from "@touchgrass/framework";
+import { CommandCategory, CommandPaletteState, renderIcon, stateMapping, van } from "@touchgrass/framework";
 import { Bookmark, Plus, X } from "lucide";
 import { VerseRef } from "src/models/VerseRef";
 import Plugin from "../core/Plugin";
@@ -32,7 +25,7 @@ const defaultBookmarks: BookmarkSettings = {
 };
 
 export default class BookmarkPlugin extends Plugin {
-  tag = this.app.commandPalette.useVanState("Start Up Verses"); // State to track the currently selected bookmark tag
+  tag = this.app.commandPalette.useState("Start Up Verses");
   settings: BookmarkSettings = defaultBookmarks;
   Bookmarks = new BibleTopics({});
 
@@ -44,7 +37,6 @@ export default class BookmarkPlugin extends Plugin {
       this.app.settingsStore.save();
     }
 
-    //this.console.log("Loaded bookmarks from settings:", this.settings.Bookmarks);
     this.Bookmarks = new BibleTopics(this.settings.Bookmarks);
 
     this.registerUnload(
@@ -60,8 +52,8 @@ export default class BookmarkPlugin extends Plugin {
       if (el) el.scrollIntoView({ behavior: "smooth" });
     }
 
-    this.registerPalette(dialog => new VerseListCategory(dialog, this), VerseListCategoryID);
-    this.registerPalette(dialog => new BookmarkCategory(dialog, this), BookmarkCategoryID);
+    this.registerPalette(VerseListCategoryID, ({ state }) => new VerseListCategory(state, this));
+    this.registerPalette(BookmarkCategoryID, ({ state }) => new BookmarkCategory(state, this));
 
     this.addVerseAction({
       id: "bookmark",
@@ -84,7 +76,7 @@ export default class BookmarkPlugin extends Plugin {
       e.preventDefault();
       e.stopPropagation();
       this.tag.val = topic;
-      this.app.openCommandPalette({
+      this.app.commandPalette.open({
         topCategory: BookmarkCategoryID,
       });
     };
@@ -175,86 +167,86 @@ export default class BookmarkPlugin extends Plugin {
 }
 
 class VerseListCategory extends CommandCategory<VerseRef> {
-  readonly description = "List of opened verses";
-  verses: VerseRef[] = [];
-  name = "Open";
-  isediting = false;
+  allItems = van.state<VerseRef[]>([]);
+  criteria: Array<(item: VerseRef) => string> = [verse => verse.toString(), verse => verse.vTXT];
+  isediting = van.state(false);
 
   constructor(
-    public dialog: CommandPaletteDialog,
+    state: stateMapping<CommandPaletteState>,
     public plugin: BookmarkPlugin,
   ) {
-    super(dialog);
-  }
-
-  onTrigger(): void {
-    this.defaultCMD.addCMD(
-      this.isediting ? "Stop Editing Bookmark Tag" : "Edit Bookmark Tag",
-      "",
-      item =>
-        void item.onClick(() => {
-          this.isediting = !this.isediting;
-          this.dialog.palette.update({ topCategory: VerseListCategoryID }).display();
-        }),
-    );
-    this.defaultCMD.addCMD(
-      "Merge verses from the same chapter",
-      "",
-      item =>
-        void item.onClick(() => {
-          const versesToKeep = this.plugin.Bookmarks.get(this.plugin.tag.val)
-            .reverse()
-            .reduce((acc: VerseRef[], v) => {
-              if (!acc.some(av => av.isSameChapter(v))) acc.push(v);
-              return acc;
-            }, [])
-            .reverse();
-          this.plugin.Bookmarks.set(this.plugin.tag.val, ...versesToKeep);
-          this.dialog.palette.display();
-          this.plugin.saveSettings();
-        }),
-    );
-    this.title = `Bookmark tag: ${VerseListCategory.convertTopicDate(this.plugin.tag.val)}`;
-    this.verses = this.plugin.Bookmarks.get(this.plugin.tag.val).reverse();
-  }
-
-  getCommands(query: string): VerseRef[] {
-    return this.getcompatible(
-      query,
-      this.verses,
-      verse => verse.toString(),
-      verse => verse.vTXT,
-    ); //.reverse();
-  }
-
-  renderCommand(
-    verse: VerseRef,
-    Item: CommandItem<VerseRef>,
-  ): Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) {
-    Item.setTitle(verse.toString()).setDescription(verse.vTXT).addctx();
-    if (this.isediting) {
-      Item.prependComponent(
-        div(
-          {
-            class: "icon-button",
-            title: "Delete verse from tag",
-            onclick: (e: Event) => {
-              e.stopPropagation();
-
-              this.plugin.Bookmarks.remove(this.plugin.tag.val, verse);
-              this.dialog.palette.display();
-              this.plugin.saveSettings();
+    super(state, "Open", "List of opened verses");
+    this.deriveExtraCMDs(() => {
+      const isediting = this.isediting.val;
+      return [
+        {
+          title: isediting ? "Stop Editing Bookmark Tag" : "Edit Bookmark Tag",
+          description: "",
+          cb: () => ({
+            click: () => {
+              this.isediting.val = !this.isediting.val;
+              this.updateViewState({ topCategory: VerseListCategoryID });
+              return false;
             },
-          },
-          renderIcon(X),
-        ),
-      );
-    }
+          }),
+        },
+        {
+          title: "Merge verses from the same chapter",
+          description: "",
+          cb: () => ({
+            click: () => {
+              const versesToKeep = this.plugin.Bookmarks.get(this.plugin.tag.val)
+                .reverse()
+                .reduce((acc: VerseRef[], v) => {
+                  if (!acc.some(av => av.isSameChapter(v))) acc.push(v);
+                  return acc;
+                }, [])
+                .reverse();
+              this.plugin.Bookmarks.set(this.plugin.tag.val, ...versesToKeep);
+              this.updateViewState({ topCategory: VerseListCategoryID });
+              void this.plugin.saveSettings();
+              return false;
+            },
+          }),
+        },
+      ];
+    });
 
-    return () => {
-      this.plugin.app.verseState.val = verse;
+    this.allItems = van.derive(() => {
+      const tag = this.plugin.tag.val;
 
-      return { topCategory: TSKCrossRefCategoryID };
+      this.title.val = `Bookmark tag: ${VerseListCategory.convertTopicDate(tag)}`;
+      return this.plugin.Bookmarks.get(tag).reverse();
+    });
+  }
+
+  renderItem(verse: VerseRef) {
+    return {
+      ...this.context(() => {
+        this.plugin.app.verseState.val = verse;
+        return { topCategory: TSKCrossRefCategoryID };
+      }),
+      title: verse.toString(),
+      description: verse.vTXT,
+      extras: this.isediting.val
+        ? div(
+            {
+              class: "icon-button",
+              title: "Delete verse from tag",
+              onclick: (e: Event) => {
+                e.stopPropagation();
+                this.plugin.Bookmarks.remove(this.plugin.tag.val, verse);
+                this.updateViewState({ topCategory: VerseListCategoryID });
+                void this.plugin.saveSettings();
+              },
+            },
+            renderIcon(X),
+          )
+        : undefined,
+      click: this.context(() => {
+        this.plugin.app.verseState.val = verse;
+        return { topCategory: TSKCrossRefCategoryID };
+      }).context,
     };
   }
 
@@ -266,7 +258,6 @@ class VerseListCategory extends CommandCategory<VerseRef> {
 
     if (str === today) return "Today";
     if (str === yesterday) return "Yesterday";
-    // in the last 7 days
     if (inputDate.getTime() >= Date.now() - 6 * 86400000)
       return inputDate.toLocaleDateString("en-US", {
         weekday: "long",
@@ -288,116 +279,102 @@ class VerseListCategory extends CommandCategory<VerseRef> {
   }
 
   executeCommand(): void {
-    this.dialog.palette.close();
+    return;
   }
 }
 
 class BookmarkCategory extends CommandCategory<string> {
-  tags: string[] = [];
-  name = "Bookmarks";
-  description = "List of bookmark tags";
+  allItems = van.state<string[]>([]);
+  criteria: Array<(item: string) => string> = [
+    topic => topic,
+    topic => VerseListCategory.convertTopicDate(topic),
+  ];
 
   constructor(
-    public dialog: CommandPaletteDialog,
+    state: stateMapping<CommandPaletteState>,
     public plugin: BookmarkPlugin,
   ) {
-    super(dialog);
+    super(state, "Bookmarks", "List of bookmark tags");
+    this.deriveExtraCMDs(() => {
+      const tag = this.plugin.tag.val;
+      const verse = this.plugin.app.verseState.val;
+
+      return [
+        {
+          title: `Delete ${verse.toString()} from "${tag}"`,
+          description: "Delete a verse from a bookmark tag",
+          cb: () => ({
+            click: () => {
+              const activeTag = this.plugin.tag.val;
+              const activeVerse = this.plugin.app.verseState.val;
+              this.plugin.Bookmarks.remove(activeTag, activeVerse);
+              this.updateViewState({ topCategory: BookmarkCategoryID });
+              void this.plugin.saveSettings();
+              return false;
+            },
+          }),
+        },
+        {
+          title: `Delete tag: ${tag}`,
+          description: "Delete a bookmark tag",
+          cb: () => ({
+            click: () => {
+              const activeTag = this.plugin.tag.val;
+              this.plugin.Bookmarks.delete(activeTag);
+              this.updateViewState({ topCategory: BookmarkCategoryID });
+              void this.plugin.saveSettings();
+              return false;
+            },
+          }),
+        },
+        {
+          title: `Save ${verse.toString()} to new tag`,
+          description: "Save the current verse to a bookmark tag",
+          cb: () => ({
+            click: () => {
+              this.plugin.console.log("Prompting for new bookmark tag for", verse.toString());
+              void this.plugin.app.commandPalette.prompt("Enter new bookmark tag").then(st => {
+                if (!st) return;
+                const nextTag = st.toTitleCase();
+                this.plugin.Bookmarks.add(nextTag, verse);
+                this.updateViewState({ topCategory: BookmarkCategoryID });
+                void this.plugin.saveSettings();
+              });
+              return false;
+            },
+          }),
+        },
+      ];
+    });
+
+    this.allItems = van.derive(() => [...this.plugin.Bookmarks.keys].sort(this.dateCompare));
   }
 
-  onTrigger(_state: CommandPaletteViewState): void {
-    void _state;
-    const tag = this.plugin.tag.val;
-    const verse = this.plugin.app.verseState.val;
-    this.defaultCMD.addCMD(
-      `Delete ${verse.toString()} from "${tag}"`,
-      "Delete a verse from a bookmark tag",
-      item =>
-        void item.onClick(() => {
-          const tag = this.plugin.tag.val;
-          const verse = this.plugin.app.verseState.val;
-          this.plugin.Bookmarks.remove(tag, verse);
-          this.dialog.palette.display();
-          this.plugin.saveSettings();
-        }),
-    );
-
-    this.defaultCMD.addCMD(
-      `Delete tag: ${this.plugin.tag.val}`,
-      "Delete a bookmark tag",
-      item =>
-        void item.onClick(() => {
-          const tag = this.plugin.tag.val;
-          this.plugin.Bookmarks.delete(tag);
-          this.dialog.palette.display();
-          this.plugin.saveSettings();
-        }),
-    );
-    this.defaultCMD.addCMD(
-      `Save ${verse.toString()} to new tag`,
-      "Save the current verse to a bookmark tag",
-      item =>
-        void item.onClick(() => {
-          this.console.log("Prompting for new bookmark tag for", verse.toString());
-          this.plugin.app.commandPalette.prompt("Enter new bookmark tag").then(st => {
-            this.console.log("Adding bookmark", verse.toString(), "to tag", st);
-            if (!st) return;
-            this.console.log("Adding bookmark", verse.toString(), "to tag", st);
-            const tag = st.toTitleCase();
-            this.plugin.Bookmarks.add(tag, verse);
-            this.dialog.palette.display();
-            this.plugin.saveSettings();
-          });
-        }),
-    );
-
-    this.tags = this.plugin.Bookmarks.keys;
-  }
-
-  getCommands(query: string): string[] {
-    return this.getcompatible(
-      query,
-      this.tags,
-      topic => topic,
-      topic => VerseListCategory.convertTopicDate(topic),
-    ).sort(this.dateCompare);
-  }
-
-  /**
-   * Compares two strings, sorting non-date strings before date strings (in `YYYY-MM-DD` format),
-   * and sorting date strings in descending order (most recent first).
-   *
-   * @param a - The first string to compare.
-   * @param b - The second string to compare.
-   * @returns A negative number if `a` should come before `b`, a positive number if `a` should come after `b`, or zero if they are considered equal.
-   */
   dateCompare(a: string, b: string): number {
-    // sorts first non-date strings, then date strings starting with the most recent
     const isdate = (s: string) => Number(/^\d{4}-\d{2}-\d{2}$/.test(s));
     return isdate(b) - isdate(a) || isdate(a) ? b.localeCompare(a) : a.localeCompare(b);
   }
 
-  renderCommand(
-    command: string,
-    Item: CommandItem<string>,
-  ): Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) {
+  renderItem(command: string) {
     const verses = this.plugin.Bookmarks.get(command);
-    Item.setTitle(VerseListCategory.convertTopicDate(command))
-      .addctx()
-      .setDescription(
+    const openTag = this.context(() => {
+      this.plugin.tag.val = command;
+      return { topCategory: VerseListCategoryID };
+    });
+
+    return {
+      title: VerseListCategory.convertTopicDate(command),
+      description:
         verses
           .slice(0, 5)
           .map(v => v.toString())
           .join(", ") + (verses.length > 5 ? `, and ${verses.length - 5} more...` : ""),
-      );
-
-    return () => {
-      this.plugin.tag.val = command;
-      return { topCategory: VerseListCategoryID };
+      ...openTag,
+      click: openTag.context,
     };
   }
 
-  executeCommand(_command: VerseRef | string): void {
-    void _command;
-    this.dialog.palette.display();
+  executeCommand(): void {
+    return;
   }
 }

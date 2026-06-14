@@ -1,56 +1,45 @@
-import {
-  CommandCategory,
-  CommandItem,
-  CommandPaletteDialog,
-  CommandPaletteViewState,
-  slider
-} from "@touchgrass/framework";
+import { CommandCategory, CommandPaletteState, slider, stateMapping, van } from "@touchgrass/framework";
 import Plugin from "src/core/Plugin";
 
 export default class AppearancePlugin extends Plugin {
   async onload(): Promise<void> {
-    this.registerPalette((dialog) => new AppearanceCategory(dialog, this), "appearance");
+    this.registerPalette("appearance", ({ state }) => new AppearanceCategory(state, this));
   }
 }
 
 class AppearanceCategory extends CommandCategory<string> {
-  readonly name = "Appearance";
-  readonly description = "Customize the appearance of Touch Grass Bible";
+  allItems = van.state<string[]>([]);
+  criteria: Array<(item: string) => string> = [item => item];
 
   constructor(
-    public dialog: CommandPaletteDialog,
+    state: stateMapping<CommandPaletteState>,
     public plugin: AppearancePlugin,
   ) {
-    super(dialog);
-  }
-
-  onTrigger(_state: CommandPaletteViewState): void {
-    void _state;
-    this.defaultCMD.addCMD("Font Size", "Adjust the font size of the Bible text", item => {
-      item.addComponent(
-        slider({
-          value: this.plugin.app.settings.style.fontSize,
-          onchange: (value: number) => this.plugin.app.setFontSize(value, true),
+    super(state, "Appearance", "Customize the appearance of Touch Grass Bible");
+    this.deriveExtraCMDs(() => [
+      {
+        title: "Font Size",
+        description: "Adjust the font size of the Bible text",
+        cb: () => ({
+          extras: slider({
+            value: this.plugin.app.settings.style.fontSize,
+            onchange: (value: number) => this.plugin.app.setFontSize(value, true),
+          }),
         }),
-      );
-      return {};
-    });
+      },
+    ]);
+
+    this.allItems = van.state<string[]>([]);
   }
 
-  getCommands(_query: string): string[] {
-    void _query;
-    return [];
+  renderItem(command: string) {
+    return {
+      title: command,
+      description: "No appearance settings available yet",
+    };
   }
 
-  renderCommand(
-    command: string,
-    el: CommandItem<string>,
-  ): Partial<CommandPaletteViewState> | (() => Partial<CommandPaletteViewState>) {
-    el.setTitle(command).setDescription("No appearance settings available yet").setHidden(false);
-    return {};
-  }
-
-  executeCommand(_command: string): void {
-    void _command;
+  executeCommand(): void {
+    return;
   }
 }

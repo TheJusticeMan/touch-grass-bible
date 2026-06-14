@@ -1,7 +1,6 @@
 /* CommandPalette.css */
 
-.workspace-container .floating-views-container .floating-view-wrapper .floating-view.command-palette,
-.command-palette {
+.workspace-container .floating-views-container .floating-view-wrapper .floating-view.command-palette {
   width: calc(100% - 2em);
   max-width: 72rem;
   height: calc(100dvh - 2em);
@@ -10,11 +9,12 @@
   backface-visibility: hidden;
 }
 
-@media (max-width: 600px) {
-  .command-palette {
+@media (max-width: 700px) {
+  .workspace-container .floating-views-container .floating-view-wrapper .floating-view.command-palette {
+    width: 100vw;
+    height: 100dvh;
     max-width: none;
-    width: calc(100% - 1em);
-    height: calc(100dvh - 1em - var(--safe-area-top, 0px) - var(--safe-area-bottom, 0px));
+    border: none;
   }
 }
 
@@ -94,6 +94,10 @@
       display: block;
       border-right: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
       padding-right: 1em;
+    }
+
+    .category:last-child {
+      height: 100%;
     }
 
     .category-title {
@@ -207,7 +211,7 @@
   }
 }
 
-@media (max-width: 800px) {
+@media (max-width: 700px) {
   .palette {
     .palette-content {
       .palette-content-over {

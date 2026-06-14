@@ -47,8 +47,8 @@ export class VerseScreen extends View<VerseScreenState> {
     public verseActions = van.state<IconActionItem[]>([]),
   ) {
     super("Verse Screen 2", { verse: app.verseState.val, translation: app.translationState.val });
-    this.state.verse = this.app.commandPalette.useVanState(this.app.verseState.val);
-    this.state.translation = this.app.commandPalette.useVanState<translation>(this.app.translationState.val);
+    this.state.verse = this.app.commandPalette.useState(this.app.verseState.val);
+    this.state.translation = this.app.commandPalette.useState<translation>(this.app.translationState.val);
     van.derive(() => (this.title.val = `${this.state.verse.val.toString()} - ${this.state.translation.val}`));
   }
 
