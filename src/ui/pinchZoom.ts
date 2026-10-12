@@ -17,44 +17,44 @@ export function getPinchDistance(first: TouchPoint, second: TouchPoint): number 
   return Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY);
 }
 
-export class PinchZoomHandler {
-  private pinchStartDistance: number | null = null;
-  private isPinching = false;
-  currentScale = 1;
+export function createPinchZoomHandler(onZoom: (scale: number, end: boolean) => number, start: number) {
+  let pinchStartDistance: number | null = null,
+    isPinching = false,
+    currentScale = start,
+    startZoom = start;
 
-  constructor(
-    private onZoom: (scale: number, end: boolean) => number,
-    private startZoom: number,
-  ) {}
-
-  handlePinchStart = (event: TouchEvent): void => {
-    if (event.touches.length !== 2) {
-      this.resetPinchZoom();
-      return;
-    }
-
-    this.isPinching = true;
-    this.pinchStartDistance = getPinchDistance(event.touches[0], event.touches[1]);
+  const resetPinchZoom = (): void => {
+    isPinching = false;
+    pinchStartDistance = null;
   };
 
-  handlePinchMove = (event: TouchEvent): void => {
-    if (this.isPinching && event.touches.length !== 2) this.handlePinchEnd();
-    if (!this.isPinching || event.touches.length !== 2 || this.pinchStartDistance === null) return;
+  return {
+    ontouchstart: (event: TouchEvent): void => {
+      if (event.touches.length !== 2) {
+        resetPinchZoom();
+        return;
+      }
 
-    event.preventDefault();
-    const nextDistance = getPinchDistance(event.touches[0], event.touches[1]);
-    this.currentScale = this.startZoom * (nextDistance / this.pinchStartDistance);
-    this.onZoom(this.currentScale, false);
+      isPinching = true;
+      pinchStartDistance = getPinchDistance(event.touches[0], event.touches[1]);
+    },
+    ontouchmove: (event: TouchEvent): void => {
+      if (isPinching && event.touches.length !== 2) resetPinchZoom();
+      if (!isPinching || event.touches.length !== 2 || pinchStartDistance === null) return;
+
+      event.preventDefault();
+      const nextDistance = getPinchDistance(event.touches[0], event.touches[1]);
+      currentScale = startZoom * (nextDistance / pinchStartDistance);
+      onZoom(currentScale, false);
+    },
+    ontouchend: (): void => {
+      if (!isPinching) return;
+      startZoom = onZoom(currentScale, true);
+      resetPinchZoom();
+    },
+    ontouchcancel: (): void => {
+      resetPinchZoom();
+      onZoom(startZoom, true);
+    },
   };
-
-  handlePinchEnd = (): void => {
-    if (!this.isPinching) return;
-    this.startZoom = this.onZoom(this.currentScale, true);
-    this.resetPinchZoom();
-  };
-
-  private resetPinchZoom(): void {
-    this.isPinching = false;
-    this.pinchStartDistance = null;
-  }
 }

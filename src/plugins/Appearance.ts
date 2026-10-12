@@ -1,4 +1,11 @@
-import { CommandCategory, CommandPaletteState, slider, stateMapping, van } from "@touchgrass/framework";
+import {
+  CommandCategory,
+  CommandItem,
+  CommandPaletteState,
+  slider,
+  stateMapping,
+  van,
+} from "@touchgrass/framework";
 import Plugin from "src/core/Plugin";
 
 export default class AppearancePlugin extends Plugin {
@@ -16,15 +23,13 @@ class AppearanceCategory extends CommandCategory<string> {
     public plugin: AppearancePlugin,
   ) {
     super(state, "Appearance", "Customize the appearance of Touch Grass Bible");
-    this.deriveExtraCMDs(() => [
+    this.extras = van.derive(() => [
       {
         title: "Font Size",
         description: "Adjust the font size of the Bible text",
-        cb: () => ({
-          extras: slider({
-            value: this.plugin.app.settings.style.fontSize,
-            onchange: (value: number) => this.plugin.app.setFontSize(value, true),
-          }),
+        extras: slider({
+          value: this.plugin.app.settings.style.fontSize,
+          onchange: (value: number) => this.plugin.app.setFontSize(value, true),
         }),
       },
     ]);
@@ -32,14 +37,10 @@ class AppearanceCategory extends CommandCategory<string> {
     this.allItems = van.state<string[]>([]);
   }
 
-  renderItem(command: string) {
+  renderItem(command: string): CommandItem {
     return {
       title: command,
       description: "No appearance settings available yet",
     };
-  }
-
-  executeCommand(): void {
-    return;
   }
 }

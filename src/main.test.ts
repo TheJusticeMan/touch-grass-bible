@@ -1,9 +1,11 @@
 import { describe, test, expect } from "vitest";
+import type { PanelSerialized, ViewContainerSerialized } from "@touchgrass/framework";
 
 // deepMerge is not exported from main.ts - test via TGAppSettings behavior
 // We test the observable behavior: settings loaded with missing nested keys
 // should receive defaults for the missing keys.
 import { DEFAULT_SETTINGS } from "./config/TGAppSettings";
+import { createDefaultWorkspaceLayout } from "./defaultWorkspaceLayout.ts";
 
 describe("deepMerge (via loadsettings behavior)", () => {
   test("DEFAULT_SETTINGS has expected schemaVersion", () => {
@@ -105,5 +107,29 @@ describe("deepMerge utility", () => {
     const saved = { b: 42 };
     const result = deepMerge(defaults, saved);
     expect(result.b).toBe(42);
+  });
+});
+
+describe("createDefaultWorkspaceLayout", () => {
+  test("uses only registered replacement view types", () => {
+    const layout = createDefaultWorkspaceLayout();
+    const viewTypes = layout.children?.flatMap((child: PanelSerialized) =>
+      child.type === "view"
+        ? ((child as ViewContainerSerialized).children?.map(view => view.viewType) ?? [])
+        : [],
+    );
+
+    expect(viewTypes).toEqual(["journal-panel", "verse-screen", "knowledge-base-index"]);
+    expect(viewTypes).not.toContain("notes-panel");
+  });
+
+  test("returns a fresh layout object on each call", () => {
+    const first = createDefaultWorkspaceLayout();
+    const second = createDefaultWorkspaceLayout();
+
+    if (first.children?.[0]) {
+      first.children[0].activeIndex = 99;
+    }
+    expect(second.children?.[0]?.activeIndex).toBe(0);
   });
 });

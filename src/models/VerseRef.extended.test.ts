@@ -10,7 +10,7 @@ import { VerseRef } from "./VerseRef";
 // Index 0 of each book/chapter is a placeholder (indices are 1-based in usage).
 // ---------------------------------------------------------------------------
 
-// Book data: bookData[chapter][verse] — index 0 is unused placeholder
+// Book data: bookData[chapter][verse] - index 0 is unused placeholder
 type MockBible = { [book: string]: string[][] };
 type VerseRefPrivateCache = {
   _verseCount?: number;
@@ -36,7 +36,7 @@ const makeMockBible = (): MockBible => ({
     ["", "Now these are the names of the children...", "And every man and his household..."],
     ["", "And these are the names..."],
   ],
-  // REVELATION: 2 chapters (last book — used for wrap-around tests)
+  // REVELATION: 2 chapters (last book - used for wrap-around tests)
   REVELATION: [
     [],
     ["", "The Revelation of Jesus Christ...", "Blessed is he who reads..."],

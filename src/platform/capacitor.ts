@@ -28,6 +28,24 @@ function normalizePath(path: string): string {
     .replace(/^\/+/, "");
 }
 
+function resolveAssetUrl(path: string): string {
+  const normalized = normalizePath(path);
+
+  if (normalized.startsWith("http://") || normalized.startsWith("https://")) {
+    return normalized;
+  }
+
+  if (normalized.startsWith("assets/")) {
+    return `/${normalized}`;
+  }
+
+  if (normalized.startsWith("data/")) {
+    return `/${normalized.replace(/^data\//, "assets/")}`;
+  }
+
+  return `/assets/${normalized}`;
+}
+
 function getParentPath(path: string): string {
   const normalizedPath = normalizePath(path);
   const segments = normalizedPath.split("/");
@@ -114,11 +132,20 @@ async function readStorageItem(key: string): Promise<string | null> {
 }
 
 async function fetchAssetText(path: string): Promise<string> {
-  const response = await fetch(normalizePath(path));
-  if (!response.ok) {
-    throw new Error(`Failed to load asset ${path}: ${response.status} ${response.statusText}`);
+  const url = resolveAssetUrl(path);
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to load asset ${path}: ${response.status} ${response.statusText}`);
+    }
+    return await response.text();
+  } catch (error) {
+    throw new Error(
+      `Failed to load asset ${path}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
   }
-  return response.text();
 }
 
 export function createPlatformBridge(): PlatformBridge {

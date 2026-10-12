@@ -1,18 +1,19 @@
 import { IconActionItem } from "@touch-grass-bible";
 import { highlight, HighlightRule, renderIcon, State, van, View } from "@touchgrass/framework";
-import apocalypseThrottle from "apocalypse-throttle";
+import { GoToVerseCategoryID, TSKCrossRefCategoryID } from "src/plugins/categoryIDs";
 import TouchGrassBibleApp from "../main";
 import { VerseRef, type translation } from "../models/VerseRef";
-import { PinchZoomHandler } from "./pinchZoom";
+import { createPinchZoomHandler } from "./pinchZoom";
 import "./VerseScreen.css";
 
 const { div, h2, i, b, span } = van.tags;
 
-const VerseHighlightPatterns: HighlightRule[] = [
+export const VerseHighlightPatterns: HighlightRule[] = [
   { regEXP: /\[(.+?)\]/gi, callback: s => i(s) },
   { regEXP: /(LORD|God)/gi, callback: s => b(s) },
   { regEXP: /^(\d+)/gi, callback: s => span({ class: "number" }, s) },
   { regEXP: /#/gi, callback: () => span({ class: "paragraph-break" }, "\u00B6") },
+  { regEXP: /\((.+?)\)$/gi, callback: s => span({ style: "font-style: italic;" }, `(${s})`) },
 ];
 
 type SerializedVerseScreenState = {
@@ -101,22 +102,17 @@ export class VerseScreen extends View<VerseScreenState> {
       return "alive";
     };
 
-    const pinchZoomHandler = new PinchZoomHandler(scale => {
-      const size = this.app.setFontSize(scale, false, false);
-      this.el
-        .querySelector(".verse-container.active")
-        ?.scrollIntoView({ behavior: "instant", block: "start" });
-      return size;
-    }, this.app.settings.style.fontSize);
-
     return div(
       {
         class: "screen-view content",
         style: "overflow: auto;",
-        ontouchstart: pinchZoomHandler.handlePinchStart,
-        ontouchmove: pinchZoomHandler.handlePinchMove,
-        ontouchend: pinchZoomHandler.handlePinchEnd,
-        ontouchcancel: pinchZoomHandler.handlePinchEnd,
+        ...createPinchZoomHandler(scale => {
+          const size = this.app.setFontSize(scale, false, false);
+          this.el
+            .querySelector(".verse-container.active")
+            ?.scrollIntoView({ behavior: "instant", block: "start" });
+          return size;
+        }, this.app.settings.style.fontSize),
         onscroll: (e: Event) => {
           if (isLoading) return;
 
@@ -138,11 +134,26 @@ export class VerseScreen extends View<VerseScreenState> {
           } finally {
             setTimeout(() => (isLoading = false));
           }
+
+          this.checkActiveVersePosition();
         },
         dataset: listen,
       },
       this.chapter(this.state.verse.val),
     );
+  }
+
+  isAboveViewport: State<boolean> = van.state(false);
+  isBelowViewport: State<boolean> = van.state(false);
+
+  checkActiveVersePosition() {
+    const activeVerse = this.el.querySelector(".verse-container.active");
+    if (activeVerse) {
+      const containerRect = this.el.getBoundingClientRect();
+      const rect = activeVerse.getBoundingClientRect();
+      this.isAboveViewport.val = rect.bottom < containerRect.top;
+      this.isBelowViewport.val = rect.top > containerRect.bottom;
+    }
   }
 
   onUnmount(): void {
@@ -151,12 +162,32 @@ export class VerseScreen extends View<VerseScreenState> {
   }
 
   chapter(ref: VerseRef) {
+    const sameChapter = van.derive(() => this.state.verse.val.isSameChap(ref));
+
     return div(
       { class: () => "chapter" },
+      () =>
+        (sameChapter.val &&
+          div({
+            class: () =>
+              (this.isAboveViewport.val && "above-viewport") ||
+              (this.isBelowViewport.val && "below-viewport") ||
+              "",
+            onclick: () => {
+              this.el
+                .querySelector(".verse-container.active")
+                ?.scrollIntoView({ behavior: "smooth", block: "start" });
+            },
+          })) ||
+        div(),
       h2(
-        { class: () => `chapter-title${this.state.verse.val.isSameChap(ref) ? " active" : ""}` },
+        {
+          class: () => `chapter-title${sameChapter.val ? " active" : ""}`,
+          onclick: () => this.app.commandPalette.open({ topCategory: GoToVerseCategoryID }),
+        },
         `${ref.book} ${ref.chapter}`,
       ),
+
       ref
         .chapterData(this.state.translation.val)
         .slice(1)
@@ -174,7 +205,7 @@ export class VerseScreen extends View<VerseScreenState> {
                 oncontextmenu: (e: MouseEvent) => {
                   e.preventDefault();
                   this.app.verseState.val = verse;
-                  this.app.openCommandPalette({ topCategory: "tsk-cross-ref" });
+                  this.app.commandPalette.open({ topCategory: TSKCrossRefCategoryID });
                 },
               },
               highlight(`${v + 1} ${text}`, VerseHighlightPatterns),
@@ -334,61 +365,66 @@ class ScrollBubbleLifecycle {
 
   private createBubble(): HTMLElement {
     const dragVerse = van.state(this.verse.val);
-    let isDragging = false;
-
-    const onpointerdown = (e: PointerEvent) => {
-      e.stopPropagation();
-      e.preventDefault();
-
-      isDragging = true;
-      this.isHolding.val = true;
-      if (this.hideTimer !== null) {
-        window.clearTimeout(this.hideTimer);
-        this.hideTimer = null;
-      }
-      dragVerse.val = this.verse.val;
-
-      const height = window.innerHeight;
-      const width = window.innerWidth;
-
-      const sections = 4;
-
-      const sectionPositions = new Array(sections).fill(0);
-
-      const pointermove = apocalypseThrottle((moveEvent: PointerEvent) => {
-        const y = moveEvent.clientY / 0.8 - height * 0.1; // allow dragging slightly above the bubble for easier use
-        const x = moveEvent.clientX;
-        const csection = Math.max(0, Math.min(sections - 1, Math.floor((1 - x / width) * sections)));
-        sectionPositions[csection] = y / height - 0.5;
-        for (let i = csection + 1; i < sections; i++) if (i !== csection) sectionPositions[i] = 0;
-        const distance =
-          0.5 + sectionPositions.reduce((acc, newVal, idx) => acc + (newVal || 0) / Math.pow(4, idx), 0);
-
-        const ref = VerseRef.distance(distance);
-        ref.verse = 1;
-
-        dragVerse.val = ref;
-      }, 50);
-
-      const pointerup = () => {
-        isDragging = false;
-        this.isHolding.val = false;
-        this.verse.val = dragVerse.val;
-        document.body.removeEventListener("pointermove", pointermove);
-        this.touch();
-      };
-
-      document.body.addEventListener("pointermove", pointermove);
-      document.body.addEventListener("pointerup", pointerup, { once: true });
-      document.body.addEventListener("pointercancel", pointerup, { once: true });
-      document.body.addEventListener("pointerleave", pointerup, { once: true });
-    };
 
     return div(
       {
         class: "scroll-bubble",
         style: () => `top: ${10 + dragVerse.val.getDistance() * 80}vh`,
-        onpointerdown,
+        onpointerdown: (e: PointerEvent) => {
+          e.stopPropagation();
+          e.preventDefault();
+
+          const target = e.currentTarget as HTMLElement;
+          target.setPointerCapture(e.pointerId);
+
+          this.isHolding.val = true;
+          if (this.hideTimer !== null) {
+            window.clearTimeout(this.hideTimer);
+            this.hideTimer = null;
+          }
+          dragVerse.val = this.verse.val;
+        },
+        onpointermove: (moveEvent: PointerEvent) => {
+          if (!this.isHolding.val) return;
+
+          const height = window.innerHeight;
+          const width = window.innerWidth;
+          const sections = 4;
+          const sectionPositions = new Array(sections).fill(0);
+
+          const y = moveEvent.clientY / 0.8 - height * 0.1;
+          const x = moveEvent.clientX;
+          const csection = Math.max(0, Math.min(sections - 1, Math.floor((1 - x / width) * sections)));
+          sectionPositions[csection] = y / height - 0.5;
+          for (let i = csection + 1; i < sections; i++) if (i !== csection) sectionPositions[i] = 0;
+
+          const distance =
+            0.5 + sectionPositions.reduce((acc, newVal, idx) => acc + (newVal || 0) / Math.pow(4, idx), 0);
+
+          const ref = VerseRef.distance(distance);
+          ref.verse = 1;
+          dragVerse.val = ref;
+        },
+        onpointerup: (e: PointerEvent) => {
+          if (!this.isHolding.val) return;
+          const target = e.currentTarget as HTMLElement;
+          if (target.hasPointerCapture(e.pointerId)) {
+            target.releasePointerCapture(e.pointerId);
+          }
+
+          this.isHolding.val = false;
+          this.verse.val = dragVerse.val;
+          this.touch();
+        },
+        onpointercancel: (e: PointerEvent) => {
+          if (!this.isHolding.val) return;
+          const target = e.currentTarget as HTMLElement;
+          if (target.hasPointerCapture(e.pointerId)) {
+            target.releasePointerCapture(e.pointerId);
+          }
+
+          this.isHolding.val = false;
+        },
       },
       span(
         {
@@ -400,7 +436,7 @@ class ScrollBubbleLifecycle {
       span({
         class: "scroll-bubble-handle",
         "aria-hidden": "true",
-        dataset: () => !isDragging && (dragVerse.val = this.verse.val),
+        dataset: () => !this.isHolding.val && (dragVerse.val = this.verse.val),
       }),
     );
   }

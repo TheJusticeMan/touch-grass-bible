@@ -1,9 +1,11 @@
-/* CommandPalette.css */
+/* Command palette modal and search results.
+   The palette behaves like a floating workspace panel with a sticky filter header and a
+   scrollable list of command categories and actions. */
 
 .workspace-container .floating-views-container .floating-view-wrapper .floating-view.command-palette {
   width: calc(100% - 2em);
   max-width: 72rem;
-  height: calc(100dvh - 2em);
+  height: calc(100dvh - 2em - var(--safe-area-top, 0px) - var(--safe-area-bottom, 0px));
   font-family: var(--font-sans, system-ui, sans-serif);
   transform: translateZ(0);
   backface-visibility: hidden;
@@ -12,113 +14,123 @@
 @media (max-width: 700px) {
   .workspace-container .floating-views-container .floating-view-wrapper .floating-view.command-palette {
     width: 100vw;
-    height: 100dvh;
+    height: calc(100dvh - var(--safe-area-top, 0px) - var(--safe-area-bottom, 0px));
     max-width: none;
     border: none;
   }
 }
 
+/* Main palette shell and layout. */
 .palette {
   display: flex;
   flex-direction: column;
   padding: 8px;
   height: 100%;
   box-sizing: border-box;
-  color: var(--foreground);
-  background-color: transparent;
+  color: var(--color-text);
 
   .palette-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 8px 12px;
-    background-color: var(--color-surface, rgb(255 255 255 / 0.06));
+    background-color: var(--color-surface);
     border-radius: var(--border-radius-small);
-    color: var(--foreground);
+    color: var(--color-text);
 
     button {
       &:focus-visible {
         outline: none;
-        box-shadow: var(--shadow-focus-ring-strong);
+        box-shadow: var(--box-shadow-focus);
       }
 
       &.active {
-        background-color: var(--accent1);
-        color: #000;
+        background-color: var(--color-accent);
+        color: var(--color-text-inverse);
+      }
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      button:not(:disabled):hover {
+        box-shadow: var(--box-shadow-hover);
       }
     }
   }
 
+  /* Search field at the top of the command palette. */
   .palette-search {
     padding: 10px 14px;
     border: none;
     border-radius: var(--border-radius-small);
-    background-color: var(--color-surface, rgb(255 255 255 / 0.06));
-    color: var(--foreground);
+    background-color: var(--color-surface);
+    color: var(--color-text);
     font-size: 1rem;
-    transition: background-color 0.2s ease;
+    transition:
+      background-color 0.15s ease,
+      box-shadow 0.15s ease;
     width: 100%;
     box-sizing: border-box;
-    /* Allow text selection in the search box */
     user-select: text;
 
     &::placeholder {
-      color: var(--color-text-muted, rgb(255 255 255 / 0.62));
+      color: var(--color-text-muted);
     }
 
-    &:focus {
-      background-color: var(--color-surface-strong, rgb(255 255 255 / 0.12));
+    &:focus,
+    &:focus-visible {
+      box-shadow: var(--box-shadow-focus);
     }
   }
 
+  @media (hover: hover) and (pointer: fine) {
+    .palette-search:not(:disabled):hover {
+      box-shadow: var(--box-shadow-hover);
+    }
+  }
+
+  /* Category and result list inside the palette. */
   .palette-content {
     display: flex;
     flex-direction: row;
     box-sizing: border-box;
     margin-top: 8px;
     flex: 1;
-    gap: 1em;
+    gap: 0.5em;
     overflow: hidden;
-
-    .palette-content-inner {
-      display: flex;
-      flex: 1;
-      min-width: 0;
-      gap: 1em;
-    }
 
     .palette-content-over {
       width: 100px;
       flex: 0.5;
       overflow-y: auto;
       display: block;
-      border-right: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
-      padding-right: 1em;
     }
 
     .category:last-child {
-      height: 100%;
+      height: 101%;
     }
 
     .category-title {
       position: sticky;
       top: 0;
-      background: rgb(0 0 0 / 0.5);
-      backdrop-filter: blur(2px);
-      border-bottom: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
+      background-color: var(--color-surface);
+      border-bottom: 1px solid var(--color-border);
       padding: 12px 12px 8px;
-      color: var(--color-text-muted, rgb(255 255 255 / 0.62));
+      color: var(--color-text-muted);
       text-align: end;
       cursor: pointer;
+      backdrop-filter: blur(4px);
 
-      &:hover,
       &:focus-visible {
-        color: var(--color-text, rgb(255 255 255 / 0.94));
+        color: var(--color-text);
         outline: none;
+        box-shadow: var(--box-shadow-hover);
       }
 
-      &:focus-visible {
-        box-shadow: var(--shadow-focus-ring-inset);
+      @media (hover: hover) and (pointer: fine) {
+        &:hover {
+          color: var(--color-text);
+          box-shadow: var(--box-shadow-hover);
+        }
       }
 
       + .command-item {
@@ -148,20 +160,26 @@
     display: flex;
     align-items: center;
     line-height: 1.25;
-    border-top: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
+    border-top: 1px solid var(--color-border);
     cursor: pointer;
     transition:
-      background-color 0.2s ease,
-      transform 0.1s ease;
-    color: var(--foreground);
+      background-color 0.15s ease,
+      color 0.15s ease;
+    color: var(--color-text);
 
     &.selected {
-      background-color: var(--color-surface-strong, rgb(255 255 255 / 0.12));
+      box-shadow: var(--box-shadow-hover);
     }
 
     &:focus-visible {
       outline: none;
-      box-shadow: var(--shadow-focus-ring-inset);
+      box-shadow: var(--box-shadow-hover);
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        box-shadow: var(--box-shadow-hover);
+      }
     }
 
     &:not(.extras-item) + &.extras-item {
@@ -173,34 +191,27 @@
       display: block;
       padding: 8px 12px;
       flex: 1 1 auto;
-      /* Allow text selection in command descriptions */
       user-select: text;
     }
 
     .command-description {
       display: block;
-      color: var(--color-text-muted, rgb(255 255 255 / 0.62));
-
-      .highlighted-query {
-        color: var(--color-text-muted, rgb(255 255 255 / 0.62));
-      }
+      color: var(--color-text-muted);
     }
 
-    .command-title {
-      .highlighted-query {
-        color: var(--color-text-muted, rgb(255 255 255 / 0.62));
-      }
+    .highlighted-query {
+      color: var(--color-accent);
     }
 
     .command-comp {
       padding: 0;
-      color: var(--color-text-muted, rgb(255 255 255 / 0.62));
+      color: var(--color-text-muted);
       align-self: stretch;
       display: flex;
       align-items: center;
 
       *:hover {
-        color: var(--color-text, rgb(255 255 255 / 0.94));
+        color: var(--color-text);
       }
     }
   }

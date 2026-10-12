@@ -1,6 +1,7 @@
 import {
   Command,
   CommandCategory,
+  CommandItem,
   CommandPaletteState,
   GestureCommand,
   GestureHandler,
@@ -29,8 +30,9 @@ export default class GesturePlugin extends Plugin {
   lastLine: Offset[] = [];
   async onload(): Promise<void> {
     this.settings = await this.loadSettings(defaultSettings);
+
     const el = button(
-      { class: "gesture-button", onclick: () => this.app.commandPalette.open({}) },
+      { class: "gesture-button", onclick: () => this.app.commandPalette.open({ topCategory: "" }) },
       renderIcon(Terminal),
     );
 
@@ -50,7 +52,7 @@ export default class GesturePlugin extends Plugin {
       },
     );
 
-    this.registerHiddenPalette(GestureAddCommandsCategoryID, ({ state }) => new AddGesture(state, this));
+    this.registerPalette(GestureAddCommandsCategoryID, ({ state }) => new AddGesture(state, this), true);
   }
 
   saveGestures() {
@@ -59,7 +61,7 @@ export default class GesturePlugin extends Plugin {
 }
 
 class AddGesture extends CommandCategory<Command> {
-  allItems = van.state<Command[]>([]);
+  allItems = this.plugin.app.commandPalette.commands.commands;
   criteria: Array<(item: Command) => string> = [
     command => command.name,
     command => command.description,
@@ -71,40 +73,29 @@ class AddGesture extends CommandCategory<Command> {
     public plugin: GesturePlugin,
   ) {
     super(state, "Add Gesture", "Add a new gesture command");
-    this.deriveExtraCMDs(() => {
+    this.extras = van.derive(() => {
       if (this.plugin.lastLine.length === 0) {
         return [{ title: "No gesture captured", description: "Draw a gesture over the button first." }];
       }
       return [];
     });
-
-    this.allItems = van.derive(() => {
-      void this.state.topCategory.val;
-      return this.getAvailableCommands();
-    });
   }
 
-  renderItem(command: Command) {
+  renderItem(command: Command): CommandItem {
     return {
       title: `Add Gesture for: ${command.name}`,
       description: command.description,
+      click: () => {
+        this.plugin.settings.commandGestures.push({
+          id: command.id,
+          name: command.name,
+          gesturePath: JSON.stringify(
+            this.plugin.lastLine.map(p => [Number(p.x.toFixed(2)), Number(p.y.toFixed(2))]),
+          ),
+        });
+        this.plugin.saveGestures();
+        return true;
+      },
     };
-  }
-
-  executeCommand(command: Command): void {
-    this.plugin.settings.commandGestures.push({
-      id: command.id,
-      name: command.name,
-      gesturePath: JSON.stringify(
-        this.plugin.lastLine.map(p => [Number(p.x.toFixed(2)), Number(p.y.toFixed(2))]),
-      ),
-    });
-    this.plugin.saveGestures();
-    this.plugin.app.commandPalette.close();
-  }
-
-  private getAvailableCommands(): Command[] {
-    const host = this.plugin.app as unknown as { commands?: { commands?: Command[] } };
-    return host.commands?.commands || [];
   }
 }

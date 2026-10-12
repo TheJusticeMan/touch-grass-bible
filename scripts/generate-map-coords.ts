@@ -49,7 +49,7 @@ const N_CLUSTERS = Math.max(2, parseInt(process.env.N_CLUSTERS ?? "24", 10));
 const UMAP_N_NEIGHBORS = Math.max(2, parseInt(process.env.UMAP_N_NEIGHBORS ?? "15", 10));
 const UMAP_MIN_DIST = parseFloat(process.env.UMAP_MIN_DIST ?? "0.8");
 
-/** Mirrors flattenBible from generate-bible-embeddings.ts — must stay in sync. */
+/** Mirrors flattenBible from generate-bible-embeddings.ts - must stay in sync. */
 function buildVerseIndex(bible: BibleData): ChapterRef[] {
   const rows: ChapterRef[] = [];
 
@@ -85,14 +85,14 @@ function buildChapterIndex(bible: BibleData): ChapterRef[] {
 }
 
 async function run(): Promise<void> {
-  // ── 1. Load metadata ──────────────────────────────────────────────────────
+  // -- 1. Load metadata ------------------------------------------------------
   // eslint-disable-next-line security/detect-non-literal-fs-filename
   const meta = JSON.parse(readFileSync(META_PATH, "utf8")) as EmbeddingMeta;
   const dims = meta.dimensions;
   const scale = meta.quantScale ?? 10000;
   console.log(`Model: ${meta.model}  |  dims: ${dims}  |  quant scale: ${scale}`);
 
-  // ── 2. Load binary embeddings ─────────────────────────────────────────────
+  // -- 2. Load binary embeddings ---------------------------------------------
   // eslint-disable-next-line security/detect-non-literal-fs-filename
   const binBuf = readFileSync(BIN_PATH);
   const int16 = new Int16Array(binBuf.buffer, binBuf.byteOffset, binBuf.byteLength / 2);
@@ -105,7 +105,7 @@ async function run(): Promise<void> {
   let matrix: number[][];
 
   if (meta.granularity === "chapter") {
-    // ── 3a. Chapter-level binary: one vector per chapter ─────────────────────
+    // -- 3a. Chapter-level binary: one vector per chapter ---------------------
     chapters = buildChapterIndex(bible);
     console.log(`Loaded ${totalVectors} chapter vectors from binary`);
 
@@ -123,7 +123,7 @@ async function run(): Promise<void> {
     });
     console.log(`Using ${chapters.length} chapter embeddings directly`);
   } else {
-    // ── 3b. Verse-level binary: average embeddings per chapter ───────────────
+    // -- 3b. Verse-level binary: average embeddings per chapter ---------------
     const verseIndex = buildVerseIndex(bible);
     console.log(`Loaded ${totalVectors} verse vectors from binary`);
 
@@ -156,28 +156,28 @@ async function run(): Promise<void> {
     console.log(`Aggregated into ${chapters.length} chapter embeddings`);
   }
 
-  // ── 4. UMAP → 2D ─────────────────────────────────────────────────────────
-  console.log(`Running UMAP  nNeighbors=${UMAP_N_NEIGHBORS}  minDist=${UMAP_MIN_DIST} …`);
+  // -- 4. UMAP -> 2D ---------------------------------------------------------
+  console.log(`Running UMAP  nNeighbors=${UMAP_N_NEIGHBORS}  minDist=${UMAP_MIN_DIST} ...`);
   const umap = new UMAP({
     nComponents: 2,
     nNeighbors: Math.min(UMAP_N_NEIGHBORS, chapters.length - 1),
     minDist: UMAP_MIN_DIST,
-    spread: 2.0, // wider global layout → more ocean between continents
+    spread: 2.0, // wider global layout -> more ocean between continents
     repulsionStrength: 1.8, // stronger inter-cluster push-apart
     nEpochs: 500, // more iterations to let repulsion fully settle
   });
   const embedding = umap.fit(matrix);
   console.log("UMAP done");
 
-  // ── 5. K-means clustering ─────────────────────────────────────────────────
-  console.log(`Clustering into ${N_CLUSTERS} groups …`);
+  // -- 5. K-means clustering -------------------------------------------------
+  console.log(`Clustering into ${N_CLUSTERS} groups ...`);
   const { clusters } = kmeans(embedding, N_CLUSTERS, {
     initialization: "kmeans++",
     maxIterations: 300,
   });
   console.log("Clustering done");
 
-  // ── 6. Assemble and write output ──────────────────────────────────────────
+  // -- 6. Assemble and write output ------------------------------------------
   const output: MapPoint[] = chapters.map((c, i) => ({
     book: c.book,
     chapter: c.chapter,
@@ -188,7 +188,7 @@ async function run(): Promise<void> {
 
   // eslint-disable-next-line security/detect-non-literal-fs-filename
   writeFileSync(OUTPUT_PATH, JSON.stringify(output));
-  console.log(`Wrote ${output.length} chapter points → ${OUTPUT_PATH}`);
+  console.log(`Wrote ${output.length} chapter points -> ${OUTPUT_PATH}`);
 }
 
 run().catch(err => {

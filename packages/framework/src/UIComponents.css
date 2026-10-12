@@ -1,43 +1,5 @@
-/* Components.css — shared primitive components */
-
-/* ── Layout helpers ─────────────────────────────────────────── */
-
-.ui-stack {
-  display: flex;
-  gap: var(--ui-gap, var(--space-2, 0.5rem));
-
-  &.is-column {
-    flex-direction: column;
-  }
-
-  &.is-row {
-    flex-direction: row;
-  }
-}
-
-.ui-row {
-  display: flex;
-  align-items: center;
-}
-
-/* ── Surface card ────────────────────────────────────────────── */
-
-.ui-surface {
-  border-radius: var(--border-radius-medium);
-  border: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
-  background: var(--color-surface, rgb(255 255 255 / 0.06));
-
-  &.tone-subtle {
-    background: rgb(255 255 255 / 0.04);
-  }
-
-  &.tone-strong {
-    background: var(--color-surface-strong, rgb(255 255 255 / 0.12));
-    border-color: rgb(255 255 255 / 0.2);
-  }
-}
-
-/* ── Icon action ─────────────────────────────────────────────── */
+/* Shared widgets and contextual controls used by the framework.
+   These rules style the generic toggle, action icon, and pop-up menu patterns. */
 
 .icon-action {
   display: inline-flex;
@@ -46,42 +8,56 @@
   gap: 0.4rem;
 }
 
-/* Slider toggle input */
-
+/* A compact toggle used for settings and view modes. */
 .ui-toggle-input {
+  --toggle-knob-inset: 0.125em;
   appearance: none;
   -webkit-appearance: none;
-  width: 2.5rem;
-  height: 1.5rem;
-  border-radius: 25% 50%;
-  border: 1px solid var(--color-border, rgb(255 255 255 / 0.24));
-  background: var(--color-surface-strong, rgb(255 255 255 / 0.12));
+  width: 2.5em;
+  height: 1.5em;
+  display: inline-block;
+  vertical-align: middle;
+  flex: 0 0 auto;
+  border-radius: 0.375em 0.75em;
+  border: none;
+  background-color: var(--color-surface);
   position: relative;
   cursor: pointer;
   margin: 0;
   transition:
-    background-color 0.18s ease,
-    border-color 0.18s ease;
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+  box-shadow: 0 0 8px var(--color-text);
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--box-shadow-focus);
+  }
 
   &::after {
     content: "";
     position: absolute;
-    top: 1px;
-    left: 1px;
-    width: calc(1.5rem - 4px);
-    height: calc(1.5rem - 4px);
-    border-radius: 25% 50%;
-    background: var(--color-text, rgb(255 255 255 / 0.94));
-    box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
-    transition: transform 0.18s ease;
+    top: var(--toggle-knob-inset);
+    left: var(--toggle-knob-inset);
+    width: calc(1.5em - (2 * var(--toggle-knob-inset)));
+    height: calc(1.5em - (2 * var(--toggle-knob-inset)));
+    border-radius: 0.375em 0.75em;
+    box-shadow: 0 0 8px var(--color-text);
+    /* background-color: var(--color-text); */
+    transition:
+      transform 0.15s ease,
+      background-color 0.15s ease;
   }
 
   &:checked {
-    background: var(--color-accent, #3a7afe);
-    border-color: var(--color-accent, #3a7afe);
+    background-color: var(--color-surface);
+    box-shadow: 0 0 8px var(--color-accent);
 
     &::after {
-      transform: translateX(1rem);
+      transform: translateX(1em);
+      box-shadow: 0 0 8px var(--color-accent);
+      /* background-color: var(--color-accent); */
     }
   }
 
@@ -91,25 +67,20 @@
   }
 }
 
-/* ── Context menu ────────────────────────────────────────────── */
-
+/* Contextual action menu anchored to the cursor or a chosen position. */
 .context-menu {
   position: absolute;
   left: var(--menu-x, 0px);
   top: var(--menu-y, 0px);
   min-width: 180px;
   max-width: 320px;
-
-  /* Fallback for extremely long lists on desktop */
   max-height: calc(100vh - 16px);
   overflow-y: auto;
-
-  background: rgb(0 0 0 / 0.5);
-  color: var(--color-text-muted, rgb(255 255 255 / 0.62));
-  border: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
+  color: var(--color-text-muted);
+  border: none;
   border-radius: var(--border-radius-medium);
-  box-shadow: var(--shadow-focus-ring);
-  backdrop-filter: blur(6px);
+  box-shadow: var(--box-shadow-focus);
+  backdrop-filter: blur(8px);
   font-family: inherit;
   z-index: var(--z-menu, 400);
 
@@ -123,23 +94,25 @@
     background: none;
     transition:
       background-color 0.15s ease,
-      color 0.13s ease;
+      color 0.15s ease;
     user-select: none;
 
-    &:hover,
     &:focus-visible {
-      background: var(--color-surface-strong, rgb(255 255 255 / 0.12));
-      color: var(--color-text, rgb(255 255 255 / 0.94));
+      color: var(--color-text);
       outline: none;
+      box-shadow: var(--box-shadow-hover);
     }
 
-    &:focus-visible {
-      box-shadow: var(--shadow-focus-ring-inset);
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        color: var(--color-text);
+        box-shadow: var(--box-shadow-hover);
+      }
     }
 
     &:active {
-      background: var(--color-surface, rgb(255 255 255 / 0.06));
-      color: var(--color-text, rgb(255 255 255 / 0.94));
+      background-color: var(--color-surface);
+      color: var(--color-text);
     }
 
     &:disabled,
@@ -157,12 +130,6 @@
       color: inherit;
       width: 1.1em;
       height: 1.1em;
-      opacity: 0.89;
-    }
-
-    &:active svg,
-    &:hover svg {
-      color: var(--color-text, rgb(255 255 255 / 0.94));
       opacity: 1;
     }
   }
@@ -178,32 +145,26 @@
 
   .context-menu-separator {
     border: none;
-    border-top: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
+    border-top: 1px solid var(--color-border);
     margin: 4px 0;
     height: 0;
   }
 }
 
-/* ── Desktop: Directional Modifiers & Animations ─────────────── */
-
 @media (pointer: fine) {
   .context-menu {
-    /* Default: Opens down and to the right */
     &.is-bottom.is-right {
       transform-origin: top left;
     }
 
-    /* Hit the right edge: Opens down and to the left */
     &.is-bottom.is-left {
       transform-origin: top right;
     }
 
-    /* Hit the bottom edge: Opens up and to the right */
     &.is-top.is-right {
       transform-origin: bottom left;
     }
 
-    /* Hit both bottom and right edges: Opens up and to the left */
     &.is-top.is-left {
       transform-origin: bottom right;
     }
@@ -217,13 +178,12 @@
     opacity: 0;
     transform: scale(1);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
   }
 }
-
-/* ── Mobile: Bottom Sheet ────────────────────────────────────── */
 
 @media (pointer: coarse) {
   .context-menu {
@@ -240,29 +200,21 @@
     padding: 0 0.5rem calc(0.75rem + var(--safe-area-bottom, 0px));
     padding-left: calc(0.5rem + var(--safe-area-left, 0px));
     padding-right: calc(0.5rem + var(--safe-area-right, 0px));
-    background: rgb(12 12 14 / 0.97);
-    backdrop-filter: blur(16px);
-
-    /* large spread acts as a scrim/backdrop */
-    box-shadow:
-      0 -4px 24px rgb(0 0 0 / 0.4),
-      0 0 0 100vmax rgb(0 0 0 / 0.5);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow-overlay-sheet);
     animation: context-menu-slide-up 0.24s cubic-bezier(0.32, 0.72, 0, 1) both;
-
-    /* Mobile-specific scrolling and safe areas */
     max-height: calc(100dvh - 1rem - var(--safe-area-top, 0px) - var(--safe-area-bottom, 0px));
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
 
-    /* drag handle */
     &::before {
       content: "";
       display: block;
       width: 2.5rem;
       height: 0.22rem;
       border-radius: 999px;
-      background: rgb(255 255 255 / 0.25);
+      background-color: var(--color-surface);
       margin: 0.65rem auto 0.75rem;
     }
 
@@ -288,6 +240,7 @@
   from {
     transform: translateY(100%);
   }
+
   to {
     transform: translateY(0);
   }

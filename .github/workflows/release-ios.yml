@@ -124,7 +124,7 @@ jobs:
       - name: Build simulator archive (signing not configured)
         if: steps.signing.outputs.available == 'false'
         run: |
-          echo "::warning::iOS signing secrets not configured — building for simulator only. See docs/build/platform-requirements.md for certificate setup."
+          echo "::warning::iOS signing secrets not configured - building for simulator only. See docs/build/platform-requirements.md for certificate setup."
           xcodebuild -workspace ios/App/App.xcworkspace \
             -scheme App \
             -configuration Debug \

@@ -1,14 +1,13 @@
 import van, { State } from "vanjs-core";
 import { App } from "./App";
 import {
-  CommandPaletteSettings,
   COMMAND_PALETTE_CONFIG_NAME,
+  CommandPaletteSettings,
   DEFAULT_COMMAND_PALETTE_SETTINGS,
 } from "./CommandPaletteSettings";
 import { SettingsStore } from "./SettingsStore";
 
 type IdCarrier = { id: string };
-type WritableState<T> = { val: T };
 
 export class PaletteSettingsController<TPalette extends IdCarrier> {
   private readonly settingsStore: SettingsStore<CommandPaletteSettings>;
@@ -20,7 +19,7 @@ export class PaletteSettingsController<TPalette extends IdCarrier> {
   constructor(
     app: App,
     private readonly registeredPalettes: State<TPalette[]>,
-    private readonly topCategory: WritableState<string>,
+    private readonly topCategory: State<string>,
   ) {
     this.settingsStore = new SettingsStore<CommandPaletteSettings>({
       defaultValue: DEFAULT_COMMAND_PALETTE_SETTINGS,
@@ -40,8 +39,12 @@ export class PaletteSettingsController<TPalette extends IdCarrier> {
     return this.disabledPaletteIds.val.includes(id);
   }
 
+  private migrateLegacyPaletteIds(ids: string[]): string[] {
+    return ids.map(id => (id === "bookmarks" ? "knowledge-base" : id));
+  }
+
   setDisabledPalettes(ids: string[]): void {
-    const normalized = [...new Set(ids)];
+    const normalized = [...new Set(this.migrateLegacyPaletteIds(ids))];
     this.disabledPaletteIds.val = normalized;
 
     if (normalized.includes(this.topCategory.val)) {
@@ -67,7 +70,7 @@ export class PaletteSettingsController<TPalette extends IdCarrier> {
   }
 
   setCategoryOrder(order: string[]): void {
-    this.categoryOrder = [...order];
+    this.categoryOrder = [...new Set(this.migrateLegacyPaletteIds(order))];
     this.applyCategoryOrder();
     this.onSettingsChanged();
   }

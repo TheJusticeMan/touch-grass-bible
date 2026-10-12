@@ -2,6 +2,7 @@ import { VerseRef } from "@touch-grass-bible";
 import { eInternalPlugins, ePlugin } from "@touchgrass/framework";
 import { IconNode } from "lucide";
 import TouchGrassBibleApp from "../main";
+import { Tool, ToolEntry } from "./ToolsAPI";
 
 /**
  * Action definition rendered in verse-level action areas.
@@ -84,6 +85,17 @@ export default class Plugin extends ePlugin<TouchGrassBibleApp> {
   addVerseAction({ id, name, description, icon, isAvailable, onTrigger }: IconActionItem) {
     this.app.addVerseAction({ id, name, description, icon, isAvailable, onTrigger });
     this.registerUnload(() => this.app.removeVerseAction(id));
+    return this;
+  }
+
+  /**
+   * Registers an API command with automatic unload cleanup.
+   *
+   * @param command - Command definition including id and handler.
+   */
+  addAPIcommand<TArgs extends Record<string, unknown>, TResult>(command: Tool<TArgs, TResult>) {
+    this.app.toolsAPI.registerTool(command);
+    this.registerUnload(() => this.app.toolsAPI.unregisterTool(command as ToolEntry));
     return this;
   }
 }

@@ -1,4 +1,4 @@
-import { CommandCategory, CommandPaletteState, stateMapping, van } from "@touchgrass/framework";
+import { CommandCategory, CommandItem, CommandPaletteState, stateMapping, van } from "@touchgrass/framework";
 import { Waypoints } from "lucide";
 import { VerseRef } from "src/models/VerseRef";
 import Plugin from "../core/Plugin";
@@ -12,7 +12,7 @@ export default class TSK extends Plugin {
     try {
       this.crossRefs = await this.app.files.loadJSON<{
         [OSIS: string]: [OSIS, number][];
-      }>("crossrefs.json");
+      }>("assets/crossrefs.json");
     } catch (e) {
       this.console.error("Failed to load crossrefs.json. Cross references will be unavailable.", e);
     }
@@ -27,9 +27,7 @@ export default class TSK extends Plugin {
       isAvailable: verseInfo => this.crossRefsForVerse(verseInfo.verse).length > 0,
       onTrigger: verseInfo => {
         this.app.verseState.val = verseInfo.verse;
-        this.app.commandPalette.open({
-          topCategory: TSKCrossRefCategoryID,
-        });
+        this.app.commandPalette.open({ topCategory: TSKCrossRefCategoryID });
       },
     });
   }
@@ -66,21 +64,19 @@ class CrossRefCategory extends CommandCategory<VerseRef> {
     });
   }
 
-  renderItem(verse: VerseRef) {
-    const openCrossRef = this.context(() => {
-      this.plugin.app.verseState.val = verse;
-      return { topCategory: TSKCrossRefCategoryID };
-    });
-
+  renderItem(verse: VerseRef): CommandItem {
     return {
       title: verse.toString(),
       description: verse.vTXT,
-      ...openCrossRef,
-      click: openCrossRef.context,
+      context: () => {
+        this.plugin.app.verseState.val = verse;
+        return { topCategory: TSKCrossRefCategoryID };
+      },
+      click: () => {
+        this.plugin.app.verseState.val = verse;
+        this.updateViewState({ topCategory: TSKCrossRefCategoryID });
+        return true;
+      },
     };
-  }
-
-  executeCommand(): void {
-    return;
   }
 }

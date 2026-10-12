@@ -1,0 +1,15 @@
+/* Editor chrome for the markdown view component.
+   The component wraps CodeMirror and leaves the actual editor behavior to the host library. */
+.cm-markdown-editor {
+  display: block;
+  background-color: var(--background-color, inherit);
+  color: var(--color-text, inherit);
+}
+
+.cm-markdown-editor .cm-editor {
+  display: block;
+}
+
+.cm-markdown-editor .cm-content {
+  min-height: 0;
+}

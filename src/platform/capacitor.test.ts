@@ -122,7 +122,7 @@ describe("capacitor platform bridge", () => {
       "pickFileText is not supported in capacitor builds",
     );
 
-    expect(fetch).toHaveBeenCalledWith("data/translations/YLT.json");
+    expect(fetch).toHaveBeenCalledWith("/assets/translations/YLT.json");
   });
 
   test("reads binary files as Uint8Array", async () => {

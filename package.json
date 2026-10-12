@@ -43,14 +43,24 @@
     "build:bundle:electron": "npm run getdatafiles && APP_TARGET=electron node esbuild.config.mjs production",
     "build:bundle:capacitor": "npm run getdatafiles && APP_TARGET=capacitor node esbuild.config.mjs production",
     "generate:icons": "bash ./scripts/generate-icons.sh",
-    "format": "prettier --write \"src/**/*.ts\" && prettier --write \"**/*.md\"",
+    "format": "prettier --write \"*.{ts,tsx,js,mjs,cjs,css,md}\" \"**/*.{ts,tsx,js,mjs,cjs,css,md}\"",
     "run:online": "bash ./scripts/build-and-run.sh scripts/online.ts",
-    "getdatafiles": "mkdir -p ./dist/translations && npm run generate:icons && cp data/translations/*.json dist/translations/ && npm run run:online && bash ./scripts/copy-embedding-assets.sh",
-    "lint": "eslint \"src/**/*.ts\"",
+    "getdatafiles": "mkdir -p ./dist/assets ./dist/assets/translations && npm run generate:icons && cp data/*.json dist/assets/ && cp data/translations/*.json dist/assets/translations/ && npm run run:online && bash ./scripts/copy-embedding-assets.sh",
+    "lint": "npm run lint:css && eslint \"src/**/*.ts\" \"packages/framework/src/**/*.ts\"",
+    "lint:css": "CSS_LINT_BUNDLE=true npm run build:bundle:capacitor && eslint \"dist/main.css\"",
     "lint:fix": "eslint \"src/**/*.ts\" --fix",
     "knip": "knip",
     "clean": "rm -rf ./dist/* ./dist/",
     "ai": "bash ./scripts/run-ai.sh",
+    "ai:wander:tsk": "bash ./scripts/build-and-run.sh scripts/wander-tsk.ts",
+    "ai:wander:start": "bash ./scripts/wander-tsk-control.sh start",
+    "ai:wander:stop": "bash ./scripts/wander-tsk-control.sh stop",
+    "ai:wander:restart": "bash ./scripts/wander-tsk-control.sh restart",
+    "ai:wander:status": "bash ./scripts/wander-tsk-control.sh status",
+    "ai:wander:tail": "bash ./scripts/wander-tsk-control.sh tail",
+    "ai:wander:novelty": "TRAVERSAL_MODE=novelty bash ./scripts/build-and-run.sh scripts/wander-tsk.ts",
+    "ai:wander:vote": "TRAVERSAL_MODE=vote-biased bash ./scripts/build-and-run.sh scripts/wander-tsk.ts",
+    "ai:wander:chapter": "TRAVERSAL_MODE=chapter-local bash ./scripts/build-and-run.sh scripts/wander-tsk.ts",
     "build:electron": "mkdir -p ./dist && npm run build:bundle:electron && cp ./src/electron/* ./dist",
     "run:electron": "bash ./scripts/run-electron.sh",
     "package:electron": "npm run build:electron && cd dist && npm install && npm run package",
@@ -74,7 +84,7 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.2.0",
-    "@capacitor/cli": "^8.2.0",
+    "@capacitor/cli": "^8.4.2",
     "@capacitor/core": "^8.2.0",
     "@capacitor/filesystem": "^8.1.2",
     "@capacitor/ios": "^8.2.0",
@@ -88,11 +98,13 @@
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.1063.0",
+    "@eslint/css": "^2.0.0",
     "@eslint/js": "^10.0.1",
+    "@eslint/markdown": "^8.0.3",
     "@types/d3": "^7.4.3",
     "@types/jest": "^30.0.0",
     "@types/js-levenshtein": "^1.1.3",
-    "@types/node": "^25.6.0",
+    "@types/node": "^26.4.0",
     "@types/unzipper": "^0.10.11",
     "@vitest/coverage-v8": "^4.0.18",
     "concurrently": "^10.0.3",
@@ -101,7 +113,7 @@
     "eslint-plugin-security": "^4.0.0",
     "globals": "^17.4.0",
     "https": "^1.0.0",
-    "jsdom": "^29.1.1",
+    "jsdom": "^30.0.1",
     "knip": "^6.16.1",
     "live-server": "^1.2.0",
     "ml-kmeans": "^7.0.0",
@@ -115,6 +127,6 @@
     "vitest": "^4.0.18"
   },
   "allowScripts": {
-    "esbuild@0.28.1": true
+    "esbuild@0.28.2": true
   }
 }

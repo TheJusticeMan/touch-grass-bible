@@ -33,7 +33,9 @@ type DotClusterPath = {
   cluster: number;
   fill: string;
   stroke: string;
-  d: string;
+  cx: number;
+  cy: number;
+  r: number;
 };
 
 type TerrainPathEntry = {
@@ -121,7 +123,7 @@ export class BibleMapView extends View {
   private readonly margin = { top: 20, right: 20, bottom: 20, left: 20 };
   private readonly minBookLabelZoom = 1.35;
   private readonly minChapterLabelZoom = 4;
-  private readonly dataPath = "data/bible-map-umap.json";
+  private readonly dataPath = "assets/bible-map-umap.json";
   private readonly mapCoordSize = 1000;
   private readonly mapCoordPadding = 24;
   private resizeObserver: ResizeObserver | null = null;
@@ -166,107 +168,114 @@ export class BibleMapView extends View {
 
   create(): HTMLElement {
     return div(
-      { class: "bible-map-view" },
-      div(
-        { class: "bible-map-root" },
-        div({ class: "bible-map-status" }, () => this.statusTextState.val),
-        svg(
+      {
+        class: "bible-map-view",
+        ontouchstart: event => event.stopPropagation(),
+        ontouchmove: event => event.stopPropagation(),
+        ontouchend: event => event.stopPropagation(),
+        onpointerdown: event => event.stopPropagation(),
+        onpointermove: event => event.stopPropagation(),
+        onpointerup: event => event.stopPropagation(),
+      },
+      div({ class: "bible-map-status" }, () => this.statusTextState.val),
+      svg(
+        {
+          class: "bible-map-canvas",
+          viewBox: () => this.viewBoxState.val,
+          preserveAspectRatio: "xMidYMid meet",
+        },
+        g(
           {
-            class: "bible-map-canvas",
-            viewBox: () => this.viewBoxState.val,
-            preserveAspectRatio: "xMidYMid meet",
+            class: "bible-map-world",
+            transform: () => this.worldTransformState.val,
+            style: () => `--map-label-font-size:${this.mapLabelFontSizeState.val};`,
           },
-          g(
-            {
-              class: "bible-map-world",
-              transform: () => this.worldTransformState.val,
-              style: () => `--map-label-font-size:${this.mapLabelFontSizeState.val};`,
-            },
-            defs(clipPath({ id: "bible-map-land-clip" }, path({ d: () => this.landClipPathState.val }))),
-            () =>
-              g(
-                { class: "bible-map-land-shelves" },
-                this.shelvesState.val.map(({ d, fill, opacity }) => path({ d, fill, opacity })),
+          defs(clipPath({ id: "bible-map-land-clip" }, path({ d: () => this.landClipPathState.val }))),
+          () =>
+            g(
+              { class: "bible-map-land-shelves" },
+              this.shelvesState.val.map(({ d, fill, opacity }) => path({ d, fill, opacity })),
+            ),
+          () =>
+            g(
+              {
+                class: "bible-map-countries",
+                clipPath: "url(#bible-map-land-clip)",
+                style: () => (this.countriesState.val.length > 0 ? "display:block;" : "display:none;"),
+              },
+              this.countriesState.val.map(({ d, fill }) => path({ d, fill, opacity: 0.16 })),
+            ),
+          () =>
+            g(
+              { class: "bible-map-chapter-dots" },
+              this.dotPathsState.val.map(({ cx, cy, r, fill, stroke }) =>
+                circle({ cx, cy, r, fill, stroke, opacity: 0.9 }),
               ),
-            () =>
-              g(
-                {
-                  class: "bible-map-countries",
-                  clipPath: "url(#bible-map-land-clip)",
-                  style: () => (this.countriesState.val.length > 0 ? "display:block;" : "display:none;"),
-                },
-                this.countriesState.val.map(({ d, fill }) => path({ d, fill, opacity: 0.16 })),
+            ),
+          g({ class: "bible-map-active-chapter" }, () => {
+            const marker = this.activeMarkerState.val;
+            if (!marker) return "";
+            return g(
+              { transform: `translate(${marker.x}, ${marker.y}) scale(${marker.scale})` },
+              circle({ class: "bible-map-active-chapter-glow", r: 10 }),
+              circle({ class: "bible-map-active-chapter-core", r: 6.5 }),
+            );
+          }),
+          () =>
+            g(
+              {
+                class: "bible-map-book-labels",
+                style: () => (this.showBookLabelsState.val ? "display:block;" : "display:none;"),
+              },
+              this.bookLabelsState.val.map(({ x, y, labelText }) =>
+                text({ x, y, "text-anchor": "middle" }, labelText),
               ),
-            () =>
-              g(
-                { class: "bible-map-chapter-dots" },
-                this.dotPathsState.val.map(({ d, fill, stroke }) => path({ d, fill, stroke, opacity: 0.9 })),
+            ),
+          () =>
+            g(
+              {
+                class: "bible-map-chapter-labels",
+                style: () => (this.showChapterLabelsState.val ? "display:block;" : "display:none;"),
+              },
+              this.chapterLabelsState.val.map(({ x, y, dy, isActive, labelText }) =>
+                text({ x, y, dy, textAnchor: "middle", class: isActive ? "is-active" : "" }, labelText),
               ),
-            g({ class: "bible-map-active-chapter" }, () => {
-              const marker = this.activeMarkerState.val;
-              if (!marker) return "";
-              return g(
-                { transform: `translate(${marker.x}, ${marker.y}) scale(${marker.scale})` },
-                circle({ class: "bible-map-active-chapter-glow", r: 10 }),
-                circle({ class: "bible-map-active-chapter-core", r: 6.5 }),
-              );
-            }),
-            () =>
-              g(
-                {
-                  class: "bible-map-book-labels",
-                  style: () => (this.showBookLabelsState.val ? "display:block;" : "display:none;"),
-                },
-                this.bookLabelsState.val.map(({ x, y, labelText }) =>
-                  text({ x, y, "text-anchor": "middle" }, labelText),
+            ),
+          () =>
+            g(
+              { class: "bible-map-hit-areas" },
+              this.hitAreasState.val.map(({ d, isActive, point, sectionTitle }) =>
+                path(
+                  {
+                    d,
+                    fill: "transparent",
+                    stroke: "none",
+                    class: isActive ? "is-active" : "",
+                    style: "cursor:pointer;pointer-events:all;",
+                    onclick: () =>
+                      (this.plugin.app.verseState.val = new VerseRef(point.book, point.chapter, 1)),
+                  },
+                  title(sectionTitle),
                 ),
               ),
-            () =>
-              g(
-                {
-                  class: "bible-map-chapter-labels",
-                  style: () => (this.showChapterLabelsState.val ? "display:block;" : "display:none;"),
-                },
-                this.chapterLabelsState.val.map(({ x, y, dy, isActive, labelText }) =>
-                  text({ x, y, dy, textAnchor: "middle", class: isActive ? "is-active" : "" }, labelText),
-                ),
-              ),
-            () =>
-              g(
-                { class: "bible-map-hit-areas" },
-                this.hitAreasState.val.map(({ d, isActive, point, sectionTitle }) =>
-                  path(
-                    {
-                      d,
-                      fill: "transparent",
-                      stroke: "none",
-                      class: isActive ? "is-active" : "",
-                      style: "cursor:pointer;pointer-events:all;",
-                      onclick: () =>
-                        (this.plugin.app.verseState.val = new VerseRef(point.book, point.chapter, 1)),
-                    },
-                    title(sectionTitle),
-                  ),
-                ),
-              ),
-            () =>
-              g(
-                { class: "bible-map-empty-layer" },
-                this.emptyMessageState.val
-                  ? text(
-                      { class: "bible-map-empty", x: 600, y: 320, textAnchor: "middle" },
-                      this.emptyMessageState.val,
-                    )
-                  : [],
-              ),
-          ),
-        ) as SVGSVGElement,
-      ),
+            ),
+          () =>
+            g(
+              { class: "bible-map-empty-layer" },
+              this.emptyMessageState.val
+                ? text(
+                    { class: "bible-map-empty", x: 600, y: 320, textAnchor: "middle" },
+                    this.emptyMessageState.val,
+                  )
+                : [],
+            ),
+        ),
+      ) as SVGSVGElement,
     );
   }
 
   onMount(): void {
-    const rootEl = this.el.querySelector<HTMLDivElement>(".bible-map-root");
+    const rootEl = this.el;
     const svgEl = this.el.querySelector<SVGSVGElement>(".bible-map-canvas");
     if (!rootEl || !svgEl) throw new Error("Map root/SVG element not found during onMount");
 
@@ -276,7 +285,7 @@ export class BibleMapView extends View {
   }
 
   onUnmount(): void {
-    const rootEl = this.el.querySelector<HTMLDivElement>(".bible-map-root");
+    const rootEl = this.el;
     if (this.resizeObserver && rootEl) {
       this.resizeObserver.unobserve(rootEl);
       this.resizeObserver.disconnect();
@@ -297,7 +306,7 @@ export class BibleMapView extends View {
   }
 
   private initializeResizeObserver(): void {
-    const rootEl = this.el.querySelector<HTMLDivElement>(".bible-map-root");
+    const rootEl = this.el;
     if (!rootEl || typeof ResizeObserver === "undefined") {
       return;
     }
@@ -328,7 +337,7 @@ export class BibleMapView extends View {
       this.updateStatus(`${this.points.length.toLocaleString()} chapters mapped`);
     } catch (error) {
       this.plugin.app.console.error("Failed to load bible land map data", error);
-      this.renderEmptyState(`Could not load ${this.dataPath}.`);
+      this.renderEmptyState(`Could not load ${this.dataPath}. The error was: ${error}`);
     }
   }
 
@@ -368,7 +377,7 @@ export class BibleMapView extends View {
   }
 
   private renderMap(): void {
-    const rootEl = this.el.querySelector<HTMLDivElement>(".bible-map-root");
+    const rootEl = this.el;
     const svgEl = this.el.querySelector<SVGSVGElement>(".bible-map-canvas");
     if (!rootEl || !svgEl) {
       return;
@@ -740,14 +749,27 @@ export class BibleMapView extends View {
     const didActiveVerseChange = activeVerseKey !== this.lastActiveVerseKey;
     this.lastActiveVerseKey = activeVerseKey;
 
-    this.hitAreasState.val = this.hitAreasState.val.map(entry => ({
+    const hitAreas = this.hitAreasState.val;
+    const nextHitAreas = hitAreas.map(entry => ({
       ...entry,
       isActive: entry.key === activeVerseKey,
     }));
-    this.chapterLabelsState.val = this.chapterLabelsState.val.map(entry => ({
+    const hitAreasChanged = nextHitAreas.some((entry, index) => entry.isActive !== hitAreas[index]?.isActive);
+    if (hitAreasChanged) {
+      this.hitAreasState.val = nextHitAreas;
+    }
+
+    const chapterLabels = this.chapterLabelsState.val;
+    const nextChapterLabels = chapterLabels.map(entry => ({
       ...entry,
       isActive: entry.key === activeVerseKey,
     }));
+    const chapterLabelsChanged = nextChapterLabels.some(
+      (entry, index) => entry.isActive !== chapterLabels[index]?.isActive,
+    );
+    if (chapterLabelsChanged) {
+      this.chapterLabelsState.val = nextChapterLabels;
+    }
 
     const activePoint = this.points.find(point => this.getPointKey(point) === activeVerseKey);
     if (!activePoint || !this.currentXScale || !this.currentYScale) {
@@ -843,31 +865,13 @@ export class BibleMapView extends View {
     yScale: d3.ScaleLinear<number, number>,
     radius: number,
   ): DotClusterPath[] {
-    const commandsByCluster = new Map<number, string[]>();
-    const diameter = radius * 2;
-
-    for (const point of points) {
-      const cluster = point.cluster;
-      const cx = xScale(point.x);
-      const cy = yScale(point.y);
-      const command =
-        `M${(cx - radius).toFixed(2)},${cy.toFixed(2)}` +
-        `a${radius.toFixed(2)},${radius.toFixed(2)} 0 1,0 ${diameter.toFixed(2)},0` +
-        `a${radius.toFixed(2)},${radius.toFixed(2)} 0 1,0 -${diameter.toFixed(2)},0`;
-
-      const existing = commandsByCluster.get(cluster);
-      if (existing) {
-        existing.push(command);
-      } else {
-        commandsByCluster.set(cluster, [command]);
-      }
-    }
-
-    return Array.from(commandsByCluster.entries()).map(([cluster, commands]) => ({
-      cluster,
-      fill: this.getChapterDotColor(cluster),
-      stroke: this.getChapterDotStrokeColor(cluster),
-      d: commands.join(""),
+    return points.map(point => ({
+      cluster: point.cluster,
+      fill: this.getChapterDotColor(point.cluster),
+      stroke: this.getChapterDotStrokeColor(point.cluster),
+      cx: xScale(point.x),
+      cy: yScale(point.y),
+      r: radius,
     }));
   }
 

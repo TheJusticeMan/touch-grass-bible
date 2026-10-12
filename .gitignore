@@ -9,3 +9,5 @@ scripts/bible_with_embeddings.json
 coverage/
 meta.json
 src/info.json
+ai/
+.obsidian/

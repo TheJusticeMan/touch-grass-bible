@@ -1,106 +1,123 @@
-/* ============================================================
-   Design tokens — single source of truth for the whole app
-   ============================================================ */
-
+/* Global design tokens and shared browser polish.
+   These variables establish the app's dark theme and the spacing, shadow, and layout
+   primitives used across the interface. */
 :root {
-  /* --- Color palette --- */
-  --color-bg: #050505;
-  --color-surface: rgb(255 255 255 / 0.12);
-  --color-surface-strong: rgb(255 255 255 / 0.24);
-  --color-border: rgb(255 255 255 / 0.24);
-  --color-text: rgb(255 255 255 / 0.94);
-  --color-text-muted: rgb(255 255 255 / 0.62);
-  --color-accent: #9ed0ff;
-  --color-accent-bookmark: #f0f;
+  --base-fg: #fff;
+  --base-bg: #000;
+  --color-accent: #9df;
 
-  /* --- Shadows --- */
-  --shadow-soft: 0 8px 24px rgb(0 0 0 / 0.28);
-  --shadow-glow: 0 0 16px -8px #fff;
-  --shadow-focus-ring: 0 0 8px var(--color-accent);
-  --shadow-focus-ring-strong: 0 0 12px var(--color-accent);
-  --shadow-focus-ring-inset: inset 0 0 8px var(--color-accent);
+  --c11: rgb(from var(--base-fg) r g b / 0.067);
+  --c22: rgb(from var(--base-fg) r g b / 0.133);
+  --c33: rgb(from var(--base-fg) r g b / 0.2);
+  --c44: rgb(from var(--base-fg) r g b / 0.267);
+  --c55: rgb(from var(--base-fg) r g b / 0.333);
+  --c66: rgb(from var(--base-fg) r g b / 0.4);
+  --c77: rgb(from var(--base-fg) r g b / 0.467);
+  --c88: rgb(from var(--base-fg) r g b / 0.533);
+  --c99: rgb(from var(--base-fg) r g b / 0.6);
+  --caa: rgb(from var(--base-fg) r g b / 0.667);
+  --cbb: rgb(from var(--base-fg) r g b / 0.733);
+  --ccc: rgb(from var(--base-fg) r g b / 0.8);
+  --cdd: rgb(from var(--base-fg) r g b / 0.867);
+  --cee: rgb(from var(--base-fg) r g b / 0.933);
+  --cff: rgb(from var(--base-fg) r g b / 1);
 
-  /* --- Border-radius: asymmetric "shifted-curve" language --- */
+  --cb11: rgb(from var(--base-bg) r g b / 0.067);
+  --cb22: rgb(from var(--base-bg) r g b / 0.133);
+  --cb33: rgb(from var(--base-bg) r g b / 0.2);
+  --cb44: rgb(from var(--base-bg) r g b / 0.267);
+  --cb55: rgb(from var(--base-bg) r g b / 0.333);
+  --cb66: rgb(from var(--base-bg) r g b / 0.4);
+  --cb77: rgb(from var(--base-bg) r g b / 0.467);
+  --cb88: rgb(from var(--base-bg) r g b / 0.533);
+  --cb99: rgb(from var(--base-bg) r g b / 0.6);
+  --cbaa: rgb(from var(--base-bg) r g b / 0.667);
+  --cbbb: rgb(from var(--base-bg) r g b / 0.733);
+  --cbcc: rgb(from var(--base-bg) r g b / 0.8);
+  --cbdd: rgb(from var(--base-bg) r g b / 0.867);
+  --cbee: rgb(from var(--base-bg) r g b / 0.933);
+  --cbff: rgb(from var(--base-bg) r g b / 1);
+
+  --color-surface: var(--c11);
+  --color-surface-overlay: var(--cb66);
+  --color-border: var(--c33);
+  --color-border-strong: var(--c44);
+  --color-border-ink: var(--cb77);
+  --color-border-ink-soft: var(--cb55);
+  --color-text: var(--cff);
+  --color-text-dim: var(--c88);
+  --color-text-inverse: var(--base-bg);
+  --color-text-muted: var(--c99);
+  --color-accent-highlight: rgb(from var(--color-accent) r g b / 0.2);
+  --color-accent-strong: rgb(from var(--color-accent) r g b / 0.5);
+  --color-accent-label: rgb(from var(--color-accent) r g b / 0.5);
+  --color-danger: #ff5f57;
+  --color-shadow-ink: var(--cbff);
+  --box-shadow-focus: 0 0 8px var(--color-accent);
+  --box-shadow-hover: inset 0 0 8px var(--color-accent);
+  --shadow-drop-earth: 0 8px 20px var(--cb44);
+  --shadow-drop-earth-soft: 0 4px 16px var(--cb33);
+  --shadow-overlay-sheet: 0 -4px 18px var(--cb55), 0 0 0 100vmax var(--cb77);
   --radius-shift-sm: 0.35rem 0.7rem;
   --radius-shift-md: 0.5em 1em;
   --radius-shift-lg: 1em 2em;
-  --radius-round-sm: 0.5rem;
-  --radius-round-md: 0.875rem;
   --radius-circle: 999px;
-
-  /* Backward-compat aliases (used throughout the codebase) */
   --border-radius-small: var(--radius-shift-sm);
   --border-radius-medium: var(--radius-shift-md);
   --border-radius-large: var(--radius-shift-lg);
-
-  /* --- Spacing --- */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
   --space-4: 1rem;
-
-  /* --- Typography --- */
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font: var(--font-sans);
   --font-size-base: 16px;
+  --font-size: var(--font-size-base);
   --font-size-sm: 0.875rem;
   --font-size-xs: 0.78rem;
-
-  /* --- Z-index scale --- */
   --z-floating-action: 20;
   --z-panel-overlay: 200;
   --z-menu: 400;
   --z-command-palette: 800;
   --z-modal: 900;
-
-  /* --- Reading view --- */
+  --workspace-floating-z-index: var(--z-panel-overlay, 200);
+  --workspace-animation-timing: var(--workspace-transition-timing-ease-out, ease-out);
   --reading-width: 25em;
   --navbar-height: 5em;
   --text-display: block;
-
-  /* Legacy aliases so JS/other code still works */
   --readingwidth: var(--reading-width);
   --navbarheight: var(--navbar-height);
   --textdisplay: var(--text-display);
-
-  /* --- App foreground/background (set here; can be overridden by theme) --- */
-  --background: #000f;
-  --foreground: #ffff;
-
-  /* --- Semantic one-off colors --- */
-  --color-verse-ref-bg: rgb(0 0 42 / 0.67);
-
-  /* --- Scrollbars --- */
+  --background-color: var(--color-surface);
+  --foreground: var(--color-text);
+  --color-verse-ref-bg: var(--cbaa);
+  --toggle-shadow: 0 0 0 1px var(--color-border);
+  --toggle-shadow-on: 0 0 0 1px var(--color-accent);
   --scrollbar-size: 10px;
-  --scrollbar-track: rgb(255 255 255 / 0.06);
-  --scrollbar-thumb: rgb(255 255 255 / 0.2);
-  --scrollbar-thumb-hover: rgb(255 255 255 / 0.32);
-  --scrollbar-thumb-active: rgb(255 255 255 / 0.42);
-  --scrollbar-border: rgb(0 0 0 / 0.25);
-
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: var(--c66);
+  --scrollbar-border: var(--c44);
   --mobile-width: 600px;
-
-  /* Safe area insets (populated by env() — requires viewport-fit=cover) */
-  --safe-area-top: env(safe-area-inset-top, 0px);
-  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-area-left: env(safe-area-inset-left, 0px);
-  --safe-area-right: env(safe-area-inset-right, 0px);
-
+  /* Capacitor SystemBars injects --safe-area-inset-* on Android with insetsHandling=css. */
+  --safe-area-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --safe-area-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --safe-area-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  --safe-area-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
   color-scheme: dark;
 }
 
+/* Icon styling used by the lucide SVG set. */
 .lucide {
   stroke-width: 1px;
 }
 
-/* ============================================================
-   Global accessibility helpers
-   ============================================================ */
-
+/* Use a subtle accent glow instead of the browser default outline. */
 :focus-visible {
   outline: none;
-  box-shadow: var(--shadow-focus-ring);
+  box-shadow: var(--box-shadow-focus);
 }
 
+/* Respect user motion preferences across the application. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -112,51 +129,15 @@
   }
 }
 
-/* ============================================================
-   Scrollbars
-   ============================================================ */
-
+/* Cross-browser scrollbar treatment. */
 html,
 body,
 * {
-  scrollbar-width: thin;
+  scrollbar-width: var(--scrollbar-size);
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
-
-  &::-webkit-scrollbar {
-    width: var(--scrollbar-size);
-    height: var(--scrollbar-size);
-  }
-
-  &::-webkit-scrollbar-track {
-    background: var(--scrollbar-track);
-    border-radius: var(--radius-circle);
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: var(--scrollbar-thumb);
-    border: 2px solid transparent;
-    border-radius: var(--radius-circle);
-    background-clip: padding-box;
-    box-shadow: inset 0 0 0 1px var(--scrollbar-border);
-
-    &:hover {
-      background: var(--scrollbar-thumb-hover);
-    }
-
-    &:active {
-      background: var(--scrollbar-thumb-active);
-    }
-  }
-
-  &::-webkit-scrollbar-corner {
-    background: transparent;
-  }
 }
 
-/* ============================================================
-   Reading view
-   ============================================================ */
-
+/* Search match highlight used in results and command palette items. */
 .highlighted-query {
-  color: rgb(240 0 255 / 0.8);
+  color: var(--color-accent);
 }

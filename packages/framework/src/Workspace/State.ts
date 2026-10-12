@@ -27,14 +27,15 @@ export class viewStateController<T extends Record<string, unknown>> {
     ) as stateMapping<T>;
   }
 
-  updateViewState(newState: Partial<T>) {
+  updateViewState(newState: Partial<T>, save = true): this {
     this.state = newState;
+    if (save) this.saveState();
     return this;
   }
 
   public set state(newState: Partial<T>) {
     for (const key in newState) {
-      const stateEntry = this._state[key as keyof T];
+      const stateEntry = this._state[key];
       if (!stateEntry) continue;
       stateEntry.val = newState[key] as T[Extract<keyof T, string>];
     }
@@ -98,6 +99,8 @@ export class viewStateController<T extends Record<string, unknown>> {
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export abstract class View<T extends Record<string, unknown> = {}> extends viewStateController<T> {
   public abstract readonly viewTypeId: string;
+  /** When true, the workspace reuses one shared instance and prevents duplicate mounts. */
+  public isSingleton = false;
 
   public isActive = van.state(false);
   public title: State<string>;
@@ -128,9 +131,13 @@ export abstract class View<T extends Record<string, unknown> = {}> extends viewS
   focus?(): void;
   handleKeyDown?(e: KeyboardEvent, meaning: string): void;
 
-  destroy(): void {
+  detach(): void {
     this.onUnmount?.();
     this._el = undefined;
+  }
+
+  destroy(): void {
+    this.detach();
     this.cleanupCallbacks.forEach(callback => callback());
     this.cleanupCallbacks = [];
   }
@@ -174,7 +181,13 @@ export class LayoutController {
   private viewRegistry: Map<string, () => View> = new Map();
   public readonly registeredViews: State<[string, () => View][]> = van.state([]);
 
-  public readonly rootPanel: PanelContainer;
+  public readonly rootPanel: State<PanelContainer> = van.state({
+    type: "panel",
+    direction: "horizontal",
+    children: van.state([]),
+    activeIndex: van.state(0),
+    size: van.state(1),
+  });
 
   floatingViews: ViewContainer = {
     type: "view",
@@ -187,13 +200,14 @@ export class LayoutController {
   activePanel: State<ViewContainer | null> = van.state(null);
 
   constructor(defaultLayout: PanelContainerSerialized) {
-    this.rootPanel = this.deserializePanel(defaultLayout) as PanelContainer;
+    this.rootPanel.val = this.deserializePanel(defaultLayout) as PanelContainer;
     van.derive(
       () => (
         (this.activeView.val = this.computeActiveView()),
         (this.activePanel.val = this.computeActivePanel())
       ),
     );
+    /* van.derive(() => console.log("Active view changed:", this.activeView.val)); */
   }
 
   serializePanel(panel: Panel): PanelSerialized {
@@ -310,7 +324,7 @@ export class LayoutController {
     this.updateViewsByType(viewTypeId);
   }
 
-  private updateViewsByType(viewTypeId: string, panel: Panel = this.rootPanel): void {
+  private updateViewsByType(viewTypeId: string, panel: Panel = this.rootPanel.val): void {
     if (panel.type === "view") {
       panel.children.val.forEach(view => {
         if (view.val.viewTypeId === viewTypeId) {
@@ -324,9 +338,7 @@ export class LayoutController {
           const replacement = this.createView(
             viewTypeId,
             parent,
-            serializedState && serializedState.length > 0
-              ? serializedState
-              : (fallbackState as Record<string, unknown>),
+            serializedState && serializedState.length > 0 ? serializedState : fallbackState,
           );
           view.val = replacement;
         }
@@ -342,9 +354,7 @@ export class LayoutController {
       const replacement = this.createView(
         viewTypeId,
         view.val.parent,
-        serializedState && serializedState.length > 0
-          ? serializedState
-          : (fallbackState as Record<string, unknown>),
+        serializedState && serializedState.length > 0 ? serializedState : fallbackState,
       );
       view.val.destroy();
       this.floatingViews.children.val = this.floatingViews.children.val.map((existing, i) =>
@@ -383,40 +393,82 @@ export class LayoutController {
 
     if (typeof initialState === "string") {
       if (!viewInstance.deserializeState) return;
-      viewInstance.updateViewState(
-        viewInstance.deserializeState(initialState) as Partial<Record<string, unknown>>,
+      viewInstance.updateViewState(viewInstance.deserializeState(initialState));
+      return;
+    }
+
+    viewInstance.updateViewState(initialState);
+  }
+
+  private resolveTargetContainer(targetPanel: Panel): ViewContainer {
+    if (targetPanel.type === "view") return targetPanel;
+
+    const targetLeaf = this.computeActivePanel(targetPanel);
+    if (targetLeaf) return targetLeaf;
+
+    const newPanel: ViewContainer = {
+      type: "view",
+      children: van.state([]),
+      activeIndex: van.state(0),
+      size: van.state(1),
+      parent: targetPanel,
+    };
+    this.addPanelToContainer(newPanel, targetPanel);
+    return newPanel;
+  }
+
+  private removeViewReference(view: View): void {
+    const floatingIndex = this.floatingViews.children.val.findIndex(v => v.val === view);
+    if (floatingIndex >= 0) {
+      this.floatingViews.children.val = this.floatingViews.children.val.filter((_, i) => i !== floatingIndex);
+      this.floatingViews.activeIndex.val = Math.min(
+        this.floatingViews.activeIndex.val,
+        Math.max(0, this.floatingViews.children.val.length - 1),
       );
       return;
     }
 
-    viewInstance.updateViewState(initialState as Partial<Record<string, unknown>>);
+    const existing = this.findView(view, this.rootPanel.val);
+    if (!existing) return;
+    existing.container.children.val = existing.container.children.val.filter((_, i) => i !== existing.index);
+    existing.container.activeIndex.val = Math.min(
+      existing.container.activeIndex.val,
+      Math.max(0, existing.container.children.val.length - 1),
+    );
   }
 
-  addViewToPanel(viewTypeId: string, targetPanel: Panel = this.rootPanel): void {
-    const viewInstance = this.createView(viewTypeId);
+  private findViewByTypeAnywhere(viewTypeId: string): View | null {
+    return (
+      this.floatingViews.children.val.find(v => v.val.viewTypeId === viewTypeId)?.val ||
+      this.findViewByType(viewTypeId, this.rootPanel.val)
+    );
+  }
 
-    if (targetPanel.type === "view") {
-      this.addViewToContainer(viewInstance, targetPanel);
-    } else {
-      const targetLeaf = this.computeActivePanel(targetPanel);
-
-      if (targetLeaf) {
-        this.addViewToContainer(viewInstance, targetLeaf);
+  addViewToPanel(
+    viewTypeId: string,
+    targetPanel: Panel = this.rootPanel.val,
+    initialState?: string | Record<string, unknown>,
+  ): View {
+    const existing = this.findViewByTypeAnywhere(viewTypeId);
+    if (existing?.isSingleton) {
+      this.initializeViewState(existing, initialState);
+      const targetContainer = this.resolveTargetContainer(targetPanel);
+      const location = this.findView(existing, this.rootPanel.val);
+      if (location?.container === targetContainer) {
+        targetContainer.activeIndex.val = location.index;
       } else {
-        const newPanel: ViewContainer = {
-          type: "view",
-          children: van.state([]),
-          activeIndex: van.state(0),
-          size: van.state(1),
-          parent: targetPanel,
-        };
-
-        this.addViewToContainer(viewInstance, newPanel);
-        this.addPanelToContainer(newPanel, targetPanel);
+        this.removeViewReference(existing);
+        this.addViewToContainer(existing, targetContainer);
       }
+      void this.focusActiveView();
+      return existing;
     }
 
+    const viewInstance = this.createView(viewTypeId, undefined, initialState);
+    this.addViewToContainer(viewInstance, this.resolveTargetContainer(targetPanel));
+
     void this.focusActiveView();
+    return viewInstance;
   }
 
   replaceViewInPanel(
@@ -424,18 +476,38 @@ export class LayoutController {
     viewTypeId: string,
     initialState?: string | Record<string, unknown>,
   ): void {
-    const parent = oldView.parent;
-    if (!parent) return;
-    const viewInstance = this.createView(viewTypeId, parent, initialState);
-
-    const { container, index } = this.findView(oldView, this.rootPanel) || {};
+    const { container, index } = this.findView(oldView, this.rootPanel.val) || {};
     if (!container || index === undefined) return;
+    const existing = this.findViewByTypeAnywhere(viewTypeId);
+    if (existing?.isSingleton) {
+      this.initializeViewState(existing, initialState);
+      if (existing === oldView) {
+        container.activeIndex.val = index;
+        void this.focusActiveView();
+        return;
+      }
+      const slot = container.children.val[index];
+      this.removeViewReference(existing);
+      const slotIndex = container.children.val.indexOf(slot);
+      if (slotIndex < 0) return;
+      oldView.destroy();
+      existing.parent = container;
+      slot.val = existing;
+      container.activeIndex.val = slotIndex;
+      void this.focusActiveView();
+      return;
+    }
+
+    const viewInstance = this.createView(viewTypeId, container, initialState);
     oldView.destroy();
-    viewInstance.parent = parent;
+    viewInstance.parent = container;
     container.children.val[index].val = viewInstance;
   }
 
-  findView(view: View, panel: Panel = this.rootPanel): { container: ViewContainer; index: number } | null {
+  findView(
+    view: View,
+    panel: Panel = this.rootPanel.val,
+  ): { container: ViewContainer; index: number } | null {
     if (panel.type === "view") {
       const index = panel.children.val.findIndex(v => v.val === view);
       if (index >= 0) {
@@ -453,7 +525,53 @@ export class LayoutController {
     return null;
   }
 
+  findOrCreateViewById(viewTypeId: string, initialState?: string | Record<string, unknown>): View {
+    const existing =
+      this.floatingViews.children.val.find(v => v.val.viewTypeId === viewTypeId)?.val ||
+      this.findViewByType(viewTypeId) ||
+      this.addViewToPanel(viewTypeId, undefined, initialState);
+    void this.focusView(existing);
+    return existing;
+  }
+
+  findViewByType(viewTypeId: string, panel: Panel = this.rootPanel.val): View | null {
+    return panel.type === "view"
+      ? panel.children.val.find(v => v.val.viewTypeId === viewTypeId)?.val || null
+      : panel.children.val.reduce<View | null>((result, child) => {
+          if (result) return result;
+          return this.findViewByType(viewTypeId, child);
+        }, null);
+  }
+
+  focusView(view: View, panel: Panel = this.rootPanel.val): boolean {
+    if (panel.type === "view") {
+      const index = panel.children.val.findIndex(v => v.val === view);
+      if (index >= 0) {
+        panel.activeIndex.val = index;
+        return true;
+      }
+    } else {
+      for (const child of panel.children.val) {
+        if (this.focusView(view, child)) {
+          panel.activeIndex.val = panel.children.val.indexOf(child);
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   addFloatingView(viewTypeId: string, initialState?: string | Record<string, unknown>): void {
+    const existing = this.findViewByTypeAnywhere(viewTypeId);
+    if (existing?.isSingleton) {
+      this.initializeViewState(existing, initialState);
+      this.removeViewReference(existing);
+      existing.parent = this.floatingViews;
+      this.floatingViews.children.val = [...this.floatingViews.children.val, van.state(existing)];
+      void this.focusActiveView();
+      return;
+    }
+
     const viewInstance = this.createView(viewTypeId, undefined, initialState);
     this.floatingViews.children.val = [...this.floatingViews.children.val, van.state(viewInstance)];
     viewInstance.onCleanup(
@@ -467,15 +585,23 @@ export class LayoutController {
   }
 
   removeViewInstance(viewInstance: View): void {
+    const teardownView = (): void => {
+      if (viewInstance.isSingleton) {
+        viewInstance.detach();
+      } else {
+        viewInstance.destroy();
+      }
+    };
+
     if (this.floatingViews.children.val.some(v => v.val === viewInstance)) {
-      viewInstance.destroy();
       this.floatingViews.children.val = this.floatingViews.children.val.filter(v => v.val !== viewInstance);
+      setTimeout(teardownView, 0);
       void this.focusActiveView();
     } else {
-      const { container, index } = this.findView(viewInstance, this.rootPanel) || {};
+      const { container, index } = this.findView(viewInstance, this.rootPanel.val) || {};
       if (!container || index === undefined) return;
-      viewInstance.destroy();
       container.children.val = container.children.val.filter((_, i) => i !== index);
+      setTimeout(teardownView, 0);
       container.activeIndex.val = Math.min(
         container.activeIndex.val,
         Math.max(0, container.children.val.length - 1),
@@ -484,7 +610,7 @@ export class LayoutController {
     }
   }
 
-  private computeActivePanel(panel: Panel = this.rootPanel): ViewContainer | null {
+  private computeActivePanel(panel: Panel = this.rootPanel.val): ViewContainer | null {
     if (panel.type === "view") {
       return panel;
     }
@@ -493,7 +619,7 @@ export class LayoutController {
     return this.computeActivePanel(activeChild);
   }
 
-  private computeActiveView(panel: Panel = this.rootPanel): View | null {
+  private computeActiveView(panel: Panel = this.rootPanel.val): View | null {
     const floatingView = this.floatingViews.children.val.at(-1); // Give priority to the most recently added floating view if it exists.
     if (floatingView) return floatingView.val;
 
@@ -502,11 +628,12 @@ export class LayoutController {
   }
 
   async focusActiveView(): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 0)); // Wait for the state to update
     const view = this.activeView.val;
     if (!view) return;
-    if (view.focus) view.focus();
-    else view.el.focus();
+    if (!view.el.isConnected) return;
+    if (!view.el.contains(document.activeElement))
+      if (view.focus) view.focus();
+      else view.el.focus();
   }
 
   async moveView(
@@ -537,7 +664,7 @@ export class LayoutController {
     await this.focusActiveView();
   }
 
-  async sanitizePanel(panel: Panel = this.rootPanel): Promise<void> {
+  async sanitizePanel(panel: Panel = this.rootPanel.val): Promise<void> {
     // First remove empty panels/views recursively.
     if (panel.type === "panel") {
       await Promise.all(panel.children.val.map(child => this.sanitizePanel(child)));

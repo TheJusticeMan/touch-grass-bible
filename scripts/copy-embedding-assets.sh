@@ -7,7 +7,7 @@ set -e
 
 ROOT="$(pwd)"
 SOURCE_DIR="$ROOT/processing"
-DEST_DIR="$ROOT/dist/data"
+DEST_DIR="$ROOT/dist/assets"
 
 mkdir -p "$DEST_DIR"
 
@@ -44,7 +44,7 @@ if [ -d "$SOURCE_DIR" ]; then
     model=$(node -e "try { const m = require('$target_meta'); console.log(m.model || ''); } catch(e) { process.exit(0); }")
     
     if [ -n "$provider" ] && [ -n "$model" ]; then
-      MANIFEST_ENTRIES+=("{\"provider\":\"$provider\",\"model\":\"$model\",\"metaUrl\":\"/data/$base_name\",\"binUrl\":\"/data/$bin_name\"}")
+      MANIFEST_ENTRIES+=("{\"provider\":\"$provider\",\"model\":\"$model\",\"metaUrl\":\"/assets/$base_name\",\"binUrl\":\"/assets/$bin_name\"}")
     fi
   done
 fi

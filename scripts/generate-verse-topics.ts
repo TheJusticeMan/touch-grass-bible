@@ -55,7 +55,7 @@ const PCA_COMPONENTS = Math.max(2, parseInt(process.env.PCA_COMPONENTS ?? "64", 
 const PCA_ENABLED = (process.env.PCA_ENABLED ?? "true").toLowerCase() !== "false";
 const TOPIC_CENTER_COUNT = Math.max(1, parseInt(process.env.TOPIC_CENTER_COUNT ?? "5", 10));
 
-/** Mirrors flattenBible from generate-bible-embeddings.ts — must stay in sync. */
+/** Mirrors flattenBible from generate-bible-embeddings.ts - must stay in sync. */
 function buildVerseIndex(bible: BibleData): VerseRecord[] {
   const rows: VerseRecord[] = [];
 

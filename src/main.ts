@@ -3,7 +3,6 @@ import info from "@build-info";
 import { createPlatformBridge } from "@platform";
 import {
   App,
-  CommandPaletteState,
   SettingsStore,
   State,
   van,
@@ -14,7 +13,9 @@ import {
 import { DEFAULT_SETTINGS, TGAppSettings } from "./config/TGAppSettings";
 import { ExternalPlugins } from "./core/ExternalPlugins";
 import { InternalPlugins, type IconActionItem } from "./core/Plugin";
+import { ToolsAPI } from "./core/ToolsAPI";
 import { TranslationManager } from "./core/TranslationManager";
+import { createDefaultWorkspaceLayout } from "./defaultWorkspaceLayout";
 import "./main.css";
 import { VerseRef, type translation } from "./models/VerseRef";
 import {
@@ -22,11 +23,11 @@ import {
   AppearancePlugin,
   BibleMapPlugin,
   BibleSearchPlugin,
-  BookmarkPlugin,
   GesturePlugin,
   JournalPlugin,
+  KnowledgeBasePlugin,
   NavesTopicalBiblePlugin,
-  NotesPlugin,
+  ReadingPlansPlugin,
   SettingsPlugin,
   SharePlugin,
   TopicalBiblePlugin,
@@ -51,7 +52,6 @@ import { VerseScreen } from "./ui/VerseScreen";
  * @param {Document} doc - The document object for the app context.
  *
  * @method onload - Initializes the app, loads settings and data, sets up palettes and event listeners.
- * @method openCommandPalette - Opens the command palette with an optional state.
  * @method onunload - Handles cleanup when the app is unloaded.
  * @method loadsettings - Loads and merges user settings with defaults.
  * @method saveSettings - Persists the current settings.
@@ -60,6 +60,7 @@ export default class TouchGrassBibleApp extends App {
   settings: TGAppSettings = DEFAULT_SETTINGS;
   plugins = new InternalPlugins(this);
   externalPlugins: ExternalPlugins | null = null;
+  toolsAPI = new ToolsAPI();
   private _verseActions: Map<string, IconActionItem> = new Map();
   private verseActions: State<IconActionItem[]> = van.state([]);
   firstLoad = true;
@@ -71,35 +72,7 @@ export default class TouchGrassBibleApp extends App {
   lastOpenedVerseScreen: VerseScreen | null = null;
 
   constructor(doc: Document, platformBridge: PlatformBridge) {
-    super(doc, "Touch Grass Bible", platformBridge, {
-      type: "panel",
-      direction: "horizontal",
-      activeIndex: 1,
-      size: 1,
-      children: [
-        {
-          size: 1,
-          type: "view",
-          isPersistent: true,
-          activeIndex: 0,
-          children: [{ viewType: "journal-panel", title: "Journal", state: "" }],
-        },
-        {
-          size: 3,
-          type: "view",
-          isPersistent: true,
-          activeIndex: 0,
-          children: [{ viewType: "verse-screen", title: "Scripture", state: "" }],
-        },
-        {
-          size: 2,
-          type: "view",
-          isPersistent: true,
-          activeIndex: 0,
-          children: [{ viewType: "notes-panel", title: "Notes", state: "" }],
-        },
-      ],
-    });
+    super(doc, "Touch Grass Bible", platformBridge, createDefaultWorkspaceLayout());
     this.settingsStore = new SettingsStore<TGAppSettings>({
       defaultValue: DEFAULT_SETTINGS,
       defaultSaveDelayMs: 5000,
@@ -114,7 +87,7 @@ export default class TouchGrassBibleApp extends App {
     // Cross-derive the app-level Van verse state and the active verse screen's verse state to keep them in sync, while also exposing onChange-style listeners for consumers that haven't migrated to Van state yet.
 
     van.derive(() => {
-      const activeView = this.workspace.layoutController.activeView.val || this.lastOpenedVerseScreen;
+      const activeView = this.workspace.layout.activeView.val || this.lastOpenedVerseScreen;
       if (
         activeView instanceof VerseScreen &&
         (activeView !== this.lastOpenedVerseScreen ||
@@ -140,7 +113,7 @@ export default class TouchGrassBibleApp extends App {
 
     // Keep the app-level Van verse state updated for active VerseScreen2 instances.
     van.derive(() => {
-      const activeView = this.workspace.layoutController.activeView.val || this.lastOpenedVerseScreen;
+      const activeView = this.workspace.layout.activeView.val || this.lastOpenedVerseScreen;
       if (!(activeView instanceof VerseScreen)) return;
 
       const viewVerse = activeView.state.verse.val;
@@ -189,20 +162,11 @@ export default class TouchGrassBibleApp extends App {
 
     this.console.enabled = this.settings.enableLogging;
     this.console.log(info.name, info.version, "loaded");
-    //this.workspace.on("Ctrl+EnterKeyDown", () => !this.commandPalette.isOpen && this.openCommandPalette());
+    //this.workspace.on("Ctrl+EnterKeyDown", () => !this.commandPalette.isOpen && this.commandPalette.open());
 
     this.console.log(new Date().getTime() - processstart, "ms startup time");
     this.console.log("Touch Grass Bible is ready!");
     this.plugins.addPlugins(
-      {
-        pluginClass: BookmarkPlugin,
-        manifest: {
-          id: "bookmarks",
-          name: "Bookmarks",
-          description: "View and manage your bookmarked verses.",
-          version: "1.0.0",
-        },
-      },
       {
         pluginClass: TSKPlugin,
         manifest: {
@@ -240,11 +204,11 @@ export default class TouchGrassBibleApp extends App {
         },
       },
       {
-        pluginClass: NotesPlugin,
+        pluginClass: KnowledgeBasePlugin,
         manifest: {
-          id: "notes",
-          name: "Notes",
-          description: "Create and manage personal notes on verses.",
+          id: "knowledge-base",
+          name: "Knowledge Base",
+          description: "Create Questions and Answers to build your own Bible knowledge base.",
           version: "1.0.0",
         },
       },
@@ -320,8 +284,17 @@ export default class TouchGrassBibleApp extends App {
           version: "1.0.0",
         },
       },
+      {
+        pluginClass: ReadingPlansPlugin,
+        manifest: {
+          id: "reading-plans",
+          name: "Reading Plans",
+          description: "Follow structured daily Bible reading plans.",
+          version: "1.0.0",
+        },
+      },
     );
-    this.plugins.load();
+    await this.plugins.load();
 
     if (__ENABLE_EXTERNAL_PLUGINS__) {
       this.externalPlugins = new ExternalPlugins(this);
@@ -348,7 +321,6 @@ export default class TouchGrassBibleApp extends App {
    */
   addVerseAction(action: IconActionItem): this {
     this._verseActions.set(action.id, action);
-    this.emit("verse-actions-change", undefined);
     this.verseActions.val = Array.from(this._verseActions.values());
     return this;
   }
@@ -356,19 +328,7 @@ export default class TouchGrassBibleApp extends App {
   removeVerseAction(actionId: string): this {
     this._verseActions.delete(actionId);
     this.verseActions.val = Array.from(this._verseActions.values());
-    this.emit("verse-actions-change", undefined);
     return this;
-  }
-
-  openCommandPalette(CommandPalettestate: Partial<CommandPaletteState> = {}): void {
-    this.commandPalette.updateViewState(CommandPalettestate);
-    console.error(
-      "openCommandPalette is not implemented yet. Command palette state would be:",
-      this.commandPalette.state,
-    );
-    if (this.settings.showHelp && this.firstLoad) {
-      this.firstLoad = false;
-    }
   }
 
   onunload(): boolean {
@@ -377,17 +337,14 @@ export default class TouchGrassBibleApp extends App {
   }
 
   private registerWorkspaceViews() {
-    this.workspace.layoutController.registerView(
-      "verse-screen",
-      () => new VerseScreen(this, this.verseActions),
-    );
+    this.workspace.layout.registerView("verse-screen", () => new VerseScreen(this, this.verseActions));
   }
 
   private ensureMainScreenTab() {
-    if (this.hasViewType(this.workspace.layoutController.rootPanel, "verse-screen")) {
+    if (this.hasViewType(this.workspace.layout.rootPanel.val, "verse-screen")) {
       return;
     }
-    this.workspace.layoutController.addViewToPanel("verse-screen");
+    this.workspace.layout.addViewToPanel("verse-screen");
   }
 
   private hasViewType(panel: Panel, viewTypeId: string): boolean {
@@ -398,35 +355,7 @@ export default class TouchGrassBibleApp extends App {
   }
 
   getDefaultWorkspaceLayout(): PanelContainerSerialized {
-    return {
-      type: "panel",
-      direction: "horizontal",
-      activeIndex: 1,
-      size: 1,
-      children: [
-        {
-          size: 1,
-          type: "view",
-          isPersistent: true,
-          activeIndex: 0,
-          children: [{ viewType: "journal-panel", title: "Journal", state: "" }],
-        },
-        {
-          size: 3,
-          type: "view",
-          isPersistent: true,
-          activeIndex: 0,
-          children: [{ viewType: "verse-screen", title: "Scripture", state: "" }],
-        },
-        {
-          size: 2,
-          type: "view",
-          isPersistent: true,
-          activeIndex: 0,
-          children: [{ viewType: "notes-panel", title: "Notes", state: "" }],
-        },
-      ],
-    };
+    return createDefaultWorkspaceLayout();
   }
 }
 

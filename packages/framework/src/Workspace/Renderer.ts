@@ -9,19 +9,15 @@ const { div, span } = van.tags;
 
 export class WorkspaceRenderer {
   private rootEl?: HTMLElement;
-  private lastActivePanel: Panel | null = null;
-  private readonly mobileDragProps: ReturnType<typeof mobileDragController>;
 
   private isMaximized = van.state(false);
 
   constructor(
     private readonly dragController: WorkspaceDragController,
     private readonly workspace: LayoutController,
-    onMobileSettle: (offset: number) => void,
+    private readonly onMobileSettle: (offset: number) => void,
     private readonly windowControls?: PlatformWindowControls,
   ) {
-    this.mobileDragProps = mobileDragController({ onSettle: onMobileSettle });
-
     if (windowControls) {
       windowControls
         .isMaximized()
@@ -43,6 +39,25 @@ export class WorkspaceRenderer {
     );
   }
 
+  private closePanelTab(panel: ViewContainer, index: number): void {
+    if (panel.activeIndex.val > index) panel.activeIndex.val--;
+    panel.children.val = panel.children.val.filter((_, i) => i !== index);
+    this.workspace.sanitizePanel();
+    this.workspace.focusActiveView();
+  }
+
+  private syncActivePathForFocusedElement(target: EventTarget | null): void {
+    if (!(target instanceof HTMLElement)) return;
+    const containerEl = target.closest(".view-container") as ViewContainerElement | null;
+    if (!containerEl?.__workspacePanel) return;
+
+    let panel: Panel | undefined = containerEl.__workspacePanel;
+    while (panel?.parent) {
+      panel.parent.activeIndex.val = panel.parent.children.val.indexOf(panel);
+      panel = panel.parent;
+    }
+  }
+
   mount(parentEl: HTMLElement, workspace: { rootPanel: Panel; floatingViews: ViewContainer }): HTMLElement {
     this.unmount();
     this.rootEl = this.renderWorkspace(workspace);
@@ -60,7 +75,8 @@ export class WorkspaceRenderer {
     return div(
       {
         class: "workspace-container",
-        ...this.mobileDragProps,
+        onfocusin: (e: FocusEvent) => this.syncActivePathForFocusedElement(e.target),
+        ...mobileDragController({ onSettle: this.onMobileSettle }),
       },
       this.renderPanel(workspace.rootPanel, true, true),
       this.renderFloatingViews(workspace.floatingViews),
@@ -70,62 +86,66 @@ export class WorkspaceRenderer {
 
   renderPanel(panel: Panel, istop: boolean, isright: boolean): HTMLElement | (() => HTMLElement) {
     if (panel.type === "view") {
-      const removeTab = (index: number) => {
-        if (panel.activeIndex.val > index) panel.activeIndex.val--;
-        panel.children.val = panel.children.val.filter((_, i) => i !== index);
-        this.workspace.sanitizePanel();
-        this.workspace.focusActiveView();
-      };
       const panelEl = div(
         {
           class: "view-container",
           style: () => `flex: ${panel.size.val};`,
-          onpointermove: (e: PointerEvent) => this.dragController.handlePanelPointerMove(panel, e),
-          onpointerleave: (e: PointerEvent) => this.dragController.handlePanelPointerLeave(panel, e),
-          onclick: (e: MouseEvent) => {
-            if (this.lastActivePanel === panel) return;
-            const focusPanel = (panel: Panel): void => {
-              if (panel.parent) {
-                panel.parent.activeIndex.val = panel.parent.children.val.findIndex(child => child === panel);
-                focusPanel(panel.parent);
-              }
-            };
-
-            focusPanel(panel);
-            e.stopPropagation();
-            this.workspace.focusActiveView();
-            this.lastActivePanel = panel;
-          },
         },
         () =>
           div(
-            { class: istop ? "tabs draggable-region" : "tabs" },
+            {
+              class: istop ? "tabs draggable-region" : "tabs",
+              onpointerdown: (e: PointerEvent) => {
+                if (e.pointerType === "mouse" && e.button !== 0) return;
+
+                const targetEl = e.target as HTMLElement | null;
+                if (!targetEl) return;
+
+                const closeBtn = targetEl.closest<HTMLElement>("[data-close-index]");
+                if (closeBtn) {
+                  const closeIndex = Number(closeBtn.dataset.closeIndex);
+                  if (Number.isInteger(closeIndex)) this.closePanelTab(panel, closeIndex);
+                  return;
+                }
+
+                const tabEl = targetEl.closest<HTMLElement>("[data-tab-index]");
+                if (!tabEl) return;
+
+                const index = Number(tabEl.dataset.tabIndex);
+                if (!Number.isInteger(index)) return;
+
+                const view = panel.children.val[index];
+                if (!view) return;
+
+                panel.activeIndex.val = index;
+                this.workspace.focusActiveView();
+                this.dragController.startTabDrag(view, panel, e);
+              },
+              onauxclick: (e: MouseEvent) => {
+                if (e.button !== 1) return;
+                const targetEl = e.target as HTMLElement | null;
+                const tabEl = targetEl?.closest<HTMLElement>("[data-tab-index]");
+                if (!tabEl) return;
+
+                const index = Number(tabEl.dataset.tabIndex);
+                if (!Number.isInteger(index)) return;
+
+                e.preventDefault();
+                this.closePanelTab(panel, index);
+              },
+            },
             panel.children.val.map((view, index) =>
               div(
                 {
                   class: () => `tab ${index === panel.activeIndex.val ? "active" : ""}`,
-                  onclick: () => ((panel.activeIndex.val = index), this.workspace.focusActiveView()),
-                  onpointerdown: (e: PointerEvent) => {
-                    if ((e.target as HTMLElement).closest(".close-btn")) return;
-                    if (e.pointerType === "mouse") e.preventDefault();
-                    this.dragController.startTabDrag(view, panel, e);
-                  },
-                  onauxclick: (e: MouseEvent) => {
-                    if (e.button === 1) {
-                      e.stopPropagation();
-                      removeTab(index);
-                    }
-                  },
+                  "data-tab-index": String(index),
                 },
                 () => (view.val.icon.val ? renderIcon(view.val.icon.val) : null),
                 span({ class: "label" }, view.val.title),
                 span(
                   {
                     class: "close-btn",
-                    onclick: (e: MouseEvent) => {
-                      e.stopPropagation();
-                      removeTab(index);
-                    },
+                    "data-close-index": String(index),
                   },
                   renderIcon(X),
                 ),
@@ -160,23 +180,28 @@ export class WorkspaceRenderer {
         {
           class: `panel-container ${panel.direction}`,
           style: () => `flex: ${panel.size.val};`,
-          onpointerdown: (e: PointerEvent) => {
-            // On mobile, pane overlays and content wrappers are usually the event target.
-            // Keep strict gating for mouse, but allow touch/pen to start resize hit-testing.
-            if (e.pointerType === "mouse" && e.target !== e.currentTarget) return;
-            const didStartResize = this.dragController.startDragResize(panel, e);
-            if (didStartResize && e.pointerType !== "mouse") e.stopPropagation();
-          },
-          onpointermove: (e: PointerEvent) => this.dragController.handlePanelResize(panel, e),
         },
-        panel.children.val.map((child, index) =>
-          this.renderPanel(
-            child,
-            (istop && panel.direction === "horizontal") || index === 0,
-            isright &&
-              (panel.direction === "horizontal" ? index === panel.children.val.length - 1 : index === 0),
-          ),
-        ),
+        ...panel.children.val.flatMap((child, index) => {
+          const elements = [
+            this.renderPanel(
+              child,
+              (istop && panel.direction === "horizontal") || index === 0,
+              isright &&
+                (panel.direction === "horizontal" ? index === panel.children.val.length - 1 : index === 0),
+            ),
+          ];
+
+          if (index < panel.children.val.length - 1) {
+            elements.push(
+              div({
+                class: `panel-divider ${panel.direction}`,
+                onpointerdown: (e: PointerEvent) => this.dragController.startDragResize(panel, index, e),
+              }),
+            );
+          }
+
+          return elements;
+        }),
       );
   }
 

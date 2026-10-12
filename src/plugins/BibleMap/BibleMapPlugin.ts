@@ -16,10 +16,9 @@ export default class BibleMapPlugin extends Plugin {
   }
 
   private revealBibleMap(): void {
-    const activeView = this.app.workspace.layoutController.activeView.val;
-    if (activeView?.viewTypeId === BIBLE_MAP_VIEW_ID)
-      return void this.app.workspace.layoutController.focusActiveView();
+    const activeView = this.app.workspace.layout.activeView.val;
+    if (activeView?.viewTypeId === BIBLE_MAP_VIEW_ID) return void this.app.workspace.layout.focusActiveView();
 
-    this.app.workspace.layoutController.addViewToPanel(BIBLE_MAP_VIEW_ID);
+    this.app.workspace.layout.addViewToPanel(BIBLE_MAP_VIEW_ID);
   }
 }

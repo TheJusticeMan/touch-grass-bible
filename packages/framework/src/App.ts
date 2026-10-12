@@ -1,14 +1,10 @@
-import van from "vanjs-core";
 import "./App.css";
-import { CommandPaletteV2 } from "./CommandPaletteV2.0.ts";
-import { ETarget } from "./Event";
+import { CommandPalette } from "./CommandPalette.ts";
 import { BrowserConsole } from "./MyBrowserConsole";
 import type { PlatformBridge } from "./PlatformBridge.ts";
 import "./toTitleCase.ts";
 import { Workspace } from "./Workspace";
 import { PanelContainerSerialized } from "./Workspace/Types.ts";
-
-const { div } = van.tags;
 
 export { App };
 
@@ -52,13 +48,7 @@ export { App };
  * - Integrates with browser history and prevents accidental page unloads.
  * - Provides utility methods for data import/export and persistence.
  */
-abstract class App extends ETarget<{
-  keydown: { key: string; event: KeyboardEvent };
-  historypop: object;
-  open: void;
-  close: void;
-  [key: string]: unknown;
-}> {
+abstract class App {
   /** Console instance for app-level logs and diagnostics. */
   console: BrowserConsole;
 
@@ -72,7 +62,7 @@ abstract class App extends ETarget<{
   readonly platformBridge: PlatformBridge;
 
   /** Shared command palette instance used across the app shell. */
-  commandPalette: CommandPaletteV2;
+  commandPalette: CommandPalette;
 
   files: Files;
 
@@ -89,18 +79,16 @@ abstract class App extends ETarget<{
     platformBridge: PlatformBridge,
     layout: PanelContainerSerialized,
   ) {
-    super();
     this.platformBridge = platformBridge;
     this.console = new BrowserConsole(true, `${this._title || "App"}:`);
     this.console.header("color:#f0f; font-size:40px; font-weight:bold;");
-    this.contentEl = div({ class: "app-shell-element" });
-    van.add(document.body, this.contentEl);
+    this.contentEl = document.body; // Mount directly to body for full control over the app shell
     this.files = new Files(this.platformBridge);
     this.workspace = new Workspace(this.contentEl, layout, this);
 
-    this.commandPalette = new CommandPaletteV2(this);
+    this.commandPalette = new CommandPalette(this);
 
-    this.workspace.layoutController.registerView("command-palette", () => this.commandPalette);
+    this.workspace.layout.registerView("command-palette", () => this.commandPalette);
     // this.commandPalette = new UnifiedCommandPalette(this);
 
     this.title = this._title;
@@ -137,7 +125,15 @@ abstract class App extends ETarget<{
   }
 
   private load = async () => {
-    await this.onload();
+    document.body.classList.add("appstart");
+    try {
+      await this.onload();
+    } finally {
+      requestAnimationFrame(() => {
+        document.body.classList.remove("appstart");
+        document.body.classList.add("ready");
+      });
+    }
   };
   private unload = (): boolean => {
     const shouldUnload = this.onunload();

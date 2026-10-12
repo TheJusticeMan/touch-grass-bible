@@ -1,4 +1,4 @@
-import { createWriteStream, readFileSync, unlinkSync, writeFileSync } from "fs";
+import { createWriteStream, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import { get } from "https";
 import { join } from "path";
 import { Open } from "unzipper";
@@ -17,7 +17,8 @@ interface CrossReferences {
 }
 
 const _dirname = typeof __dirname === "string" ? __dirname : process.cwd();
-const _dest = "./dist";
+const _dest = "./dist/assets";
+mkdirSync(_dest, { recursive: true });
 const files: FileConfig[] = [
   {
     url: "https://a.openbible.info/data/topic-scores.zip",

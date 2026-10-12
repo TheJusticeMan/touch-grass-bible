@@ -1,6 +1,7 @@
 import info from "@build-info";
 import {
   CommandCategory,
+  CommandItem,
   CommandPaletteState,
   pluginOptions,
   stateMapping,
@@ -48,7 +49,7 @@ class SettingsCategory extends CommandCategory<SettingsItem> {
     });
   }
 
-  renderItem(item: SettingsItem) {
+  renderItem(item: SettingsItem): CommandItem {
     return {
       title: item.title,
       description: item.description,
@@ -182,12 +183,12 @@ class SettingsCategory extends CommandCategory<SettingsItem> {
         id: "keyboard-shortcuts",
         title: "Keyboard shortcuts",
         description:
-          "Ctrl+Enter → Open command palette\n" +
-          "Escape → Close palette\n" +
-          "Arrow Up/Down → Navigate palette items\n" +
-          "Enter → Select item\n" +
-          "Backspace → Go back in navigation\n" +
-          "Arrow Right → Open navigation panel",
+          "Ctrl+Enter -> Open command palette\n" +
+          "Escape -> Close palette\n" +
+          "Arrow Up/Down -> Navigate palette items\n" +
+          "Enter -> Select item\n" +
+          "Backspace -> Go back in navigation\n" +
+          "Arrow Right -> Open navigation panel",
         keywords: ["shortcuts", "keyboard", "help"],
       },
       {

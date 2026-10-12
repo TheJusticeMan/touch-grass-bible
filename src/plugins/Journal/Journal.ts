@@ -4,7 +4,7 @@ import Plugin from "src/core/Plugin";
 import { VerseRef } from "src/models/VerseRef";
 import "./Journal.css";
 
-const { div, button, img } = van.tags;
+const { div, button, img, input } = van.tags;
 
 const JournalViewID = "journal-panel";
 
@@ -73,7 +73,7 @@ export default class JournalPlugin extends Plugin {
       icon: Plus,
       isAvailable: () => true,
       onTrigger: info => {
-        const activeView = this.app.workspace.layoutController.activeView.val;
+        const activeView = this.app.workspace.layout.activeView.val;
         if (activeView instanceof JournalPanel) {
           activeView.addVerseEntry(info.verse);
         }
@@ -109,9 +109,7 @@ class JournalPanel extends View {
   }
 
   create(): HTMLElement {
-    const container = document.createElement("div");
-    container.classList.add("journal-panel");
-    return container;
+    return div({ class: "journal-panel" });
   }
 
   onMount(): void {
@@ -349,11 +347,9 @@ class JournalPanel extends View {
 
   private pickImageBytes(): Promise<{ bytes: Uint8Array; filename: string; mimeType: string } | null> {
     return new Promise((resolve, reject) => {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*";
+      const fileInput = input({ type: "file", accept: "image/*" }) as HTMLInputElement;
 
-      input.onchange = async event => {
+      fileInput.onchange = async event => {
         const target = event.target as HTMLInputElement;
         const file = target.files?.[0];
         if (!file) {
@@ -373,7 +369,7 @@ class JournalPanel extends View {
         }
       };
 
-      input.click();
+      fileInput.click();
     });
   }
 

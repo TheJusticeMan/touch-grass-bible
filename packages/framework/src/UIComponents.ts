@@ -188,9 +188,11 @@ export class MenuVan {
             div(
               {
                 class: "menu-item",
-                onClick: e => {
+                onmousedown: e => e.stopPropagation(),
+                onclick: e => {
                   e.stopPropagation();
                   item.onClick?.(e);
+                  this.hide();
                 },
               },
               item.icon ? renderIcon(item.icon) : null,
@@ -227,14 +229,16 @@ export class MenuVan {
     });
     this.resizeObserver.observe(this.el);
 
-    document.addEventListener("mousedown", this.hide, { once: true });
+    document.addEventListener("mousedown", this.hide);
   }
 
-  hide = () => {
+  hide = (e?: MouseEvent) => {
+    if (e && this.el && e.target instanceof Node && this.el.contains(e.target)) return;
     this.el?.remove();
     this.el = undefined;
     this.resizeObserver?.disconnect();
     this.resizeObserver = undefined;
+    document.removeEventListener("mousedown", this.hide);
   };
 
   showAtMouseEvent(e: MouseEvent | TouchEvent | PointerEvent) {

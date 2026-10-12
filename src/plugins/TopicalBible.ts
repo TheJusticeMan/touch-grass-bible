@@ -1,4 +1,11 @@
-import { CommandCategory, CommandPaletteState, MenuVan, stateMapping, van } from "@touchgrass/framework";
+import {
+  CommandCategory,
+  CommandItem,
+  CommandPaletteState,
+  MenuVan,
+  stateMapping,
+  van,
+} from "@touchgrass/framework";
 import { GitCompare } from "lucide";
 import Plugin from "../core/Plugin";
 import { BibleTopics, BibleTopicsType } from "../models/BibleTopics";
@@ -11,7 +18,7 @@ export default class TopicalBiblePlugin extends Plugin {
 
   async onload(): Promise<void> {
     try {
-      this.topics = new BibleTopics(await this.app.files.loadJSON<BibleTopicsType>("topics.json"));
+      this.topics = new BibleTopics(await this.app.files.loadJSON<BibleTopicsType>("assets/topics.json"));
     } catch (e) {
       this.console.error("Failed to load topics.json. Topical Bible will be unavailable.", e);
     }
@@ -54,24 +61,21 @@ class topicListCategory extends CommandCategory<VerseRef | string> {
     public plugin: TopicalBiblePlugin,
   ) {
     super(state, "Topics (www.openbible.info)", "List of topics from OpenBible.info");
-    this.deriveExtraCMDs(() => {
-      const topic = this.plugin.topic.val;
-      if (!topic) return [];
-
-      return [
-        {
-          title: "Clear topic filter",
-          description: "",
-          cb: () => ({
-            click: () => {
-              this.plugin.topic.val = "";
-              this.updateViewState({ topCategory: TopicListCategoryID });
-              return false;
+    this.extras = van.derive(() =>
+      this.plugin.topic.val
+        ? [
+            {
+              title: "Clear topic filter",
+              description: "",
+              click: () => {
+                this.plugin.topic.val = "";
+                this.updateViewState({ topCategory: TopicListCategoryID });
+                return false;
+              },
             },
-          }),
-        },
-      ];
-    });
+          ]
+        : [],
+    );
 
     this.allItems = van.derive(() => {
       const topic = this.plugin.topic.val;
@@ -88,35 +92,34 @@ class topicListCategory extends CommandCategory<VerseRef | string> {
     });
   }
 
-  renderItem(command: VerseRef | string) {
+  renderItem(command: VerseRef | string): CommandItem {
     if (typeof command === "string") {
-      const openTopic = this.context(() => {
-        this.plugin.topic.val = command;
-        return { topCategory: TopicListCategoryID };
-      });
-
       return {
         title: command.toTitleCase(),
         description: "Open this topic",
-        ...openTopic,
-        click: openTopic.context,
+        context: () => {
+          this.plugin.topic.val = command;
+          return { topCategory: TopicListCategoryID };
+        },
+        click: () => {
+          this.plugin.topic.val = command;
+          this.updateViewState({ topCategory: TopicListCategoryID });
+          return false;
+        },
       };
     }
-
-    const openCrossRef = this.context(() => {
-      this.plugin.app.verseState.val = command;
-      return { topCategory: TSKCrossRefCategoryID };
-    });
 
     return {
       title: command.toString(),
       description: command.vTXT,
-      ...openCrossRef,
-      click: openCrossRef.context,
+      context: () => {
+        this.plugin.app.verseState.val = command;
+        return { topCategory: TSKCrossRefCategoryID };
+      },
+      click: () => {
+        this.plugin.app.verseState.val = command;
+        return true;
+      },
     };
-  }
-
-  executeCommand(): void {
-    return;
   }
 }

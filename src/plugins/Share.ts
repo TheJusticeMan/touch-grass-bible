@@ -1,6 +1,7 @@
 import { Share2 } from "lucide";
 import Plugin from "../core/Plugin";
 import { MenuVan } from "@touchgrass/framework";
+import { VerseRef } from "src/models/VerseRef";
 
 export default class SharePlugin extends Plugin {
   async onload() {
@@ -22,6 +23,14 @@ export default class SharePlugin extends Plugin {
             onClick: () => window.open(link.url, "_blank"),
           }),
         );
+        menu.addItem({
+          title: "Copy verse text to clipboard",
+          onClick: () => {
+            navigator.clipboard.writeText(
+              `${verse.text(VerseRef.defaultTranslation)} (${verse.toString()} ${VerseRef.defaultTranslation})`,
+            );
+          },
+        });
         menu.showAtMouseEvent(verseInfo.event);
       },
     });

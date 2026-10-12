@@ -1,44 +1,39 @@
-/* App.css — shell, controls, and global accessibility rules */
+/* App shell and shared control styling.
+   This file defines the fixed viewport shell, core form controls, and the common hover/focus
+   behavior shared by the rest of the framework. */
 
 body {
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  box-sizing: border-box;
   width: 100%;
   height: 100dvh;
   margin: 0;
-  padding: 0;
+  padding: 0 var(--safe-area-right, 0px) var(--safe-area-bottom, 0px) var(--safe-area-left, 0px);
   overflow: hidden;
-  background-color: var(--color-bg, #050505);
+  background-color: var(--base-bg);
   overscroll-behavior: contain;
   user-select: none;
-}
-
-.app-shell-element {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100dvh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  background-color: var(--color-bg, #050505);
-  color: var(--color-text, #fff);
+  color: var(--color-text);
   font-family: var(--font-sans, system-ui, sans-serif);
   font-size: var(--font-size-base, 16px);
 }
 
-/* Shared control styles — applied to button and .input only.
-   input, textarea, and select are styled more conservatively
-   so they retain native usability (text selection, IME, etc.). */
+/* Shared control styles: buttons and action-like inputs use the app's elevated surface treatment. */
 button,
 .input {
   border: none;
   font-size: 1rem;
-  transition: background-color 0.2s ease;
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease,
+    color 0.15s ease;
   box-sizing: border-box;
   align-items: center;
-  background-color: var(--color-surface, rgb(255 255 255 / 0.06));
+  background-color: var(--color-surface);
   border-radius: var(--border-radius-medium);
-  color: var(--color-text, #fff);
+  color: var(--color-text);
   cursor: pointer;
   display: inline-flex;
   justify-content: center;
@@ -47,24 +42,43 @@ button,
 
   &:focus-visible {
     outline: none;
-    box-shadow: var(--shadow-focus-ring-strong);
+    box-shadow: var(--box-shadow-focus);
   }
 }
 
+/* Native form controls keep their familiar editing behavior while matching the app theme. */
 input,
 textarea,
 select {
   border: none;
   font-size: 1rem;
-  transition: background-color 0.2s ease;
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease,
+    color 0.15s ease;
   box-sizing: border-box;
-  background-color: var(--color-surface, rgb(255 255 255 / 0.06));
+  background-color: var(--color-surface);
   border-radius: var(--border-radius-medium);
-  color: var(--color-text, #fff);
+  color: var(--color-text);
   display: block;
   padding: var(--space-2, 0.5rem) var(--space-4, 1rem);
 
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--box-shadow-focus);
+  }
+
   &::placeholder {
-    color: var(--color-text-muted, rgb(255 255 255 / 0.62));
+    color: var(--color-text-muted);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button:not(:disabled):hover,
+  .input:not(:disabled):hover,
+  input:not(:disabled):hover,
+  textarea:not(:disabled):hover,
+  select:not(:disabled):hover {
+    box-shadow: var(--box-shadow-hover);
   }
 }

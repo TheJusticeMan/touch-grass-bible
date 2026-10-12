@@ -9,5 +9,8 @@
   "liveServer.settings.port": 5501,
   "java.configuration.updateBuildConfiguration": "automatic",
   "ts.preferences.autoImportFileExcludePatterns": ["**/packages/framework/node_modules/**"],
-  "js.preferences.autoImportFileExcludePatterns": ["**/packages/framework/node_modules/**"]
+  "js.preferences.autoImportFileExcludePatterns": ["**/packages/framework/node_modules/**"],
+  "chat.tools.terminal.autoApprove": {
+    "npx tsc": true
+  }
 }

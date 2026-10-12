@@ -1,19 +1,27 @@
+/* Gesture command floating action button and drag indicator.
+   These styles anchor quick mobile actions to the screen edge and visually track drag gestures. */
 :root {
   --distance-from-edge: 1.5em;
 }
 
 .gesture-button {
   position: fixed;
-  bottom: var(--distance-from-edge);
   right: var(--distance-from-edge);
+  bottom: calc(var(--distance-from-edge) + var(--safe-area-bottom, 0px));
+  transform: none;
   z-index: var(--z-floating-action, 20);
-  border: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
-  box-shadow: var(--shadow-glow, 0 0 16px -8px #fff);
+  backdrop-filter: blur(8px);
+  transition:
+    right 0.7s ease,
+    bottom 0.7s ease,
+    transform 0.7s ease,
+    box-shadow 0.7s ease,
+    opacity 0.7s ease,
+    background-color 0.7s ease;
 
   &::after {
     content: "";
     position: absolute;
-    /* Expand the hit area by the distance from edge in every direction */
     top: calc(-1 * var(--distance-from-edge));
     bottom: calc(-1 * var(--distance-from-edge));
     left: calc(-1 * var(--distance-from-edge));
@@ -21,18 +29,24 @@
   }
 }
 
+body.appstart .gesture-button {
+  right: 50%;
+  bottom: 50%;
+  transform: translate(50%, 50%);
+  background-color: var(--color-accent);
+}
+
 .mobile-fab-dragline {
   position: fixed;
   height: 4px;
   background-color: var(--color-accent);
-  top: 0;
+  top: var(--safe-area-top, 0px);
   left: 0;
   transform-origin: 0 50%;
   z-index: var(--z-floating-action, 20);
   pointer-events: none;
   transition: opacity 0.5s ease;
 
-  /* State classes for dragline animation */
   &.is-fading {
     opacity: 0;
     height: 0;

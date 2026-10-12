@@ -1,4 +1,4 @@
-import { CommandCategory, CommandPaletteState, stateMapping, van } from "@touchgrass/framework";
+import { CommandCategory, CommandItem, CommandPaletteState, stateMapping, van } from "@touchgrass/framework";
 import { VerseRef } from "src/models/VerseRef";
 import { AICategoryID, SettingsCategoryID } from "src/plugins/categoryIDs";
 import type AIPlugin from "./AI";
@@ -37,23 +37,12 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
       "AI Semantic Verse Search",
       "Semantic search over verse embeddings using Orama. Requires a generated embeddings JSON file.",
     );
-    this.deriveExtraCMDs(() => {
-      const items: Array<{
-        title: string;
-        description: string;
-        cb?: (item: { title: string; description: string }) => Partial<{
-          title: string;
-          description: string;
-          click?: () => boolean;
-          extras?: HTMLElement;
-        }> | void;
-      }> = [
+    this.extras = van.derive(() => {
+      const items: CommandItem[] = [
         {
           title: "Back to AI chat",
           description: "Return to AI Q&A mode",
-          cb: () => ({
-            click: () => (this.updateViewState({ topCategory: AICategoryID }), false),
-          }),
+          click: () => (this.updateViewState({ topCategory: AICategoryID }), false),
         },
       ];
 
@@ -61,9 +50,7 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
         items.push({
           title: "No OpenAI API key set",
           description: "OpenAI embeddings need a key. Ollama fallback is used if local server is available.",
-          cb: () => ({
-            click: () => (this.updateViewState({ topCategory: SettingsCategoryID }), false),
-          }),
+          click: () => (this.updateViewState({ topCategory: SettingsCategoryID }), false),
         });
       }
 
@@ -125,7 +112,7 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
     });
   }
 
-  renderItem(command: EmbeddingSearchCommand) {
+  renderItem(command: EmbeddingSearchCommand): CommandItem {
     if (command.type === "query") {
       let status = "Generate query embedding, then search nearest verses";
 
@@ -140,23 +127,21 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
       return {
         title: `Semantic search: ${command.query}`,
         description: status,
+        click: () => {
+          this.requestSearch(command.query, true);
+          return false;
+        },
       };
     }
 
     return {
       title: command.hit.verse.toString(),
       description: `${command.hit.text} ${(command.hit.score * 100).toFixed(1)}%`,
+      click: () => {
+        this.plugin.app.verseState.val = command.hit.verse;
+        return true;
+      },
     };
-  }
-
-  executeCommand(command: EmbeddingSearchCommand): void {
-    if (command.type === "query") {
-      this.requestSearch(command.query, true);
-      return;
-    }
-
-    this.plugin.app.verseState.val = command.hit.verse;
-    this.plugin.app.commandPalette.close();
   }
 
   private requestSearch(query: string, immediate = false): void {

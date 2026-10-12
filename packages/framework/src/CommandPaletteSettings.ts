@@ -1,7 +1,7 @@
 export const DEFAULT_CATEGORY_ORDER: string[] = [
-  "verse-list",
+  "knowledge-base-verse-list",
   "tsk-cross-ref",
-  "bookmarks",
+  "knowledge-base",
   "go-to-verse",
   "topics",
   "bible-search",

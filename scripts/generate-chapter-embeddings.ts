@@ -121,7 +121,7 @@ async function run(): Promise<void> {
 
   const translationCode = resolveTranslationCode(EMBED_TRANSLATION_PATH);
 
-  // ── 1. Load Bible and build chapter texts ─────────────────────────────────
+  // -- 1. Load Bible and build chapter texts ---------------------------------
   // eslint-disable-next-line security/detect-non-literal-fs-filename
   const bible = JSON.parse(readFileSync(EMBED_TRANSLATION_PATH, "utf8")) as BibleData;
   const chapters = buildChapterTexts(bible);
@@ -133,7 +133,7 @@ async function run(): Promise<void> {
   console.log(`Translation: ${translationCode}  |  Chapters to embed: ${chapters.length}`);
   console.log(`Model: ${OLLAMA_MODEL}  |  Quant scale: ${EMBED_QUANT_SCALE}`);
 
-  // ── 2. Embed each chapter ─────────────────────────────────────────────────
+  // -- 2. Embed each chapter -------------------------------------------------
   const start = Date.now();
   let nextLogAt = 50;
   const packedValues: number[] = [];
@@ -172,7 +172,7 @@ async function run(): Promise<void> {
     }
   }
 
-  // ── 3. Write outputs ──────────────────────────────────────────────────────
+  // -- 3. Write outputs ------------------------------------------------------
   const meta: EmbeddingMetaOutput = {
     provider: "ollama",
     model: OLLAMA_MODEL,
@@ -195,8 +195,8 @@ async function run(): Promise<void> {
   const elapsed = ((Date.now() - start) / 1000).toFixed(1);
   console.log(`Chapter embedding complete in ${elapsed}s`);
   console.log(`Chapters embedded: ${chapters.length}  |  Dimensions: ${dimensions}`);
-  console.log(`Meta → ${META_PATH}`);
-  console.log(`Binary → ${BIN_PATH}`);
+  console.log(`Meta -> ${META_PATH}`);
+  console.log(`Binary -> ${BIN_PATH}`);
 }
 
 run().catch(err => {

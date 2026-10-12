@@ -51,9 +51,13 @@ type ManifestEntry = {
   binUrl: string;
 };
 
-const MANIFEST_URLS = ["/data/bible-embeddings-manifest.json", "/bible-embeddings-manifest.json"];
-const EMBEDDING_JSON_URLS = ["/data/bible-embeddings.json", "/bible-embeddings.json"];
+const MANIFEST_URLS = ["/assets/bible-embeddings-manifest.json", "/data/bible-embeddings-manifest.json", "/bible-embeddings-manifest.json"];
+const EMBEDDING_JSON_URLS = ["/assets/bible-embeddings.json", "/data/bible-embeddings.json", "/bible-embeddings.json"];
 const EMBEDDING_BINARY_ASSETS = [
+  {
+    metaUrl: "/assets/bible-embeddings.meta.json",
+    binUrl: "/assets/bible-embeddings.bin",
+  },
   {
     metaUrl: "/data/bible-embeddings.meta.json",
     binUrl: "/data/bible-embeddings.bin",
@@ -63,6 +67,24 @@ const EMBEDDING_BINARY_ASSETS = [
     binUrl: "/bible-embeddings.bin",
   },
 ];
+
+function resolveAssetUrl(path: string): string {
+  const normalized = path.replace(/\\/g, "/").replace(/^\.\//, "").replace(/^\/+/, "");
+
+  if (normalized.startsWith("http://") || normalized.startsWith("https://")) {
+    return normalized;
+  }
+
+  if (normalized.startsWith("assets/")) {
+    return `/${normalized}`;
+  }
+
+  if (normalized.startsWith("data/")) {
+    return `/${normalized.replace(/^data\//, "assets/")}`;
+  }
+
+  return `/assets/${normalized}`;
+}
 
 function parseEmbedding(embedding: string | number[]): number[] {
   if (Array.isArray(embedding)) return embedding;
@@ -168,7 +190,7 @@ export class AIEmbeddingSearchDB {
           }
           embeddingsData = loaded;
         } else {
-          // No manifest — fall back to hardcoded URL discovery
+          // No manifest - fall back to hardcoded URL discovery
           embeddingsData = await this.loadEmbeddings();
           await this.probeEmbeddingEndpoint(embeddingsData.provider, apiKey);
         }
@@ -209,7 +231,9 @@ export class AIEmbeddingSearchDB {
   }
 
   private async fetchManifest(): Promise<{ databases: ManifestEntry[] } | null> {
-    for (const url of MANIFEST_URLS) {
+    const candidates = [...new Set(MANIFEST_URLS.map(resolveAssetUrl))];
+
+    for (const url of candidates) {
       try {
         const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
         if (!response.ok) continue;
@@ -265,7 +289,7 @@ export class AIEmbeddingSearchDB {
           "This embedding index requires OpenAI but no API key is configured. Set your API key in Settings.",
         );
       }
-      return; // key present — actual auth errors will surface on first search
+      return; // key present - actual auth errors will surface on first search
     }
 
     if (provider === "ollama") {
@@ -278,7 +302,7 @@ export class AIEmbeddingSearchDB {
         }
       } catch (err) {
         throw new Error(
-          `Ollama is not accessible at localhost:11434 — start Ollama to use embedding search` +
+          `Ollama is not accessible at localhost:11434 - start Ollama to use embedding search` +
             ` (${err instanceof Error ? err.message : String(err)})`,
           { cause: err },
         );
@@ -339,7 +363,9 @@ export class AIEmbeddingSearchDB {
     }
 
     const errors: string[] = [];
-    for (const url of EMBEDDING_JSON_URLS) {
+    const candidateUrls = [...new Set(EMBEDDING_JSON_URLS.map(resolveAssetUrl))];
+
+    for (const url of candidateUrls) {
       try {
         const response = await fetch(url);
         if (!response.ok) {
@@ -390,12 +416,25 @@ export class AIEmbeddingSearchDB {
         : EMBEDDING_BINARY_ASSETS;
 
     for (const asset of assetsToTry) {
-      try {
-        const metaResponse = await fetch(asset.metaUrl);
-        if (!metaResponse.ok) {
-          continue;
-        }
+      const metaUrl = resolveAssetUrl(asset.metaUrl);
+      const binUrl = resolveAssetUrl(asset.binUrl);
 
+      let metaResponse: Response | null = null;
+
+      try {
+        const response = await fetch(metaUrl);
+        if (response.ok) {
+          metaResponse = response;
+        }
+      } catch {
+        metaResponse = null;
+      }
+
+      if (!metaResponse) {
+        continue;
+      }
+
+      try {
         const meta = (await metaResponse.json()) as BinaryEmbeddingMeta;
         if (!meta.dimensions) {
           continue;
@@ -413,8 +452,18 @@ export class AIEmbeddingSearchDB {
           }
 
           const scale = meta.quantScale || 10000;
-          const binResponse = await fetch(asset.binUrl);
-          if (!binResponse.ok) {
+          let binResponse: Response | null = null;
+
+          try {
+            const response = await fetch(binUrl);
+            if (response.ok) {
+              binResponse = response;
+            }
+          } catch {
+            binResponse = null;
+          }
+
+          if (!binResponse) {
             continue;
           }
 
@@ -445,8 +494,18 @@ export class AIEmbeddingSearchDB {
 
         const bible = getBibleForTranslation(meta.translation);
         const scale = meta.quantScale || 10000;
-        const binResponse = await fetch(asset.binUrl);
-        if (!binResponse.ok) {
+        let binResponse: Response | null = null;
+
+        try {
+          const response = await fetch(binUrl);
+          if (response.ok) {
+            binResponse = response;
+          }
+        } catch {
+          binResponse = null;
+        }
+
+        if (!binResponse) {
           continue;
         }
 

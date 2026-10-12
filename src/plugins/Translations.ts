@@ -1,4 +1,4 @@
-import { CommandCategory, CommandPaletteState, stateMapping, van } from "@touchgrass/framework";
+import { CommandCategory, CommandItem, CommandPaletteState, stateMapping, van } from "@touchgrass/framework";
 import Plugin from "../core/Plugin";
 import { translation } from "../models/VerseRef";
 import { TranslationsCategoryID } from "./categoryIDs";
@@ -20,7 +20,6 @@ export default class TranslationsPlugin extends Plugin {
     await this.app.translationManager.loadTranslation(newTranslation);
     this.app.translationState.val = newTranslation;
     this.app.settingsStore.saveAfterDelay();
-    this.app.emit("translation-changed", newTranslation);
   }
 }
 
@@ -39,15 +38,11 @@ class translationCategory extends CommandCategory<string> {
     this.allItems = van.derive(() => this.plugin.app.translationManager.availableTranslations);
   }
 
-  renderItem(command: string) {
+  renderItem(command: string): CommandItem {
     return {
       title: translationMetadata[command]?.name || command,
       description: translationMetadata[command]?.shortName || command,
       click: () => (void this.plugin.switchTranslation(command as translation), true),
     };
-  }
-
-  executeCommand(): void {
-    return;
   }
 }

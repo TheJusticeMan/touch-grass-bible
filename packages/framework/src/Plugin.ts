@@ -1,8 +1,7 @@
 import van from "vanjs-core";
 import { App } from "./App";
-import { CommandCategory, CommandPaletteState } from "./CommandPaletteV2.0";
-import { Command } from "./Commands";
-import { ETarget } from "./Event";
+import { CommandCategory, CommandPaletteState, Command, CommandItem } from "./CommandPalette";
+
 import { BrowserConsole } from "./MyBrowserConsole";
 import { toggle } from "./UIComponents";
 import { stateMapping, View } from "./Workspace";
@@ -188,15 +187,6 @@ export class ePlugin<AppType extends App = App> extends Component {
     this.console = new BrowserConsole(true, `[${manifest.name}]`);
   }
 
-  registerEvent<E extends Record<string, unknown>, K extends keyof E>(
-    target: ETarget<E>,
-    eventName: K,
-    handler: (e: E[K]) => void,
-  ): this {
-    target.on(eventName, handler);
-    return this.registerUnload(() => target.off(eventName, handler));
-  }
-
   registerStateChange<T>(target: StateTargetLike<T>, listener: (value: T, previous: T) => void): this {
     return this.registerUnload(target.onChange(listener));
   }
@@ -222,22 +212,12 @@ export class ePlugin<AppType extends App = App> extends Component {
     cfn: (args: {
       id: string;
       state: stateMapping<CommandPaletteState>;
-    }) => import("./CommandPaletteV2.0").CommandCategory<T>,
+    }) => import("./CommandPalette").CommandCategory<T>,
     hidden = false,
-  ) {
-    this.app.commandPalette.registerPalette<T>(id, cfn, hidden);
+  ): this {
+    this.app.commandPalette.registerPalette<T>({ id, cfn, hidden });
     this.registerUnload(() => this.app.commandPalette.unregisterPalette(id));
-  }
-
-  registerHiddenPalette<T>(
-    id: string,
-    cfn: (args: {
-      id: string;
-      state: stateMapping<CommandPaletteState>;
-    }) => import("./CommandPaletteV2.0").CommandCategory<T>,
-  ) {
-    this.app.commandPalette.registerPalette<T>(id, cfn, true);
-    this.registerUnload(() => this.app.commandPalette.unregisterPalette(id));
+    return this;
   }
 
   /**
@@ -247,7 +227,8 @@ export class ePlugin<AppType extends App = App> extends Component {
    * @returns The current instance for method chaining.
    */
   registerCommand(command: Command): this {
-    void command;
+    this.app.commandPalette.commands.add(command);
+    this.registerUnload(() => this.app.commandPalette.commands.delete(command.id));
     /* this.app.commandPaletteV2.commands.addCommand(command);
     this.registerUnload(() => this.app.commandPaletteV2.commands.removeCommand(command.id)); */
 
@@ -264,8 +245,8 @@ export class ePlugin<AppType extends App = App> extends Component {
    * @param view - Factory that creates a workspace view instance.
    */
   registerView(id: string, view: () => View) {
-    this.app.workspace.layoutController.registerView(id, view);
-    this.registerUnload(() => this.app.workspace.layoutController.unregisterView(id));
+    this.app.workspace.layout.registerView(id, view);
+    this.registerUnload(() => this.app.workspace.layout.unregisterView(id));
     return this;
   }
 
@@ -488,12 +469,12 @@ export class pluginOptions<AppType extends App = App> extends CommandCategory<eP
     return super.getItems();
   }
 
-  renderItem(command: ePlugin<AppType>) {
+  renderItem(command: ePlugin<AppType>): CommandItem {
     const isEnabled =
       this.enabled.get(command.manifest.id) ?? this.pluginManager.isEnabled(command.manifest.id);
 
     return {
-      title: `${isEnabled ? "Disable" : "Enable"}: ${command.manifest.name}`,
+      title: command.manifest.name,
       description: command.manifest.description,
       click: () => false,
       extras: toggle({

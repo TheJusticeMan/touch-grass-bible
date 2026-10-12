@@ -1,3 +1,5 @@
+/* Journal timeline view and entry editors.
+   Entries stack by day with verse, image, and text cards sharing a compact reading layout. */
 .journal-panel {
   display: flex;
   flex-direction: column;
@@ -5,7 +7,6 @@
   height: 100%;
   overflow-y: auto;
   padding: 0;
-  background: rgb(0 0 0 / 0.4);
 
   .day-group {
     display: flex;
@@ -18,28 +19,28 @@
       z-index: 1;
       font-size: var(--font-size-xs, 0.72rem);
       letter-spacing: 0.03em;
-      color: var(--color-text-muted, rgb(255 255 255 / 0.62));
-      background: rgb(0 0 0 / 0.76);
-      border-left: 2px solid var(--color-border, rgb(255 255 255 / 0.14));
+      color: var(--color-text-muted);
+      background-color: var(--color-surface);
+      border-left: 2px solid var(--color-border);
       border-radius: var(--border-radius-small);
       padding: 0.22rem 0.5rem;
     }
 
     .entry.is-verse {
       border-style: dashed;
-      background: var(--color-verse-ref-bg, rgb(0 0 42 / 0.67));
+      background-color: var(--color-verse-ref-bg);
 
       .ref {
-        color: var(--color-accent, #9ed0ff);
+        color: var(--color-accent);
         font-size: 0.9rem;
         font-weight: 500;
       }
 
       .text {
-        border-left: 3px solid var(--color-accent, #9ed0ff);
+        border-left: 3px solid var(--color-accent);
         border-radius: 0.35rem;
-        background: rgb(0 0 0 / 0.2);
-        color: var(--color-text, rgb(255 255 255 / 0.94));
+        background-color: var(--color-surface);
+        color: var(--color-text);
         line-height: 1.58;
         padding: 0.5rem;
         white-space: pre-wrap;
@@ -47,20 +48,20 @@
     }
 
     .entry.is-image {
-      background: rgb(0 0 0 / 0.28);
+      background-color: var(--color-surface);
 
       .image {
         width: 100%;
         max-height: 22rem;
         object-fit: contain;
         border-radius: 0.42rem;
-        border: 1px solid var(--color-border, rgb(255 255 255 / 0.18));
-        background: rgb(0 0 0 / 0.35);
+        border: 1px solid var(--color-border);
+        background-color: var(--color-surface);
       }
 
       .filename {
         font-size: 0.74rem;
-        color: var(--color-text-muted, rgb(255 255 255 / 0.72));
+        color: var(--color-text-muted);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -71,7 +72,7 @@
       padding: 0;
 
       &:focus-within {
-        box-shadow: var(--shadow-focus-ring);
+        box-shadow: var(--box-shadow-focus);
       }
 
       .editor {
@@ -91,7 +92,7 @@
 
       .editor:empty::after {
         content: "Start typing your journal entry...";
-        color: var(--color-text-muted, rgb(255 255 255 / 0.45));
+        color: var(--color-text-muted);
       }
     }
 
@@ -100,9 +101,9 @@
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
-      border: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
+      border: 1px solid var(--color-border);
       border-radius: var(--border-radius-medium);
-      background: var(--color-surface, rgb(255 255 255 / 0.06));
+      background-color: var(--color-surface);
       padding: 0.55rem 0.62rem;
 
       .time {
@@ -110,22 +111,29 @@
         right: 0.62rem;
         bottom: 0.42rem;
         font-size: 0.68rem;
-        color: var(--color-text-muted, rgb(255 255 255 / 0.62));
+        color: var(--color-text-muted);
       }
     }
   }
 
   .add-button {
     align-self: flex-end;
-    background: rgb(255 255 255 / 0.09);
-    color: var(--color-text, rgb(255 255 255 / 0.94));
+    background-color: var(--color-surface);
+    color: var(--color-text);
     padding: 0.38rem 0.72rem;
     margin: 0.2em;
     cursor: pointer;
   }
 
-  .add-button:hover {
-    box-shadow: var(--shadow-focus-ring-inset);
+  @media (hover: hover) and (pointer: fine) {
+    .add-button:hover {
+      box-shadow: var(--box-shadow-hover);
+    }
+  }
+
+  .add-button:focus-visible {
+    outline: none;
+    box-shadow: var(--box-shadow-focus);
   }
 
   .add-button:active {

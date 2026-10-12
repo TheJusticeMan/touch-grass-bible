@@ -5,8 +5,8 @@ const config: CapacitorConfig = {
   appName: "Touch Grass Bible",
   webDir: "dist",
   plugins: {
-    StatusBar: {
-      overlaysWebView: false,
+    SystemBars: {
+      insetsHandling: "css",
     },
   },
 };

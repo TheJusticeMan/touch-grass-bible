@@ -20,9 +20,8 @@ export class TranslationManager {
 
     const loadTask = (async () => {
       this.app.console.log(`Loading translation ${version}`);
-      const data = await this.app.files.loadJSON<bibleData>(`translations/${version}.json`);
+      const data = await this.app.files.loadJSON<bibleData>(`assets/translations/${version}.json`);
       VerseRef.bibleTranslations[version] = data;
-      this.app.emit("translation-loaded", version);
       this.app.console.log(`Loaded translation ${version}`);
     })();
 
@@ -32,7 +31,6 @@ export class TranslationManager {
       await loadTask;
     } catch (error) {
       this.app.console.error(`Failed to load translation ${version}`, error);
-      this.app.emit("translation-error", { version, error });
       throw error;
     } finally {
       this.pendingLoads.delete(version);

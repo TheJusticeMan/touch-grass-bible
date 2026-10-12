@@ -13,12 +13,43 @@ import "./Workspace.css";
 const WORKSPACE_CONFIG_NAME = "workspace";
 const AUTO_SAVE_DELAY_MS = 500;
 
+/**
+ * Workspace manages the main layout, rendering, and state of the application's panel-based UI system.
+ *
+ * The Workspace class is responsible for:
+ * - Managing the layout hierarchy through {@link LayoutController}
+ * - Rendering the UI using {@link WorkspaceRenderer}
+ * - Handling keyboard interactions and focus management
+ * - Persisting and loading workspace configuration
+ * - Coordinating drag operations through {@link WorkspaceDragController}
+ * - Auto-saving layout changes with throttling
+ *
+ * @example
+ * ```typescript
+ * const workspace = new Workspace(
+ *   document.getElementById('app'),
+ *   initialLayout,
+ *   app
+ * );
+ * ```
+ *
+ * @remarks
+ * The workspace automatically:
+ * - Listens for keyboard events and delegates them to the active view
+ * - Throttles save operations to avoid excessive persistence writes
+ * - Validates and restores persisted layout configurations on initialization
+ * - Handles mobile settling behavior for horizontal panel navigation
+ * - Registers the empty view as a default view type
+ *
+ * @property {LayoutController} layout - Controls the panel layout hierarchy and active view state
+ * @property {WorkspaceRenderer} renderer - Handles rendering of the workspace UI
+ * @property {App} app - Reference to the main application instance for file and platform access
+ */
 export class Workspace {
-  layoutController: LayoutController;
-  dragController: WorkspaceDragController;
+  layout: LayoutController;
   renderer: WorkspaceRenderer;
   private readonly handleWindowKeyDown = (event: KeyboardEvent): void =>
-    this.layoutController.activeView.val?.handleKeyDown?.(
+    this.layout.activeView.val?.handleKeyDown?.(
       event,
       (event.metaKey ? "Meta+" : "") +
         (event.ctrlKey ? "Ctrl+" : "") +
@@ -32,11 +63,10 @@ export class Workspace {
     layout: PanelContainerSerialized,
     public app: App,
   ) {
-    this.layoutController = new LayoutController(layout);
-    this.dragController = new WorkspaceDragController(this.layoutController);
+    this.layout = new LayoutController(layout);
 
     const onMobileSettle = (offset: number): void => {
-      const rootPanel = this.layoutController.rootPanel;
+      const rootPanel = this.layout.rootPanel.val;
       if (rootPanel.direction !== "horizontal" || rootPanel.children.val.length < 2) return;
       const len = rootPanel.children.val.length;
       if (offset >= 0.5) {
@@ -46,24 +76,24 @@ export class Workspace {
       } else {
         rootPanel.activeIndex.val = Math.floor(len / 2);
       }
-      void this.layoutController.focusActiveView();
+      void this.layout.focusActiveView();
     };
 
     this.renderer = new WorkspaceRenderer(
-      this.dragController,
-      this.layoutController,
+      new WorkspaceDragController(this.layout),
+      this.layout,
       onMobileSettle,
       app.platformBridge.windowControls,
     );
 
-    this.layoutController.registerView("empty-view", () => new EmptyView(this.layoutController));
+    this.layout.registerView("empty-view", () => new EmptyView(this.layout));
 
     window.addEventListener("keydown", this.handleWindowKeyDown);
-    this.layoutController.sanitizePanel();
+    this.layout.sanitizePanel();
 
     this.init();
 
-    this.layoutController.focusActiveView();
+    this.layout.focusActiveView();
   }
 
   saveConfig = apocalypseThrottle(
@@ -74,24 +104,19 @@ export class Workspace {
 
   async init() {
     try {
-      const parsed = JSON.parse(await this.app.files.loadConfig(WORKSPACE_CONFIG_NAME)) as unknown;
-      if (this.layoutController.validateSerializedPanel(parsed)) {
-        const panel = this.layoutController.deserializePanel(parsed) as PanelContainer;
-        this.layoutController.rootPanel.type = panel.type;
-        this.layoutController.rootPanel.direction = panel.direction;
-        this.layoutController.rootPanel.children.val = panel.children.val;
-        this.layoutController.rootPanel.activeIndex.val = panel.activeIndex.val;
-        this.layoutController.rootPanel.size.val = panel.size.val;
+      const parsed = JSON.parse(await this.app.files.loadConfig(WORKSPACE_CONFIG_NAME));
+      if (this.layout.validateSerializedPanel(parsed)) {
+        this.layout.rootPanel.val = this.layout.deserializePanel(parsed) as PanelContainer;
       }
     } catch {
       // Keep the constructor-provided default layout when persisted config is invalid.
     }
 
     this.renderer.mount(this.parentEl, {
-      rootPanel: this.layoutController.rootPanel,
-      floatingViews: this.layoutController.floatingViews,
+      rootPanel: this.layout.rootPanel.val,
+      floatingViews: this.layout.floatingViews,
     });
 
-    van.derive(() => this.saveConfig(this.layoutController.serializePanel(this.layoutController.rootPanel)));
+    van.derive(() => this.saveConfig(this.layout.serializePanel(this.layout.rootPanel.val)));
   }
 }

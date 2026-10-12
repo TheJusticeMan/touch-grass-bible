@@ -22,6 +22,7 @@ export type ViewContainerSerialized = {
 };
 
 export type PanelSerialized = PanelContainerSerialized | ViewContainerSerialized;
+
 export type PanelContainer = {
   type: "panel";
   direction: LayoutDirection;
@@ -31,6 +32,7 @@ export type PanelContainer = {
   parent?: PanelContainer;
   isPersistent?: boolean;
 };
+
 export type ViewContainer = {
   type: "view";
   children: State<State<View>[]>;
@@ -39,6 +41,7 @@ export type ViewContainer = {
   parent: PanelContainer;
   isPersistent?: boolean;
 };
+
 export type ViewContainerElement = HTMLElement & {
   __workspacePanel?: ViewContainer;
 };
