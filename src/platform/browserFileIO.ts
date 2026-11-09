@@ -1,9 +1,8 @@
+import van from "vanjs-core";
+
 function createHiddenFileInput(accept: string): HTMLInputElement {
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = accept;
-  input.style.display = "none";
-  return input;
+  const el = van.tags.input({ type: "file", accept, style: "display:none" }) as HTMLInputElement;
+  return el;
 }
 
 export async function pickBrowserFileText(accept: string): Promise<string | null> {
@@ -42,10 +41,7 @@ export async function saveBrowserFile(
 ): Promise<void> {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.style.display = "none";
+  const anchor = van.tags.a({ href: url, download: filename, style: "display:none" }) as HTMLAnchorElement;
 
   document.body.appendChild(anchor);
   anchor.click();

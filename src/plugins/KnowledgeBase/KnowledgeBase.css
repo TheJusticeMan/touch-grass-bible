@@ -1,0 +1,244 @@
+/* Knowledge base browser and topic editor layout.
+   This file styles the tree navigation and the details panel for organizing linked topics. */
+.knowledge-base-index,
+.knowledge-base-topic {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  height: 100%;
+  padding: 0.5rem;
+  overflow-y: auto;
+}
+
+.knowledge-base-topic {
+  .topic-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-height: 0;
+    flex: 1;
+  }
+
+  .topic-title-input {
+    width: 100%;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: var(--color-text);
+    padding: 0.1rem 0;
+    font-size: 1.55rem;
+    font-weight: 700;
+    line-height: 1.25;
+    outline: none;
+    box-shadow: none;
+  }
+
+  .topic-title-input::placeholder {
+    color: var(--color-text-muted);
+    opacity: 0.7;
+  }
+
+  .cm-markdown-editor {
+    width: 100%;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+
+    .cm-editor,
+    .cm-scroller,
+    .cm-content {
+      padding: 0;
+    }
+  }
+
+  input,
+  textarea {
+    width: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-medium, 0.5rem);
+    background-color: var(--color-surface);
+    color: inherit;
+    padding: 0.55rem 0.65rem;
+  }
+
+  textarea {
+    min-height: 8rem;
+    resize: vertical;
+  }
+
+  .verses,
+  .children {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    .verse,
+    .child-topic {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding: 0.4rem 0.55rem;
+      border-radius: var(--border-radius-medium, 0.5rem);
+      border: 1px solid var(--color-border);
+      background-color: var(--color-surface);
+      cursor: pointer;
+      min-width: 0;
+
+      @media (hover: hover) and (pointer: fine) {
+        &:hover {
+          background-color: var(--color-surface);
+          box-shadow: var(--box-shadow-hover);
+        }
+      }
+
+      &:focus-visible {
+        outline: none;
+        box-shadow: var(--box-shadow-hover);
+      }
+
+      > :first-child {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.9rem;
+      }
+
+      .icon-button.delete {
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.4rem;
+        height: 1.4rem;
+        border-radius: 0.35rem;
+        opacity: 0.5;
+        cursor: pointer;
+        margin-left: auto;
+
+        @media (hover: hover) and (pointer: fine) {
+          &:hover {
+            opacity: 1;
+            box-shadow: var(--box-shadow-hover);
+          }
+        }
+
+        &:focus-visible {
+          outline: none;
+          box-shadow: var(--box-shadow-hover);
+        }
+      }
+    }
+
+    > .icon-button:last-child {
+      align-self: center;
+    }
+  }
+}
+
+.knowledge-base-index {
+  .kb-tree-node {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .kb-tree-row {
+    display: flex;
+    align-items: center;
+    gap: 0.42rem;
+    min-width: 0;
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        background-color: var(--color-surface);
+        box-shadow: var(--box-shadow-hover);
+      }
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--box-shadow-hover);
+    }
+  }
+
+  .kb-tree-children {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-left: 0.7rem;
+    padding-left: 0.7rem;
+    border-left: 1px solid var(--color-border);
+  }
+
+  .expand-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition:
+      transform 120ms ease,
+      background-color 120ms ease,
+      color 120ms ease;
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        color: var(--color-accent);
+        box-shadow: var(--box-shadow-hover);
+      }
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--box-shadow-hover);
+    }
+
+    &.is-expanded {
+      transform: rotate(0deg);
+    }
+
+    &.is-collapsed {
+      transform: rotate(0deg);
+    }
+
+    &.is-empty {
+      cursor: default;
+      color: var(--color-text-muted, var(--color-text-muted));
+    }
+  }
+
+  .topic-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 0;
+    cursor: pointer;
+    transition:
+      transform 120ms ease,
+      background-color 120ms ease;
+
+    &:active {
+      transform: translateY(1px);
+    }
+
+    .topic-label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    .icon-button.delete {
+      flex-shrink: 0;
+    }
+  }
+}

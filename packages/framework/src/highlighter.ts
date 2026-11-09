@@ -2,7 +2,7 @@
 import { ChildDom } from "vanjs-core";
 
 // Strict Discriminated Union
-export type HighlightType =
+export type HighlightRule =
   | {
       regEXP: RegExp;
       children?: never;
@@ -10,13 +10,13 @@ export type HighlightType =
     }
   | {
       regEXP: RegExp;
-      children: HighlightType[];
+      children: HighlightRule[];
       callback: (content: ChildDom) => ChildDom;
     };
 
-export function highlight(text: string, patterns: HighlightType[]): ChildDom {
+export function highlight(text: string, patterns: HighlightRule[]): ChildDom {
   // 1. Clone regexes ONCE per function call for performance and render safety.
-  // We cast back to HighlightType[] because mapping spreads the union,
+  // We cast back to HighlightRule[] because mapping spreads the union,
   // but we know we are strictly preserving the original structure.
   const safePatterns = patterns.map(p => {
     const flags = p.regEXP.flags.includes("g") ? p.regEXP.flags : `${p.regEXP.flags}g`;
@@ -24,14 +24,14 @@ export function highlight(text: string, patterns: HighlightType[]): ChildDom {
       ...p,
       regEXP: new RegExp(p.regEXP.source, flags),
     };
-  }) as HighlightType[];
+  }) as HighlightRule[];
 
   const result: ChildDom[] = [];
   let cursor = 0;
 
   while (cursor < text.length) {
     let bestMatch: RegExpExecArray | null = null;
-    let bestType: HighlightType | undefined;
+    let bestType: HighlightRule | undefined;
 
     for (const p of safePatterns) {
       // lastIndex mutation is now perfectly safe because safePatterns is
@@ -67,70 +67,4 @@ export function highlight(text: string, patterns: HighlightType[]): ChildDom {
   }
 
   return (cursor < text.length ? [...result, text.slice(cursor)] : result) as ChildDom;
-}
-
-// Legacy HighlightType
-export interface HighlightTypeLegacy {
-  regEXP: RegExp;
-  elTag?: string;
-  cls?: string;
-  replace?: string;
-  children?: HighlightTypeLegacy[];
-}
-
-export class Highlighter {
-  private patterns: HighlightType[];
-
-  constructor(public args: HighlightTypeLegacy[]) {
-    const mapPatterns = (patterns: HighlightTypeLegacy[]): HighlightType[] =>
-      patterns.map((p): HighlightType => {
-        if (p.children) {
-          // Branch Node
-          return {
-            regEXP: p.regEXP,
-            children: mapPatterns(p.children),
-            callback: (content: ChildDom) => {
-              const el = document.createElement(p.elTag || "span");
-              if (p.cls) el.className = p.cls;
-
-              if (Array.isArray(content)) el.append(...content);
-              else el.append(content as string | Node);
-
-              return el;
-            },
-          };
-        } else {
-          // Leaf Node (Stricter string callback)
-          return {
-            regEXP: p.regEXP,
-            callback: (content: string) => {
-              const el = document.createElement(p.elTag || "span");
-              if (p.cls) el.className = p.cls;
-
-              // Emulate legacy `replace` logic perfectly natively in the callback
-              if (p.replace !== undefined) {
-                // Allows replacing static strings (like \u00B6) or swapping $1
-                el.textContent = p.replace.replace("$1", content);
-              } else {
-                el.textContent = content;
-              }
-
-              return el;
-            },
-          };
-        }
-      });
-
-    this.patterns = mapPatterns(args);
-  }
-
-  highlight = (text: string): DocumentFragment => {
-    const fragment = document.createDocumentFragment();
-    const result = highlight(text, this.patterns);
-
-    if (Array.isArray(result)) fragment.append(...result);
-    else fragment.append(result as string | Node);
-
-    return fragment;
-  };
 }

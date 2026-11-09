@@ -1,62 +1,42 @@
+/* Bible map layer styling and chapter overlays.
+   The map uses SVG land, label, and hotspot layers to present a geographic reading surface. */
 .bible-map-view {
-  height: 100%;
-  width: 100%;
-  background:
-    radial-gradient(circle at 25% 20%, rgb(160 205 248 / 0.12), transparent 45%),
-    radial-gradient(circle at 80% 80%, rgb(125 163 118 / 0.16), transparent 52%), var(--color-bg, #050505);
+  .bible-map-status {
+    position: absolute;
+    top: 18px;
+    left: 20px;
+    z-index: 1;
+    font-size: 0.82rem;
+    color: var(--color-text-muted);
+    background-color: var(--color-surface-overlay);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-medium);
+    padding: 4px 8px;
+    pointer-events: none;
+  }
+
+  .bible-map-canvas {
+    width: 100%;
+    height: 100%;
+    background-color: #005f92;
+    box-shadow: var(--shadow-drop-earth);
+    touch-action: none;
+    user-select: none;
+  }
 }
 
-.bible-map-root {
-  position: relative;
-  height: 100%;
-  width: 100%;
-  padding: 12px;
-  box-sizing: border-box;
+.bible-map-land-shelves {
+  path {
+    paint-order: stroke;
+    filter: drop-shadow(0 1px 1px var(--color-border-ink));
+    transition: filter 0.15s ease;
+  }
 }
 
-.bible-map-status {
-  position: absolute;
-  top: 18px;
-  left: 20px;
-  z-index: 1;
-  font-size: 0.82rem;
-  color: var(--color-text-muted, rgb(255 255 255 / 0.7));
-  background: rgb(0 0 0 / 0.24);
-  border: 1px solid var(--color-border, rgb(255 255 255 / 0.16));
-  border-radius: var(--border-radius-medium, 8px);
-  padding: 4px 8px;
-  backdrop-filter: blur(4px);
-  pointer-events: none;
-}
-
-.bible-map-canvas {
-  width: 100%;
-  height: 100%;
-  border: 1px solid var(--color-border, rgb(255 255 255 / 0.14));
-  border-radius: var(--border-radius-large, 12px);
-  background-color: #005f92;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.08),
-    0 12px 30px rgb(0 0 0 / 0.35);
-}
-
-.bible-map-land-shelves path {
-  paint-order: stroke;
-}
-
-.bible-map-land-shelves path {
-  /* This creates a subtle 'elevation' effect */
-  filter: drop-shadow(1px 1.5px 1px rgba(0, 0, 0, 0.5)) drop-shadow(0.5px 0.5px 0 rgb(0, 0, 0));
-  transition: filter 0.2s ease;
-}
-
-/* /* Optional: Make the peaks pop more * /
-.bible-map-land-shelves path:nth-last-child(-n + 3) {
-  filter: drop-shadow(2px 3px 2px rgba(0, 0, 0, 0.6));
-}
- */
-.bible-map-countries path {
-  paint-order: stroke;
+.bible-map-countries {
+  path {
+    paint-order: stroke;
+  }
 }
 
 .bible-map-coastline {
@@ -64,97 +44,113 @@
   stroke-linecap: round;
 }
 
-.bible-map-chapter-dots path {
-  transition: opacity 120ms ease;
+.bible-map-chapter-dots {
+  circle {
+    transition: opacity 0.15s ease;
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        opacity: 1;
+      }
+    }
+  }
 }
 
-.bible-map-chapter-dots path:hover {
-  opacity: 1;
+.bible-map-hit-areas {
+  path {
+    pointer-events: all;
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        fill: var(--color-surface);
+      }
+    }
+
+    &.is-active {
+      fill: var(--color-accent-highlight);
+    }
+  }
 }
 
-.bible-map-hit-areas path {
-  pointer-events: all;
+.bible-map-book-labels,
+.bible-map-chapter-labels {
+  text {
+    paint-order: stroke;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    text-rendering: geometricPrecision;
+    pointer-events: none;
+
+    &.is-active {
+      fill: var(--color-accent-label);
+      stroke: var(--color-border-ink);
+    }
+  }
 }
 
-.bible-map-hit-areas path:hover {
-  fill: rgb(255 255 255 / 0.12);
+.bible-map-book-labels {
+  text {
+    fill: var(--color-text);
+    font-size: calc(var(--map-label-font-size, 8px) * 1.15);
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    stroke: var(--color-border-ink);
+    stroke-width: calc(var(--map-label-font-size, 8px) * 0.3);
+  }
 }
 
-.bible-map-hit-areas path.is-active {
-  fill: rgba(255, 245, 157, 0.24);
-}
-
-.bible-map-book-labels text {
-  fill: var(--color-text, rgb(255 255 255 / 0.94));
-  font-size: calc(var(--map-label-font-size, 8px) * 1.15);
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  paint-order: stroke;
-  stroke: rgb(0 0 0 / 0.5);
-  stroke-width: calc(var(--map-label-font-size, 8px) * 0.3);
-  stroke-linejoin: round;
-  stroke-linecap: round;
-  text-rendering: geometricPrecision;
-  pointer-events: none;
-}
-
-.bible-map-book-labels text.is-active,
-.bible-map-chapter-labels text.is-active {
-  fill: #fff4a8;
-  stroke: rgb(58 37 0 / 0.72);
-}
-
-.bible-map-chapter-labels text {
-  fill: rgb(255 255 255 / 0.82);
-  font-size: var(--map-label-font-size, 8px);
-  paint-order: stroke;
-  stroke: rgb(0 0 0 / 0.4);
-  stroke-width: calc(var(--map-label-font-size, 8px) * 0.3);
-  stroke-linejoin: round;
-  stroke-linecap: round;
-  text-rendering: geometricPrecision;
-  pointer-events: none;
+.bible-map-chapter-labels {
+  text {
+    fill: var(--color-text);
+    font-size: var(--map-label-font-size, 8px);
+    stroke: var(--color-border-ink-soft);
+    stroke-width: calc(var(--map-label-font-size, 8px) * 0.3);
+  }
 }
 
 .bible-map-active-chapter {
   pointer-events: none;
 }
 
-.bible-map-active-chapter-glow {
+.bible-map-active-chapter-glow,
+.bible-map-active-chapter-core {
   fill: none;
-  stroke: rgb(255 241 166 / 0.45);
-  stroke-width: 3px;
+}
+
+.bible-map-active-chapter-glow {
+  stroke: var(--color-accent-highlight);
+  stroke-width: 2px;
+  opacity: 0.4;
 }
 
 .bible-map-active-chapter-core {
-  fill: none;
-  stroke: rgb(255 247 191 / 0.95);
+  stroke: var(--color-accent-strong);
   stroke-width: 2px;
 }
 
 .bible-map-empty {
-  fill: var(--color-text-muted, rgb(255 255 255 / 0.62));
+  fill: var(--color-text-muted);
   font-size: 14px;
 }
 
 @media (max-width: 900px) {
-  .bible-map-root {
-    padding: 8px;
-  }
-
-  .bible-map-status {
-    font-size: 0.75rem;
-    top: 12px;
-    left: 12px;
+  .bible-map-view {
+    .bible-map-status {
+      font-size: 0.75rem;
+      top: 12px;
+      left: 12px;
+    }
   }
 }
 
 @media (pointer: coarse), (max-width: 900px) {
-  .bible-map-status {
-    backdrop-filter: none;
-  }
+  .bible-map-view {
+    .bible-map-status {
+      backdrop-filter: none;
+    }
 
-  .bible-map-canvas {
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+    .bible-map-canvas {
+      box-shadow: none;
+    }
   }
 }

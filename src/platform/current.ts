@@ -1,6 +1,6 @@
 import { createPlatformBridge as createCapacitorPlatformBridge } from "./capacitor";
 import { createPlatformBridge as createElectronPlatformBridge } from "./electron";
-import type { PlatformBridge, PlatformFileAdapter, PlatformStorageAdapter, PlatformTarget } from "./types";
+import type { PlatformBridge, PlatformTarget } from "./types";
 
 declare const __TG_PLATFORM_TARGET__: PlatformTarget | undefined;
 
@@ -19,5 +19,3 @@ export function createPlatformBridge(): PlatformBridge {
       return createCapacitorPlatformBridge();
   }
 }
-
-export type { PlatformBridge, PlatformFileAdapter, PlatformStorageAdapter, PlatformTarget };

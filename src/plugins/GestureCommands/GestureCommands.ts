@@ -1,8 +1,4 @@
-import { Terminal } from "lucide";
-import Plugin from "src/core/Plugin";
 import {
-  Button,
-  CategoryLoader,
   Command,
   CommandCategory,
   CommandItem,
@@ -10,10 +6,16 @@ import {
   GestureCommand,
   GestureHandler,
   Offset,
-  UnifiedCommandPalette,
+  renderIcon,
+  stateMapping,
+  van,
 } from "@touchgrass/framework";
-import "./GestureCommands.css";
+import { Terminal } from "lucide";
+import Plugin from "src/core/Plugin";
 import { GestureAddCommandsCategoryID } from "../categoryIDs";
+import "./GestureCommands.css";
+
+const { button } = van.tags;
 
 type GestureCommandsSettings = {
   commandGestures: GestureCommand[];
@@ -28,25 +30,29 @@ export default class GesturePlugin extends Plugin {
   lastLine: Offset[] = [];
   async onload(): Promise<void> {
     this.settings = await this.loadSettings(defaultSettings);
-    const el = new Button(this.app.contentEl)
-      .addClass("gesture-button")
-      .setIcon(Terminal)
-      .on("click", () => this.app.openCommandPalette({}));
 
+    const el = button(
+      { class: "gesture-button", onclick: () => this.app.commandPalette.open({ topCategory: "" }) },
+      renderIcon(Terminal),
+    );
+
+    van.add(this.app.contentEl, el);
     new GestureHandler(
-      el.element,
+      el,
       this.settings.commandGestures,
       line => {
         this.lastLine = line;
-        this.app.commandPalette.opencategory(GestureAddCommandsCategoryID);
+        this.app.commandPalette.open({ topCategory: GestureAddCommandsCategoryID });
       },
-      ({ id }) => this.app.commandPalette.commands.executeCommand(id),
+      ({ id }) => {
+        const matched = this.settings.commandGestures.find(gesture => gesture.id === id);
+        if (!matched) {
+          this.app.console.warn(`Gesture command with id "${id}" not found.`);
+        }
+      },
     );
 
-    this.registerHiddenPalette(
-      () => new AddGesture(this.app.commandPalette, this),
-      GestureAddCommandsCategoryID,
-    );
+    this.registerPalette(GestureAddCommandsCategoryID, ({ state }) => new AddGesture(state, this), true);
   }
 
   saveGestures() {
@@ -55,46 +61,41 @@ export default class GesturePlugin extends Plugin {
 }
 
 class AddGesture extends CommandCategory<Command> {
-  id = GestureAddCommandsCategoryID;
-  name = "Add Gesture";
-  description = "Add a new gesture command";
-  icon = Terminal;
-  siblings: CategoryLoader<unknown>[] = [];
+  allItems = this.plugin.app.commandPalette.commands.commands;
+  criteria: Array<(item: Command) => string> = [
+    command => command.name,
+    command => command.description,
+    command => command.id,
+  ];
+
   constructor(
-    public commandPalette: UnifiedCommandPalette,
+    state: stateMapping<CommandPaletteState>,
     public plugin: GesturePlugin,
   ) {
-    super(commandPalette);
-  }
-
-  onTrigger(state: CommandPaletteState): void {
-    void state;
-    // No category-level action
-  }
-
-  getCommands(query: string): Command[] {
-    return this.commandPalette.commands.commands.filter(cmd =>
-      cmd.name.toLowerCase().includes(query.toLowerCase()),
-    );
-  }
-
-  renderCommand(
-    command: Command,
-    el: CommandItem<Command>,
-  ): Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState) {
-    el.setName(`Add Gesture for: ${command.name}`);
-    return {};
-  }
-
-  executeCommand(command: Command): void {
-    this.plugin.settings.commandGestures.push({
-      id: command.id,
-      name: command.name,
-      gesturePath: JSON.stringify(
-        this.plugin.lastLine.map(p => [Number(p.x.toFixed(2)), Number(p.y.toFixed(2))]),
-      ),
+    super(state, "Add Gesture", "Add a new gesture command");
+    this.extras = van.derive(() => {
+      if (this.plugin.lastLine.length === 0) {
+        return [{ title: "No gesture captured", description: "Draw a gesture over the button first." }];
+      }
+      return [];
     });
-    this.plugin.saveGestures();
-    this.commandPalette.close();
+  }
+
+  renderItem(command: Command): CommandItem {
+    return {
+      title: `Add Gesture for: ${command.name}`,
+      description: command.description,
+      click: () => {
+        this.plugin.settings.commandGestures.push({
+          id: command.id,
+          name: command.name,
+          gesturePath: JSON.stringify(
+            this.plugin.lastLine.map(p => [Number(p.x.toFixed(2)), Number(p.y.toFixed(2))]),
+          ),
+        });
+        this.plugin.saveGestures();
+        return true;
+      },
+    };
   }
 }

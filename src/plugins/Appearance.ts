@@ -1,54 +1,46 @@
-import Plugin from "src/core/Plugin";
 import {
   CommandCategory,
   CommandItem,
   CommandPaletteState,
-  UnifiedCommandPalette,
+  slider,
+  stateMapping,
+  van,
 } from "@touchgrass/framework";
+import Plugin from "src/core/Plugin";
 
 export default class AppearancePlugin extends Plugin {
   async onload(): Promise<void> {
-    this.registerPalette(() => new AppearanceCategory(this.app.commandPalette, this), "appearance");
+    this.registerPalette("appearance", ({ state }) => new AppearanceCategory(state, this));
   }
 }
 
 class AppearanceCategory extends CommandCategory<string> {
-  readonly name = "Appearance";
-  readonly description = "Customize the appearance of Touch Grass Bible";
+  allItems = van.state<string[]>([]);
+  criteria: Array<(item: string) => string> = [item => item];
 
   constructor(
-    public commandPalette: UnifiedCommandPalette,
+    state: stateMapping<CommandPaletteState>,
     public plugin: AppearancePlugin,
   ) {
-    super(commandPalette);
+    super(state, "Appearance", "Customize the appearance of Touch Grass Bible");
+    this.extras = van.derive(() => [
+      {
+        title: "Font Size",
+        description: "Adjust the font size of the Bible text",
+        extras: slider({
+          value: this.plugin.app.settings.style.fontSize,
+          onchange: (value: number) => this.plugin.app.setFontSize(value, true),
+        }),
+      },
+    ]);
+
+    this.allItems = van.state<string[]>([]);
   }
 
-  onTrigger(_state: CommandPaletteState): void {
-    void _state;
-    this.defaultCMD.addCMD("Font Size", "Adjust the font size of the Bible text", item => {
-      item.addSliderInput(slider =>
-        slider
-          .setValue(this.plugin.app.settings.style.fontSize)
-          .on("change", (value: number) => this.plugin.app.setFontSize(value, true)),
-      );
-      return {};
-    });
-  }
-
-  getCommands(_query: string): string[] {
-    void _query;
-    return [];
-  }
-
-  renderCommand(
-    command: string,
-    el: CommandItem<string>,
-  ): Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState) {
-    el.setTitle(command).setDescription("No appearance settings available yet").setHidden(false);
-    return {};
-  }
-
-  executeCommand(_command: string): void {
-    void _command;
+  renderItem(command: string): CommandItem {
+    return {
+      title: command,
+      description: "No appearance settings available yet",
+    };
   }
 }

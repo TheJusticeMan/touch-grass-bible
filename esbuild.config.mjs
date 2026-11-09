@@ -14,7 +14,7 @@ const prod = process.argv[2] === "production";
 const buildTarget = process.env.APP_TARGET || "capacitor";
 const enableExternalPlugins = process.env.ENABLE_EXTERNAL_PLUGINS === "true";
 const targetVersion = process.env.npm_package_version || "0.0.0";
-const frameworkLucidePath = resolve("packages/framework/node_modules/lucide/dist/esm/lucide.js");
+const frameworkLucidePath = resolve("node_modules/lucide/dist/esm/lucide.mjs");
 
 if (!["electron", "capacitor"].includes(buildTarget)) {
   throw new Error(`Unsupported APP_TARGET: ${buildTarget}`);
@@ -43,9 +43,13 @@ function getBuildInfoModuleSource() {
  * Generates `dist/index.html` with a loading shell and conditional CSP.
  */
 function writeIndexHtml() {
-  const cspContent = enableExternalPlugins
-    ? "default-src 'self'; script-src 'self' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' http://localhost:11434 http://127.0.0.1:11434; worker-src blob:;"
-    : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' http://localhost:11434 http://127.0.0.1:11434;";
+  const isDev = !prod;
+
+  const cspContent = isDev
+    ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws://localhost:35729 ws://127.0.0.1:35729 http://localhost:11434 http://127.0.0.1:11434; worker-src blob:;"
+    : enableExternalPlugins
+      ? "default-src 'self'; script-src 'self' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' http://localhost:11434 http://127.0.0.1:11434; worker-src blob:;"
+      : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' http://localhost:11434 http://127.0.0.1:11434;";
 
   const output = [
     "<!doctype html>",
@@ -222,5 +226,7 @@ if (prod) {
 
   process.exit(0);
 } else {
+  // Keep index.html in sync with development CSP (live-reload needs inline script support).
+  writeIndexHtml();
   await appContext.watch();
 }

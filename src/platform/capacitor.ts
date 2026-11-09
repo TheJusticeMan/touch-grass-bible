@@ -28,6 +28,24 @@ function normalizePath(path: string): string {
     .replace(/^\/+/, "");
 }
 
+function resolveAssetUrl(path: string): string {
+  const normalized = normalizePath(path);
+
+  if (normalized.startsWith("http://") || normalized.startsWith("https://")) {
+    return normalized;
+  }
+
+  if (normalized.startsWith("assets/")) {
+    return `/${normalized}`;
+  }
+
+  if (normalized.startsWith("data/")) {
+    return `/${normalized.replace(/^data\//, "assets/")}`;
+  }
+
+  return `/assets/${normalized}`;
+}
+
 function getParentPath(path: string): string {
   const normalizedPath = normalizePath(path);
   const segments = normalizedPath.split("/");
@@ -97,16 +115,37 @@ async function writeFilesystemBinary(path: string, content: Uint8Array, director
   });
 }
 
-function getStoragePath(key: string): string {
-  return `.tg-storage/${encodeURIComponent(key)}.txt`;
+function getStoragePath(key: string, extension: "json" | "txt" = "json"): string {
+  return `.tg-storage/${encodeURIComponent(key)}.${extension}`;
+}
+
+async function readStorageItem(key: string): Promise<string | null> {
+  try {
+    return await readFilesystemText(getStoragePath(key, "json"), Directory.Data);
+  } catch {
+    try {
+      return await readFilesystemText(getStoragePath(key, "txt"), Directory.Data);
+    } catch {
+      return null;
+    }
+  }
 }
 
 async function fetchAssetText(path: string): Promise<string> {
-  const response = await fetch(normalizePath(path));
-  if (!response.ok) {
-    throw new Error(`Failed to load asset ${path}: ${response.status} ${response.statusText}`);
+  const url = resolveAssetUrl(path);
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to load asset ${path}: ${response.status} ${response.statusText}`);
+    }
+    return await response.text();
+  } catch (error) {
+    throw new Error(
+      `Failed to load asset ${path}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
   }
-  return response.text();
 }
 
 export function createPlatformBridge(): PlatformBridge {
@@ -114,14 +153,10 @@ export function createPlatformBridge(): PlatformBridge {
     target: "capacitor",
     storage: {
       async getItem(key: string): Promise<string | null> {
-        try {
-          return await readFilesystemText(getStoragePath(key), Directory.Data);
-        } catch {
-          return null;
-        }
+        return readStorageItem(key);
       },
       async setItem(key: string, value: string): Promise<void> {
-        await writeFilesystemText(getStoragePath(key), value, Directory.Data);
+        await writeFilesystemText(getStoragePath(key, "json"), value, Directory.Data);
       },
     },
     files: {

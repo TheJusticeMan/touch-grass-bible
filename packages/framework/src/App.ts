@@ -1,10 +1,10 @@
 import "./App.css";
-import { UnifiedCommandPalette } from "./CommandPalette";
-import { ETarget, touchDragger, touchDraggerEvents } from "./Event";
+import { CommandPalette } from "./CommandPalette.ts";
 import { BrowserConsole } from "./MyBrowserConsole";
-import "./MyHTML";
 import type { PlatformBridge } from "./PlatformBridge.ts";
-import { Workspace, WorkspaceLayout } from "./Workspace/Workspace";
+import "./toTitleCase.ts";
+import { Workspace } from "./Workspace";
+import { PanelContainerSerialized } from "./Workspace/Types.ts";
 
 export { App };
 
@@ -24,7 +24,7 @@ export { App };
  * @property {HTMLElement} contentEl - The main content element for the application UI.
  * @property {AppState} state - The current application state.
  * @property {ETarget[]} target - Stack of event targets for keyboard and command events.
- * @property {UnifiedCommandPalette<App>} commandPalette - The application's command palette.
+ * @property {CommandPaletteV2<App>} commandPalette - The application's command palette.
  *
  * @constructor
  * @param {Document} doc - The document object for DOM manipulation.
@@ -48,15 +48,7 @@ export { App };
  * - Integrates with browser history and prevents accidental page unloads.
  * - Provides utility methods for data import/export and persistence.
  */
-abstract class App extends ETarget<
-  {
-    keydown: { key: string; event: KeyboardEvent };
-    historypop: object;
-    open: void;
-    close: void;
-    [key: string]: unknown;
-  } & touchDraggerEvents
-> {
+abstract class App {
   /** Console instance for app-level logs and diagnostics. */
   console: BrowserConsole;
 
@@ -70,7 +62,7 @@ abstract class App extends ETarget<
   readonly platformBridge: PlatformBridge;
 
   /** Shared command palette instance used across the app shell. */
-  commandPalette: UnifiedCommandPalette;
+  commandPalette: CommandPalette;
 
   files: Files;
 
@@ -85,16 +77,19 @@ abstract class App extends ETarget<
     private doc: Document,
     private _title: string,
     platformBridge: PlatformBridge,
+    layout: PanelContainerSerialized,
   ) {
-    super();
     this.platformBridge = platformBridge;
     this.console = new BrowserConsole(true, `${this._title || "App"}:`);
     this.console.header("color:#f0f; font-size:40px; font-weight:bold;");
-    this.contentEl = this.doc.body.createEl("div", { cls: "app-shell-element" });
-    this.workspace = new Workspace(this);
+    this.contentEl = document.body; // Mount directly to body for full control over the app shell
     this.files = new Files(this.platformBridge);
-    this.commandPalette = new UnifiedCommandPalette(this);
-    new touchDragger(this.contentEl).onany((name, e) => this.workspace.emit(name, e));
+    this.workspace = new Workspace(this.contentEl, layout, this);
+
+    this.commandPalette = new CommandPalette(this);
+
+    this.workspace.layout.registerView("command-palette", () => this.commandPalette);
+    // this.commandPalette = new UnifiedCommandPalette(this);
 
     this.title = this._title;
 
@@ -104,7 +99,6 @@ abstract class App extends ETarget<
     // Handle page unload attempts
     window.addEventListener("beforeunload", () => this.unload());
     // Handle browser history navigation
-    window.addEventListener("popstate", () => this.workspace.emit("historypop", {}));
   }
 
   async init() {
@@ -131,12 +125,18 @@ abstract class App extends ETarget<
   }
 
   private load = async () => {
-    await this.workspace.initialize();
-    await this.onload();
+    document.body.classList.add("appstart");
+    try {
+      await this.onload();
+    } finally {
+      requestAnimationFrame(() => {
+        document.body.classList.remove("appstart");
+        document.body.classList.add("ready");
+      });
+    }
   };
   private unload = (): boolean => {
     const shouldUnload = this.onunload();
-    if (shouldUnload) this.workspace.shutdown();
     return shouldUnload;
   };
 
@@ -162,7 +162,7 @@ abstract class App extends ETarget<
   /**
    * Supplies the fallback workspace layout for invalid or absent saved layouts.
    */
-  abstract getDefaultWorkspaceLayout(): WorkspaceLayout;
+  abstract getDefaultWorkspaceLayout(): PanelContainerSerialized;
 
   /**
    * Called when persisted workspace layout JSON cannot be parsed or validated.

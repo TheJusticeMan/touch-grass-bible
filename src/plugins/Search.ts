@@ -1,9 +1,4 @@
-import {
-  CommandCategory,
-  CommandItem,
-  CommandPaletteState,
-  UnifiedCommandPalette,
-} from "@touchgrass/framework";
+import { CommandCategory, CommandItem, CommandPaletteState, stateMapping, van } from "@touchgrass/framework";
 import Plugin from "../core/Plugin";
 import { VerseRef, bibleData } from "../models/VerseRef";
 import { BibleSearchCategoryID, GoToVerseCategoryID, TSKCrossRefCategoryID } from "./categoryIDs";
@@ -11,36 +6,35 @@ import { BibleMatch, parseGoToVerseQuery } from "./searchParser.ts";
 
 export default class BibleSearchPlugin extends Plugin {
   async onload(): Promise<void> {
-    this.registerPalette(() => new BibleSearchCategory(this.app.commandPalette, this), BibleSearchCategoryID);
-    this.registerPalette(() => new GoToVerseCategory(this.app.commandPalette, this), GoToVerseCategoryID);
+    this.registerPalette(BibleSearchCategoryID, ({ state }) => new BibleSearchCategory(state, this));
+    this.registerPalette(GoToVerseCategoryID, ({ state }) => new GoToVerseCategory(state, this));
   }
 }
 
 class BibleSearchCategory extends CommandCategory<VerseRef> {
-  readonly name = "Search bible";
-  readonly description = "Search for verses in the Bible";
-  verses: VerseRef[] = [];
+  allItems = van.state<VerseRef[]>([]);
+  criteria: Array<(item: VerseRef) => string> = [verse => verse.toString(), verse => verse.vTXT];
   bible: bibleData = {}; // Default to an empty object
 
   constructor(
-    public commandPalette: UnifiedCommandPalette,
+    state: stateMapping<CommandPaletteState>,
     public plugin: BibleSearchPlugin,
   ) {
-    super(commandPalette);
+    super(state, "Search bible", "Search for verses in the Bible");
   }
 
-  onTrigger(_state: CommandPaletteState): void {
-    void _state;
+  getItems(): VerseRef[] {
     this.bible = VerseRef.bible;
-  }
+    const query = this.state.query.val.trim();
+    if (!query) {
+      this.allItems.val = [];
+      return super.getItems();
+    }
 
-  getCommands(query: string): VerseRef[] {
-    const maxResults = this.commandPalette.maxResults - this.commandPalette.length; // Limit the number of results to avoid performance issues
-    if (!query && this.commandPalette.getState().topCategory !== GoToVerseCategoryID) return [];
-    //testLevenshtein(this.bible, query);
+    const maxResults = this.state.maxItems.val;
 
     const results: VerseRef[] = [];
-    const quarylcase = query.toLowerCase() || "search the scriptures";
+    const quarylcase = query.toLowerCase();
 
     for (const book in this.bible) {
       const chapters = this.bible[book];
@@ -49,28 +43,33 @@ class BibleSearchCategory extends CommandCategory<VerseRef> {
         for (let verse = 1; verse < verses!.length; verse++) {
           if (verses![verse]!.toLowerCase().includes(quarylcase)) {
             results.push(new VerseRef(book, chapter, verse));
-            if (results.length > maxResults) return results;
+            if (results.length >= maxResults) {
+              this.allItems.val = results;
+              return super.getItems();
+            }
           }
         }
       }
     }
-    return results;
+
+    this.allItems.val = results;
+    return super.getItems();
   }
 
-  renderCommand(
-    verse: VerseRef,
-    Item: CommandItem<VerseRef>,
-  ): (state: CommandPaletteState) => CommandPaletteState {
-    Item.setTitle(verse.toString()).setDescription(verse.vTXT).addctx().setHidden(false);
-    return state => {
-      this.plugin.app.verseState.set(verse);
-      return state.update({ topCategory: TSKCrossRefCategoryID });
+  renderItem(verse: VerseRef): CommandItem {
+    return {
+      title: verse.toString(),
+      description: verse.vTXT,
+      context: () => {
+        this.plugin.app.verseState.val = verse;
+        return { topCategory: TSKCrossRefCategoryID };
+      },
+      click: () => {
+        this.plugin.app.verseState.val = verse;
+        this.updateViewState({ topCategory: TSKCrossRefCategoryID });
+        return true;
+      },
     };
-  }
-
-  executeCommand(_command: VerseRef): void {
-    void _command;
-    this.commandPalette.close();
   }
 }
 
@@ -78,43 +77,55 @@ class BibleSearchCategory extends CommandCategory<VerseRef> {
  * Command category that allows users to navigate to specific Bible verses through a command palette.
  *
  * Provides intelligent parsing of user input to match Bible books, chapters, and verses progressively.
- * Uses a greedy matching algorithm that finds the longest prefix match at each stage (book → chapter → verse).
+ * Uses a greedy matching algorithm that finds the longest prefix match at each stage (book -> chapter -> verse).
  *
  * @template BibleMatch - The type representing a partial or complete Bible verse reference with optional book, chapter, and verse properties.
  *
  * @example
  * ```typescript
  * const category = new GoToVerseCategory(commandPalette, plugin);
- * // User types "john 3" → suggests John 3:1-51
- * // User types "john 3:1" → selects John 3:1
+ * // User types "john 3" -> suggests John 3:1-51
+ * // User types "john 3:1" -> selects John 3:1
  * ```
  */
 class GoToVerseCategory extends CommandCategory<BibleMatch> {
-  readonly name = "Go to verse";
-  readonly description = "Navigate to a specific verse in the Bible";
+  allItems = van.state<BibleMatch[]>([]);
+  criteria: Array<(item: BibleMatch) => string> = [
+    cmd => `${cmd.book}${cmd.chapter ? ` ${cmd.chapter}` : ""}${cmd.verse ? `:${cmd.verse}` : ""}`,
+  ];
 
   constructor(
-    public commandPalette: UnifiedCommandPalette,
+    state: stateMapping<CommandPaletteState>,
     public plugin: BibleSearchPlugin,
   ) {
-    super(commandPalette);
+    super(state, "Go to verse", "Navigate to a specific verse in the Bible");
   }
-  onTrigger(): void {}
-  getCommands(query: string): BibleMatch[] {
-    return parseGoToVerseQuery(query, VerseRef.booksOfTheBible, VerseRef.bible);
+
+  getItems(): BibleMatch[] {
+    this.allItems.val = parseGoToVerseQuery(this.state.query.val, VerseRef.booksOfTheBible, VerseRef.bible);
+    if (this.allItems.val.length === 0 && this.state.topCategory.val === GoToVerseCategoryID) {
+      this.allItems.val = VerseRef.booksOfTheBible.map(book => ({ book }));
+    }
+
+    return this.allItems.val;
   }
-  renderCommand(
-    command: BibleMatch,
-    el: CommandItem<BibleMatch>,
-  ): Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState) {
-    const { book, chapter, verse } = command;
-    el.setTitle(book + (chapter ? ` ${chapter}` : "") + (verse ? `:${verse}` : ""));
-    return { topCategory: TSKCrossRefCategoryID };
-  }
-  executeCommand(command: BibleMatch): void {
+
+  renderItem(command: BibleMatch): CommandItem {
     const { book, chapter, verse } = command;
     const verseRef = new VerseRef(book, chapter ?? 1, verse ?? 1);
-    this.plugin.app.verseState.set(verseRef);
-    this.commandPalette.close();
+
+    return {
+      title: book + (chapter ? ` ${chapter}` : "") + (verse ? `:${verse}` : ""),
+      description: verseRef.vTXT,
+      context: () => {
+        this.plugin.app.verseState.val = verseRef;
+        return { topCategory: TSKCrossRefCategoryID };
+      },
+      click: () => {
+        this.plugin.app.verseState.val = verseRef;
+        this.updateViewState({ topCategory: TSKCrossRefCategoryID });
+        return true;
+      },
+    };
   }
 }

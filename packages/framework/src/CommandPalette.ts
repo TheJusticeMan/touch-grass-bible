@@ -1,1478 +1,1053 @@
-import levenshtein from "js-levenshtein";
-import { ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, X } from "lucide";
-import van, { Props, PropsWithKnownKeys } from "vanjs-core";
-import { App } from "./App";
-import { CMD, CMDType } from "./Comands";
-import "./CommandPalette.css";
-import {
-  COMMAND_PALETTE_CONFIG_NAME,
-  DEFAULT_COMMAND_PALETTE_SETTINGS,
-  type CommandPaletteSettings,
-} from "./CommandPaletteSettings";
-import { Commands } from "./Commands";
-import { escapeRegExp } from "./escapeRegExp";
-import { ETarget, touchDraggerEvents } from "./Event";
-import { HighlightType } from "./highlighter";
-import { BrowserConsole } from "./MyBrowserConsole";
-import { PaletteState, PaletteStateController } from "./PaletteStateController";
-import { SettingsStore } from "./SettingsStore";
-import { icon, inputMode, Item } from "./UIComponents";
-import { WorkspaceDialog } from "./Workspace";
+import { IconNode } from "lucide";
 
-const { div, button, input, span, br } = van.tags;
+import { ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, X } from "lucide";
+import van, { ChildDom, State } from "vanjs-core";
+import { App } from "./App";
+import "./CommandPalette.css";
+import { escapeRegExp } from "./escapeRegExp";
+import { touchDragger } from "./Event";
+import { highlight, HighlightRule } from "./highlighter";
+import { renderIcon } from "./Icons";
+import { PaletteSettingsController } from "./PaletteSettingsController";
+import { Platform } from "./Platform";
+import { toggle } from "./UIComponents";
+import { stateMapping, View } from "./Workspace";
+
+const { button, div, input, br, span } = van.tags;
 
 /**
- * Lazy wrapper for a command category factory.
- *
- * The loader defers category instantiation until first access and then caches
- * the created category instance for future calls.
- *
- * @typeParam T - Command item type represented by the category.
+ * Represents a single executable command or action item within the palette.
  */
-export class CategoryLoader<T> {
-  private _palette: CommandCategory<T> | null = null;
+export type CommandItem = {
+  /** The primary label for the command. */
+  title: string;
+  /** A brief explanation of what the command does. */
+  description: string;
+  /** * Callback executed when the command is selected.
+   * @returns {boolean} Whether the palette should close after execution.
+   */
+  click?: () => boolean;
+  /** Callback executed to trigger alternative context or secondary actions. */
+  context?: () => Partial<CommandPaletteState>;
+  /** Additional DOM elements to render alongside the item. */
+  extras?: ChildDom;
+  /** Determines if the command item description should be visually hidden in the non-focused non-expanded state. */
+  hidden?: boolean;
+};
+
+/**
+ * Represents a categorized group of palette items ready for rendering.
+ */
+type PaletteWithItems = {
+  /** Unique identifier for the palette category. */
+  id: string;
+  /** The display title of the palette category. */
+  title: ChildDom;
+  /** The description of the palette category. */
+  description: ChildDom;
+  /** Primary commands belonging to this palette. */
+  items: CommandItem[];
+  /** Secondary or supplementary commands belonging to this palette. */
+  extras: CommandItem[];
+};
+
+/**
+ * Global state object for managing the command palette's UI and filtering.
+ */
+export type CommandPaletteState = {
+  /** Whether the palette's internal groups are fully expanded. */
+  expanded: boolean;
+  /** The current search query string. */
+  query: string;
+  /** The ID of the currently focused or pinned top-level category. */
+  topCategory: string;
+  /** Maximum number of items to render to prevent DOM lag. */
+  maxItems: number;
+};
+
+/** Defines the behavior mode of the prompt category. */
+type PromptMode = "prompt" | "confirm";
+
+/**
+ * A wrapper for command categories that lazily evaluates and instantiates
+ * the category only when requested, optimizing initial load times.
+ * * @template T The type of underlying items this category manages.
+ */
+class LoadableCommandCategory<T = unknown> {
+  /** Cached category instance created on first access. */
+  _category?: CommandCategory<T>;
+
+  /** Reactive flag used to surface lazy-loading state in the UI. */
+  isloaded = van.state(false);
 
   /**
-   * @param load - Factory callback that creates a category instance.
-   * @param id - Stable category id used for registration and lookup.
+   * @param cfn Factory function to generate the category instance.
+   * @param id The unique identifier for this loadable category.
+   * @param state The global command palette state mapping.
    */
   constructor(
-    private load: CategoryLoaderFunc<T>,
-    readonly id: string,
+    private cfn: (args: { id: string; state: stateMapping<CommandPaletteState> }) => CommandCategory<T>,
+    public id: string,
+    private state: stateMapping<CommandPaletteState>,
   ) {}
 
   /**
-   * Returns this loader's category instance, creating it on first access.
+   * Retrieves the underlying category instance, instantiating it on demand.
    *
-   * @param commandPalette - Palette runtime used by the category factory.
-   * @returns Cached command category instance.
+   * The first access runs the factory callback and flips {@link isloaded} so
+   * the palette can present a stable name and description afterward.
    */
-  public getPalette(commandPalette: UnifiedCommandPalette): CommandCategory<T> {
-    return this._palette || (this._palette = this.load(commandPalette));
+  get category() {
+    if (!this._category) {
+      this._category = this.cfn({ id: this.id, state: this.state });
+      this.isloaded.val = true;
+    }
+    return this._category;
+  }
+
+  /**
+   * Human-readable category name.
+   *
+   * Before the category is loaded, this falls back to a title-cased version of
+   * the id so the navigator can still render something meaningful.
+   */
+  get name() {
+    if (!this.isloaded.val)
+      return this.id
+        .toLowerCase()
+        .replace(/[_-]/g, " ")
+        .replace(/\b\w/g, char => char.toUpperCase());
+
+    return this.category.title.val;
+  }
+
+  /**
+   * Human-readable category description.
+   *
+   * When the category has not been instantiated yet, return a short hint so
+   * the navigator can still show context without eager construction.
+   */
+  get description() {
+    if (!this.isloaded.val) return `Load "${this.name}" to see more details`;
+
+    return this.category.description.val;
   }
 }
 
 /**
- * Factory signature used to register command categories.
- *
- * @typeParam T - Command item type represented by the returned category.
- * @param commandPalette - Palette runtime that owns the category.
- * @returns A command category instance.
+ * The core Command Palette view controller.
+ * Handles registering palettes, user input, DOM generation, and palette rendering.
  */
-export type CategoryLoaderFunc<T> = (commandPalette: UnifiedCommandPalette) => CommandCategory<T>;
+export class CommandPalette extends View<CommandPaletteState> {
+  /** Stable workspace view id used for the floating command palette. */
+  public viewTypeId: string = "command-palette";
+  /** Keep a stable singleton instance so reopening preserves existing reactivity graph. */
+  public isSingleton = true;
+  /** Persisted palette settings adapter for category order and visibility. */
+  private readonly settingsController: PaletteSettingsController<LoadableCommandCategory>;
+  /** User-visible categories. */
+  private readonly registeredPalettes: State<LoadableCommandCategory[]> = van.state([]);
+  /** Hidden categories that can still be reached by id or search. */
+  private readonly registeredHiddenPalettes: State<LoadableCommandCategory[]> = van.state([]);
+  /** Prompt/confirm pseudo-category used by the palette prompt flow. */
+  private readonly promptPalette: PromptCategory;
+  /** Hidden registry of executable commands exposed by the app. */
+  readonly commands: Commands;
+  /** Current selected index across the rendered command items. */
+  selectedIndex = van.state(0);
+  /** Categories that should appear in the small overview rail. */
+  overviewPalettes = van.derive(() => (Platform.isWideScreen.val ? ["navigator"] : []));
+  /** Palette groups rendered in the overview rail. */
+  overviewItems: State<PaletteWithItems[]>;
+  /** Palette groups rendered in the main category area. */
+  regularItems: State<PaletteWithItems[]>;
+  /** Currently hovered or selected command item. */
+  hoverItem: State<CommandItem | null>;
+  /** Number of items rendered in the overview rail. */
+  overviewItemsCount: State<number>;
+  /** Text highlighter for query matches inside rendered titles and descriptions. */
+  highlighter: State<HighlightRule[]>;
+  /** Tracks whether pointer interactions should suppress search focus. */
+  private isFocusedSearchInput = true;
 
-type UnifiedCommandPaletteEvents = {
-  close: void;
-  keydown: { key: string };
-  historypop: CommandPaletteState;
-} & touchDraggerEvents;
-
-/**
- * Abstract base class for a unified command palette UI component.
- *
- * The `UnifiedCommandPalette` provides a flexible, extensible command palette interface
- * for applications, supporting categories, keyboard navigation, context stacks, and
- * dynamic command filtering. It manages the UI lifecycle, user input, and command execution.
- *
- * @typeParam  - The application type, extending `App`, that this palette is bound to.
- *
- * @template
- * @extends ETarget
- *
- * @remarks
- * - Supports multiple command categories and dynamic context switching.
- * - Handles keyboard and mouse/touch navigation.
- * - Maintains a stack of contexts for back navigation.
- * - Designed to be subclassed with concrete implementations.
- *
- * @property isOpen - Whether the palette is currently open.
- * @property inputMode - The current input mode for the search field.
- * @property length - The number of command items currently displayed.
- * @property topCategory - The currently active top-level command category.
- *
- * @method addPalette - Adds a command category (by constructor or instance).
- * @method addPalettereturns - Adds a command category and returns the instance.
- * @method open - Opens the command palette with an optional context.
- * @method display - Displays the palette UI for a given context.
- * @method close - Closes the palette and cleans up UI.
- *
- * @protected
- * @method render - Renders the command list based on the current state and query.
- * @method moveSelection - Moves the keyboard selection up or down.
- * @method selectIndex - Selects a command item by index.
- * @method updateSelection - Updates the UI to reflect the current selection.
- * @method activateSelected - Activates the currently selected command.
- *
- * @event open - Emitted when the palette is opened.
- * @event display - Emitted when the palette is displayed with a new state.
- * @event close - Emitted when the palette is closed.
- *
- * @example
- * const palette = new UnifiedCommandPalette(app);
- */
-export class UnifiedCommandPalette extends ETarget<UnifiedCommandPaletteEvents> {
-  private dialog: CommandPaletteDialog | null = null;
-  private _state: CommandPaletteState = new CommandPaletteState("");
-  get maxResults(): number {
-    return this.dialog?.maxResults.val ?? 100;
-  }
-  freezeScrollOnRender: boolean = false; // Flag to control scroll freezing on render
-
-  private categories: CategoryLoader<unknown>[] = [];
-  private hiddenCategories: CategoryLoader<unknown>[] = []; // Hidden categories
-  private _disabledPalettes: Set<string> = new Set();
-  private stateController: PaletteStateController<CommandPaletteState>;
-  private categoryOrder: string[] = [];
-  private settingsInitialized = false;
-  private applyingSettings = false;
-  private readonly settingsStore: SettingsStore<CommandPaletteSettings>;
-  commands: Commands = new Commands();
-  highlighter: HighlightType[] = []; // Highlighter instance for query highlighting
-
-  inputMode: inputMode = "search"; // Default input type
-
+  /**
+   * @param app The main application instance.
+   */
   constructor(public readonly app: App) {
-    super();
-    this.settingsStore = new SettingsStore<CommandPaletteSettings>({
-      defaultValue: DEFAULT_COMMAND_PALETTE_SETTINGS,
-      defaultSaveDelayMs: 500,
-      fileManager: this.app.files,
-      fileName: COMMAND_PALETTE_CONFIG_NAME,
-    });
-    this.stateController = new PaletteStateController<CommandPaletteState>(
-      () => this.getState(),
-      state => {
-        this._state = state;
-        this.dialog?.setState(state);
-      },
+    super("", { expanded: true, query: "", topCategory: "", maxItems: 15 });
+    this.settingsController = new PaletteSettingsController(
+      this.app,
+      this.registeredPalettes,
+      this.state.topCategory,
     );
-    this.addHiddenPalette(() => new CategoryNavigator(this), "navigator");
-    this.addHiddenPalette(() => new PromptCategory(this), "prompt");
-  }
 
-  async initializeSettings(): Promise<void> {
-    const settings = await this.settingsStore.load(DEFAULT_COMMAND_PALETTE_SETTINGS);
-    this.applySettings(settings);
-    this.settingsInitialized = true;
-  }
+    const palettesById = van.derive(() => new Map(this.allPalettes.map(palette => [palette.id, palette])));
+    const overviewPalettesById = van.derive(() => new Set(this.overviewPalettes.val));
 
-  private applySettings(settings: CommandPaletteSettings): void {
-    this.applyingSettings = true;
-    this.setCategoryOrder(settings.categoryOrder);
-    this.setDisabledPalettes(settings.disabledPalettes);
-    this.applyingSettings = false;
-  }
+    this.overviewItems = van.derive(() =>
+      this.buildPaletteGroups(
+        this.overviewPalettes.val
+          .map(id => palettesById.val.get(id))
+          .filter((palette): palette is LoadableCommandCategory => !!palette),
+      ),
+    );
 
-  private onSettingsChanged(): void {
-    if (!this.settingsInitialized || this.applyingSettings) return;
-    const settings: CommandPaletteSettings = {
-      categoryOrder: this.getCategoryOrder(),
-      disabledPalettes: this.getDisabledPalettes(),
-    };
-    this.settingsStore.saveAfterDelay(settings);
-    if (this.isOpen) this.refresh();
-  }
+    this.overviewItemsCount = van.derive(
+      () => this.overviewItems.val.flatMap(group => this.getGroupItems(group)).length,
+    );
 
-  get isOpen(): boolean {
-    return this.dialog?.isOpen ?? false;
-  }
+    const topCategory = van.derive(() => this.findPaletteById(this.state.topCategory.val));
 
-  private getOrCreateDialog(): CommandPaletteDialog {
-    if (!this.dialog) {
-      this.dialog = new CommandPaletteDialog(this);
-      this.dialog.setState(this._state);
-    }
-    return this.dialog;
-  }
+    this.regularItems = van.derive(() =>
+      this.buildPaletteGroups(
+        [
+          topCategory.val,
+          ...(topCategory.val?.category.siblings
+            ? topCategory.val.category.siblings.map(id => palettesById.val.get(id)) || []
+            : this.registeredPalettes.val.filter(
+                p => !this.settingsController.isCategoryDisabled(p.id) && topCategory.val?.id !== p.id,
+              )),
+        ].filter(
+          (palette): palette is LoadableCommandCategory =>
+            !!palette && !overviewPalettesById.val.has(palette.id),
+        ),
+      ),
+    );
 
-  onDialogOpened(): void {}
+    this.hoverItem = van.derive(
+      () =>
+        [...this.overviewItems.val, ...this.regularItems.val].flatMap(group => this.getGroupItems(group))[
+          this.selectedIndex.val
+        ] || null,
+    );
 
-  onDialogClosed(dialog: CommandPaletteDialog): void {
-    if (this.dialog === dialog) {
-      this._state = dialog.getState();
-      this.dialog = null;
-    }
-    this.emit("close", undefined);
-  }
+    // make sure it's in view
+    van.derive(
+      () => (
+        this.selectedIndex.val,
+        this.state.maxItems.val,
+        window.requestAnimationFrame(
+          () =>
+            this.isCreated &&
+            this.el?.querySelector(".selected")?.scrollIntoView({
+              block: "nearest",
+              inline: "nearest",
+            }),
+        )
+      ),
+    );
 
-  open(): this {
-    if (this.isOpen) return this;
-    return this.display();
-  }
-
-  close(): this {
-    if (!this.isOpen) return this;
-    this.update({
-      query: "",
-      topCategory: "",
+    van.derive(() => {
+      void this.state.query.val;
+      void this.state.topCategory.val;
+      this.selectedIndex.val = this.overviewItemsCount.val;
+      this.state.maxItems.val = 15;
     });
-    this.stateController.clearContexts();
-    this.inputMode = "search";
-    this.dialog?.destroy();
-    return this;
+
+    van.derive(() => (this.state.topCategory.val, (this.state.query.val = "")));
+
+    this.registerPalette({
+      id: "navigator",
+      cfn: () => new NavigatorCategory(this.state, this.registeredPalettes, this),
+      hidden: true,
+    });
+    this.promptPalette = new PromptCategory(this.state, this);
+
+    this.registerPalette({ id: "prompt", cfn: () => this.promptPalette, hidden: true });
+
+    this.commands = new Commands(this.state);
+
+    this.registerPalette({ id: "commands", cfn: () => this.commands, hidden: true });
+
+    const trimmedQuery = van.derive(() => this.state.query.val.trim());
+
+    this.highlighter = van.derive(() => [
+      ...((trimmedQuery.val && [
+        {
+          // eslint-disable-next-line security/detect-non-literal-regexp
+          regEXP: new RegExp(`(${escapeRegExp(trimmedQuery.val)})`, "ig"),
+          callback: (match: string) => span({ class: "highlighted-query" }, match),
+        },
+      ]) ||
+        []),
+      { regEXP: /\n/g, callback: () => br() },
+    ]);
+  }
+
+  /** Loads the persisted category order and disabled palette settings. */
+  async initializeSettings(): Promise<void> {
+    await this.settingsController.initializeSettings();
+  }
+
+  /** Focuses the search input whenever the view is mounted. */
+  onMount(): void {
+    this.isFocusedSearchInput = true;
+    this.focus();
+  }
+
+  /** Whether the palette is currently visible as a floating view. */
+  get isOpen(): boolean {
+    return this.app.workspace.layout.floatingViews.children.val.some(view => view.val === this);
   }
 
   /**
-   * Opens the navigator category used as the palette's quick access menu.
+   * Opens the palette with optional state overrides.
    *
-   * @returns The current palette instance for method chaining.
+   * If the palette is already open, the new state is merged into the current
+   * view. If it is closed, the floating palette view is created first.
+   *
+   * @param context - Partial state to merge into the active palette session.
    */
+  open(context: Partial<CommandPaletteState> = {}): this {
+    const wasOpen = this.isOpen;
+
+    if (!wasOpen) this.state.query.val = context.query || "";
+
+    this.updateViewState(context);
+
+    if (!wasOpen) this.app.workspace.layout.addFloatingView(this.viewTypeId, this.getState());
+
+    return this;
+  }
+
+  /** Closes the palette and cancels any active prompt session. */
+  close(): this {
+    this.promptPalette.cancelPrompt();
+
+    if (this.isOpen) {
+      this.app.workspace.layout.removeViewInstance(this);
+    }
+
+    return this;
+  }
+
+  /** Convenience helper that opens the palette on the navigator category. */
   menu() {
-    this.update({ topCategory: "navigator" }).open();
-  }
-
-  private saveStateHistory(): this {
-    this.app.historyPush();
+    this.open({ topCategory: "navigator" });
     return this;
   }
 
   /**
-   * Creates palette-scoped reactive state storage.
+   * Opens a prompt session and resolves with the user's text or null.
    *
-   * @typeParam T - State value type.
-   * @param initialValue - Initial value for the state holder.
-   * @returns A reactive state handle managed by the palette state controller.
-   */
-  useState<T>(initialValue: T): PaletteState<T> {
-    return this.stateController.useState(initialValue);
-  }
-
-  /**
-   * Shows a prompt interaction and resolves with text or `null`.
+   * The prompt is implemented using the palette itself, so callers can await a
+   * value without needing a separate dialog surface.
    *
-   * @param text - Prompt message shown to the user.
-   * @returns A promise resolving to entered text or `null` when cancelled.
+   * @param text - Message shown above the Ok/Cancel choices.
+   * @returns Promise resolving to the entered text or null when cancelled.
    */
   prompt(text: string): Promise<string | null> {
-    return this.getPromptCategory()?.prompt(text) ?? Promise.resolve(null);
+    return this.promptPalette.prompt(text);
   }
 
   /**
-   * Shows a confirmation interaction.
+   * Opens a confirmation session and resolves to a boolean result.
    *
-   * @param text - Confirmation prompt message.
-   * @returns A promise resolving to `true` for confirm and `false` for cancel.
+   * This uses the same palette-based prompt flow as {@link prompt}, but the
+   * returned value is normalized to `true` for Ok and `false` for Cancel.
+   *
+   * @param text - Message shown above the Ok/Cancel choices.
+   * @returns Promise resolving to true when confirmed, false otherwise.
    */
   confirm(text: string): Promise<boolean> {
-    return this.getPromptCategory()?.confirm(text) ?? Promise.resolve(false);
+    return this.promptPalette.confirm(text);
   }
 
-  private getPromptCategory(): PromptCategory | undefined {
-    const promptCategory = this.getCategory("prompt")?.getPalette(this);
-    if (promptCategory instanceof PromptCategory) return promptCategory;
-  }
-
-  /** Number of rendered command items in the current view. */
-  get length(): number {
-    return this.dialog?.length ?? 0;
-  }
-
-  /**
-   * Current top category loader.
-   *
-   * Falls back to the first visible category when no explicit top category is set.
-   */
-  get topCategory(): CategoryLoader<unknown> | undefined {
-    const topCategory = this.getCategory(this.getState().topCategory);
-    if (topCategory && !this.isCategoryDisabled(topCategory.id)) return topCategory;
-    return this.palettes[0];
-  }
-
-  /** Visible command categories in registration order. */
-  get palettes(): CategoryLoader<unknown>[] {
-    return this.categories.filter(cat => !this._disabledPalettes.has(cat.id));
-  }
-
-  /** All registered visible categories, including disabled entries. */
-  get allPalettes(): CategoryLoader<unknown>[] {
-    return this.categories;
-  }
-
-  isCategoryDisabled(id: string): boolean {
-    return this._disabledPalettes.has(id);
-  }
-
-  /**
-   * Sets which category ids are disabled (hidden from visible palettes).
-   *
-   * @param ids - Category ids to disable.
-   */
-  setDisabledPalettes(ids: string[]): void {
-    this._disabledPalettes = new Set(ids);
-    this.onSettingsChanged();
-  }
-
-  disableCategory(id: string) {
-    if (this._disabledPalettes.has(id)) return;
-    if (!this.categories.some(category => category.id === id)) return;
-    this._disabledPalettes.add(id);
-    if (this.getState().topCategory === id) {
-      this.freezeScrollOnRender = true; // Prevent scroll reset on next render
-      this.update({ topCategory: "" });
-    }
-    this.freezeScrollOnRender = true; // Prevent scroll reset on next render
-    this.onSettingsChanged();
-  }
-
-  enableCategory(id: string) {
-    if (!this._disabledPalettes.has(id)) return;
-    this._disabledPalettes.delete(id);
-    this.freezeScrollOnRender = true; // Prevent scroll reset on next render
-    this.onSettingsChanged();
-  }
-
-  getDisabledPalettes(): string[] {
-    return [...this._disabledPalettes];
-  }
-
-  /** Currently selected command item, or `null` when no item is selected. */
-  get selCMD(): CommandItem<unknown> | null {
-    return this.dialog?.selCMD ?? null; // Return the currently selected command item or null if none
-  }
-
-  /**
-   * Registers a visible command category.
-   *
-   * Categories are lazily instantiated and can be reordered using
-   * `setCategoryOrder()`.
-   *
-   * @param load - Category factory callback.
-   * @param id - Stable category id.
-   * @returns The current palette instance for method chaining.
-   *
-   * @example
-   * ```ts
-   * palette.addPalette(cp => new MyCategory(cp), "my-category");
-   * ```
-   */
-  addPalette(load: CategoryLoaderFunc<unknown>, id: string): this {
-    this.categories.push(new CategoryLoader(load, id));
-    this.sortCategoriesByOrder(this.categoryOrder);
-    return this;
-  }
-
-  /**
-   * Registers multiple visible categories in a single call.
-   *
-   * @param categories - Category descriptor objects with `load` and `id`.
-   * @returns The current palette instance for method chaining.
-   */
-  addPalettes(...categories: { load: CategoryLoaderFunc<unknown>; id: string }[]): this {
-    categories.forEach(category => this.addPalette(category.load, category.id));
-    return this;
-  }
-
-  /**
-   * Removes a visible category registration.
-   *
-   * @param load - Category factory callback used during registration.
-   * @param id - Category id used during registration.
-   */
-  removePalette(load: CategoryLoaderFunc<unknown>, id: string): void {
-    this.categories = this.categories.filter(cat => cat.id !== id || cat.getPalette !== load);
-  }
-
-  /**
-   * Registers a hidden category.
-   *
-   * Hidden categories are available via id lookup but not shown in normal
-   * category listings.
-   *
-   * @param load - Category factory callback.
-   * @param id - Stable category id.
-   * @returns The current palette instance for method chaining.
-   */
-  addHiddenPalette(load: CategoryLoaderFunc<unknown>, id: string): this {
-    this.hiddenCategories.push(new CategoryLoader(load, id));
-    return this;
-  }
-
-  /**
-   * Registers multiple hidden categories in a single call.
-   *
-   * @param categories - Category descriptor objects with `load` and `id`.
-   * @returns The current palette instance for method chaining.
-   */
-  addHiddenPalettes(...categories: { load: CategoryLoaderFunc<unknown>; id: string }[]): this {
-    categories.forEach(category => this.addHiddenPalette(category.load, category.id));
-    return this;
-  }
-
-  /**
-   * Removes a hidden category registration.
-   *
-   * @param load - Category factory callback used during registration.
-   * @param id - Category id used during registration.
-   */
-  removeHiddenPalette(load: CategoryLoaderFunc<unknown>, id: string): void {
-    this.hiddenCategories = this.hiddenCategories.filter(cat => cat.id !== id || cat.getPalette !== load);
-  }
-
-  /**
-   * Sorts visible categories by a preferred id order.
-   *
-   * Categories not found in the provided order are moved to the end.
-   *
-   * @param order - Ordered list of category ids.
-   */
-  sortCategoriesByOrder(order: string[]): void {
-    this.categories.sort((a, b) => {
-      const aIdx = order.indexOf(a.id);
-      const bIdx = order.indexOf(b.id);
-      return aIdx < 0 ? 1 : bIdx < 0 ? -1 : aIdx - bIdx;
-    });
-  }
-
-  /**
-   * Sets and applies category sort order for visible categories.
-   *
-   * @param order - Ordered list of category ids.
-   */
-  setCategoryOrder(order: string[]): void {
-    this.categoryOrder = order;
-    this.sortCategoriesByOrder(order);
-    this.onSettingsChanged();
-  }
-
-  getCategoryOrder(): string[] {
-    return [...this.categoryOrder];
-  }
-
-  /**
-   * Opens the palette directly in a specific category.
-   *
-   * @param category - Category id to show as top category.
-   */
-  opencategory(category: string) {
-    /* this.hiddenCategories.find(cat => cat.constructor === category) || this._addHiddenPalette(category); */
-    this.update({ topCategory: category }).open();
-  }
-
-  /**
-   * Updates palette state using a partial state object.
-   *
-   * @param context - Partial state updates.
-   * @returns The current palette instance for method chaining.
-   */
-  update(context: Partial<CommandPaletteState> = {}) {
-    this.stateController.update(context);
-    return this;
-  }
-
-  getState(): CommandPaletteState {
-    return this.dialog?.getState() ?? this._state.update({});
-  }
-
-  applyStateTransition(toState: (state: CommandPaletteState) => CommandPaletteState): CommandPaletteState {
-    const nextState = toState(this.getState());
-    this.stateController.update(nextState);
-    return this.getState();
-  }
-
-  /**
-   * Displays the palette with an optional state context.
-   *
-   * @param context - Partial state update applied before rendering.
-   * @param shouldSaveHistory - When true, pushes app history for back navigation.
-   */
-  display(context: Partial<CommandPaletteState> = {}, shouldSaveHistory = true) {
-    if (!this.isOpen) {
-      this.stateController.clearContexts();
-      this.update({ query: "" });
-    }
-    this.update(context);
-    if (shouldSaveHistory) this.saveStateHistory();
-    this.stateController.pushCurrentContext();
-    this.inputMode = "search";
-    const dialog = this.getOrCreateDialog();
-    dialog.open();
-    dialog.display();
-    return this;
-  }
-
-  handleBack = () => {
-    const previous = this.stateController.popPreviousContext();
-    if (previous)
-      this.display(previous, false); // Display previous context
-    else {
-      this.close(); // Close if no previous context
-    }
-  };
-
-  /**
-   * Sets the search input value and re-renders command results.
-   *
-   * @param value - New query value.
-   * @param select - When true, selects the input text after updating.
-   */
-  setValue(value: string, select = false) {
-    this.update({ query: value });
-
-    this.dialog?.setValue(value, select);
-  }
-
-  /**
-   * Re-renders palette content without rebuilding the dialog shell.
-   *
-   * Useful for async categories that need to update command results frequently
-   * while preserving the current input element and query text.
-   *
-   * @param context - Optional partial state updates to apply before refresh.
-   * @returns The current palette instance for method chaining.
-   */
-  refresh(context: Partial<CommandPaletteState> = {}): this {
-    if (!this.isOpen) return this.display(context, false);
-    this.triggerCategoryData();
-    this.update(context);
-    this.dialog?.setValue(this.getState().query);
-    return this;
-  }
-
-  /**
-   * Ordered categories for the current display pass.
-   *
-   * This respects top-category focus and sibling-category overrides.
-   */
-  get categoriesToShow(): CategoryLoader<unknown>[] {
-    const visibleCategories = this.palettes;
-    const { topCategory } = this.getState();
-    const top = this.topCategory;
-    const siblings = top?.getPalette(this).siblings;
-    // If SiblingCategories is set (even if empty)
-    if (topCategory && siblings)
-      return [top, ...siblings.map(catfn => this.getCategory(catfn.id))].filter(
-        (category): category is CategoryLoader<unknown> =>
-          category !== undefined && !this.isCategoryDisabled(category.id),
-      );
-    if (topCategory && top) return [top, ...visibleCategories.filter(cat => cat !== top)];
-    return visibleCategories;
-  }
-
-  /**
-   * Retrieves a command category instance by its constructor from the visible or hidden categories.
-   * If the category is not found, it is created and added to the hidden categories.
-   *
-   * @param id - The constructor function of the command category to retrieve.
-   * @returns The instance of the requested command category.
-   */
-  getCategory(id: string): CategoryLoader<unknown> | undefined {
-    if (!id) return undefined;
-    return this.categories.find(cat => cat.id === id) || this.hiddenCategories.find(cat => cat.id === id);
-  }
-
-  get hiddenPalettes(): CategoryLoader<unknown>[] {
-    return this.hiddenCategories;
-  }
-
-  triggerCategoryData(): void {
-    const state = this.getState();
-    this.palettes.forEach(cat => cat.getPalette(this).tryTrigger(state));
-    this.hiddenCategories.forEach(cat => cat.getPalette(this).tryTrigger(state));
-  }
-
-  popPreviousContext(): CommandPaletteState | null {
-    return this.stateController.popPreviousContext();
-  }
-}
-
-class CommandPaletteDialog extends WorkspaceDialog {
-  private searchInput?: HTMLInputElement;
-  private _domBuilt = false;
-  private displayHash = van.state(0);
-  private query = van.state("");
-  readonly maxResults = van.state(100);
-  private topCategory = van.state("");
-  private mainElScale = van.state(1);
-  private touchHideKeyboardBound = false;
-  private commandItems: CommandItem<unknown>[] = [];
-  private selectedIndex = van.state(-1);
-  private visualViewport: VisualViewport | null = null;
-
-  private readonly handleWorkspaceKeyDown = (e: { key: string }) => {
-    if (!this.isOpen) return;
-    this.palette.emit("keydown", e);
-    this.handleKey(e);
-  };
-
-  private readonly handleHistoryPop = () => {
-    this.palette.emit("historypop", this.palette.getState());
-    this.palette.handleBack();
-  };
-
-  private readonly handleDragX = (e: { deltaX: number }) => {
-    this.palette.emit("dragX", e);
-    this.mainElScale.val = 1;
-    if (e.deltaX > 0) this.palette.display({ topCategory: "navigator" });
-  };
-
-  private readonly handleDraggingX = (e: { deltaX: number }) => {
-    this.palette.emit("draggingX", e);
-    if (e.deltaX > 0) this.mainElScale.val = 1 - Math.min(Math.abs(e.deltaX) / 1000, 0.1);
-  };
-
-  private readonly handleDragXCancel = () => {
-    this.palette.emit("dragXcancel", { deltaX: 0, deltaY: 0 });
-    this.mainElScale.val = 1;
-  };
-
-  private readonly handleTouchMove = () => this.searchInput?.blur();
-
-  private readonly handleViewportResize = () => this.applyMobileResize();
-  private expanded = van.state(true);
-
-  constructor(private readonly palette: UnifiedCommandPalette) {
-    super(
-      "command-palette",
-      {
-        title: "",
-        modal: true,
-        closeOnEscape: true,
-        closeOnBackdrop: true,
-        showCloseButton: false,
-        className: "command-palette",
-        ariaLabel: "Command palette",
-      },
-      () => this.palette.close(),
+  /** Handles keyboard meaning strings produced by the workspace key router. */
+  handleKeyDown(event: KeyboardEvent, meaning: string): void {
+    const items = [...this.overviewItems.val, ...this.regularItems.val].flatMap(group =>
+      this.getGroupItems(group),
     );
-    this.dialogEl.element.querySelector(".workspace-dialog-header")?.remove();
+    const max = Math.max(items.length - 1, 0);
+    const isInputEmpty = this.state.query.val === "";
+    const move = (delta: number) =>
+      (this.selectedIndex.val = Math.min(max, Math.max(0, this.selectedIndex.val + delta)));
+    const jump = (index: number) => (this.selectedIndex.val = Math.min(max, Math.max(0, index)));
+    const undo = () => this.undo() && this.saveState();
+
+    const executeCurrent = () =>
+      this.hoverItem.val?.click?.()
+        ? this.close()
+        : this.updateViewState(this.hoverItem.val?.context?.() || {});
+    const executeSecondary = () => this.updateViewState(this.hoverItem.val?.context?.() || {});
+
+    const numberMatch = /^(Alt|Meta|Ctrl)\+([1-9])$/.exec(meaning);
+    if (numberMatch) {
+      jump(Number(numberMatch[2]) - 1);
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    const meanings: Record<string, (() => void) | null> = {
+      ArrowDown: () => move(1),
+      ArrowUp: () => move(-1),
+      PageDown: () => move(8),
+      PageUp: () => move(-8),
+      Home: () => jump(0),
+      End: () => jump(max),
+      "Meta+ArrowDown": () => move(8),
+      "Meta+ArrowUp": () => move(-8),
+      "Ctrl+ArrowDown": () => move(8),
+      "Ctrl+ArrowUp": () => move(-8),
+      ArrowRight: isInputEmpty ? executeSecondary : null,
+      ArrowLeft: isInputEmpty ? undo : null,
+      Enter: executeCurrent,
+      "Meta+Enter": executeSecondary,
+      "Ctrl+Enter": executeSecondary,
+      Tab: executeSecondary,
+      "Shift+Tab": undo,
+      Escape: () => (this.state.query.val ? (this.state.query.val = "") : this.close()),
+      Backspace: isInputEmpty && !event.repeat ? undo : null,
+    };
+
+    if (meanings[meaning]) {
+      event.preventDefault();
+      event.stopPropagation();
+      meanings[meaning]();
+    }
   }
 
-  get length(): number {
-    return this.commandItems.length;
+  /**
+   * Registers a new command category with lazy instantiation.
+   *
+   * Hidden categories are still searchable by id but excluded from the normal
+   * overview rail. Visible categories participate in ordering and disabled
+   * category settings.
+   *
+   * @param id - Stable id used for palette lookup and persisted order.
+   * @param cfn - Factory that creates the category on first access.
+   * @param hidden - When true, register the category outside the normal list.
+   * @returns Wrapper for the lazily loaded category.
+   */
+  registerPalette<T>({
+    id,
+    cfn,
+    hidden = false,
+  }: {
+    id: string;
+    cfn: (args: { id: string; state: stateMapping<CommandPaletteState> }) => CommandCategory<T>;
+    hidden?: boolean;
+  }): LoadableCommandCategory<T> {
+    const palette = new LoadableCommandCategory(cfn, id, this.state) as LoadableCommandCategory;
+    if (hidden) {
+      this.registeredHiddenPalettes.val = [...this.registeredHiddenPalettes.val, palette];
+    } else {
+      this.registeredPalettes.val = [...this.registeredPalettes.val, palette];
+      this.settingsController.applyCategoryOrder();
+    }
+    return palette as LoadableCommandCategory<T>;
   }
 
-  getState(): CommandPaletteState {
-    return new CommandPaletteState(this.query.val, this.topCategory.val, this.expanded.val);
+  /** Removes a category from both the visible and hidden registries. */
+  unregisterPalette(id: string) {
+    this.registeredPalettes.val = this.registeredPalettes.val.filter(p => p.id !== id);
+    this.registeredHiddenPalettes.val = this.registeredHiddenPalettes.val.filter(p => p.id !== id);
   }
 
-  setState(state: CommandPaletteState): void {
-    this.query.val = state.query;
-    this.topCategory.val = state.topCategory;
-    this.expanded.val = state.expanded;
+  /** Whether a category id is currently disabled in user settings. */
+  isCategoryDisabled(id: string): boolean {
+    return this.settingsController.isCategoryDisabled(id);
   }
 
-  private updateState(context: Partial<CommandPaletteState>): void {
-    this.setState(this.getState().update(context));
+  /** Replaces the persisted disabled-category list. */
+  setDisabledPalettes(ids: string[]): void {
+    this.settingsController.setDisabledPalettes(ids);
   }
 
-  get selCMD(): CommandItem<unknown> | null {
-    return this.commandItems[this.selectedIndex.val] || null;
+  /** Disables a category if it is currently registered and enabled. */
+  disableCategory(id: string): void {
+    this.settingsController.disableCategory(id);
   }
 
-  open(): this {
-    if (this.isOpen) return this;
-    this.mount(this.palette.app.workspace.ensureDialogLayer());
-    this.bindWorkspaceEvents();
-    this.palette.onDialogOpened();
-    return this;
+  /** Re-enables a previously disabled category. */
+  enableCategory(id: string): void {
+    this.settingsController.enableCategory(id);
   }
 
-  override destroy(): void {
-    if (!this.isOpen) return;
-    this.unbindWorkspaceEvents();
-    this.resetContent();
-    this._domBuilt = false;
-    this.commandItems = [];
-    this.selectedIndex.val = -1;
-    this.unbindTouchHideKeyboard();
-    this.unbindViewportResize();
-    super.destroy();
-    this.palette.onDialogClosed(this);
+  /** Returns a copy of the persisted disabled-category ids. */
+  getDisabledPalettes(): string[] {
+    return this.settingsController.getDisabledPalettes();
   }
 
-  display(): this {
-    this.displayHash.val += 1;
-    this.palette.triggerCategoryData();
-    if (!this.isOpen || this._domBuilt) return this;
-    this._domBuilt = true;
-    this.applyMobileResize();
-    this.bindTouchHideKeyboard();
-    this.contentEl.addClass("palette");
+  /** Replaces the persisted visible-category order. */
+  setCategoryOrder(order: string[]): void {
+    this.settingsController.setCategoryOrder(order);
+  }
 
-    this.searchInput = input({
-      value: this.query,
-      placeholder: () =>
-        `Search ${this.topCategory.val ? this.palette.topCategory?.getPalette(this.palette).title : "all"}...`,
-      type: this.palette.inputMode,
-      class: "palette-search",
-      oninput: (e: Event) => {
-        const target = e.target as HTMLInputElement;
-        this.updateState({ query: target.value });
-        this.maxResults.val = 100; // Reset max results on new input to allow dynamic loading
-      },
+  /** Returns a copy of the persisted category order. */
+  getCategoryOrder(): string[] {
+    return this.settingsController.getCategoryOrder();
+  }
+
+  /** Returns the live search input element if the palette has mounted. */
+  get searchInput(): HTMLInputElement | undefined {
+    return (this.el?.querySelector(".palette-search") as HTMLInputElement) ?? undefined;
+  }
+
+  /** Focuses the search input when pointer interactions have not suppressed it. */
+  focus(): void {
+    if (!this.isFocusedSearchInput) return;
+    this.searchInput?.focus();
+  }
+
+  private get allPalettes(): LoadableCommandCategory[] {
+    return [...this.registeredPalettes.val, ...this.registeredHiddenPalettes.val].filter(
+      p => !this.settingsController.isCategoryDisabled(p.id),
+    );
+  }
+
+  private findPaletteById(id: string): LoadableCommandCategory | undefined {
+    return this.allPalettes.find(palette => palette.id === id);
+  }
+
+  private getGroupItems(group: PaletteWithItems): CommandItem[] {
+    return [...group.items, ...group.extras];
+  }
+
+  /**
+   * Filters extra items based on the current palette search query.
+   * @param items Array of command items to filter.
+   * @returns Array of command items matching the query.
+   */
+  private filterExtras(items: CommandItem[]): CommandItem[] {
+    const query = this.state.query.val.trim().toLowerCase();
+    if (!query) return items;
+
+    return items.filter(item => {
+      const title = item.title.toLowerCase();
+      const description = item.description.toLowerCase();
+      return title.includes(query) || description.includes(query);
     });
+  }
 
-    van.add(
-      this.contentEl.element,
+  private buildPaletteGroups(palettes: LoadableCommandCategory[]): PaletteWithItems[] {
+    let numberRendered = 0;
+    const groups: PaletteWithItems[] = [];
+
+    for (const palette of palettes) {
+      palette.category.previousItemCount = numberRendered;
+
+      const paletteItems =
+        tryit(() => palette.category.getItems(), `Error getting palette items for ${palette.id}`) || [];
+      const paletteExtras = this.filterExtras(palette.category.extras.val);
+      const totalCount = paletteItems.length + paletteExtras.length;
+      const baseGroup = {
+        id: palette.id,
+        title: palette.category.title,
+        description: palette.category.description,
+      };
+
+      if (numberRendered + totalCount >= this.state.maxItems.val) {
+        const remaining = this.state.maxItems.val - numberRendered;
+        const shownItems = paletteItems.slice(0, remaining);
+        const shownExtras = paletteExtras.slice(0, Math.max(remaining - shownItems.length, 0));
+
+        groups.push({
+          ...baseGroup,
+          items: shownItems.map(item => palette.category.renderItem(item)),
+          extras: shownExtras,
+        });
+        break;
+      }
+
+      groups.push({
+        ...baseGroup,
+        items: paletteItems.map(item => palette.category.renderItem(item)),
+        extras: paletteExtras,
+      });
+      numberRendered += totalCount;
+    }
+
+    return groups;
+  }
+
+  private renderCategoryGroup(
+    group: PaletteWithItems,
+    itemStartIndex: number,
+    renderItem: (index: number, item: CommandItem, isExtra?: boolean) => HTMLDivElement,
+  ): { element: HTMLDivElement; nextIndex: number } {
+    let index = itemStartIndex;
+    const groupItems = this.getGroupItems(group);
+
+    const element = div(
+      { class: "category" },
+      div({ class: "category-title", onclick: () => (this.state.topCategory.val = group.id) }, group.title),
+      ...groupItems.map(item => renderItem(index++, item, group.extras.includes(item))),
+    );
+
+    return { element, nextIndex: index };
+  }
+
+  /** Chooses the search placeholder text based on the active category. */
+  private getSearchPlaceholder(): string {
+    if (this.state.topCategory.val === "prompt") {
+      return this.promptPalette.mode === "prompt"
+        ? this.promptPalette.message.val || "Enter a value..."
+        : "Enter a value to confirm...";
+    }
+
+    if (this.state.topCategory.val) {
+      const paletteName =
+        this.findPaletteById(this.state.topCategory.val)?.name || this.state.topCategory.val;
+      return `Search ${paletteName}...`;
+    }
+
+    return "Search...";
+  }
+
+  /** Blurs the search field after touch or pointer drag interactions. */
+  private unfocusSearchInput = (): void => {
+    this.searchInput?.blur();
+    this.isFocusedSearchInput = false;
+  };
+
+  /**
+   * Constructs the physical DOM nodes for the command palette view.
+   * @returns The generated HTMLElement root of the command palette.
+   */
+  create(): HTMLElement {
+    const renderItem = (index: number, item: CommandItem, isExtra = false): HTMLDivElement =>
+      div(
+        {
+          class: () =>
+            `${this.selectedIndex.val === index ? "command-item selected" : "command-item"}${
+              isExtra ? " extras-item" : ""
+            }`,
+          onclick: () => item.click?.() && this.close(),
+          onmouseenter: () => (this.selectedIndex.val = index),
+        },
+        div(
+          { class: "command-item-info" },
+          div({ class: "command-title" }, highlight(item.title, this.highlighter.val)),
+          div(
+            { class: item.hidden === false ? "command-description" : "command-description hidden" },
+            highlight(item.description, this.highlighter.val),
+          ),
+        ),
+        div(
+          { class: "command-comp" },
+          item.extras || null,
+          item.context
+            ? div(
+                {
+                  class: "icon-button",
+                  title: "Open context menu",
+                  onclick: e => (e.stopPropagation(), this.updateViewState(item.context?.() || {})),
+                },
+                renderIcon(ChevronRight),
+              )
+            : null,
+        ),
+      );
+
+    return div(
+      {
+        class: "palette",
+        ...touchDragger({
+          ondraggingx: this.unfocusSearchInput,
+          ondraggingy: this.unfocusSearchInput,
+          ondragx: ({ deltaX }) => deltaX > 0 && this.menu(),
+          stylesetter: ({ deltaX, isX }) =>
+            isX
+              ? `transform: scale(${1 - Math.min(Math.max(deltaX.val, 0) / 1000, this.state.topCategory.val === "navigator" ? 0 : 0.1)});`
+              : "",
+        }),
+      },
       div(
         { class: "palette-header" },
         button(
           {
             class: "icon-action",
             title: "Back to previous context",
-            onclick: () => this.palette.handleBack(),
+            onclick: () => {
+              if (!this.undo()) this.close();
+              else this.saveState();
+            },
           },
-          icon(ChevronLeft),
+          renderIcon(ChevronLeft),
         ),
         button(
           {
             class: "icon-action",
             title: "Toggle expanded view",
-            onclick: () => this.updateState({ expanded: !this.expanded.val }),
+            onclick: () => (this.state.expanded.val = !this.state.expanded.val),
           },
-          () => icon(this.expanded.val ? ChevronsDownUp : ChevronsUpDown),
+          () => renderIcon(this.state.expanded.val ? ChevronsDownUp : ChevronsUpDown),
         ),
         button(
-          { class: "icon-action", title: "Close Palette", onclick: () => this.palette.close() },
-          icon(X),
+          {
+            class: "icon-action",
+            title: "Close Palette",
+            onclick: () => this.app.workspace.layout.removeViewInstance(this),
+          },
+          renderIcon(X),
         ),
       ),
-      this.searchInput,
-      this.renderPaletteContainer(),
-    );
-
-    this.searchInput.focus();
-    return this;
-  }
-
-  setValue(value: string, select = false): void {
-    this.query.val = value;
-    if (select) this.searchInput?.select();
-  }
-
-  private resetContent(): void {
-    this.searchInput?.remove();
-    this.searchInput = undefined;
-    this.contentEl.element.empty();
-  }
-
-  private bindWorkspaceEvents(): void {
-    this.palette.app.workspace.on("keydown", this.handleWorkspaceKeyDown);
-    this.palette.app.workspace.on("historypop", this.handleHistoryPop);
-    this.palette.app.workspace.on("dragX", this.handleDragX);
-    this.palette.app.workspace.on("draggingX", this.handleDraggingX);
-    this.palette.app.workspace.on("dragXcancel", this.handleDragXCancel);
-  }
-
-  private unbindWorkspaceEvents(): void {
-    this.palette.app.workspace.off("keydown", this.handleWorkspaceKeyDown);
-    this.palette.app.workspace.off("historypop", this.handleHistoryPop);
-    this.palette.app.workspace.off("dragX", this.handleDragX);
-    this.palette.app.workspace.off("draggingX", this.handleDraggingX);
-    this.palette.app.workspace.off("dragXcancel", this.handleDragXCancel);
-  }
-
-  private bindTouchHideKeyboard(): void {
-    if (this.touchHideKeyboardBound) return;
-    this.touchHideKeyboardBound = true;
-    this.dialogEl.element.addEventListener("touchmove", this.handleTouchMove, { passive: true });
-  }
-
-  private unbindTouchHideKeyboard(): void {
-    if (!this.touchHideKeyboardBound) return;
-    this.dialogEl.element.removeEventListener("touchmove", this.handleTouchMove);
-    this.touchHideKeyboardBound = false;
-  }
-
-  private applyMobileResize(): void {
-    const visual = window.visualViewport;
-    if (!visual) return;
-    this.visualViewport?.removeEventListener("resize", this.handleViewportResize);
-    this.visualViewport = visual;
-    this.dialogEl.element.style.height = `calc(${visual.height}px - 2em)`;
-    visual.addEventListener("resize", this.handleViewportResize, { passive: true });
-  }
-
-  private unbindViewportResize(): void {
-    this.visualViewport?.removeEventListener("resize", this.handleViewportResize);
-    this.visualViewport = null;
-  }
-
-  private readonly handleScroll = () => {
-    window.requestAnimationFrame(() => {
-      if (this.maxResults.val < 1000) {
-        const currentselection = this.selectedIndex.val;
-        this.maxResults.val = 1000;
-        this.selectedIndex.val = currentselection;
-        this.scrollSelectedIntoView();
-      }
-    });
-  };
-
-  private handleKey(e: { key: string }): void {
-    const key = e.key;
-    switch (key) {
-      case "ArrowDown":
-        this.moveSelection(1);
-        break;
-      case "ArrowUp":
-        this.moveSelection(-1);
-        break;
-      case "Enter":
-        this.activateSelected();
-        break;
-      case "ArrowRight":
-      case "Tab":
-        this.activateContextFromCommand(this.commandItems[this.selectedIndex.val]);
-        break;
-      case "ArrowLeft":
-      case "Shift+Tab": {
-        const previous = this.palette.popPreviousContext();
-        if (!previous) return;
-        this.palette.display(previous, false);
-        break;
-      }
-      case "Escape":
-        this.palette.close();
-        break;
-    }
-  }
-
-  private activateContextFromCommand(command: CommandItem<unknown> | undefined): void {
-    if (command?.contextMenuAllowed) {
-      this.updateState({ query: "" });
-      this.palette.display(command.toState(this.getState()));
-    }
-  }
-
-  private renderPaletteContainer(): HTMLDivElement {
-    return div({ class: () => (this.expanded.val ? "palette-content expanded" : "palette-content") }, () => {
-      void this.displayHash.val;
-      const state = this.getState();
-      this.palette.highlighter = [
-        // Only insert the query highlighter if state.query actually exists
-        ...(state.query
-          ? [
-              {
-                // eslint-disable-next-line security/detect-non-literal-regexp
-                regEXP: new RegExp(`(${escapeRegExp(state.query)})`, "ig"),
-                callback: (match: string) => span({ class: "highlighted-query" }, match),
-              },
-            ]
-          : []),
-        { regEXP: /\n/g, callback: () => br() },
-      ];
-
-      this.commandItems = [];
-      this.selectedIndex.val = 0;
-
-      return div({ style: "display: contents" }, this.renderOverview(), this.renderMain(state));
-    });
-  }
-
-  private renderOverview(): HTMLDivElement {
-    return div({ class: "palette-content-over" }, () => {
-      const navigator = this.palette.getCategory("navigator")?.getPalette(this.palette);
-      if (!navigator || window.matchMedia("(max-width: 800px)").matches) return;
-
-      const commands = navigator.trygetCommands(this.query.val);
-      this.selectedIndex.val = commands.length;
-      /* if (commands.length === 0) return; */
-
-      return div(
-        { class: "category" },
-        div(
-          { class: "category-title", onclick: () => this.palette.display({ topCategory: "navigator" }) },
-          navigator.title,
-        ),
-        commands
-          .slice(0, this.maxResults.val - this.commandItems.length)
-          .map(command => this.commandToEl(command, navigator)),
-      );
-    });
-  }
-
-  private renderMain(state: CommandPaletteState): HTMLDivElement {
-    return div(
-      {
-        class: "palette-content-main",
-        style: () => (this.mainElScale.val !== 1 ? `transform: scale(${this.mainElScale.val});` : ""),
-        onscroll: this.handleScroll,
-      },
-      this.palette.categoriesToShow
-        .map(cat => ({ cat: cat.getPalette(this.palette), id: cat.id }))
-        .map(({ cat, id }) => {
-          if (this.commandItems.length >= this.maxResults.val) return;
-          const commands = cat.trygetCommands(this.query.val);
-          const extras = cat.extraCMD?.trygetCommands(this.query.val) || [];
-
-          if (commands.length === 0 && extras.length === 0 && state.topCategory !== id) return;
-
+      input({
+        placeholder: () => this.getSearchPlaceholder(),
+        type: "search",
+        class: "palette-search",
+        value: this.state.query,
+        oninput: e => (this.state.query.val = (e.target as HTMLInputElement).value),
+        onfocus: () => (this.isFocusedSearchInput = true),
+      }),
+      div(
+        { class: () => (this.state.expanded.val ? "palette-content expanded" : "palette-content") },
+        () => {
+          let i = 0;
           return div(
-            { class: "category" },
-            div(
-              { class: "category-title", onclick: () => this.palette.display({ topCategory: id }) },
-              cat.title,
-            ),
-            commands
-              .slice(0, this.maxResults.val - this.commandItems.length)
-              .map(command => this.commandToEl(command, cat)),
-            extras.slice(0, this.maxResults.val - this.commandItems.length).map(command => {
-              const commandEl = this.commandToEl(command, cat.extraCMD!);
-              commandEl.classList.add("extras-item");
-              return commandEl;
+            { class: "palette-content-over" },
+            ...this.overviewItems.val.map(group => {
+              const { element, nextIndex } = this.renderCategoryGroup(group, i, renderItem);
+              i = nextIndex;
+              return element;
             }),
-            state.topCategory === id
-              ? new Item()
-                  .setTitle("No results found")
-                  .setDescription(this.query.val ? "Try something else." : "Type to search...")
-                  .setHidden(false).element
-              : undefined,
           );
-        }),
-      this.commandItems.length >= this.maxResults.val
-        ? new Item({ onclick: () => (this.maxResults.val = 40000) })
-            .setTitle("Are you kidding me?")
-            .setDescription("Seriously, you want to load more results?")
-            .setHidden(false).element
-        : undefined,
+        },
+        () => {
+          let i = this.overviewItemsCount.val;
+          return div(
+            {
+              class: "palette-content-main",
+              onscroll: () => {
+                window.requestAnimationFrame(
+                  () => this.state.maxItems.val < 1000 && (this.state.maxItems.val = 1000),
+                );
+              },
+              onscrollend: (e: Event) => {
+                if ((e.currentTarget as HTMLElement).scrollTop === 0) {
+                  this.isFocusedSearchInput = true;
+                }
+                this.focus();
+              },
+            },
+            ...this.regularItems.val.map(group =>
+              group.items.length !== 0 || group.extras.length !== 0 || group.id === this.state.topCategory.val
+                ? (() => {
+                    const { element, nextIndex } = this.renderCategoryGroup(group, i, renderItem);
+                    i = nextIndex;
+                    return element;
+                  })()
+                : null,
+            ),
+          );
+        },
+      ),
     );
   }
-
-  commandToEl(command: unknown, cat: CommandCategory<unknown>) {
-    if (this.commandItems.length > this.maxResults.val)
-      throw new Error("Too many commands, stopping render. This should never happen.");
-    const cmdindex = this.commandItems.length;
-    const itemEl = new CommandItem(
-      {
-        onclick: () => cat.tryexecute(command, itemEl.toState),
-        onmousemove: () => (this.selectedIndex.val = cmdindex),
-        class: () => (this.selectedIndex.val === cmdindex ? "command-item selected" : "command-item"),
-      },
-      command,
-      cat,
-    ).onContext(() => this.activateContextFromCommand(this.commandItems[cmdindex]));
-
-    itemEl.toState = cat.tryrender(command, itemEl);
-    this.commandItems.push(itemEl);
-    return itemEl.element;
-  }
-
-  private moveSelection(delta: number): void {
-    const maxIndex = this.commandItems.length - 1;
-    this.selectedIndex.val = Math.min(Math.max(this.selectedIndex.val + delta, 0), maxIndex);
-    this.scrollSelectedIntoView();
-  }
-
-  scrollSelectedIntoView(): void {
-    this.selCMD?.element.scrollIntoView({
-      block: "nearest",
-      inline: "nearest",
-      behavior: "smooth",
-    });
-  }
-
-  private activateSelected(): void {
-    this.selCMD?.element.click();
-  }
 }
 
 /**
- * Represents the state of a command palette, including the current query,
- * the maximum number of results to display, and the currently selected top category.
- *
- * @typeParam  - The type of the application instance.
- */
-export class CommandPaletteState {
-  constructor(
-    public query: string = "",
-    public topCategory: string = "",
-    public expanded: boolean = true,
-  ) {}
-
-  /**
-   * Returns an immutable-like cloned state with partial updates applied.
-   *
-   * @param partial - Partial state values to override.
-   * @returns New state object preserving prototype behavior.
-   */
-  update(partial: Partial<this> = {}): this {
-    return Object.assign(Object.create(this), this, partial);
-  }
-}
-
-/**
- * Abstract base class representing a category of commands for a command palette.
- *
- * @template T - The type representing individual commands in the category.
- *
- * @remarks
- * - Each command category has a name, description, and title for UI representation.
- * - Provides highlighting and query matching utilities for command filtering.
- * - Supports sibling categories and an optional extra command category for default commands.
- * - Handles command lifecycle: setup, trigger, retrieval, rendering, and execution, with error handling.
- * - Offers fuzzy and Levenshtein-based search for command compatibility.
- * - Allows adding commands and settings to the default command category.
- *
- * @property {string} name - The unique name of the category.
- * @property {string} description - A description of the category, suitable for UI display.
- * @property {string} title - The title for the category, used in UI.
- * @property {T[]} commands - The list of commands in this category.
- * @property {HighlightType[]} highlighter - The highlighter instance for query highlighting.
- * @property {Function[]} [SiblingCategories] - Optional array of sibling category constructors.
- * @property {DefaultCommandCategory<>} [extraCMD] - Optional default command category for extra commands.
- * @property {string} query - The current query string for filtering commands.
- *
- * @constructor
- * @param {} app - The application instance.
- * @param {UnifiedCommandPalette<>} commandPalette - The command palette instance.
- *
- * @method setUp - Initializes the category with the current command palette state.
- * @method onTrigger - Abstract; called when the category is triggered.
- * @method getCommands - Abstract; retrieves commands matching a query.
- * @method renderCommand - Abstract; renders a command for display.
- * @method executeCommand - Abstract; executes a command.
- * @method onInit - Optional; called when the category is initialized.
- * @method tryTrigger - Safely triggers the category, handling errors.
- * @method trygetCommands - Safely retrieves commands, handling errors.
- * @method tryrender - Safely renders a command, handling errors.
- * @method tryexecute - Safely executes a command, handling errors.
- * @method getcompatible - Filters commands matching the query using provided criteria.
- * @method getcompatibleWithLevenshtein - Fuzzy-filters commands using Levenshtein distance.
- * @method addCommand - Adds a command to the default command category.
- * @method addCommands - Adds multiple commands to the default command category.
- * @method addSetting - Adds a setting callback to the default command category.
+ * Base abstract class dictating the structure and behavior of a command palette category.
+ * * @template T The type of item data specific to this category.
  */
 export abstract class CommandCategory<T> {
-  abstract readonly name: string;
-  abstract readonly description: string; // Description for the category, can be used in UI
-  //state: CommandCategoryState = new CommandCategoryState();
-  title: string = ""; // Title for the category, can be used in UI
-  protected commands: T[] = [];
-  //query: string = ""; // Current query string for filtering commands
-  get query(): string {
-    return this.commandPalette.getState().query;
-  }
-  siblings?: CategoryLoader<unknown>[];
-  console: BrowserConsole = new BrowserConsole(true, `${this.constructor.name}:`); // Console for logging
+  /** The reactive source array for all raw items in the category. */
+  abstract allItems: State<T[]>;
+  /** Array of accessor functions used to evaluate search queries against an item. */
+  abstract criteria: Array<(item: T) => string>;
+  /** Converts raw item data `T` into a standard `CommandItem` for rendering. */
+  abstract renderItem(item: T): CommandItem;
 
-  // younger siblings
-  private _extraCMD?: CMDCategory;
-
-  get extraCMD(): CMDCategory | undefined {
-    return this._extraCMD;
-  }
-
-  constructor(public commandPalette: UnifiedCommandPalette) {
-    this.onInit?.(); // Call onInit if defined
-  }
+  /** Number of items already rendered before this category, used for slicing results. */
+  previousItemCount: number = 0;
+  /** Reactive title shown in the palette header. */
+  title: State<string>;
+  /** Reactive description shown in the palette header. */
+  description: State<string>;
+  /** Optional commands rendered after the main item list. */
+  extras: State<CommandItem[]> = van.state([]);
+  /** Optional sibling categories rendered alongside the current category. */
+  readonly siblings?: string[];
 
   /**
-   * Trigger hook for preparing category data before render.
-   *
-   * @param state - Current palette state.
+   * @param state The global command palette state mapped for reactivity.
+   * @param title Display title for the category.
+   * @param description Display description for the category.
    */
-  abstract onTrigger(state: CommandPaletteState): void;
-
-  /**
-   * Returns commands matching the supplied query.
-   *
-   * @param query - User query text.
-   */
-  abstract getCommands(query: string): T[];
-
-  /**
-   * Renders a command item and returns its state transition.
-   *
-   * @param command - Command being rendered.
-   * @param el - UI item element for mutation.
-   */
-  abstract renderCommand(
-    command: T,
-    el: CommandItem<T>,
-  ): Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState);
-
-  /**
-   * Executes a command when selected.
-   *
-   * @param command - Command to execute.
-   */
-  abstract executeCommand(command: T): void;
-  onForward?: (state: CommandPaletteState) => CommandPaletteState; // Optional function to modify state when navigating forward
-
-  onInit?(): void; // Called when the category is initialized
-
-  /**
-   * Safe wrapper around `onTrigger()` with error logging.
-   *
-   * @param state - Current palette state.
-   * @returns The current category instance for method chaining.
-   */
-  tryTrigger(state: CommandPaletteState): this {
-    this.title = this.name;
-    try {
-      this.extraCMD?.resetCommands();
-      this.onTrigger(state);
-      this.extraCMD?.onTrigger(state);
-    } catch (e) {
-      this.console.error(`Error in ${this.constructor.name}.onTrigger`, e);
-    }
-    return this;
+  constructor(
+    public state: stateMapping<CommandPaletteState>,
+    title: string,
+    description: string = "",
+  ) {
+    this.title = van.state(title);
+    this.description = van.state(description);
   }
 
   /**
-   * Safe wrapper around `getCommands()` with error logging.
+   * Filters and returns category items that match the current search query.
    *
-   * @param query - User query text.
-   * @returns Matching commands, or an empty array on error.
+   * Matching is case-insensitive and de-duplicates items across criteria in the
+   * order they are discovered.
    */
-  trygetCommands(query: string): T[] {
-    try {
-      return this.getCommands(query);
-    } catch (e) {
-      this.console.error(`Error in ${this.constructor.name}.getCommands`, e);
-      return [];
-    }
-  }
+  getItems(): T[] {
+    const query = this.state.query.val.toLowerCase();
+    if (!query) return this.allItems.val;
 
-  /**
-   * Safe wrapper around `renderCommand()` with error logging.
-   *
-   * @param command - Command being rendered.
-   * @param el - UI item element for mutation.
-   * @returns A state transition callback.
-   */
-  tryrender(command: T, el: CommandItem<T>): (state: CommandPaletteState) => CommandPaletteState {
-    try {
-      const result = this.renderCommand(command, el);
-      return typeof result === "function" ? result : state => state.update(result);
-    } catch (e) {
-      this.console.error(`Error in ${this.constructor.name}.renderCommand`, e);
-    }
-    return state => state.update({});
-  }
-
-  /**
-   * Applies command state transition and safely executes command logic.
-   *
-   * @param command - Command to execute.
-   * @param toState - State transition function from render phase.
-   * @returns The current category instance for method chaining.
-   */
-  tryexecute(command: T, toState: (state: CommandPaletteState) => CommandPaletteState): this {
-    this.commandPalette.update({ query: "" });
-    this.commandPalette.applyStateTransition(toState);
-    try {
-      this.executeCommand(command);
-    } catch (e) {
-      this.console.error(`Error in ${this.constructor.name}.executeCommand`, e);
-    }
-    return this;
-  }
-
-  /**
-   * Filters items by case-insensitive substring criteria while avoiding duplicates.
-   *
-   * @typeParam T - Item type.
-   * @param query - Query text.
-   * @param array - Candidate item list.
-   * @param criteria - String selector callbacks used for matching.
-   * @returns Matching items.
-   */
-  getcompatible<T>(query: string, array: T[], ...criteria: Array<(item: T) => string>): T[] {
-    if (!query) return array;
-
-    const lowerQuery = query.toLowerCase();
     const matchedIndices = new Set<number>();
 
-    return criteria
+    return this.criteria
       .map(cb =>
-        array.filter(
+        this.allItems.val.filter(
           (item, index) =>
             !matchedIndices.has(index) &&
-            cb(item).toLowerCase().includes(lowerQuery) &&
-            (matchedIndices.add(index), true), // Add index to matched set
+            cb(item).toLowerCase().includes(query) &&
+            (matchedIndices.add(index), true),
         ),
       )
-      .flat();
+      .flat()
+      .slice(0, this.state.maxItems.val - this.previousItemCount);
   }
 
-  /**
-   * Fuzzy-filters items using Levenshtein distance while avoiding duplicates.
-   *
-   * @typeParam T - Item type.
-   * @param query - Query text.
-   * @param array - Candidate item list.
-   * @param criteria - String selector callbacks used for matching.
-   * @returns Matching items ordered by distance per criterion.
-   */
-  getcompatibleWithLevenshtein<T>(query: string, array: T[], ...criteria: ((item: T) => string)[]): T[] {
-    if (!query) return array; // Return all items if no query
-    const lowerQuery = query.toLowerCase();
-    const matchedIndices = new Set<number>();
-    const maxdiff: number = query.length * 0.3; // Maximum Levenshtein distance to consider a match
-    return criteria
-      .map(cb =>
-        array
-          .map((item, index) =>
-            matchedIndices.has(index)
-              ? { d: maxdiff, item, index }
-              : {
-                  d: levenshtein(lowerQuery, cb(item).toLowerCase()),
-                  item,
-                  index,
-                },
-          )
-          .filter(item => item.d < maxdiff) // Filter items within the max distance
-          .sort((a, b) => a.d - b.d) // Sort by distance
-          .map(item => (matchedIndices.add(item.index), item.item)),
-      )
-      .flat();
-  }
-
-  /**
-   * Lazy access to the default extra-command category.
-   *
-   * @returns The default command category instance.
-   */
-  get defaultCMD(): CMDCategory {
-    if (!this._extraCMD) this._extraCMD = new CMDCategory(this.commandPalette);
-    return this._extraCMD;
+  /** Merges a partial state update into the shared command palette state. */
+  updateViewState(newState: Partial<CommandPaletteState>): void {
+    for (const key in newState) {
+      const stateEntry = this.state[key as keyof CommandPaletteState];
+      if (!stateEntry) continue;
+      stateEntry.val = newState[key as keyof CommandPaletteState] as typeof stateEntry.val;
+    }
   }
 }
 
 /**
- * Represents a UI item within a command palette, encapsulating its DOM elements,
- * state, and interaction logic.
- *
- * @template T - The type of the command represented by this item.
- * @template  - The type of the application, extending `App`.
- *
- * @remarks
- * This class is responsible for rendering a command item, managing its title,
- * description, context menu visibility, and handling user interactions such as
- * clicks and mouse events. It is designed to be used within a command palette
- * component, supporting context menus and state management.
- *
- * @example
- * ```typescript
- * const item = new CommandItem(app, parentEl, command, paletteCategory)
- *   .setTitle("My command")
- *   .setDescription("Does something useful")
- *   .setContextMenuVisibility(true)
- *   .onClick(() => { /* handle click *\/ });
- * ```
- *
- * @see CommandCategory
- * @see CommandPaletteState
+ * Built-in category for navigating between other loaded categories.
  */
-export class CommandItem<T> extends Item {
-  private allowsContextMenu: boolean = false;
-  private contextCallback?: (e: Event) => void;
-  toState: (state: CommandPaletteState) => CommandPaletteState;
+class NavigatorCategory extends CommandCategory<LoadableCommandCategory> {
+  /** Visible categories exposed to the navigator. */
+  allItems: State<LoadableCommandCategory[]>;
+  criteria: Array<(item: LoadableCommandCategory) => string> = [item => item.name, item => item.description];
 
   constructor(
-    l: Props & PropsWithKnownKeys<HTMLDivElement> = {},
-    public command: T,
-    PaletteCat: CommandCategory<T>,
+    state: stateMapping<CommandPaletteState>,
+    palettes: State<LoadableCommandCategory[]>,
+    private readonly palette: CommandPalette,
   ) {
-    super(l);
-    this.highlight(PaletteCat.commandPalette.highlighter);
-    this.toState = state => state.update({});
-  }
-
-  /**
-   * Adds a context-menu affordance icon to this command item.
-   *
-   * @returns The current command item instance for method chaining.
-   */
-  addctx() {
-    this.addIconButton(btn => {
-      btn
-        .setIcon(ChevronRight)
-        .setTooltip("Open context menu")
-        .on("click", e => {
-          e.stopPropagation(); // Prevent triggering the main click
-          this.contextCallback?.(e); // Call context menu callback if set
-        });
-    });
-    this.allowsContextMenu = true;
-    return this;
-  }
-
-  onClick(callback: () => void) {
-    this.element.addEventListener("click", callback);
-  }
-
-  onContext(callback: (e: Event) => void): this {
-    this.contextCallback = callback;
-    return this;
-  }
-
-  /** Whether this item currently exposes a context-menu affordance. */
-  get contextMenuAllowed() {
-    return this.allowsContextMenu;
-  }
-}
-
-class CategoryNavigator extends CommandCategory<CategoryLoader<unknown>> {
-  readonly name = "Quick access";
-  readonly description = "List of all command categories";
-  names!: CategoryLoader<unknown>[];
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onTrigger(_state: CommandPaletteState): void {
-    this.names = this.commandPalette.allPalettes;
-  }
-  getCommands(query: string): CategoryLoader<unknown>[] {
-    return this.getcompatible(query, this.names, category => category.getPalette(this.commandPalette).name);
-  }
-  renderCommand(
-    command: CategoryLoader<unknown>,
-    Item: CommandItem<CategoryLoader<unknown>>,
-  ): Partial<CommandPaletteState> {
-    const disabled = this.commandPalette.isCategoryDisabled(command.id);
-    Item.setTitle(command.getPalette(this.commandPalette).name)
-      .setDescription(
-        `${command.getPalette(this.commandPalette).description}${disabled ? " (disabled)" : ""}`,
-      )
-      .addToggleInput(btn =>
-        btn
-          .setValue(!disabled)
-          .on("change", v =>
-            v
-              ? this.commandPalette.enableCategory(command.id)
-              : this.commandPalette.disableCategory(command.id),
-          ),
-      );
-
-    return { topCategory: command.id };
-  }
-
-  executeCommand(): void {
-    this.commandPalette.display();
-  }
-}
-
-class PromptCategory extends CommandCategory<string> {
-  readonly name = "Prompt";
-  readonly description = "Prompt for user input";
-  private _prompt: string = "";
-  siblings = [];
-  cb!: (prompt: string | null) => void;
-  wasopen!: boolean;
-  currentTopCategory: string = "";
-
-  constructor(UnifiedCommandPalette: UnifiedCommandPalette) {
-    super(UnifiedCommandPalette);
-  }
-
-  show(cb: (prompt: string | null) => void = () => {}, text: string): void {
-    this.cb = cb;
-    this._prompt = text;
-    this.wasopen = this.commandPalette.isOpen;
-    this.currentTopCategory = this.commandPalette.getState().topCategory; // Save current top category
-    this.commandPalette.display({ topCategory: "prompt" }, false);
-    this.commandPalette.on("close", this.invokeCallbackOnClose);
-  }
-
-  prompt(text: string): Promise<string | null> {
-    return new Promise(resolve => this.show(prompt => resolve(prompt), text));
-  }
-
-  confirm(text: string): Promise<boolean> {
-    return new Promise(resolve => this.show(prompt => resolve(prompt !== null), text));
-  }
-
-  private invokeCallbackOnClose = () => {
-    this.cleanup();
-    this.cb(null); // Call callback with null on close
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onTrigger(_state: CommandPaletteState): void {}
-
-  getCommands(): string[] {
-    return ["Ok", "Cancel"];
-  }
-
-  renderCommand(command: string, Item: CommandItem<string>): Partial<CommandPaletteState> {
-    Item.setTitle(command);
-    if (command === "Ok") Item.setDescription(this._prompt);
-    return { topCategory: this.currentTopCategory };
-  }
-
-  executeCommand(command: string): void {
-    const query = this.commandPalette.getState().query;
-    this.cleanup(); // Cleanup on cancel
-    if (command === "Ok") this.cb(query);
-    else if (command === "Cancel") this.cb(null);
-  }
-
-  cleanup() {
-    this.commands = []; // Clear commands on cleanup
-    this.commandPalette.off("close", this.invokeCallbackOnClose); // Remove event listener
-    if (!this.wasopen)
-      this.commandPalette.close(); // Close palette if it was not open before
-    else this.commandPalette.display({ topCategory: this.currentTopCategory }, false); // Restore previous context
-  }
-}
-
-export class CMDCategory extends CommandCategory<CMDType> {
-  name: string = "";
-  description: string = "";
-  protected commands: CMDType[] = [];
-
-  /** Clears command entries for the next trigger cycle. */
-  resetCommands() {
-    this.commands = [];
-  }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onTrigger(_state: CommandPaletteState) {
-    return;
-  }
-
-  /**
-   * Returns matching commands by command name.
-   *
-   * @param query - Query text.
-   */
-  getCommands(query: string): CMDType[] {
-    return this.getcompatible(
-      query,
-      this.commands,
-      a => a.name,
-      a => a.description,
+    super(state, "Navigator", "Navigate through the application");
+    this.allItems = van.derive(() =>
+      palettes.val.filter(palette => (palette.isloaded.val, palette.id !== "navigator")),
     );
   }
 
-  /**
-   * Delegates command rendering to the command's render callback.
-   *
-   * @param command - Command to render.
-   * @param el - UI item element for mutation.
-   */
-  renderCommand(
-    command: CMDType,
-    el: CommandItem<CMDType>,
-  ): Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState) {
-    return command.render(command, el);
+  /** Renders a category entry that jumps to the selected palette. */
+  renderItem(item: LoadableCommandCategory): CommandItem {
+    const disabled = this.palette.isCategoryDisabled(item.id);
+
+    return {
+      title: item.name,
+      description: item.description,
+      click: () => ((this.state.topCategory.val = item.id), false),
+      extras: toggle({
+        checked: !disabled,
+        onclick: (e: Event, state) => {
+          e.stopPropagation();
+          void (state.val ? this.palette.enableCategory(item.id) : this.palette.disableCategory(item.id));
+        },
+      }),
+    };
+  }
+}
+
+/**
+ * Built-in category for handling arbitrary user text prompts and boolean confirmations.
+ */
+class PromptCategory extends CommandCategory<string> {
+  /** Prompt text shown in the palette header. */
+  message = van.state("");
+
+  private session: {
+    mode: PromptMode;
+    previousQuery: string;
+    previousTopCategory: string;
+    resolve: (value: string | null) => void;
+    wasOpen: boolean;
+  } | null = null;
+
+  siblings = [];
+
+  allItems = van.state(["Ok", "Cancel"]);
+  criteria: Array<(item: string) => string> = [item => item];
+
+  constructor(
+    state: stateMapping<CommandPaletteState>,
+    private readonly palette: CommandPalette,
+  ) {
+    super(state, "Prompt", "Prompt for user input");
+  }
+
+  get mode(): PromptMode {
+    return this.session?.mode ?? "prompt";
+  }
+
+  /** Starts a free-text prompt session. */
+  prompt(text: string): Promise<string | null> {
+    return new Promise(resolve => this.startPromptSession(text, "prompt", resolve));
+  }
+
+  /** Starts a confirmation session that resolves to a boolean. */
+  confirm(text: string): Promise<boolean> {
+    return new Promise(resolve => this.startPromptSession(text, "confirm", value => resolve(value !== null)));
   }
 
   /**
-   * Delegates command execution to the command's click callback.
-   *
-   * @param command - Command to execute.
+   * Captures the current palette state, switches into prompt mode, and stores
+   * the resolver for later completion.
    */
-  executeCommand(command: CMDType): void {
-    void command;
+  private startPromptSession(
+    message: string,
+    mode: PromptMode,
+    resolve: (value: string | null) => void,
+  ): void {
+    this.session = {
+      mode,
+      previousQuery: this.state.query.val,
+      previousTopCategory: this.state.topCategory.val,
+      resolve,
+      wasOpen: this.palette.isOpen,
+    };
+    this.message.val = message;
+    this.palette.open({ query: "", topCategory: "prompt" });
   }
 
-  /**
-   * Adds one command to this category.
-   *
-   * @param command - Command to add.
-   * @returns This category instance for method chaining.
-   */
-  addCMD(
-    name: string,
-    description: string,
-    cb: (
-      cmd: CommandItem<CMDType>,
-    ) => Partial<CommandPaletteState> | ((state: CommandPaletteState) => CommandPaletteState) | void,
-  ): CMDCategory {
-    const command = CMD(name, description, cb);
-    this.commands.push(command);
-    return this;
+  /** Restores the prior palette state and resolves the pending prompt. */
+  private finishPrompt(value: string | null): void {
+    const session = this.session;
+    if (!session) return;
+
+    this.session = null;
+    this.message.val = "";
+
+    if (!session.wasOpen) {
+      this.palette.close();
+    }
+
+    this.updateViewState({
+      query: session.previousQuery,
+      topCategory: session.previousTopCategory,
+    });
+
+    session.resolve(value);
+  }
+
+  /** Cancels an active prompt session without returning input. */
+  cancelPrompt(): void {
+    this.finishPrompt(null);
+  }
+
+  /** Updates the prompt header text and returns the fixed Ok/Cancel items. */
+  getItems(): string[] {
+    this.title.val = this.mode === "confirm" ? "Confirm" : "Prompt";
+    this.description.val = this.message.val;
+    return this.allItems.val;
+  }
+
+  /** Renders the Ok/Cancel choice items for prompt mode. */
+  renderItem(item: string): CommandItem {
+    return {
+      title: item,
+      description:
+        item === "Ok"
+          ? this.message.val
+          : this.mode === "confirm"
+            ? "Dismiss this confirmation"
+            : "Cancel without saving input",
+      click: () => (
+        this.finishPrompt(item === "Ok" ? (this.mode === "prompt" ? this.state.query.val : "") : null),
+        false
+      ),
+    };
+  }
+}
+
+export type Command = {
+  /** Stable command id used for registration and gesture lookups. */
+  id: string;
+  /** Human-readable label shown in the command palette. */
+  name: string;
+  /** Supporting text shown beneath the command label. */
+  description: string;
+  /** Lucide icon rendered for the command. */
+  icon: IconNode;
+  /** Optional command execution callback. */
+  callback?: () => void;
+  /** Optional check callback used by toggle-style commands. */
+  checkCallback?: (checking: boolean) => boolean | void;
+};
+
+/** Hidden category that exposes the app's registered command list. */
+export class Commands extends CommandCategory<Command> {
+  private _commands: Map<string, Command>;
+  /** Reactive array mirrored from the internal command map. */
+  readonly commands = van.state<Command[]>([]);
+  allItems = this.commands;
+  criteria = [(item: Command) => item.name, (item: Command) => item.description];
+
+  constructor(public state: stateMapping<CommandPaletteState>) {
+    super(state, "Commands", "Run commands");
+    this._commands = new Map();
+  }
+
+  /** Renders a command row with its icon and execution behavior. */
+  renderItem(item: Command): CommandItem {
+    return {
+      title: item.name,
+      description: item.description,
+      click: () => (this.execute(item.id), false),
+      extras: renderIcon(item.icon),
+    };
+  }
+
+  /** Registers or replaces a command by id. */
+  add(command: Command) {
+    if (this._commands.has(command.id))
+      console.warn(`Command with id "${command.id}" already exists. It will be overwritten.`);
+
+    this._commands.set(command.id, command);
+    this.commands.val = Array.from(this._commands.values());
+  }
+
+  /** Removes a command from the registry. */
+  delete(id: string) {
+    this._commands.delete(id);
+    this.commands.val = Array.from(this._commands.values());
+  }
+
+  /** Retrieves a command by id. */
+  get(id: string): Command | undefined {
+    return this._commands.get(id);
+  }
+
+  /** Whether a command exists in the registry. */
+  has(id: string): boolean {
+    return this._commands.has(id);
+  }
+
+  /** Checks whether a command is available before execution. */
+  available(id: string): boolean {
+    const command = this._commands.get(id);
+    if (!command) return false;
+    if (command.checkCallback) return !!command.checkCallback(true);
+    return true;
+  }
+
+  /** Executes a command by id, honoring optional toggle-style callbacks. */
+  execute(id: string) {
+    const command = this._commands.get(id);
+    if (command) {
+      if (command.checkCallback) void (command.checkCallback(true) && command.checkCallback(false));
+      else command.callback?.();
+    } else {
+      console.warn(`Command with id "${id}" not found.`);
+    }
+  }
+}
+
+/** Safely runs a callback and converts thrown errors into null. */
+function tryit<T>(call: () => T, message: string = "An error occurred"): T | null {
+  try {
+    return call();
+  } catch (error) {
+    console.error(message, error);
+    return null;
   }
 }

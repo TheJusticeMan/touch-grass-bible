@@ -109,8 +109,6 @@ export type DataVerseTopicEntry = DataVerseRef & {
 /**
  * Output schema for data/bible-verse-topics.json.
  */
-export type DataVerseTopicsFile = DataVerseTopicEntry[];
-
 /**
  * A single chapter point for 2D Bible map rendering.
  */
@@ -126,30 +124,6 @@ export type DataMapPoint = {
   /** K-means cluster assignment used for coloring/grouping. */
   cluster: number;
 };
-
-/**
- * Output schema for data/bible-map-umap.json.
- */
-export type DataMapUmapFile = DataMapPoint[];
-
-/**
- * Recursive parsed Nave topic node.
- */
-export type DataNaveTopic = {
-  /** Topic title. */
-  title: string;
-  /** Nested child topics. */
-  subtopics: DataNaveTopic[];
-  /** Verse references attached to this topic node. */
-  verses: string[];
-  /** Related topic titles associated with this node. */
-  relatedTopics: string[];
-};
-
-/**
- * Output schema for data/parsed-nave.json.
- */
-export type DataParsedNaveFile = DataNaveTopic[];
 
 /**
  * A chapter array from translation data.

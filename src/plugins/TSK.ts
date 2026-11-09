@@ -1,12 +1,6 @@
+import { CommandCategory, CommandItem, CommandPaletteState, stateMapping, van } from "@touchgrass/framework";
 import { Waypoints } from "lucide";
-import {
-  CommandCategory,
-  CommandItem,
-  CommandPaletteState,
-  UnifiedCommandPalette,
-} from "@touchgrass/framework";
 import { VerseRef } from "src/models/VerseRef";
-import { VerseInfoComponent } from "src/ui/VerseScreen";
 import Plugin from "../core/Plugin";
 import { TSKCrossRefCategoryID } from "./categoryIDs";
 
@@ -18,11 +12,11 @@ export default class TSK extends Plugin {
     try {
       this.crossRefs = await this.app.files.loadJSON<{
         [OSIS: string]: [OSIS, number][];
-      }>("crossrefs.json");
+      }>("assets/crossrefs.json");
     } catch (e) {
       this.console.error("Failed to load crossrefs.json. Cross references will be unavailable.", e);
     }
-    this.registerPalette(() => new CrossRefCategory(this.app.commandPalette, this), TSKCrossRefCategoryID);
+    this.registerPalette(TSKCrossRefCategoryID, ({ state }) => new CrossRefCategory(state, this));
 
     this.addVerseAction({
       id: "cross-ref",
@@ -31,11 +25,9 @@ export default class TSK extends Plugin {
         "View cross references for this verse from the Treasury of Scripture Knowledge and related resources",
       icon: Waypoints,
       isAvailable: verseInfo => this.crossRefsForVerse(verseInfo.verse).length > 0,
-      onTrigger: (verseInfo: VerseInfoComponent) => {
-        this.app.verseState.set(verseInfo.verse);
-        this.app.openCommandPalette({
-          topCategory: TSKCrossRefCategoryID,
-        } as CommandPaletteState);
+      onTrigger: verseInfo => {
+        this.app.verseState.val = verseInfo.verse;
+        this.app.commandPalette.open({ topCategory: TSKCrossRefCategoryID });
       },
     });
   }
@@ -51,46 +43,40 @@ export default class TSK extends Plugin {
 }
 
 class CrossRefCategory extends CommandCategory<VerseRef> {
-  readonly name = "Cross references (TSK+)";
-  readonly description = "Cross references for the selected verse";
-  verses: VerseRef[] = [];
+  allItems = van.state<VerseRef[]>([]);
+  criteria: Array<(item: VerseRef) => string> = [verse => verse.toString(), verse => verse.vTXT];
 
   constructor(
-    public commandPalette: UnifiedCommandPalette,
+    state: stateMapping<CommandPaletteState>,
     public plugin: TSK,
   ) {
-    super(commandPalette);
+    super(state, "Cross references (TSK+)", "Cross references for the selected verse");
+    this.allItems = van.derive(() => {
+      const verse = this.plugin.app.verseState.val;
+
+      if (verse) {
+        this.title.val = `Cross references for ${verse.toString()}`;
+        return this.plugin.crossRefsForVerse(verse);
+      }
+
+      this.title.val = "Cross references (TSK+)";
+      return [];
+    });
   }
 
-  onTrigger(): void {
-    const verse = this.plugin.app.verseState.get();
-    if (verse)
-      void ((this.verses = this.plugin.crossRefsForVerse(verse)),
-      (this.title = `Cross references for ${verse.toString()}`));
-    else this.verses = [];
-  }
-  getCommands(query: string): VerseRef[] {
-    return this.getcompatible(
-      query,
-      this.verses,
-      verse => verse.toString(),
-      verse => verse.vTXT,
-    );
-  }
-
-  renderCommand(
-    verse: VerseRef,
-    Item: CommandItem<VerseRef>,
-  ): (state: CommandPaletteState) => CommandPaletteState {
-    Item.setTitle(verse.toString()).setDescription(verse.vTXT).addctx();
-
-    return state => {
-      this.plugin.app.verseState.set(verse);
-      return state.update({ topCategory: TSKCrossRefCategoryID });
+  renderItem(verse: VerseRef): CommandItem {
+    return {
+      title: verse.toString(),
+      description: verse.vTXT,
+      context: () => {
+        this.plugin.app.verseState.val = verse;
+        return { topCategory: TSKCrossRefCategoryID };
+      },
+      click: () => {
+        this.plugin.app.verseState.val = verse;
+        this.updateViewState({ topCategory: TSKCrossRefCategoryID });
+        return true;
+      },
     };
-  }
-
-  executeCommand(): void {
-    this.commandPalette.close();
   }
 }

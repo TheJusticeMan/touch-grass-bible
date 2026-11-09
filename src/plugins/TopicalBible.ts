@@ -1,30 +1,29 @@
-import { GitCompare } from "lucide";
 import {
-  Button,
   CommandCategory,
   CommandItem,
   CommandPaletteState,
-  UnifiedCommandPalette,
+  MenuVan,
+  stateMapping,
+  van,
 } from "@touchgrass/framework";
-import { VerseInfoComponent } from "src/ui/VerseScreen";
+import { GitCompare } from "lucide";
 import Plugin from "../core/Plugin";
-import { PaletteState } from "@touchgrass/framework";
 import { BibleTopics, BibleTopicsType } from "../models/BibleTopics";
 import { VerseRef } from "../models/VerseRef";
 import { TopicListCategoryID, TSKCrossRefCategoryID } from "./categoryIDs";
 
 export default class TopicalBiblePlugin extends Plugin {
-  topics: BibleTopics = new BibleTopics({}); // Initialize with empty topics
-  topic = this.app.commandPalette.useState(""); // State to track the currently selected topic
+  topics: BibleTopics = new BibleTopics({});
+  topic = this.app.commandPalette.useState("");
 
   async onload(): Promise<void> {
     try {
-      this.topics = new BibleTopics(await this.app.files.loadJSON<BibleTopicsType>("topics.json"));
+      this.topics = new BibleTopics(await this.app.files.loadJSON<BibleTopicsType>("assets/topics.json"));
     } catch (e) {
       this.console.error("Failed to load topics.json. Topical Bible will be unavailable.", e);
     }
 
-    this.registerPalette(() => new topicListCategory(this.app.commandPalette, this), TopicListCategoryID);
+    this.registerPalette(TopicListCategoryID, ({ state }) => new topicListCategory(state, this));
 
     this.addVerseAction({
       id: "topic",
@@ -32,89 +31,95 @@ export default class TopicalBiblePlugin extends Plugin {
       description: "View topics associated with this verse from OpenBible.info",
       icon: GitCompare,
       isAvailable: verseInfo => this.topics.getTopicsFromVerse(verseInfo.verse).length > 0,
-      onTrigger: (verseInfo: VerseInfoComponent) => {
+      onTrigger: verseInfo => {
+        const menu = new MenuVan();
         const topicList = this.topics.getTopicsFromVerse(verseInfo.verse);
         topicList.forEach(topic => {
-          new Button(verseInfo.element).setButtonText(`${topic.toTitleCase()}`).on("click", () => {
-            this.topic.set(topic);
-            this.app.openCommandPalette({
-              topCategory: TopicListCategoryID,
-            });
+          menu.addItem({
+            title: topic.toTitleCase(),
+            onClick: () => {
+              this.topic.val = topic;
+              this.app.commandPalette.open({ topCategory: TopicListCategoryID });
+            },
           });
         });
+        menu.showAtMouseEvent(verseInfo.event);
       },
     });
   }
 }
 
 class topicListCategory extends CommandCategory<VerseRef | string> {
-  list: string[] | VerseRef[] = [];
-  name = "Topics (www.openbible.info)";
-  description = "List of topics from OpenBible.info";
-  topic: PaletteState<string>; // State to track the currently selected topic
+  allItems = van.state<(VerseRef | string)[]>([]);
+  criteria: Array<(item: VerseRef | string) => string> = [
+    item => (typeof item === "string" ? item : item.toString()),
+    item => (typeof item === "string" ? item : item.vTXT),
+  ];
 
   constructor(
-    public commandPalette: UnifiedCommandPalette,
+    state: stateMapping<CommandPaletteState>,
     public plugin: TopicalBiblePlugin,
   ) {
-    super(commandPalette);
-    this.topic = this.plugin.topic; // Initialize the topic state
-  }
+    super(state, "Topics (www.openbible.info)", "List of topics from OpenBible.info");
+    this.extras = van.derive(() =>
+      this.plugin.topic.val
+        ? [
+            {
+              title: "Clear topic filter",
+              description: "",
+              click: () => {
+                this.plugin.topic.val = "";
+                this.updateViewState({ topCategory: TopicListCategoryID });
+                return false;
+              },
+            },
+          ]
+        : [],
+    );
 
-  onTrigger(): void {
-    const topic = this.topic.get();
-    if (topic) {
-      this.list = this.plugin.topics.get(topic);
-      this.title = `Topic: ${topic.toTitleCase()}`;
-      this.defaultCMD.addCMD(
-        "Clear topic filter",
-        "",
-        item =>
-          void item.onClick(() => {
-            this.topic.set("");
-            this.commandPalette.display();
-          }),
-      );
-    } else {
-      this.list = this.plugin.topics.keys;
-    }
-  }
+    this.allItems = van.derive(() => {
+      const topic = this.plugin.topic.val;
+      const query = this.state.query.val.trim();
 
-  getCommands(query: string): (VerseRef | string)[] {
-    if (this.list.length > 0 && typeof this.list[0] === "string") {
+      if (topic) {
+        this.title.val = `Topic: ${topic.toTitleCase()}`;
+        return this.plugin.topics.get(topic);
+      }
+
+      this.title.val = "Topics (www.openbible.info)";
       if (!query) return [];
-      return this.getcompatible(query, this.list as string[], topic => topic);
-    } else {
-      return this.getcompatible(
-        query,
-        this.list as VerseRef[],
-        verse => verse.toString(),
-        verse => verse.vTXT,
-      );
-    }
+      return this.plugin.topics.keys;
+    });
   }
 
-  renderCommand(
-    command: VerseRef | string,
-    Item: CommandItem<VerseRef | string>,
-  ): (state: CommandPaletteState) => CommandPaletteState {
+  renderItem(command: VerseRef | string): CommandItem {
     if (typeof command === "string") {
-      Item.setTitle(command.toTitleCase()).addctx();
-      return state => {
-        this.topic.set(command);
-        return state.update({ ...state, topCategory: TopicListCategoryID });
-      };
-    } else {
-      Item.setTitle(command.toString()).setDescription(command.vTXT).addctx();
-      return state => {
-        this.plugin.app.verseState.set(command);
-        return state.update({ ...state, topCategory: TSKCrossRefCategoryID });
+      return {
+        title: command.toTitleCase(),
+        description: "Open this topic",
+        context: () => {
+          this.plugin.topic.val = command;
+          return { topCategory: TopicListCategoryID };
+        },
+        click: () => {
+          this.plugin.topic.val = command;
+          this.updateViewState({ topCategory: TopicListCategoryID });
+          return false;
+        },
       };
     }
-  }
 
-  executeCommand(command: VerseRef | string): void {
-    if (typeof command === "string") this.commandPalette.display();
-    else this.commandPalette.close();
+    return {
+      title: command.toString(),
+      description: command.vTXT,
+      context: () => {
+        this.plugin.app.verseState.val = command;
+        return { topCategory: TSKCrossRefCategoryID };
+      },
+      click: () => {
+        this.plugin.app.verseState.val = command;
+        return true;
+      },
+    };
   }
 }

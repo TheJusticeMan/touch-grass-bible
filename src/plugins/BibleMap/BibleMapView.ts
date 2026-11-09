@@ -1,10 +1,12 @@
-import { LayoutNode, View } from "@touchgrass/framework";
+import { van, View } from "@touchgrass/framework";
 import * as d3 from "d3";
 import type { DataMapPoint } from "src/models/DataTypes";
 import { VerseRef } from "src/models/VerseRef";
 import BibleMapPlugin from "./BibleMapPlugin";
 import "./BibleMap.css";
 
+const { div } = van.tags;
+const { svg, g, path, text, title, defs, clipPath, circle } = van.tags("http://www.w3.org/2000/svg");
 export const BIBLE_MAP_VIEW_ID = "bible-map";
 
 type BibleMapPoint = DataMapPoint;
@@ -30,7 +32,10 @@ type ShelfContourResult = {
 type DotClusterPath = {
   cluster: number;
   fill: string;
-  d: string;
+  stroke: string;
+  cx: number;
+  cy: number;
+  r: number;
 };
 
 type TerrainPathEntry = {
@@ -42,6 +47,36 @@ type TerrainPathEntry = {
 type CountryPathEntry = {
   d: string;
   fill: string;
+  stroke: string;
+};
+
+type BookLabelEntry = {
+  labelText: string;
+  x: number;
+  y: number;
+};
+
+type ChapterLabelEntry = {
+  key: string;
+  labelText: string;
+  x: number;
+  y: number;
+  dy: number;
+  isActive: boolean;
+};
+
+type HitAreaEntry = {
+  key: string;
+  d: string;
+  sectionTitle: string;
+  point: BibleMapPoint;
+  isActive: boolean;
+};
+
+type ActiveMarkerEntry = {
+  x: number;
+  y: number;
+  scale: number;
 };
 
 const DEFAULT_MAP_TUNING = {
@@ -84,23 +119,38 @@ const MAP_TUNING = {
 } as const;
 
 export class BibleMapView extends View {
+  readonly viewTypeId = BIBLE_MAP_VIEW_ID;
   private readonly margin = { top: 20, right: 20, bottom: 20, left: 20 };
   private readonly minBookLabelZoom = 1.35;
   private readonly minChapterLabelZoom = 4;
-  private readonly dataPath = "data/bible-map-umap.json";
+  private readonly dataPath = "assets/bible-map-umap.json";
   private readonly mapCoordSize = 1000;
   private readonly mapCoordPadding = 24;
   private resizeObserver: ResizeObserver | null = null;
   private renderFrame: number | null = null;
   private labelFrame: number | null = null;
-  private verseStateUnsubscribe: (() => void) | null = null;
-  private rootEl: HTMLDivElement | null = null;
-  private statusEl: HTMLDivElement | null = null;
-  private svgEl: SVGSVGElement | null = null;
-  private activeChapterLayer: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
-  private bookLabelLayer: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
-  private chapterLabelLayer: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
-  private chapterDotsLayer: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
+  private currentXScale: d3.ScaleLinear<number, number> | null = null;
+  private currentYScale: d3.ScaleLinear<number, number> | null = null;
+  private lastViewport = { width: 1200, height: 700 };
+  private lastZoomTransform = d3.zoomIdentity;
+  private zoomBehavior: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null;
+  private lastActiveVerseKey = "";
+
+  private readonly worldTransformState = van.state("translate(0,0)");
+  private readonly statusTextState = van.state("Loading map terrain...");
+  private readonly viewBoxState = van.state("0 0 1200 700");
+  private readonly mapLabelFontSizeState = van.state("18px");
+  private readonly landClipPathState = van.state("");
+  private readonly shelvesState = van.state<TerrainPathEntry[]>([]);
+  private readonly countriesState = van.state<CountryPathEntry[]>([]);
+  private readonly dotPathsState = van.state<DotClusterPath[]>([]);
+  private readonly bookLabelsState = van.state<BookLabelEntry[]>([]);
+  private readonly chapterLabelsState = van.state<ChapterLabelEntry[]>([]);
+  private readonly hitAreasState = van.state<HitAreaEntry[]>([]);
+  private readonly activeMarkerState = van.state<ActiveMarkerEntry | null>(null);
+  private readonly showBookLabelsState = van.state(false);
+  private readonly showChapterLabelsState = van.state(false);
+  private readonly emptyMessageState = van.state<string | null>(null);
   private currentZoomScale = 1;
   private readonly chapterDotBaseRadius = 2.2;
   private readonly chapterDotRadiusEpsilon = 0.06;
@@ -112,35 +162,132 @@ export class BibleMapView extends View {
   private countryPathCache: CountryPathEntry[] | null = null;
   private renderProfile: RenderProfile = this.getRenderProfile(1200, 700);
 
-  constructor(
-    panel: LayoutNode,
-    public plugin: BibleMapPlugin,
-  ) {
-    super(panel);
-    this.title = "Bible Map";
+  constructor(public plugin: BibleMapPlugin) {
+    super("Bible Map", {});
   }
 
-  onAttach(): void {
-    this.containerEl.empty();
-    this.containerEl.addClass("bible-map-view");
+  create(): HTMLElement {
+    return div(
+      {
+        class: "bible-map-view",
+        ontouchstart: event => event.stopPropagation(),
+        ontouchmove: event => event.stopPropagation(),
+        ontouchend: event => event.stopPropagation(),
+        onpointerdown: event => event.stopPropagation(),
+        onpointermove: event => event.stopPropagation(),
+        onpointerup: event => event.stopPropagation(),
+      },
+      div({ class: "bible-map-status" }, () => this.statusTextState.val),
+      svg(
+        {
+          class: "bible-map-canvas",
+          viewBox: () => this.viewBoxState.val,
+          preserveAspectRatio: "xMidYMid meet",
+        },
+        g(
+          {
+            class: "bible-map-world",
+            transform: () => this.worldTransformState.val,
+            style: () => `--map-label-font-size:${this.mapLabelFontSizeState.val};`,
+          },
+          defs(clipPath({ id: "bible-map-land-clip" }, path({ d: () => this.landClipPathState.val }))),
+          () =>
+            g(
+              { class: "bible-map-land-shelves" },
+              this.shelvesState.val.map(({ d, fill, opacity }) => path({ d, fill, opacity })),
+            ),
+          () =>
+            g(
+              {
+                class: "bible-map-countries",
+                clipPath: "url(#bible-map-land-clip)",
+                style: () => (this.countriesState.val.length > 0 ? "display:block;" : "display:none;"),
+              },
+              this.countriesState.val.map(({ d, fill }) => path({ d, fill, opacity: 0.16 })),
+            ),
+          () =>
+            g(
+              { class: "bible-map-chapter-dots" },
+              this.dotPathsState.val.map(({ cx, cy, r, fill, stroke }) =>
+                circle({ cx, cy, r, fill, stroke, opacity: 0.9 }),
+              ),
+            ),
+          g({ class: "bible-map-active-chapter" }, () => {
+            const marker = this.activeMarkerState.val;
+            if (!marker) return "";
+            return g(
+              { transform: `translate(${marker.x}, ${marker.y}) scale(${marker.scale})` },
+              circle({ class: "bible-map-active-chapter-glow", r: 10 }),
+              circle({ class: "bible-map-active-chapter-core", r: 6.5 }),
+            );
+          }),
+          () =>
+            g(
+              {
+                class: "bible-map-book-labels",
+                style: () => (this.showBookLabelsState.val ? "display:block;" : "display:none;"),
+              },
+              this.bookLabelsState.val.map(({ x, y, labelText }) =>
+                text({ x, y, "text-anchor": "middle" }, labelText),
+              ),
+            ),
+          () =>
+            g(
+              {
+                class: "bible-map-chapter-labels",
+                style: () => (this.showChapterLabelsState.val ? "display:block;" : "display:none;"),
+              },
+              this.chapterLabelsState.val.map(({ x, y, dy, isActive, labelText }) =>
+                text({ x, y, dy, textAnchor: "middle", class: isActive ? "is-active" : "" }, labelText),
+              ),
+            ),
+          () =>
+            g(
+              { class: "bible-map-hit-areas" },
+              this.hitAreasState.val.map(({ d, isActive, point, sectionTitle }) =>
+                path(
+                  {
+                    d,
+                    fill: "transparent",
+                    stroke: "none",
+                    class: isActive ? "is-active" : "",
+                    style: "cursor:pointer;pointer-events:all;",
+                    onclick: () =>
+                      (this.plugin.app.verseState.val = new VerseRef(point.book, point.chapter, 1)),
+                  },
+                  title(sectionTitle),
+                ),
+              ),
+            ),
+          () =>
+            g(
+              { class: "bible-map-empty-layer" },
+              this.emptyMessageState.val
+                ? text(
+                    { class: "bible-map-empty", x: 600, y: 320, textAnchor: "middle" },
+                    this.emptyMessageState.val,
+                  )
+                : [],
+            ),
+        ),
+      ) as SVGSVGElement,
+    );
+  }
 
-    this.rootEl = this.containerEl.createEl("div", { cls: "bible-map-root" });
-    this.statusEl = this.rootEl.createEl("div", { cls: "bible-map-status", text: "Loading map terrain..." });
-
-    this.svgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg") as SVGSVGElement;
-    this.svgEl.classList.add("bible-map-canvas");
-    this.svgEl.setAttribute("viewBox", "0 0 1200 700");
-    this.svgEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
-    this.rootEl.appendChild(this.svgEl);
+  onMount(): void {
+    const rootEl = this.el;
+    const svgEl = this.el.querySelector<SVGSVGElement>(".bible-map-canvas");
+    if (!rootEl || !svgEl) throw new Error("Map root/SVG element not found during onMount");
 
     this.initializeResizeObserver();
     this.initializeVerseStateListener();
     void this.loadAndRender();
   }
 
-  onDetach(): void {
-    if (this.resizeObserver && this.rootEl) {
-      this.resizeObserver.unobserve(this.rootEl);
+  onUnmount(): void {
+    const rootEl = this.el;
+    if (this.resizeObserver && rootEl) {
+      this.resizeObserver.unobserve(rootEl);
       this.resizeObserver.disconnect();
       this.resizeObserver = null;
     }
@@ -152,20 +299,15 @@ export class BibleMapView extends View {
       cancelAnimationFrame(this.labelFrame);
       this.labelFrame = null;
     }
-    if (this.verseStateUnsubscribe) {
-      this.verseStateUnsubscribe();
-      this.verseStateUnsubscribe = null;
-    }
   }
 
   private initializeVerseStateListener(): void {
-    this.verseStateUnsubscribe = this.plugin.app.verseState.onChange(() => {
-      this.updateActiveChapterHighlight();
-    });
+    van.derive(() => (void this.plugin.app.verseState.val, this.updateActiveChapterHighlight()));
   }
 
   private initializeResizeObserver(): void {
-    if (!this.rootEl || typeof ResizeObserver === "undefined") {
+    const rootEl = this.el;
+    if (!rootEl || typeof ResizeObserver === "undefined") {
       return;
     }
 
@@ -175,7 +317,7 @@ export class BibleMapView extends View {
       }
       this.renderMapIfReady();
     });
-    this.resizeObserver.observe(this.rootEl);
+    this.resizeObserver.observe(rootEl);
   }
 
   private async loadAndRender(): Promise<void> {
@@ -195,7 +337,7 @@ export class BibleMapView extends View {
       this.updateStatus(`${this.points.length.toLocaleString()} chapters mapped`);
     } catch (error) {
       this.plugin.app.console.error("Failed to load bible land map data", error);
-      this.renderEmptyState(`Could not load ${this.dataPath}.`);
+      this.renderEmptyState(`Could not load ${this.dataPath}. The error was: ${error}`);
     }
   }
 
@@ -235,103 +377,64 @@ export class BibleMapView extends View {
   }
 
   private renderMap(): void {
-    if (!this.rootEl || !this.svgEl) {
+    const rootEl = this.el;
+    const svgEl = this.el.querySelector<SVGSVGElement>(".bible-map-canvas");
+    if (!rootEl || !svgEl) {
       return;
     }
 
-    const svgWidth = Math.max(this.rootEl.clientWidth, 400);
-    const svgHeight = Math.max(this.rootEl.clientHeight, 280);
+    const measuredWidth = rootEl.clientWidth;
+    const measuredHeight = rootEl.clientHeight;
+
+    if (measuredWidth > 0 && measuredHeight > 0) {
+      this.lastViewport = { width: measuredWidth, height: measuredHeight };
+    }
+
+    const svgWidth = Math.max(measuredWidth || this.lastViewport.width, 400);
+    const svgHeight = Math.max(measuredHeight || this.lastViewport.height, 280);
     this.renderProfile = this.getRenderProfile(svgWidth, svgHeight);
     const size = Math.min(svgWidth, svgHeight) - this.margin.left - this.margin.right;
     const mapOffsetX = Math.round((svgWidth - size) / 2);
     const mapOffsetY = Math.round((svgHeight - size) / 2);
-    this.svgEl.style.width = "";
-    this.svgEl.style.height = "";
-    this.svgEl.setAttribute("viewBox", `0 0 ${svgWidth} ${svgHeight}`);
+    this.viewBoxState.val = `0 0 ${svgWidth} ${svgHeight}`;
 
     const baseMapScale = size / this.mapCoordSize;
     const tuning = this.getMapTuning();
-
-    const svg = d3.select(this.svgEl);
-    svg.selectAll("*").remove();
-
-    const worldLayer = svg
-      .append("g")
-      .attr("class", "bible-map-world")
-      .attr("transform", `translate(${mapOffsetX}, ${mapOffsetY})`);
+    this.worldTransformState.val = `translate(${mapOffsetX}, ${mapOffsetY})`;
 
     const { xScale, yScale } = this.getMapScales();
+    this.currentXScale = xScale;
+    this.currentYScale = yScale;
 
     const contourResult = this.getShelfContours(xScale, yScale);
     const shelfContours = contourResult.contours;
     const terrainRenderData = this.getTerrainRenderData(shelfContours, tuning.landCutoff);
     const countryPathData = this.getCountryPathData(xScale, yScale);
-
-    worldLayer
-      .append("g")
-      .attr("class", "bible-map-land-shelves")
-      .selectAll("path")
-      .data(terrainRenderData.entries)
-      .join("path")
-      .attr("d", entry => entry.d)
-      .attr("fill", entry => entry.fill)
-      .attr("opacity", entry => entry.opacity);
-
+    this.shelvesState.val = terrainRenderData.entries;
     const landMaskPath = terrainRenderData.landMaskPath;
+    this.landClipPathState.val = landMaskPath || "";
+    this.countriesState.val = landMaskPath ? countryPathData : [];
 
-    if (landMaskPath) {
-      const landClipId = "bible-map-land-clip";
-      const defs = worldLayer.append("defs");
-      defs.append("clipPath").attr("id", landClipId).append("path").attr("d", landMaskPath);
-
-      if (countryPathData.length > 0) {
-        worldLayer
-          .append("g")
-          .attr("class", "bible-map-countries")
-          .attr("clip-path", `url(#${landClipId})`)
-          .selectAll("path")
-          .data(countryPathData)
-          .join("path")
-          .attr("d", entry => entry.d)
-          .attr("fill", entry => entry.fill)
-          .attr("opacity", 0.16);
-      }
-    }
-
-    let chapterDotPaths: d3.Selection<SVGPathElement, DotClusterPath, SVGGElement, unknown> | null = null;
+    let chapterDotPaths: DotClusterPath[] = [];
     let currentDotTier = -1;
     let lastDotRadius = this.chapterDotBaseRadius;
-    this.chapterDotsLayer = worldLayer.append("g").attr("class", "bible-map-chapter-dots");
     const renderDotsForZoom = (relativeZoom: number, radius: number): void => {
-      if (!this.chapterDotsLayer) {
-        return;
-      }
       const nextTier = relativeZoom < 1.2 ? 0 : relativeZoom < 2.1 ? 1 : 2;
-      if (nextTier === currentDotTier && chapterDotPaths) {
+      if (nextTier === currentDotTier && chapterDotPaths.length > 0) {
         return;
       }
       currentDotTier = nextTier;
       const budget = this.getDotRenderBudget(relativeZoom);
       const dotPoints = this.getDotPointsForBudget(this.points, budget, xScale, yScale);
-      const dotClusterPaths = this.buildDotClusterPaths(dotPoints, xScale, yScale, radius);
-      chapterDotPaths = this.chapterDotsLayer
-        .selectAll<SVGPathElement, DotClusterPath>("path")
-        .data(dotClusterPaths, entry => `${entry.cluster}`)
-        .join("path")
-        .attr("d", entry => entry.d)
-        .attr("fill", entry => entry.fill)
-        .attr("opacity", 0.9);
+      chapterDotPaths = this.buildDotClusterPaths(dotPoints, xScale, yScale, radius);
+      this.dotPathsState.val = chapterDotPaths;
     };
     renderDotsForZoom(1, lastDotRadius);
 
-    this.activeChapterLayer = worldLayer.append("g").attr("class", "bible-map-active-chapter");
-
-    this.bookLabelLayer = this.renderBookLabels(worldLayer, xScale, yScale);
-    this.bookLabelLayer.style("display", "none");
-
-    const chapterLabelLayer = worldLayer.append("g").attr("class", "bible-map-chapter-labels");
-    this.chapterLabelLayer = chapterLabelLayer;
-    chapterLabelLayer.style("display", "none");
+    this.renderBookLabels(xScale, yScale);
+    this.showBookLabelsState.val = false;
+    this.showChapterLabelsState.val = false;
+    this.chapterLabelsState.val = [];
 
     const labelData = this.points.map(point => ({
       point,
@@ -344,27 +447,19 @@ export class BibleMapView extends View {
 
     const updateLabelScale = (k: number): void => {
       const relativeZoom = Math.max(0.1, k / baseMapScale);
-      worldLayer.style("--map-label-font-size", `${LABEL_FONT_PX / Math.max(k, 0.1)}px`);
+      this.mapLabelFontSizeState.val = `${LABEL_FONT_PX / Math.max(k, 0.1)}px`;
       const dotRadius = this.chapterDotBaseRadius / relativeZoom;
-      if (chapterDotPaths && this.chapterDotsLayer) {
-        const radiusChanged = Math.abs(dotRadius - lastDotRadius) >= this.chapterDotRadiusEpsilon;
-        const nextTier = relativeZoom < 1.2 ? 0 : relativeZoom < 2.1 ? 1 : 2;
-        if (radiusChanged || nextTier !== currentDotTier) {
-          if (radiusChanged) {
-            lastDotRadius = dotRadius;
-          }
-          const budget = this.getDotRenderBudget(relativeZoom);
-          const dotPoints = this.getDotPointsForBudget(this.points, budget, xScale, yScale);
-          const dotClusterPaths = this.buildDotClusterPaths(dotPoints, xScale, yScale, lastDotRadius);
-          chapterDotPaths = this.chapterDotsLayer
-            .selectAll<SVGPathElement, DotClusterPath>("path")
-            .data(dotClusterPaths, entry => `${entry.cluster}`)
-            .join("path")
-            .attr("d", entry => entry.d)
-            .attr("fill", entry => entry.fill)
-            .attr("opacity", 0.9);
-          currentDotTier = nextTier;
+      const radiusChanged = Math.abs(dotRadius - lastDotRadius) >= this.chapterDotRadiusEpsilon;
+      const nextTier = relativeZoom < 1.2 ? 0 : relativeZoom < 2.1 ? 1 : 2;
+      if (radiusChanged || nextTier !== currentDotTier) {
+        if (radiusChanged) {
+          lastDotRadius = dotRadius;
         }
+        const budget = this.getDotRenderBudget(relativeZoom);
+        const dotPoints = this.getDotPointsForBudget(this.points, budget, xScale, yScale);
+        chapterDotPaths = this.buildDotClusterPaths(dotPoints, xScale, yScale, lastDotRadius);
+        this.dotPathsState.val = chapterDotPaths;
+        currentDotTier = nextTier;
       }
     };
 
@@ -428,16 +523,14 @@ export class BibleMapView extends View {
           break;
         }
       }
-      chapterLabelLayer
-        .selectAll<SVGTextElement, (typeof labelData)[0]>("text")
-        .data(visible, d => `${d.point.book}-${d.point.chapter}`)
-        .join("text")
-        .attr("x", d => d.svgX)
-        .attr("y", d => d.svgY)
-        .attr("dy", -3 / k)
-        .attr("text-anchor", "middle")
-        .classed("is-active", d => this.isActivePoint(d.point))
-        .text(d => this.getChapterLabelText(d.point));
+      this.chapterLabelsState.val = visible.map(d => ({
+        key: this.getPointKey(d.point),
+        labelText: this.getChapterLabelText(d.point),
+        x: d.svgX,
+        y: d.svgY,
+        dy: -3 / k,
+        isActive: this.isActivePoint(d.point),
+      }));
 
       this.updateActiveChapterHighlight();
     };
@@ -466,23 +559,44 @@ export class BibleMapView extends View {
     );
     const voronoi = delaunay.voronoi([0, 0, this.mapCoordSize, this.mapCoordSize]);
 
-    worldLayer
-      .append("g")
-      .attr("class", "bible-map-hit-areas")
-      .selectAll("path")
-      .data(this.points)
-      .join("path")
-      .attr("d", (_point, index) => voronoi.renderCell(index))
-      .attr("fill", "transparent")
-      .attr("stroke", "none")
-      .classed("is-active", point => this.isActivePoint(point))
-      .style("cursor", "pointer")
-      .style("pointer-events", "all")
-      .on("click", (_event, point) => {
-        this.plugin.app.verseState.set(new VerseRef(point.book, point.chapter, 1));
-      })
-      .append("title")
-      .text(point => `${point.book.toTitleCase()} ${point.chapter}`);
+    this.hitAreasState.val = this.points.map((point, index) => ({
+      key: this.getPointKey(point),
+      d: voronoi.renderCell(index),
+      sectionTitle: `${point.book.toTitleCase()} ${point.chapter}`,
+      point,
+      isActive: this.isActivePoint(point),
+    }));
+
+    const hasCustomTransform =
+      this.lastZoomTransform !== d3.zoomIdentity &&
+      (this.lastZoomTransform.k !== 1 || this.lastZoomTransform.x !== 0 || this.lastZoomTransform.y !== 0);
+    const initialTransform = hasCustomTransform
+      ? this.lastZoomTransform
+      : d3.zoomIdentity.translate(mapOffsetX, mapOffsetY).scale(baseMapScale);
+
+    this.currentZoomScale = Math.max(0.1, initialTransform.k / baseMapScale);
+    updateLabelScale(initialTransform.k);
+    this.bindZoomAdapter(svgEl, {
+      baseMapScale,
+      initialTransform,
+      updateLabelScale,
+      scheduleChapterLabels,
+    });
+    this.showBookLabelsState.val = this.currentZoomScale >= this.minBookLabelZoom;
+    this.emptyMessageState.val = null;
+    this.updateActiveChapterHighlight();
+  }
+
+  private bindZoomAdapter(
+    svgEl: SVGSVGElement,
+    options: {
+      baseMapScale: number;
+      initialTransform: d3.ZoomTransform;
+      updateLabelScale: (k: number) => void;
+      scheduleChapterLabels: (k: number, tx: number, ty: number) => void;
+    },
+  ): void {
+    const { baseMapScale, initialTransform, updateLabelScale, scheduleChapterLabels } = options;
 
     const zoom = d3
       .zoom<SVGSVGElement, unknown>()
@@ -490,39 +604,62 @@ export class BibleMapView extends View {
       .on("zoom", event => {
         const relativeZoom = Math.max(0.1, event.transform.k / baseMapScale);
         this.currentZoomScale = relativeZoom;
-        worldLayer.attr(
-          "transform",
-          `translate(${event.transform.x}, ${event.transform.y}) scale(${event.transform.k})`,
-        );
+        this.lastZoomTransform = event.transform;
+        this.worldTransformState.val = `translate(${event.transform.x}, ${event.transform.y}) scale(${event.transform.k})`;
         updateLabelScale(event.transform.k);
         this.updateActiveChapterHighlight();
-        if (this.bookLabelLayer) {
-          this.bookLabelLayer.style("display", relativeZoom >= this.minBookLabelZoom ? "block" : "none");
-        }
+        this.showBookLabelsState.val = relativeZoom >= this.minBookLabelZoom;
         if (relativeZoom >= this.minChapterLabelZoom) {
-          chapterLabelLayer.style("display", "block");
+          this.showChapterLabelsState.val = true;
           scheduleChapterLabels(event.transform.k, event.transform.x, event.transform.y);
         } else {
-          chapterLabelLayer.style("display", "none");
+          this.showChapterLabelsState.val = false;
         }
       });
 
-    const initialTransform = d3.zoomIdentity.translate(mapOffsetX, mapOffsetY).scale(baseMapScale);
-    this.currentZoomScale = 1;
-    updateLabelScale(initialTransform.k);
-    svg.call(zoom).call(zoom.transform, initialTransform);
-    svg.on("dblclick.zoom", null);
-    if (this.bookLabelLayer) {
-      this.bookLabelLayer.style("display", this.currentZoomScale >= this.minBookLabelZoom ? "block" : "none");
+    this.zoomBehavior = zoom;
+    const svgSelection = d3.select(svgEl);
+    svgSelection.call(zoom).call(zoom.transform, initialTransform);
+    svgSelection.on("dblclick.zoom", null);
+  }
+
+  private ensureActiveChapterInView(activePoint: BibleMapPoint): void {
+    if (!this.zoomBehavior || !this.currentXScale || !this.currentYScale) {
+      return;
     }
-    this.updateActiveChapterHighlight();
+
+    const svgEl = this.el.querySelector<SVGSVGElement>(".bible-map-canvas");
+    if (!svgEl) {
+      return;
+    }
+
+    const width = Math.max(this.lastViewport.width, 400);
+    const height = Math.max(this.lastViewport.height, 280);
+    const currentTransform = this.lastZoomTransform;
+    const mapX = this.currentXScale(activePoint.x);
+    const mapY = this.currentYScale(activePoint.y);
+    const screenX = currentTransform.x + mapX * currentTransform.k;
+    const screenY = currentTransform.y + mapY * currentTransform.k;
+    const padding = 80;
+
+    const inView =
+      screenX >= padding && screenX <= width - padding && screenY >= padding && screenY <= height - padding;
+
+    if (inView) {
+      return;
+    }
+
+    const targetTransform = d3.zoomIdentity
+      .translate(width / 2 - mapX * currentTransform.k, height / 2 - mapY * currentTransform.k)
+      .scale(currentTransform.k);
+
+    d3.select(svgEl).call(this.zoomBehavior.transform, targetTransform);
   }
 
   private renderBookLabels(
-    worldLayer: d3.Selection<SVGGElement, unknown, null, undefined>,
     xScale: d3.ScaleLinear<number, number>,
     yScale: d3.ScaleLinear<number, number>,
-  ): d3.Selection<SVGGElement, unknown, null, undefined> {
+  ): void {
     const grouped = d3.group(this.points, point => point.book);
     const labelPoints: LabelPoint[] = [];
 
@@ -542,17 +679,11 @@ export class BibleMapView extends View {
     const cutoff = d3.quantile(chapterCounts, 0.65) || 1;
     const prominent = labelPoints.filter(point => point.chapterCount >= cutoff);
 
-    const labelsLayer = worldLayer.append("g").attr("class", "bible-map-book-labels");
-    labelsLayer
-      .selectAll("text")
-      .data(prominent)
-      .join("text")
-      .attr("x", point => point.x)
-      .attr("y", point => point.y)
-      .attr("text-anchor", "middle")
-      .text(point => point.book.toTitleCase());
-
-    return labelsLayer;
+    this.bookLabelsState.val = prominent.map(point => ({
+      labelText: point.book.toTitleCase(),
+      x: point.x,
+      y: point.y,
+    }));
   }
 
   private getTerrainColor(intensity: number, landCutoff: number): string {
@@ -605,7 +736,7 @@ export class BibleMapView extends View {
   }
 
   private getActiveVerseKey(): string {
-    const verse = this.plugin.app.verseState.get();
+    const verse = this.plugin.app.verseState.val;
     return `${this.normalizeBookName(verse.book)}:${verse.chapter}`;
   }
 
@@ -614,50 +745,47 @@ export class BibleMapView extends View {
   }
 
   private updateActiveChapterHighlight(): void {
-    if (!this.svgEl) {
-      return;
-    }
-
     const activeVerseKey = this.getActiveVerseKey();
-    d3.select(this.svgEl)
-      .selectAll<SVGPathElement, BibleMapPoint>(".bible-map-hit-areas path")
-      .classed("is-active", point => this.getPointKey(point) === activeVerseKey);
+    const didActiveVerseChange = activeVerseKey !== this.lastActiveVerseKey;
+    this.lastActiveVerseKey = activeVerseKey;
 
-    if (this.chapterLabelLayer) {
-      this.chapterLabelLayer
-        .selectAll<SVGTextElement, { point: BibleMapPoint }>("text")
-        .classed("is-active", datum => this.getPointKey(datum.point) === activeVerseKey);
+    const hitAreas = this.hitAreasState.val;
+    const nextHitAreas = hitAreas.map(entry => ({
+      ...entry,
+      isActive: entry.key === activeVerseKey,
+    }));
+    const hitAreasChanged = nextHitAreas.some((entry, index) => entry.isActive !== hitAreas[index]?.isActive);
+    if (hitAreasChanged) {
+      this.hitAreasState.val = nextHitAreas;
     }
 
-    if (!this.activeChapterLayer) {
-      return;
+    const chapterLabels = this.chapterLabelsState.val;
+    const nextChapterLabels = chapterLabels.map(entry => ({
+      ...entry,
+      isActive: entry.key === activeVerseKey,
+    }));
+    const chapterLabelsChanged = nextChapterLabels.some(
+      (entry, index) => entry.isActive !== chapterLabels[index]?.isActive,
+    );
+    if (chapterLabelsChanged) {
+      this.chapterLabelsState.val = nextChapterLabels;
     }
 
     const activePoint = this.points.find(point => this.getPointKey(point) === activeVerseKey);
-    const markerData = activePoint
-      ? [
-          {
-            x: activePoint.x,
-            y: activePoint.y,
-          },
-        ]
-      : [];
+    if (!activePoint || !this.currentXScale || !this.currentYScale) {
+      this.activeMarkerState.val = null;
+      return;
+    }
 
-    const { xScale, yScale } = this.getMapScales();
+    this.activeMarkerState.val = {
+      x: this.currentXScale(activePoint.x),
+      y: this.currentYScale(activePoint.y),
+      scale: 1 / this.currentZoomScale,
+    };
 
-    this.activeChapterLayer
-      .selectAll<SVGGElement, { x: number; y: number }>("g")
-      .data(markerData)
-      .join(enter => {
-        const group = enter.append("g");
-        group.append("circle").attr("class", "bible-map-active-chapter-glow").attr("r", 10);
-        group.append("circle").attr("class", "bible-map-active-chapter-core").attr("r", 6.5);
-        return group;
-      })
-      .attr(
-        "transform",
-        d => `translate(${xScale(d.x)}, ${yScale(d.y)}) scale(${1 / this.currentZoomScale})`,
-      );
+    if (didActiveVerseChange) {
+      this.ensureActiveChapterInView(activePoint);
+    }
   }
 
   private renderMapIfReady(): void {
@@ -737,31 +865,13 @@ export class BibleMapView extends View {
     yScale: d3.ScaleLinear<number, number>,
     radius: number,
   ): DotClusterPath[] {
-    const commandsByCluster = new Map<number, string[]>();
-    const diameter = radius * 2;
-
-    for (const point of points) {
-      const cluster = point.cluster;
-      const cx = xScale(point.x);
-      const cy = yScale(point.y);
-      const command =
-        `M${(cx - radius).toFixed(2)},${cy.toFixed(2)}` +
-        `a${radius.toFixed(2)},${radius.toFixed(2)} 0 1,0 ${diameter.toFixed(2)},0` +
-        `a${radius.toFixed(2)},${radius.toFixed(2)} 0 1,0 -${diameter.toFixed(2)},0`;
-
-      const existing = commandsByCluster.get(cluster);
-      if (existing) {
-        existing.push(command);
-      } else {
-        commandsByCluster.set(cluster, [command]);
-      }
-    }
-
-    return Array.from(commandsByCluster.entries()).map(([cluster, commands]) => ({
-      cluster,
-      fill: this.getChapterDotColor(cluster),
-      stroke: this.getChapterDotStrokeColor(cluster),
-      d: commands.join(""),
+    return points.map(point => ({
+      cluster: point.cluster,
+      fill: this.getChapterDotColor(point.cluster),
+      stroke: this.getChapterDotStrokeColor(point.cluster),
+      cx: xScale(point.x),
+      cy: yScale(point.y),
+      r: radius,
     }));
   }
 
@@ -832,14 +942,12 @@ export class BibleMapView extends View {
           ((MAP_TUNING.shelves.maxOpacity - MAP_TUNING.shelves.minOpacity) / (1 - landCutoff)),
     }));
 
-    const terrainRenderData = {
+    this.terrainPathCache = {
       entries,
       landMaskPath: entries.length > 0 ? entries[0].d : "",
     };
-
-    this.terrainPathCache = terrainRenderData;
     this.terrainPathCacheKey = cacheKey;
-    return terrainRenderData;
+    return this.terrainPathCache;
   }
 
   private getCountryPathData(
@@ -923,24 +1031,21 @@ export class BibleMapView extends View {
   }
 
   private renderEmptyState(message: string): void {
-    if (!this.svgEl) {
-      return;
-    }
     this.updateStatus(message);
-    const svg = d3.select(this.svgEl);
-    svg.selectAll("*").remove();
-    svg
-      .append("text")
-      .attr("class", "bible-map-empty")
-      .attr("x", 600)
-      .attr("y", 320)
-      .attr("text-anchor", "middle")
-      .text(message);
+    this.landClipPathState.val = "";
+    this.shelvesState.val = [];
+    this.countriesState.val = [];
+    this.dotPathsState.val = [];
+    this.bookLabelsState.val = [];
+    this.chapterLabelsState.val = [];
+    this.hitAreasState.val = [];
+    this.activeMarkerState.val = null;
+    this.showBookLabelsState.val = false;
+    this.showChapterLabelsState.val = false;
+    this.emptyMessageState.val = message;
   }
 
   private updateStatus(text: string): void {
-    if (this.statusEl) {
-      this.statusEl.textContent = text;
-    }
+    this.statusTextState.val = text;
   }
 }

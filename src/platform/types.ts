@@ -1,6 +1,1 @@
-export type {
-  PlatformBridge,
-  PlatformFileAdapter,
-  PlatformStorageAdapter,
-  PlatformTarget,
-} from "@touchgrass/framework";
+export type { PlatformBridge, PlatformTarget } from "@touchgrass/framework";

@@ -26,8 +26,8 @@ function getAssetRoot() {
   return __dirname;
 }
 
-function storagePathForKey(key) {
-  return path.join(getStorageRoot(), ".tg-storage", `${encodeURIComponent(key)}.txt`);
+function storagePathForKey(key, extension = "json") {
+  return path.join(getStorageRoot(), ".tg-storage", `${encodeURIComponent(key)}.${extension}`);
 }
 
 async function ensureParentDirectory(filePath) {
@@ -46,10 +46,14 @@ async function readIfExists(filePath) {
 }
 
 function registerPlatformHandlers() {
-  ipcMain.handle("touch-grass:get-storage-item", async (_event, key) => readIfExists(storagePathForKey(key)));
+  ipcMain.handle("touch-grass:get-storage-item", async (_event, key) => {
+    const currentValue = await readIfExists(storagePathForKey(key, "json"));
+    if (currentValue !== null) return currentValue;
+    return readIfExists(storagePathForKey(key, "txt"));
+  });
 
   ipcMain.handle("touch-grass:set-storage-item", async (_event, key, value) => {
-    const filePath = storagePathForKey(key);
+    const filePath = storagePathForKey(key, "json");
     await ensureParentDirectory(filePath);
     await fs.writeFile(filePath, value, "utf8");
   });

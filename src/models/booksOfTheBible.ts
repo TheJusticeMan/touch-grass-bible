@@ -20,7 +20,7 @@ export const booksOfTheBible: string[] = [
   "PSALMS",
   "PROVERBS",
   "ECCLESIASTES",
-  "SONG SOLOMON",
+  "SONG OF SOLOMON",
   "ISAIAH",
   "JEREMIAH",
   "LAMENTATIONS",

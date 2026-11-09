@@ -10,8 +10,12 @@ import { VerseRef } from "./VerseRef";
 // Index 0 of each book/chapter is a placeholder (indices are 1-based in usage).
 // ---------------------------------------------------------------------------
 
-// Book data: bookData[chapter][verse] — index 0 is unused placeholder
+// Book data: bookData[chapter][verse] - index 0 is unused placeholder
 type MockBible = { [book: string]: string[][] };
+type VerseRefPrivateCache = {
+  _verseCount?: number;
+  _versesBeforeIndex?: { [book: string]: number[] };
+};
 
 const makeMockBible = (): MockBible => ({
   // GENESIS: 3 chapters, up to 3 verses each
@@ -32,7 +36,7 @@ const makeMockBible = (): MockBible => ({
     ["", "Now these are the names of the children...", "And every man and his household..."],
     ["", "And these are the names..."],
   ],
-  // REVELATION: 2 chapters (last book — used for wrap-around tests)
+  // REVELATION: 2 chapters (last book - used for wrap-around tests)
   REVELATION: [
     [],
     ["", "The Revelation of Jesus Christ...", "Blessed is he who reads..."],
@@ -131,9 +135,9 @@ describe("VerseRef data accessors", () => {
     expect(ref.verseData("KJV")).toBe("In the beginning God created...");
   });
 
-  test("verseData returns empty string for unknown translation", () => {
+  test("verseData falls back to the default translation while a target translation is still loading", () => {
     const ref = new VerseRef("GENESIS", 1, 1);
-    expect(ref.verseData("ASV")).toBe("");
+    expect(ref.verseData("ASV")).toBe("In the beginning God created...");
   });
 
   test("chapterData returns an array of verses for the chapter", () => {
@@ -195,6 +199,30 @@ describe("VerseRef.nextChapter", () => {
     const next = ref.nextChapter;
     expect(next.book).toBe("EXODUS");
     expect(next.chapter).toBe(1);
+  });
+});
+
+describe("VerseRef.distance", () => {
+  test("recomputes against loaded bible data after an empty start", () => {
+    const originalTranslations = VerseRef.bibleTranslations;
+    const verseRefCache = VerseRef as unknown as VerseRefPrivateCache;
+    const originalVerseCount = verseRefCache._verseCount;
+    const originalVersesBeforeIndex = verseRefCache._versesBeforeIndex;
+
+    try {
+      VerseRef.bibleTranslations = {};
+      verseRefCache._verseCount = undefined;
+      verseRefCache._versesBeforeIndex = undefined;
+
+      expect(VerseRef.distance(0)).toEqual(new VerseRef("GENESIS", 1, 1));
+
+      VerseRef.bibleTranslations = { KJV: makeMockBible() };
+      expect(VerseRef.distance(1)).toEqual(new VerseRef("REVELATION", 2, 1));
+    } finally {
+      VerseRef.bibleTranslations = originalTranslations;
+      verseRefCache._verseCount = originalVerseCount;
+      verseRefCache._versesBeforeIndex = originalVersesBeforeIndex;
+    }
   });
 });
 

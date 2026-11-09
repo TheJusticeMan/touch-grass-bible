@@ -35,12 +35,32 @@ describe("capacitor platform bridge", () => {
     await bridge.storage.getItem("settings");
 
     expect(capacitorMocks.writeFile).toHaveBeenCalledWith({
-      path: ".tg-storage/settings.txt",
+      path: ".tg-storage/settings.json",
       data: "value",
       directory: "DATA",
       encoding: "utf8",
     });
     expect(capacitorMocks.readFile).toHaveBeenCalledWith({
+      path: ".tg-storage/settings.json",
+      directory: "DATA",
+      encoding: "utf8",
+    });
+  });
+
+  test("reads legacy .txt storage key when .json is missing", async () => {
+    capacitorMocks.readFile
+      .mockRejectedValueOnce(new Error("missing json"))
+      .mockResolvedValueOnce({ data: "legacy-value" });
+    const bridge = createPlatformBridge();
+
+    await expect(bridge.storage.getItem("settings")).resolves.toBe("legacy-value");
+
+    expect(capacitorMocks.readFile).toHaveBeenNthCalledWith(1, {
+      path: ".tg-storage/settings.json",
+      directory: "DATA",
+      encoding: "utf8",
+    });
+    expect(capacitorMocks.readFile).toHaveBeenNthCalledWith(2, {
       path: ".tg-storage/settings.txt",
       directory: "DATA",
       encoding: "utf8",
@@ -102,7 +122,7 @@ describe("capacitor platform bridge", () => {
       "pickFileText is not supported in capacitor builds",
     );
 
-    expect(fetch).toHaveBeenCalledWith("data/translations/YLT.json");
+    expect(fetch).toHaveBeenCalledWith("/assets/translations/YLT.json");
   });
 
   test("reads binary files as Uint8Array", async () => {

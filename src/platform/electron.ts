@@ -92,5 +92,12 @@ export function createPlatformBridge(): PlatformBridge {
         await saveBrowserFile(filename, content, mimeType);
       },
     },
+    windowControls: {
+      minimize: () => bridge.windowMinimize(),
+      maximize: () => bridge.windowMaximize(),
+      close: () => bridge.windowClose(),
+      isMaximized: () => bridge.windowIsMaximized?.() ?? Promise.resolve(false),
+      onMaximizedChange: cb => bridge.onWindowMaximizedChange?.(cb) ?? (() => {}),
+    },
   };
 }

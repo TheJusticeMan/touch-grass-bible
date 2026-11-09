@@ -1,15 +1,15 @@
-import { GitCompare } from "lucide";
 import {
-  Button,
   CommandCategory,
   CommandItem,
   CommandPaletteState,
-  UnifiedCommandPalette,
+  MenuVan,
+  stateMapping,
+  van,
 } from "@touchgrass/framework";
+import { GitCompare } from "lucide";
 import { VerseRef } from "src/models/VerseRef";
-import { VerseInfoComponent } from "src/ui/VerseScreen";
 import Plugin from "../../core/Plugin";
-import { NavesTopicListCategoryID, TSKCrossRefCategoryID } from "../categoryIDs";
+import { NavesTopicListCategoryID } from "../categoryIDs";
 import {
   buildNaveIndex,
   findTopicsForVerse,
@@ -49,9 +49,9 @@ function formatTopicDescription(topic: NaveTopicNode, relationLabel?: string): s
     pluralize(topic.childIds.length, "subtopic"),
     pluralize(topic.verses.length, "reference"),
     pluralize(topic.relatedTopics.length, "related topic"),
-  ].join(" · ");
+  ].join(" - ");
 
-  return `${relationLabel ? `${relationLabel}. ` : ""}${location} · ${counts}`;
+  return `${relationLabel ? `${relationLabel}. ` : ""}${location} - ${counts}`;
 }
 
 export default class NavesTopicalBiblePlugin extends Plugin {
@@ -82,16 +82,13 @@ export default class NavesTopicalBiblePlugin extends Plugin {
 
   async onload(): Promise<void> {
     try {
-      const topics = await this.app.files.loadJSON<NaveTopic[]>("parsed-nave.json");
+      const topics = await this.app.files.loadJSON<NaveTopic[]>("assets/parsed-nave.json");
       this.index = buildNaveIndex(topics);
     } catch (e) {
       this.console.error("Failed to load parsed-nave.json. Nave's Topical Bible will be unavailable.", e);
     }
 
-    this.registerPalette(
-      () => new NavesTopicCategory(this.app.commandPalette, this),
-      NavesTopicListCategoryID,
-    );
+    this.registerPalette(NavesTopicListCategoryID, ({ state }) => new NavesTopicCategory(state, this));
 
     this.addVerseAction({
       id: "naves-topic",
@@ -99,27 +96,26 @@ export default class NavesTopicalBiblePlugin extends Plugin {
       description: "Find Nave topics that include this verse and open them in the command palette",
       icon: GitCompare,
       isAvailable: verseInfo => this.topicsForVerse(verseInfo.verse).length > 0,
-      onTrigger: (verseInfo: VerseInfoComponent) => {
+      onTrigger: verseInfo => {
         const matches = this.topicsForVerse(verseInfo.verse);
 
-        if (matches.length === 0) {
-          verseInfo.element.createEl("p", {
-            text: "No Nave topics found for this verse.",
-          });
-          return;
-        }
-
-        matches.slice(0, 10).forEach(topic => {
-          new Button(verseInfo.element)
-            .setButtonText(formatTopicPath(topic.path))
-            .on("click", () => this.openTopic(topic.id));
-        });
-
-        if (matches.length > 10) {
-          new Button(verseInfo.element)
-            .setButtonText(`Open all ${matches.length} Nave topics`)
-            .on("click", () => this.openTopicsForVerse(verseInfo.verse));
-        }
+        new MenuVan()
+          .addItems([
+            ...matches.slice(0, 5).map(topic => ({
+              title: formatTopicPath(topic.path),
+              onClick: () => this.openTopic(topic.id),
+            })),
+            matches.length > 5
+              ? {
+                  title: `Open all ${matches.length} Nave topics for this verse`,
+                  onClick: () => this.openTopicsForVerse(verseInfo.verse),
+                }
+              : {
+                  title: `Open command palette with Nave topics for this verse`,
+                  onClick: () => this.openTopicsForVerse(verseInfo.verse),
+                },
+          ])
+          .showAtMouseEvent(verseInfo.event);
       },
     });
   }
@@ -133,187 +129,178 @@ export default class NavesTopicalBiblePlugin extends Plugin {
   }
 
   openTopic(topicId: string): void {
-    this.selectedTopicId.set(this.getAutoExpandedTopicId(topicId));
-    this.focusedTopicIds.set([]);
-    this.app.openCommandPalette({
+    this.selectedTopicId.val = this.getAutoExpandedTopicId(topicId);
+    this.focusedTopicIds.val = [];
+    this.app.commandPalette.open({
       topCategory: NavesTopicListCategoryID,
     });
   }
 
   openTopicsForVerse(verse: VerseRef): void {
-    this.selectedTopicId.set("");
-    this.focusedTopicIds.set(this.topicsForVerse(verse).map(topic => topic.id));
-    this.app.openCommandPalette({
+    this.selectedTopicId.val = "";
+    this.focusedTopicIds.val = this.topicsForVerse(verse).map(topic => topic.id);
+    this.app.commandPalette.open({
       topCategory: NavesTopicListCategoryID,
     });
   }
 }
 
 class NavesTopicCategory extends CommandCategory<NaveCommand> {
-  readonly name = "Nave's Topical Bible";
-  readonly description = "Browse Nave's Topical Bible topics, subtopics, and verses";
-  commands: NaveCommand[] = [];
+  allItems = van.state<NaveCommand[]>([]);
+  criteria: Array<(item: NaveCommand) => string> = [
+    command => this.commandLabel(command),
+    command => this.commandDescription(command),
+  ];
 
   constructor(
-    public commandPalette: UnifiedCommandPalette,
+    state: stateMapping<CommandPaletteState>,
     public plugin: NavesTopicalBiblePlugin,
   ) {
-    super(commandPalette);
-  }
+    super(state, "Nave's Topical Bible", "Browse Nave's Topical Bible topics, subtopics, and verses");
+    this.extras = van.derive(() => {
+      const selectedTopicId = this.plugin.selectedTopicId.val;
+      const focusedTopicIds = this.plugin.focusedTopicIds.val;
+      const selectedTopic = selectedTopicId ? this.plugin.topicById(selectedTopicId) : undefined;
 
-  onTrigger(): void {
-    const selectedTopicId = this.plugin.selectedTopicId.get();
-    const focusedTopicIds = this.plugin.focusedTopicIds.get();
-    const selectedTopic = selectedTopicId ? this.plugin.topicById(selectedTopicId) : undefined;
+      if (selectedTopic) {
+        const items = [
+          {
+            title: "Browse all Nave topics",
+            description: "",
+            click: () => {
+              this.plugin.selectedTopicId.val = "";
+              this.plugin.focusedTopicIds.val = [];
+              this.updateViewState({ topCategory: NavesTopicListCategoryID });
+              return false;
+            },
+          },
+        ];
 
-    if (selectedTopic) {
-      const verseCommands = selectedTopic.verses
-        .map(reference => {
-          const verse = getReferenceStartVerse(reference);
-          return verse
-            ? {
-                kind: "verse" as const,
-                reference,
-                verse,
-              }
-            : null;
-        })
-        .filter(
-          (
-            command,
-          ): command is {
-            kind: "verse";
-            reference: string;
-            verse: VerseRef;
-          } => command !== null,
-        );
+        if (selectedTopic.parentId) {
+          items.push({
+            title: "Go to parent topic",
+            description: "",
+            click: () => {
+              this.plugin.selectedTopicId.val = selectedTopic.parentId ?? "";
+              this.updateViewState({ topCategory: NavesTopicListCategoryID });
+              return false;
+            },
+          });
+        }
 
-      this.title = formatTopicPath(selectedTopic.path);
-      this.defaultCMD.addCMD(
-        "Browse all Nave topics",
-        "",
-        item =>
-          void item.onClick(() => {
-            this.plugin.selectedTopicId.set("");
-            this.plugin.focusedTopicIds.set([]);
-            this.commandPalette.display({ topCategory: NavesTopicListCategoryID });
-          }),
-      );
-
-      if (selectedTopic.parentId) {
-        this.defaultCMD.addCMD(
-          "Go to parent topic",
-          "",
-          item =>
-            void item.onClick(() => {
-              this.plugin.selectedTopicId.set(selectedTopic.parentId ?? "");
-              this.commandPalette.display({ topCategory: NavesTopicListCategoryID });
-            }),
-        );
+        return items;
       }
 
-      this.commands = [
-        ...getChildTopics(this.plugin.index, selectedTopic).map(topic => ({
-          kind: "topic" as const,
-          topic,
-          description: formatTopicDescription(topic, "Subtopic"),
-        })),
-        ...getRelatedTopics(this.plugin.index, selectedTopic).map(topic => ({
-          kind: "topic" as const,
-          topic,
-          description: formatTopicDescription(topic, "Related topic"),
-        })),
-        ...verseCommands,
-      ];
+      if (focusedTopicIds.length > 0) {
+        return [
+          {
+            title: "Browse all Nave topics",
+            description: "",
+            click: () => {
+              this.plugin.focusedTopicIds.val = [];
+              this.updateViewState({ topCategory: NavesTopicListCategoryID });
+              return false;
+            },
+          },
+        ];
+      }
 
-      return;
-    }
+      return [];
+    });
 
-    if (focusedTopicIds.length > 0) {
-      const verse = this.plugin.app.verseState.get();
-      this.title = `Nave topics for ${verse.toString()}`;
-      this.defaultCMD.addCMD(
-        "Browse all Nave topics",
-        "",
-        item =>
-          void item.onClick(() => {
-            this.plugin.focusedTopicIds.set([]);
-            this.commandPalette.display({ topCategory: NavesTopicListCategoryID });
-          }),
-      );
+    this.allItems = van.derive(() => {
+      const selectedTopicId = this.plugin.selectedTopicId.val;
+      const focusedTopicIds = this.plugin.focusedTopicIds.val;
+      const selectedTopic = selectedTopicId ? this.plugin.topicById(selectedTopicId) : undefined;
+      const query = this.state.query.val.trim();
 
-      this.commands = focusedTopicIds
-        .map(topicId => this.plugin.topicById(topicId))
-        .filter((topic): topic is NaveTopicNode => topic !== undefined)
-        .map(topic => ({
-          kind: "topic" as const,
-          topic,
-          description: formatTopicDescription(topic, "Matches this verse"),
-        }));
-      return;
-    }
+      if (selectedTopic) {
+        const verseCommands = selectedTopic.verses
+          .map(reference => {
+            const verse = getReferenceStartVerse(reference);
+            return verse
+              ? {
+                  kind: "verse" as const,
+                  reference,
+                  verse,
+                }
+              : null;
+          })
+          .filter(
+            (
+              command,
+            ): command is {
+              kind: "verse";
+              reference: string;
+              verse: VerseRef;
+            } => command !== null,
+          );
 
-    this.title = this.name;
-    this.commands = this.plugin.index.rootIds
-      .map(topicId => this.plugin.topicById(topicId))
-      .filter((topic): topic is NaveTopicNode => topic !== undefined)
-      .map(topic => ({
+        this.title.val = formatTopicPath(selectedTopic.path);
+        return [
+          ...getChildTopics(this.plugin.index, selectedTopic).map(topic => ({
+            kind: "topic" as const,
+            topic,
+            description: formatTopicDescription(topic, "Subtopic"),
+          })),
+          ...getRelatedTopics(this.plugin.index, selectedTopic).map(topic => ({
+            kind: "topic" as const,
+            topic,
+            description: formatTopicDescription(topic, "Related topic"),
+          })),
+          ...verseCommands,
+        ];
+      }
+
+      if (focusedTopicIds.length > 0) {
+        const verse = this.plugin.app.verseState.val;
+        this.title.val = `Nave topics for ${verse.toString()}`;
+
+        return focusedTopicIds
+          .map(topicId => this.plugin.topicById(topicId))
+          .filter((topic): topic is NaveTopicNode => topic !== undefined)
+          .map(topic => ({
+            kind: "topic" as const,
+            topic,
+            description: formatTopicDescription(topic, "Matches this verse"),
+          }));
+      }
+
+      this.title.val = "Nave's Topical Bible";
+      if (!query) return [];
+
+      return this.plugin.index.nodes.map(topic => ({
         kind: "topic" as const,
         topic,
         description: formatTopicDescription(topic),
       }));
+    });
   }
 
-  getCommands(query: string): NaveCommand[] {
-    if (!query && !this.plugin.selectedTopicId.get() && this.plugin.focusedTopicIds.get().length === 0)
-      return [];
-    const selectedTopicId = this.plugin.selectedTopicId.get();
-    const sourceCommands =
-      !query && !selectedTopicId
-        ? this.commands
-        : selectedTopicId || this.plugin.focusedTopicIds.get().length > 0
-          ? this.commands
-          : this.plugin.index.nodes.map(topic => ({
-              kind: "topic" as const,
-              topic,
-              description: formatTopicDescription(topic),
-            }));
-
-    return this.getcompatible(
-      query,
-      sourceCommands,
-      command => this.commandLabel(command),
-      command => this.commandDescription(command),
-    );
-  }
-
-  renderCommand(
-    command: NaveCommand,
-    Item: CommandItem<NaveCommand>,
-  ): (state: CommandPaletteState) => CommandPaletteState {
+  renderItem(command: NaveCommand): CommandItem {
     if (command.kind === "topic") {
-      Item.setTitle(formatTopicPath(command.topic.path)).setDescription(command.description).addctx();
-
-      return state => {
-        this.plugin.selectedTopicId.set(this.plugin.getAutoExpandedTopicId(command.topic.id));
-        this.plugin.focusedTopicIds.set([]);
-        return state.update({ topCategory: NavesTopicListCategoryID });
+      return {
+        title: formatTopicPath(command.topic.path),
+        description: command.description,
+        context: () => {
+          this.plugin.selectedTopicId.val = this.plugin.getAutoExpandedTopicId(command.topic.id);
+          this.plugin.focusedTopicIds.val = [];
+          return { topCategory: NavesTopicListCategoryID };
+        },
+        click: () => {
+          this.plugin.selectedTopicId.val = this.plugin.getAutoExpandedTopicId(command.topic.id);
+          this.plugin.focusedTopicIds.val = [];
+          this.updateViewState({ topCategory: NavesTopicListCategoryID });
+          return false;
+        },
       };
     }
 
-    Item.setTitle(command.verse.toString())
-      .setDescription(`${command.reference} · ${command.verse.vTXT}`)
-      .addctx();
-
-    return state => {
-      this.plugin.app.verseState.set(command.verse);
-      return state.update({ topCategory: TSKCrossRefCategoryID });
+    return {
+      title: command.verse.toString(),
+      description: `${command.reference} - ${command.verse.vTXT}`,
+      click: () => ((this.plugin.app.verseState.val = command.verse), true),
     };
-  }
-
-  executeCommand(command: NaveCommand): void {
-    if (command.kind === "topic") this.commandPalette.display();
-    else this.commandPalette.close();
   }
 
   private commandLabel(command: NaveCommand): string {

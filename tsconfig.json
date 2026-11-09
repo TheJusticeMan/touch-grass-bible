@@ -5,7 +5,8 @@
       "@platform": ["./src/platform/current.ts"],
       "@touchgrass/framework": ["./packages/framework/src/index.ts"],
       "@touchgrass/framework/*": ["./packages/framework/src/*"],
-      "*": ["./*"]
+      "src/*": ["./src/*"],
+      "scripts/*": ["./scripts/*"]
     }
   },
   "include": ["src", "scripts"]

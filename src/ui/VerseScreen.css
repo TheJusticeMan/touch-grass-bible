@@ -1,52 +1,283 @@
-.icon-button {
-  display: inline;
+/* Reading view styling for scripture passages and note overlays. */
+.verse-screen {
+  .translation-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 12rem;
+    color: var(--color-text-dim);
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* Main text content area for the verse reader. */
+  .content {
+    color: var(--color-text);
+    font-family: var(--font);
+    font-size: var(--font-size);
+    scrollbar-width: none;
+
+    /* Chapter layout and inter-verse spacing. */
+    .chapter {
+      margin: 2em auto;
+      max-width: var(--reading-width);
+      word-spacing: 0.5em;
+      letter-spacing: 0.1em;
+      line-height: 1.5;
+
+      /* Individual verse container and note/action controls. */
+      .verse-container {
+        .info-container {
+          .buttons {
+            display: flex;
+            flex-direction: row;
+            gap: 0.5em;
+
+            .icon-button {
+              display: inline;
+              padding: var(--space-2, 0.5em);
+            }
+          }
+
+          .note-area {
+            display: block;
+            box-sizing: border-box;
+            width: 100%;
+            /* background-color: transparent; */
+            color: var(--color-text-muted);
+            font-family: inherit;
+            font-size: inherit;
+            border: none;
+            padding: 1em;
+            resize: vertical;
+          }
+
+          .bookmark-not-added {
+            color: var(--color-text);
+          }
+
+          .bookmark-added {
+            color: var(--color-accent);
+          }
+
+          &.is-highlighted {
+            border-left: 1px solid var(--color-text-dim);
+            padding-left: 0.35rem;
+          }
+        }
+
+        &.active {
+          .verse .number {
+            color: var(--color-accent);
+          }
+        }
+
+        .verse {
+          text-indent: 1em;
+          text-align: justify;
+          padding: 0.4em;
+          display: var(--text-display);
+          cursor: pointer;
+
+          .paragraph-break {
+            color: var(--color-text-dim);
+          }
+
+          .number {
+            color: var(--color-text-dim);
+            padding: 0.5em;
+          }
+        }
+      }
+
+      /* Sticky chapter heading for long reading sessions. */
+      .chapter-title {
+        position: sticky;
+        top: 0;
+        text-align: center;
+        color: var(--color-text-dim);
+        font-size: 1.5em;
+        font-weight: bold;
+        margin: 1em auto;
+        max-width: var(--reading-width);
+        backdrop-filter: blur(4px);
+
+        &.active {
+          position: static;
+        }
+      }
+
+      /* Jump controls for moving above or below the current viewport. */
+      .above-viewport,
+      .below-viewport {
+        position: absolute;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        width: var(--reading-width);
+        max-width: 100%;
+        border: none;
+        border-radius: var(--border-radius-medium);
+        background-color: var(--color-surface);
+        color: var(--color-text);
+        cursor: pointer;
+        backdrop-filter: blur(4px);
+        height: 2rem;
+        transition:
+          background-color 0.15s ease,
+          box-shadow 0.15s ease,
+          color 0.15s ease;
+
+        &:hover {
+          box-shadow: var(--box-shadow-hover);
+        }
+
+        &:focus-visible {
+          outline: none;
+          box-shadow: var(--box-shadow-focus);
+        }
+
+        &::before {
+          content: "";
+          display: inline-block;
+          width: 0.5rem;
+          height: 0.5rem;
+          border-right: 2px solid currentColor;
+          border-bottom: 2px solid currentColor;
+          transform: rotate(225deg);
+        }
+      }
+
+      .above-viewport {
+        top: 2.5rem;
+      }
+
+      .below-viewport {
+        bottom: 0rem;
+      }
+
+      .above-viewport::before {
+        transform: rotate(225deg);
+      }
+
+      .below-viewport::before {
+        transform: rotate(45deg);
+      }
+    }
+
+    /* Wrapped reading mode that makes verse blocks behave like a flowing article. */
+    &.wrap {
+      .chapter {
+        text-align: justify;
+        .verse,
+        .verse-container,
+        .info-container,
+        div {
+          display: inline;
+        }
+
+        .info-container {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          width: 100%;
+          color: var(--color-text);
+        }
+
+        div.paragraph-break::before {
+          display: block;
+          content: "";
+        }
+
+        .paragraph-break .number,
+        .chapter-title + .verse-container .number,
+        > .verse-container:first-of-type .number {
+          font-size: 2em;
+          text-transform: capitalize;
+          float: left;
+          line-height: 0.8;
+          padding: 0.2em 0.1em 0 0;
+        }
+
+        .paragraph-break .paragraph-break {
+          display: none;
+        }
+      }
+    }
+  }
 }
 
-.note-area {
-  display: block;
-  box-sizing: border-box;
-  width: 100%;
-  background-color: transparent;
-  color: var(--color-text-muted, rgb(255 255 255 / 0.62));
-  font-family: inherit;
-  font-size: inherit;
+/* Floating scroll handle for quick chapter navigation. */
+.scroll-bubble {
+  position: fixed;
+  right: 0.8rem;
+  transform: translateY(-50%);
+  z-index: 50;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  cursor: ns-resize;
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
   border: none;
-  padding: 1em;
-  resize: vertical;
-}
+  border-radius: var(--border-radius-medium);
+  box-shadow: var(--box-shadow-hover);
+  backdrop-filter: blur(8px);
+  color: var(--color-text);
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
 
-.info-container {
-  display: none;
-}
+  &:hover {
+    box-shadow: var(--box-shadow-focus);
+  }
 
-.bookmark-not-added {
-  color: var(--color-text, #fff);
-}
+  &:active {
+    transform: translateY(-50%) scale(0.98);
+  }
 
-.bookmark-added {
-  color: var(--color-accent-bookmark, #f0f);
-}
+  .scroll-bubble-label {
+    opacity: 0;
+    transform: translateX(0.2rem);
+    font-size: 0;
+    transition:
+      opacity 120ms ease,
+      transform 120ms ease,
+      font-size 120ms ease;
+    pointer-events: none;
 
-.active .info-container {
-  display: block;
-}
+    &.scroll-bubble-label-visible {
+      opacity: 1;
+      transform: translateX(0);
+      font-weight: 600;
+      line-height: 1;
+      color: var(--color-text);
+      border-radius: var(--border-radius-medium);
+      font-size: inherit;
+    }
+  }
 
-.active .info-container.is-highlighted {
-  display: block;
-  border-left: 1px solid rgb(255 255 255 / 0.5);
-  padding-left: 0.35rem;
-}
+  .scroll-bubble-handle {
+    display: block;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: var(--border-radius-medium);
+    border: none;
+    background-color: var(--color-accent);
+    transition:
+      transform 120ms ease,
+      box-shadow 120ms ease;
+  }
 
-.content {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: var(--font);
-  font-size: var(--font-size);
-  /* Scrollbar hidden — a visual cue (scroll-bubble) exists for drag-scroll.
-     The scrollbar-width:none approach is intentional for this reading view. */
-  scrollbar-width: none;
-}
-
-.content::-webkit-scrollbar {
-  display: none;
+  &:active .scroll-bubble-handle {
+    transform: scale(0.97);
+  }
 }

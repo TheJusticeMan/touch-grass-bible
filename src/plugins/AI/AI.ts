@@ -1,17 +1,90 @@
-import { BrainCircuit } from "lucide";
 import {
-  Button,
   CommandCategory,
   CommandItem,
   CommandPaletteState,
-  UnifiedCommandPalette,
+  MenuVan,
+  View,
+  stateMapping,
+  van,
 } from "@touchgrass/framework";
-import { VerseInfoComponent } from "src/ui/VerseScreen";
+import { BrainCircuit } from "lucide";
 import Plugin from "../../core/Plugin";
+import { VerseRef } from "../../models/VerseRef";
+import KnowledgeBasePlugin from "../KnowledgeBase";
+import TSK from "../TSK";
 import { AICategoryID, AIEmbeddingSearchCategoryID, SettingsCategoryID } from "../categoryIDs";
-import { AIchat } from "./AIchat";
+import { RequestHandler } from "./AIChat";
 import { AIEmbeddingSearchCategory } from "./AIEmbeddingSearch";
 import { AIEmbeddingSearchDB } from "./AIEmbeddingSearchDB";
+
+const { div, button, textarea, h3, ul, li, p, input, label } = van.tags;
+
+const AIStudyViewID = "ai-study-assistant";
+
+const QUESTION_STOP_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "are",
+  "as",
+  "at",
+  "be",
+  "by",
+  "for",
+  "from",
+  "how",
+  "i",
+  "in",
+  "is",
+  "it",
+  "me",
+  "my",
+  "of",
+  "on",
+  "or",
+  "that",
+  "the",
+  "this",
+  "to",
+  "was",
+  "what",
+  "when",
+  "where",
+  "who",
+  "why",
+  "with",
+  "you",
+  "your",
+]);
+
+type StudyBuildResult = {
+  question: string;
+  primaryVerses: VerseRef[];
+  crossReferences: VerseRef[];
+  knowledgeBaseTopicId: number | null;
+  knowledgeBaseTopicTitle: string | null;
+  usedLLMSifting: boolean;
+};
+
+type VerseScoreMatch = {
+  verse: VerseRef;
+  score: number;
+};
+
+type SiftVersesWithLLMToolArgs = {
+  question: string;
+  candidates: Array<{
+    osis: string;
+    ref: string;
+    score: number;
+    text: string;
+  }>;
+  maxVerses?: number;
+};
+
+type SiftVersesWithLLMToolResult = {
+  primaryVerses: string[];
+};
 
 interface AIPluginSettings {
   aiApiKey: string;
@@ -22,58 +95,433 @@ const defaultAISettings: AIPluginSettings = {
 };
 
 export default class AIPlugin extends Plugin {
-  chat: AIchat = new AIchat();
   settings: AIPluginSettings = { ...defaultAISettings };
+  chat = new RequestHandler(this.app.toolsAPI);
   private embeddingSearchDB: AIEmbeddingSearchDB = new AIEmbeddingSearchDB();
 
   async onload() {
     this.settings = await this.loadSettings(defaultAISettings);
-    this.registerPalette(() => new AICommandPalette(this.app.commandPalette, this), AICategoryID);
-    // Initialize in background without blocking plugin load
-    //requestIdleCallback(() => {
+    this.registerPalette(AICategoryID, ({ state }) => new AICommandPalette(state, this));
+    this.registerView(AIStudyViewID, () => new AIStudyView(this));
+    this.registerSiftVersesWithLLMTool();
     this.embeddingSearchDB
       .initialize()
       .then(() => {
         this.registerPalette(
-          palette => new AIEmbeddingSearchCategory(palette, this, this.embeddingSearchDB),
           AIEmbeddingSearchCategoryID,
+          ({ state }) => new AIEmbeddingSearchCategory(state, this, this.embeddingSearchDB),
         );
       })
       .catch(err => this.app.console.error(`Error loading embedding search database`, err));
-    //});
 
     this.addVerseAction({
       id: "ai-ask",
       name: "Ask AI about this verse",
       icon: BrainCircuit,
-      onTrigger: (verseInfo: VerseInfoComponent) => {
+      onTrigger: verseInfo => {
         if (!this.settings.aiApiKey) {
-          new Button(verseInfo.element)
-            .setButtonText("Set API key in Settings")
-            .on("click", () => this.app.openCommandPalette({ topCategory: SettingsCategoryID }));
+          new MenuVan([
+            {
+              title: "AI API key not set",
+              icon: BrainCircuit,
+              onClick: () => this.app.commandPalette.open({ topCategory: SettingsCategoryID }),
+            },
+          ]).showAtMouseEvent(verseInfo.event);
           return;
         }
         const verse = verseInfo.verse;
         const verseText = verse.vTXT;
-        const prompt = `Explain the following Bible verse in context: "${verse.toString()} — ${verseText}"`;
-        this.chat.endpoint.apiKey = this.settings.aiApiKey;
-        const responseEl = verseInfo.element.createEl("div", {
-          cls: "ai-response",
-        });
-        responseEl.textContent = "Asking AI…";
+        const prompt = `Explain the following Bible verse in context: "${verse.toString()} - ${verseText}"`;
+        this.chat.apiKey = this.settings.aiApiKey;
+
+        const text = van.state("Asking AI...");
+
+        const responseEl = div({ class: "ai-response" }, text);
+        van.add(verseInfo.element, responseEl);
         this.chat
-          .request(prompt, delta => {
-            if (delta.content) {
-              if (responseEl.textContent === "Asking AI…") responseEl.textContent = "";
-              responseEl.textContent += delta.content;
-            }
-            return true;
-          })
-          .catch(
-            err => (responseEl.textContent = `Error: ${err instanceof Error ? err.message : String(err)}`),
-          );
+          .request(
+            {
+              model: "gpt-4.1-nano",
+              messages: [{ role: "user", content: prompt }],
+              max_tokens: 1000,
+              stream: true,
+            },
+            delta => {
+              if (delta.content) {
+                if (text.val === "Asking AI...") text.val = "";
+                text.val += delta.content;
+              }
+              return true;
+            },
+          )
+          .catch((err: unknown) => (text.val = `Error: ${err instanceof Error ? err.message : String(err)}`));
       },
     });
+  }
+
+  openStudyView(): void {
+    this.app.workspace.layout.findOrCreateViewById(AIStudyViewID);
+  }
+
+  isKnowledgeBaseAvailable(): boolean {
+    return !!this.getKnowledgeBasePlugin();
+  }
+
+  isCrossReferenceAvailable(): boolean {
+    return !!this.getTSKPlugin();
+  }
+
+  async buildStudyEntry(
+    question: string,
+    options: { useLLMSifting?: boolean } = {},
+  ): Promise<StudyBuildResult> {
+    const normalizedQuestion = question.replace(/\s+/g, " ").trim();
+    const scoredMatches = this.findRelevantVersesWithScores(normalizedQuestion);
+    let primaryVerses = scoredMatches.slice(0, 8).map(match => match.verse);
+    let usedLLMSifting = false;
+
+    if (options.useLLMSifting && primaryVerses.length > 0) {
+      const siftedVerses = await this.siftVersesWithLLM(normalizedQuestion, scoredMatches, 8);
+      if (siftedVerses.length > 0) {
+        primaryVerses = siftedVerses;
+        usedLLMSifting = true;
+      }
+    }
+
+    const crossReferences = this.findCrossReferences(primaryVerses, 16);
+    const topicTitle = this.studyTitleForQuestion(normalizedQuestion);
+    const content = this.buildKnowledgeBaseContent(normalizedQuestion, primaryVerses, crossReferences);
+    const combinedVerses = [...primaryVerses, ...crossReferences];
+
+    let knowledgeBaseTopicId: number | null = null;
+    let knowledgeBaseTopicTitle: string | null = null;
+
+    const knowledgeBase = this.getKnowledgeBasePlugin();
+    if (knowledgeBase) {
+      const topic = knowledgeBase.createTopic(topicTitle, content, combinedVerses);
+      knowledgeBaseTopicId = topic.id;
+      knowledgeBaseTopicTitle = topic.title.val;
+    }
+
+    return {
+      question: normalizedQuestion,
+      primaryVerses,
+      crossReferences,
+      knowledgeBaseTopicId,
+      knowledgeBaseTopicTitle,
+      usedLLMSifting,
+    };
+  }
+
+  openKnowledgeBaseTopic(topicId: number): void {
+    const knowledgeBase = this.getKnowledgeBasePlugin();
+    if (!knowledgeBase) return;
+    knowledgeBase.openView({ topic: topicId });
+  }
+
+  private getTSKPlugin(): TSK | null {
+    const plugin = this.app.plugins.plugins.get("tsk");
+    if (!plugin) return null;
+    if (plugin instanceof TSK) return plugin;
+
+    const maybeTSK = plugin as unknown as Partial<TSK>;
+    return typeof maybeTSK.crossRefsForVerse === "function" ? (plugin as TSK) : null;
+  }
+
+  private getKnowledgeBasePlugin(): KnowledgeBasePlugin | null {
+    const plugin = this.app.plugins.plugins.get("knowledge-base");
+    if (!plugin) return null;
+    if (plugin instanceof KnowledgeBasePlugin) return plugin;
+
+    const maybeKnowledgeBase = plugin as unknown as Partial<KnowledgeBasePlugin>;
+    return typeof maybeKnowledgeBase.createTopic === "function" ? (plugin as KnowledgeBasePlugin) : null;
+  }
+
+  private studyTitleForQuestion(question: string): string {
+    const compact = question.trim();
+    const shortened = compact.length > 72 ? `${compact.slice(0, 69)}...` : compact;
+    return `Study: ${shortened}`;
+  }
+
+  private extractKeywords(question: string): string[] {
+    return Array.from(
+      new Set(
+        question
+          .toLowerCase()
+          .match(/[a-z0-9']+/g)
+          ?.filter(word => word.length > 2 && !QUESTION_STOP_WORDS.has(word)) || [],
+      ),
+    ).slice(0, 10);
+  }
+
+  private findRelevantVersesWithScores(question: string): VerseScoreMatch[] {
+    const normalizedQuestion = question.toLowerCase();
+    const keywords = this.extractKeywords(question);
+    const results: VerseScoreMatch[] = [];
+    const bible = VerseRef.bible;
+
+    for (const book of VerseRef.booksOfTheBible) {
+      const chapters = bible[book];
+      if (!chapters) continue;
+
+      for (let chapter = 1; chapter < chapters.length; chapter++) {
+        const verses = chapters[chapter];
+        if (!verses) continue;
+
+        for (let verse = 1; verse < verses.length; verse++) {
+          const text = verses[verse];
+          if (!text) continue;
+
+          const lowerText = text.toLowerCase();
+          let score = 0;
+
+          if (normalizedQuestion.length > 7 && lowerText.includes(normalizedQuestion)) {
+            score += 10;
+          }
+
+          for (const keyword of keywords) {
+            if (lowerText.includes(keyword)) {
+              score += keyword.length >= 6 ? 2 : 1;
+            }
+          }
+
+          if (score > 0) {
+            results.push({ verse: new VerseRef(book, chapter, verse), score });
+          }
+        }
+      }
+    }
+
+    if (results.length === 0) {
+      const currentVerse = this.app.verseState.val;
+      return currentVerse ? [{ verse: currentVerse, score: 1 }] : [];
+    }
+
+    results.sort((a, b) => b.score - a.score);
+    return results.slice(0, 120);
+  }
+
+  private registerSiftVersesWithLLMTool(): void {
+    this.addAPIcommand<SiftVersesWithLLMToolArgs, SiftVersesWithLLMToolResult>({
+      definition: {
+        function: {
+          name: "sift_verses_with_llm",
+          description:
+            "Rerank candidate Bible verses for a study question using the language model and return the strongest matches.",
+          parameters: {
+            type: "object",
+            properties: {
+              question: {
+                type: "string",
+                description: "The study question or passage prompt to use when reranking verses.",
+              },
+              candidates: {
+                type: "array",
+                description: "Candidate verses sorted by relevance before reranking.",
+                items: {
+                  type: "object",
+                  properties: {
+                    osis: {
+                      type: "string",
+                      description: "OSIS reference for the candidate verse, such as John.3.16.",
+                    },
+                    ref: {
+                      type: "string",
+                      description: "Readable verse reference, such as John 3:16.",
+                    },
+                    score: {
+                      type: "number",
+                      description: "The previous relevance score assigned to the verse.",
+                    },
+                    text: {
+                      type: "string",
+                      description: "The verse text to consider while reranking.",
+                    },
+                  },
+                  required: ["osis", "ref", "score", "text"],
+                  additionalProperties: false,
+                },
+              },
+              maxVerses: {
+                type: "integer",
+                description: "Maximum number of verses to return after reranking.",
+                default: 8,
+              },
+            },
+            required: ["question", "candidates"],
+            additionalProperties: false,
+          },
+        },
+      },
+      execute: async ({ question, candidates, maxVerses = 8 }) => {
+        if (!question || !Array.isArray(candidates)) {
+          return { primaryVerses: [] };
+        }
+
+        const limit = Number.isFinite(maxVerses) ? Math.max(1, Math.floor(maxVerses)) : 8;
+        const validCandidates = candidates.filter(candidate => {
+          const osis = candidate.osis.trim();
+          return /^[1-3]?[A-Za-z]+\.[0-9]+\.[0-9]+$/i.test(osis);
+        });
+
+        if (validCandidates.length === 0) {
+          return { primaryVerses: [] };
+        }
+
+        const scoredMatches = validCandidates
+          .map(candidate => {
+            const osis = candidate.osis.trim();
+            const score = Number(candidate.score);
+            if (!Number.isFinite(score)) return null;
+            return { verse: VerseRef.fromOSIS(osis), score };
+          })
+          .filter((match): match is VerseScoreMatch => match !== null);
+
+        const selected = await this.siftVersesWithLLM(question, scoredMatches, limit);
+        return { primaryVerses: selected.map(verse => verse.toOSIS()) };
+      },
+    });
+  }
+
+  private async siftVersesWithLLM(
+    question: string,
+    scoredMatches: VerseScoreMatch[],
+    maxVerses: number,
+  ): Promise<VerseRef[]> {
+    if (!this.settings.aiApiKey) return [];
+
+    const candidates = scoredMatches.slice(0, 60).map(match => ({
+      osis: match.verse.toOSIS(),
+      ref: match.verse.toString(),
+      text: match.verse.vTXT,
+      score: match.score,
+    }));
+    if (candidates.length === 0) return [];
+
+    this.chat.apiKey = this.settings.aiApiKey;
+
+    const prompt = [
+      "Select the strongest Bible verses for this study question.",
+      `Question: ${question}`,
+      "",
+      `Choose up to ${maxVerses} verses from the candidates.`,
+      "Return JSON only in this exact shape:",
+      '{"primaryVerses": ["Book.Chapter.Verse", "..."]}',
+      "No markdown, no explanation.",
+      "",
+      "Candidates:",
+      ...candidates.map(
+        candidate =>
+          `- ${candidate.osis} | ${candidate.ref} | score=${candidate.score} | text=${candidate.text}`,
+      ),
+    ].join("\n");
+
+    const response = await this.chat.sendChatRequest({
+      model: "gpt-4.1-nano",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a Bible retrieval reranker. Return strict JSON only. Do not invent verses not present in candidates.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      max_tokens: 500,
+      stream: false,
+    });
+
+    const content = response.content || "";
+    const selected = this.parseSelectedOSIS(content);
+    if (selected.length === 0) return [];
+
+    const matchByOSIS = new Map(scoredMatches.map(match => [match.verse.toOSIS(), match.verse]));
+    const verses: VerseRef[] = [];
+    const seen = new Set<string>();
+
+    for (const osis of selected) {
+      const verse = matchByOSIS.get(osis);
+      if (!verse || seen.has(osis)) continue;
+      seen.add(osis);
+      verses.push(verse);
+      if (verses.length >= maxVerses) break;
+    }
+
+    return verses;
+  }
+
+  private parseSelectedOSIS(raw: string): string[] {
+    const trimmed = raw.trim();
+    const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
+    const jsonLike = jsonMatch ? jsonMatch[0] : trimmed;
+
+    try {
+      const parsed = JSON.parse(jsonLike) as { primaryVerses?: unknown };
+      if (!Array.isArray(parsed.primaryVerses)) return [];
+
+      return parsed.primaryVerses
+        .filter((osis): osis is string => typeof osis === "string")
+        .map(osis => osis.trim())
+        .filter(osis => /^[1-3]?[A-Za-z]+\.[0-9]+\.[0-9]+$/i.test(osis));
+    } catch {
+      return [];
+    }
+  }
+
+  private findCrossReferences(seedVerses: VerseRef[], limit: number): VerseRef[] {
+    const tskPlugin = this.getTSKPlugin();
+    if (!tskPlugin || seedVerses.length === 0) return [];
+
+    const primary = new Set(seedVerses.map(verse => verse.toOSIS()));
+    const seen = new Set<string>();
+    const output: VerseRef[] = [];
+
+    for (const verse of seedVerses) {
+      const refs = tskPlugin.crossRefsForVerse(verse);
+      for (const ref of refs) {
+        const osis = ref.toOSIS();
+        if (primary.has(osis) || seen.has(osis)) continue;
+        seen.add(osis);
+        output.push(ref);
+        if (output.length >= limit) return output;
+      }
+    }
+
+    return output;
+  }
+
+  private buildKnowledgeBaseContent(
+    question: string,
+    primaryVerses: VerseRef[],
+    crossReferences: VerseRef[],
+  ): string {
+    const translation = this.app.translationState.val;
+    const formatList = (verses: VerseRef[]) => {
+      if (verses.length === 0) return "- (No verses found yet)";
+      return verses
+        .map(verse => `- ${verse.toString()} - ${verse.text(translation) || verse.vTXT}`)
+        .join("\n");
+    };
+
+    return [
+      `Question: ${question}`,
+      "",
+      "Use the verses below to reason through the answer yourself.",
+      "",
+      "Primary verses:",
+      formatList(primaryVerses),
+      "",
+      "Cross references:",
+      formatList(crossReferences),
+      "",
+      "Study prompts:",
+      "- What repeated themes appear across these verses?",
+      "- What does each verse reveal about God's character and intent?",
+      "- How do the cross references clarify or challenge your first interpretation?",
+      "- Write your own conclusion in your words after comparing all passages.",
+    ].join("\n");
   }
 
   async saveSettings() {
@@ -82,123 +530,259 @@ export default class AIPlugin extends Plugin {
 }
 
 class AICommandPalette extends CommandCategory<string> {
-  readonly name = "AI Bible Assistant";
-  readonly description = "Ask the AI assistant questions about Bible verses and theology.";
-  private responses: { question: string; answer: string }[] = [];
-  private inFlightResponse: { question: string; answer: string; error?: string } | null = null;
+  allItems = van.state<string[]>([]);
+  criteria: Array<(item: string) => string> = [item => item];
+  private responses = van.state<{ question: string; answer: string }[]>([]);
+  private inFlightResponse = van.state<{ question: string; answer: string; error?: string } | null>(null);
 
   constructor(
-    public commandPalette: UnifiedCommandPalette,
+    state: stateMapping<CommandPaletteState>,
     public plugin: AIPlugin,
   ) {
-    super(commandPalette);
-  }
+    super(state, "AI Bible Assistant", "Ask the AI assistant questions about Bible verses and theology.");
+    this.extras = van.derive(() => {
+      const items: CommandItem[] = [];
 
-  onTrigger(): void {
-    if (!this.plugin.settings.aiApiKey) {
-      this.defaultCMD.addCMD(
-        "No API key set",
-        "Go to Settings → Set AI API key to enable the AI assistant.",
-        () => ({}),
-      );
-      return;
-    }
-    this.defaultCMD.addCMD(
-      "Set AI API key",
-      `Store your OpenAI-compatible API key (saved locally in localStorage — keep it private).${
-        this.plugin.settings.aiApiKey ? " Key is currently set." : " No key set."
-      }`,
-      item =>
-        void item.onClick(() =>
-          this.plugin.app.commandPalette.prompt("Enter your OpenAI-compatible API key:").then(key => {
-            if (key === null) return;
-            this.plugin.settings.aiApiKey = key.trim();
-            this.plugin.saveSettings();
-            this.commandPalette.display({ topCategory: AICategoryID });
-          }),
-        ),
-    );
+      if (!this.plugin.settings.aiApiKey) {
+        items.push({
+          title: "No API key set",
+          description: "Go to Settings -> Set AI API key to enable the AI assistant.",
+        });
+      } else {
+        items.push({
+          title: "Set AI API key",
+          description: `Store your OpenAI-compatible API key (saved locally in localStorage - keep it private).${
+            this.plugin.settings.aiApiKey ? " Key is currently set." : " No key set."
+          }`,
+          click: () => {
+            void this.plugin.app.commandPalette.prompt("Enter your OpenAI-compatible API key:").then(key => {
+              if (key === null) return;
+              this.plugin.settings.aiApiKey = key.trim();
+              void this.plugin.saveSettings();
+              this.updateViewState({ topCategory: AICategoryID });
+            });
+            return false;
+          },
+        });
+      }
 
-    this.defaultCMD.addCMD(
-      "Open semantic embedding search",
-      "Search semantically similar verses using precomputed embeddings + Orama",
-      item =>
-        void item.onClick(() => this.commandPalette.display({ topCategory: AIEmbeddingSearchCategoryID })),
-    );
-
-    if (this.inFlightResponse) {
-      const { question, answer, error } = this.inFlightResponse;
-      this.defaultCMD.addCMD(
-        error ? "AI error" : "AI: thinking…",
-        error ? error : answer || `Working on: ${question}`,
-        () => ({}),
-      );
-    }
-
-    if (this.responses.length > 0) {
-      const latest = this.responses[this.responses.length - 1];
-      this.defaultCMD.addCMD(
-        "Latest AI response",
-        latest.answer || `No content returned for: ${latest.question}`,
-        () => ({}),
-      );
-    }
-  }
-
-  getCommands(query: string): string[] {
-    if (!query.trim()) return [];
-    return [query];
-  }
-
-  renderCommand(
-    command: string,
-    Item: CommandItem<string>,
-  ): (state: CommandPaletteState) => CommandPaletteState {
-    Item.setTitle(`Ask: ${command}`).setDescription("Send this question to the AI assistant");
-    return state => state;
-  }
-
-  executeCommand(command: string): void {
-    const apiKey = this.plugin.settings.aiApiKey;
-    if (!apiKey) {
-      this.plugin.app.openCommandPalette({ topCategory: SettingsCategoryID });
-      return;
-    }
-    this.plugin.chat.endpoint.apiKey = apiKey;
-    const verse = this.plugin.app.verseState.get();
-    const contextPrompt = verse
-      ? `[Current verse: ${verse.toString()} — "${verse.vTXT}"]\n\n${command}`
-      : command;
-
-    this.inFlightResponse = { question: command, answer: "" };
-    this.commandPalette.display({ topCategory: AICategoryID });
-
-    this.plugin.chat
-      .request(contextPrompt, delta => {
-        if (delta.content) {
-          if (!this.inFlightResponse || this.inFlightResponse.question !== command) {
-            this.inFlightResponse = { question: command, answer: "" };
-          }
-          this.inFlightResponse.answer += delta.content;
-          this.commandPalette.display({ topCategory: AICategoryID });
-        }
-        return true;
-      })
-      .then(() => {
-        if (this.inFlightResponse && this.inFlightResponse.question === command) {
-          this.responses.push({ question: command, answer: this.inFlightResponse.answer });
-          this.inFlightResponse = null;
-        }
-        this.commandPalette.display({ topCategory: AICategoryID });
-      })
-      .catch(err => {
-        const message = err instanceof Error ? err.message : String(err);
-        if (!this.inFlightResponse || this.inFlightResponse.question !== command) {
-          this.inFlightResponse = { question: command, answer: "", error: message };
-        } else {
-          this.inFlightResponse.error = message;
-        }
-        this.commandPalette.display({ topCategory: AICategoryID });
+      items.push({
+        title: "Open semantic embedding search",
+        description: "Search semantically similar verses using precomputed embeddings + Orama",
+        click: () => (this.updateViewState({ topCategory: AIEmbeddingSearchCategoryID }), false),
       });
+
+      items.push({
+        title: "Open AI study builder view",
+        description: "Ask a question, gather verses + cross references, and create a Knowledge Base entry.",
+        click: () => {
+          this.plugin.openStudyView();
+          return true;
+        },
+      });
+
+      if (this.inFlightResponse.val) {
+        const { question, answer, error } = this.inFlightResponse.val;
+        items.push({
+          title: error ? "AI error" : "AI: thinking...",
+          description: error ? error : answer || `Working on: ${question}`,
+        });
+      }
+
+      if (this.responses.val.length > 0) {
+        const latest = this.responses.val[this.responses.val.length - 1];
+        items.push({
+          title: "Latest AI response",
+          description: latest.answer || `No content returned for: ${latest.question}`,
+        });
+      }
+
+      return items;
+    });
+
+    this.allItems = van.derive(() => {
+      const query = this.state.query.val.trim();
+      return query ? [query] : [];
+    });
+  }
+
+  renderItem(command: string): CommandItem {
+    return {
+      title: `Ask: ${command}`,
+      description: "Send this question to the AI assistant",
+      click: () => {
+        const apiKey = this.plugin.settings.aiApiKey;
+        if (!apiKey) {
+          this.updateViewState({ topCategory: SettingsCategoryID });
+          return false;
+        }
+        this.plugin.chat.apiKey = apiKey;
+        const verse = this.plugin.app.verseState.val;
+        const contextPrompt = verse
+          ? `[Current verse: ${verse.toString()} - "${verse.vTXT}"]\n\n${command}`
+          : command;
+
+        this.inFlightResponse.val = { question: command, answer: "" };
+
+        this.plugin.chat
+          .request(
+            {
+              model: "gpt-4.1-nano",
+              messages: [{ role: "user", content: contextPrompt }],
+              max_tokens: 1000,
+              stream: true,
+            },
+            delta => {
+              if (delta.content) {
+                if (!this.inFlightResponse.val || this.inFlightResponse.val.question !== command) {
+                  this.inFlightResponse.val = { question: command, answer: "" };
+                }
+                this.inFlightResponse.val.answer += delta.content;
+              }
+              return true;
+            },
+          )
+          .then(() => {
+            if (this.inFlightResponse.val && this.inFlightResponse.val.question === command) {
+              this.responses.val = [
+                ...this.responses.val,
+                { question: command, answer: this.inFlightResponse.val.answer },
+              ];
+              this.inFlightResponse.val = null;
+            }
+          })
+          .catch((err: unknown) => {
+            const message = err instanceof Error ? err.message : String(err);
+            if (!this.inFlightResponse.val || this.inFlightResponse.val.question !== command) {
+              this.inFlightResponse.val = { question: command, answer: "", error: message };
+            } else {
+              this.inFlightResponse.val.error = message;
+            }
+          });
+        return false;
+      },
+    };
+  }
+}
+
+class AIStudyView extends View {
+  readonly viewTypeId = AIStudyViewID;
+  private question = van.state("");
+  private status = van.state("Type a question, then build a study entry.");
+  private isRunning = van.state(false);
+  private useLLMSifting = van.state(false);
+  private result = van.state<StudyBuildResult | null>(null);
+
+  constructor(private plugin: AIPlugin) {
+    super("AI Study Builder", {});
+  }
+
+  create(): HTMLElement {
+    return div(
+      { class: "ai-study-view" },
+      h3("AI Study Builder"),
+      p(
+        "Ask a Bible question. This view finds matching verses, adds cross references, and creates a Knowledge Base entry so you can work through the answer.",
+      ),
+      textarea({
+        rows: 4,
+        placeholder: "Example: What does the Bible teach about forgiveness and repentance?",
+        value: () => this.question.val,
+        oninput: event => (this.question.val = (event.target as HTMLTextAreaElement).value),
+      }),
+      label(
+        { style: "display:flex; gap:8px; margin-top:8px; align-items:center;" },
+        input({
+          type: "checkbox",
+          checked: () => this.useLLMSifting.val,
+          oninput: event => (this.useLLMSifting.val = (event.target as HTMLInputElement).checked),
+        }),
+        "Use LLM to sift the best verses (optional)",
+      ),
+      div(
+        { style: "display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;" },
+        button(
+          {
+            disabled: () => this.isRunning.val,
+            onclick: () => this.runStudyBuild(),
+          },
+          () => (this.isRunning.val ? "Building..." : "Build Study Entry"),
+        ),
+        button(
+          {
+            onclick: () => this.plugin.openStudyView(),
+          },
+          "Open/Focus Study View",
+        ),
+      ),
+      p(() => this.status.val),
+      () => {
+        const result = this.result.val;
+        if (!result) return null;
+
+        return div(
+          h3("Primary Verses"),
+          ul(
+            ...result.primaryVerses.map(verse =>
+              li(
+                {
+                  onclick: () => (this.plugin.app.verseState.val = verse),
+                  style: "cursor:pointer;",
+                },
+                `${verse.toString()} - ${verse.vTXT}`,
+              ),
+            ),
+          ),
+          h3("Cross References"),
+          ul(
+            ...result.crossReferences.map(verse =>
+              li(
+                {
+                  onclick: () => (this.plugin.app.verseState.val = verse),
+                  style: "cursor:pointer;",
+                },
+                `${verse.toString()} - ${verse.vTXT}`,
+              ),
+            ),
+          ),
+          result.knowledgeBaseTopicId !== null
+            ? button(
+                {
+                  onclick: () => this.plugin.openKnowledgeBaseTopic(result.knowledgeBaseTopicId as number),
+                },
+                `Open Knowledge Base Entry: ${result.knowledgeBaseTopicTitle || "New Topic"}`,
+              )
+            : p("Knowledge Base plugin is not available, so no entry was saved."),
+        );
+      },
+    );
+  }
+
+  private async runStudyBuild(): Promise<void> {
+    const question = this.question.val.trim();
+    if (!question) {
+      this.status.val = "Enter a question first.";
+      return;
+    }
+
+    this.isRunning.val = true;
+    try {
+      const result = await this.plugin.buildStudyEntry(question, {
+        useLLMSifting: this.useLLMSifting.val,
+      });
+      this.result.val = result;
+
+      if (result.knowledgeBaseTopicId !== null) {
+        const siftingStatus = result.usedLLMSifting ? " with LLM sifting" : "";
+        this.status.val = `Created Knowledge Base entry${siftingStatus} with ${result.primaryVerses.length + result.crossReferences.length} verses.`;
+      } else {
+        this.status.val =
+          "Found verses and cross references, but Knowledge Base plugin is not available so nothing was saved.";
+      }
+    } catch (error) {
+      this.status.val = `Failed to build study entry: ${error instanceof Error ? error.message : String(error)}`;
+    } finally {
+      this.isRunning.val = false;
+    }
   }
 }

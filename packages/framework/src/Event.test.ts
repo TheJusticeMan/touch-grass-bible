@@ -1,264 +1,120 @@
-// @vitest-environment jsdom
-import { describe, test, expect, vi } from "vitest";
-import { ETarget, pdsp, touchDragger } from "./Event";
+import { describe, expect, test, vi } from "vitest";
+import { touchDragger } from "./Event";
+import { mobileDragController } from "./Workspace/Interactions";
 
-// Concrete subclass for testing the abstract ETarget
-class TestEmitter extends ETarget<{ foo: number; bar: string; baz: undefined }> {}
+type TouchInput = Pick<Touch, "pageX" | "pageY">;
 
-describe("ETarget", () => {
-  test("on registers a handler that is called on emit", () => {
-    const emitter = new TestEmitter();
-    const handler = vi.fn();
-    emitter.on("foo", handler);
-    emitter.emit("foo", 42);
-    expect(handler).toHaveBeenCalledOnce();
-    expect(handler).toHaveBeenCalledWith(42);
-  });
-
-  test("on supports multiple handlers for the same event", () => {
-    const emitter = new TestEmitter();
-    const h1 = vi.fn();
-    const h2 = vi.fn();
-    emitter.on("foo", h1).on("foo", h2);
-    emitter.emit("foo", 1);
-    expect(h1).toHaveBeenCalledOnce();
-    expect(h2).toHaveBeenCalledOnce();
-  });
-
-  test("off removes a specific handler", () => {
-    const emitter = new TestEmitter();
-    const h1 = vi.fn();
-    const h2 = vi.fn();
-    emitter.on("foo", h1).on("foo", h2);
-    emitter.off("foo", h1);
-    emitter.emit("foo", 7);
-    expect(h1).not.toHaveBeenCalled();
-    expect(h2).toHaveBeenCalledOnce();
-  });
-
-  test("off on unknown event returns self without error", () => {
-    const emitter = new TestEmitter();
-    expect(() => emitter.off("foo", vi.fn())).not.toThrow();
-  });
-
-  test("clear(eventName) removes all handlers for that event", () => {
-    const emitter = new TestEmitter();
-    const h = vi.fn();
-    emitter.on("foo", h).on("foo", h);
-    emitter.clear("foo");
-    emitter.emit("foo", 5);
-    expect(h).not.toHaveBeenCalled();
-  });
-
-  test("clear() with no argument removes all handlers", () => {
-    const emitter = new TestEmitter();
-    const h1 = vi.fn();
-    const h2 = vi.fn();
-    emitter.on("foo", h1).on("bar", h2);
-    emitter.clear();
-    emitter.emit("foo", 0);
-    emitter.emit("bar", "x");
-    expect(h1).not.toHaveBeenCalled();
-    expect(h2).not.toHaveBeenCalled();
-  });
-
-  test("emit with no data argument passes empty object as default", () => {
-    const emitter = new TestEmitter();
-    const handler = vi.fn();
-    emitter.on("baz", handler);
-    emitter.emit("baz");
-    expect(handler).toHaveBeenCalledWith({});
-  });
-
-  test("onany handler is called for every emitted event", () => {
-    const emitter = new TestEmitter();
-    const anyHandler = vi.fn();
-    emitter.onany(anyHandler);
-    emitter.emit("foo", 1);
-    emitter.emit("bar", "hello");
-    expect(anyHandler).toHaveBeenCalledTimes(2);
-    expect(anyHandler).toHaveBeenNthCalledWith(1, "foo", 1);
-    expect(anyHandler).toHaveBeenNthCalledWith(2, "bar", "hello");
-  });
-
-  test("next invokes the callback synchronously and returns self", () => {
-    const emitter = new TestEmitter();
-    const cb = vi.fn();
-    const result = emitter.next(cb);
-    expect(cb).toHaveBeenCalledOnce();
-    expect(cb).toHaveBeenCalledWith(emitter);
-    expect(result).toBe(emitter);
-  });
-
-  test("cancelOn unsubscribes a handler when the specified event fires", () => {
-    const source = new TestEmitter();
-    const target = new TestEmitter();
-    const h = vi.fn();
-    target.on("foo", h);
-    // cancelOn("bar", target): when source emits "bar", unsubscribe target's lastHandler ("foo", h)
-    source.cancelOn("bar", target);
-    source.emit("bar", "trigger");
-    target.emit("foo", 99);
-    expect(h).not.toHaveBeenCalled();
-  });
-
-  test("cancelOn does nothing when target has no lastHandler", () => {
-    const source = new TestEmitter();
-    const target = new TestEmitter();
-    // No handlers registered on target, so lastHandler is undefined
-    expect(() => source.cancelOn("bar", target)).not.toThrow();
-    expect(() => source.emit("bar", "x")).not.toThrow();
-  });
-
-  test("ActiveEvent reflects the currently-emitting event name", () => {
-    const emitter = new TestEmitter();
-    let activeInsideHandler: typeof emitter.ActiveEvent | undefined;
-    emitter.on("foo", () => {
-      activeInsideHandler = emitter.ActiveEvent;
-    });
-    emitter.emit("foo", 0);
-    expect(activeInsideHandler).toBe("foo");
-    // After emit completes, ActiveEvent should be null
-    expect(emitter.ActiveEvent).toBeNull();
-  });
-
-  test("method chaining returns the same instance", () => {
-    const emitter = new TestEmitter();
-    const h = vi.fn();
-    const result = emitter.on("foo", h).on("bar", vi.fn()).off("bar", vi.fn()).clear("bar");
-    expect(result).toBe(emitter);
-  });
-});
-
-describe("pdsp", () => {
-  test("calls preventDefault and stopPropagation, then the callback", () => {
-    const event = {
-      preventDefault: vi.fn(),
-      stopPropagation: vi.fn(),
-    } as unknown as Event;
-
-    const cb = vi.fn();
-    const wrapped = pdsp(cb);
-    wrapped(event);
-
-    expect(event.preventDefault).toHaveBeenCalledOnce();
-    expect(event.stopPropagation).toHaveBeenCalledOnce();
-    expect(cb).toHaveBeenCalledWith(event);
-  });
-
-  test("returns a new function wrapping the callback", () => {
-    const cb = vi.fn();
-    const wrapped = pdsp(cb);
-    expect(typeof wrapped).toBe("function");
-    expect(wrapped).not.toBe(cb);
-  });
-});
+function makeTouchEvent(x: number, y: number): TouchEvent {
+  return {
+    touches: [{ pageX: x, pageY: y } as TouchInput as Touch],
+    stopPropagation: vi.fn(),
+  } as unknown as TouchEvent;
+}
 
 describe("touchDragger", () => {
-  function makeTouchEvent(type: string, x: number, y: number, touchCount = 1): TouchEvent {
-    const touch = { pageX: x, pageY: y } as Touch;
-    const touches = touchCount === 1 ? [touch] : [touch, touch];
-    return new TouchEvent(type, {
-      touches: touches as unknown as Touch[],
-      bubbles: true,
+  test("fires a horizontal drag callback when the delta crosses the threshold", async () => {
+    const ondragx = vi.fn();
+    const ondragcancel = vi.fn();
+    const dragger = touchDragger({
+      ondragx,
+      ondragcancel,
+      threshold: 50,
     });
-  }
 
-  function makeElement(): HTMLElement {
-    return document.createElement("div");
-  }
+    dragger.ontouchstart(makeTouchEvent(100, 20));
+    dragger.ontouchmove(makeTouchEvent(200, 25));
+    dragger.ontouchend();
 
-  test("setThreshold returns this for chaining", () => {
-    const el = makeElement();
-    const dragger = new touchDragger(el);
-    expect(dragger.setThreshold(100)).toBe(dragger);
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(ondragx).toHaveBeenCalledTimes(1);
+    expect(ondragx).toHaveBeenCalledWith({ deltaX: 100 });
+    expect(ondragcancel).not.toHaveBeenCalled();
   });
 
-  test("emits draggingX when horizontal movement dominates", () => {
-    const el = makeElement();
-    const dragger = new touchDragger(el);
-    const onDraggingX = vi.fn();
-    dragger.on("draggingX", onDraggingX);
+  test("fires a vertical drag callback when the delta crosses the threshold", async () => {
+    const ondragy = vi.fn();
+    const ondragxcancel = vi.fn();
+    const dragger = touchDragger({
+      ondragy,
+      ondragxcancel,
+      threshold: 50,
+    });
 
-    el.dispatchEvent(makeTouchEvent("touchstart", 0, 0));
-    el.dispatchEvent(makeTouchEvent("touchmove", 80, 5));
+    dragger.ontouchstart(makeTouchEvent(20, 80));
+    dragger.ontouchmove(makeTouchEvent(25, 180));
+    dragger.ontouchend();
 
-    expect(onDraggingX).toHaveBeenCalledWith({ deltaX: 80 });
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(ondragy).toHaveBeenCalledTimes(1);
+    expect(ondragy).toHaveBeenCalledWith({ deltaY: 100 });
+    expect(ondragxcancel).toHaveBeenCalledTimes(1);
+    expect(ondragxcancel).toHaveBeenCalledWith({ deltaX: 0, deltaY: 0 });
   });
 
-  test("emits draggingY when vertical movement dominates", () => {
-    const el = makeElement();
-    const dragger = new touchDragger(el);
-    const onDraggingY = vi.fn();
-    dragger.on("draggingY", onDraggingY);
+  test("fires cancel handlers when no drag exceeds the configured threshold", () => {
+    const ondragcancel = vi.fn();
+    const ondragxcancel = vi.fn();
+    const ondragycancel = vi.fn();
+    const dragger = touchDragger({
+      ondragcancel,
+      ondragxcancel,
+      ondragycancel,
+      threshold: 60,
+    });
 
-    el.dispatchEvent(makeTouchEvent("touchstart", 0, 0));
-    el.dispatchEvent(makeTouchEvent("touchmove", 5, 80));
+    dragger.ontouchstart(makeTouchEvent(50, 50));
+    dragger.ontouchmove(makeTouchEvent(70, 80));
+    dragger.ontouchend();
 
-    expect(onDraggingY).toHaveBeenCalledWith({ deltaY: 80 });
+    expect(ondragcancel).toHaveBeenCalledTimes(1);
+    expect(ondragcancel).toHaveBeenCalledWith({ deltaX: 0, deltaY: 0 });
+    expect(ondragxcancel).toHaveBeenCalledTimes(1);
+    expect(ondragycancel).toHaveBeenCalledTimes(1);
   });
 
-  test("emits dragX and dragYcancel when horizontal drag exceeds threshold", () => {
-    const el = makeElement();
-    const dragger = new touchDragger(el).setThreshold(50);
-    const onDragX = vi.fn();
-    const onDragYcancel = vi.fn();
-    dragger.on("dragX", onDragX).on("dragYcancel", onDragYcancel);
+  test("reports the in-flight drag direction through the reactive style builder", async () => {
+    const dragger = touchDragger({
+      threshold: 20,
+      stylesetter: ({ deltaX, deltaY, isX, isY }) => `x:${isX} y:${isY} dx:${deltaX.val} dy:${deltaY.val}`,
+    });
 
-    el.dispatchEvent(makeTouchEvent("touchstart", 0, 0));
-    el.dispatchEvent(makeTouchEvent("touchmove", 100, 10));
-    el.dispatchEvent(makeTouchEvent("touchend", 100, 10));
+    dragger.ontouchstart(makeTouchEvent(10, 10));
+    dragger.ontouchmove(makeTouchEvent(40, 20));
 
-    expect(onDragX).toHaveBeenCalledWith({ deltaX: 100 });
-    expect(onDragYcancel).toHaveBeenCalled();
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(dragger.style()).toContain("x:true");
+    expect(dragger.style()).toContain("dx:30");
+    expect(dragger.style()).toContain("dy:10");
   });
 
-  test("emits dragY and dragXcancel when vertical drag exceeds threshold", () => {
-    const el = makeElement();
-    const dragger = new touchDragger(el).setThreshold(50);
-    const onDragY = vi.fn();
-    const onDragXcancel = vi.fn();
-    dragger.on("dragY", onDragY).on("dragXcancel", onDragXcancel);
+  test("ignores multi-touch gestures and never emits drag callbacks", () => {
+    const ondragx = vi.fn();
+    const ondraggingx = vi.fn();
+    const dragger = touchDragger({ ondragx, ondraggingx, threshold: 10 });
 
-    el.dispatchEvent(makeTouchEvent("touchstart", 0, 0));
-    el.dispatchEvent(makeTouchEvent("touchmove", 0, 100));
-    el.dispatchEvent(makeTouchEvent("touchend", 0, 100));
+    dragger.ontouchstart({
+      touches: [{ pageX: 10, pageY: 20 } as Touch, { pageX: 60, pageY: 10 } as Touch],
+      stopPropagation: vi.fn(),
+    } as unknown as TouchEvent);
+    dragger.ontouchmove({
+      touches: [{ pageX: 90, pageY: 20 } as Touch, { pageX: 60, pageY: 10 } as Touch],
+      stopPropagation: vi.fn(),
+    } as unknown as TouchEvent);
+    dragger.ontouchend();
 
-    expect(onDragY).toHaveBeenCalledWith({ deltaY: 100 });
-    expect(onDragXcancel).toHaveBeenCalled();
+    expect(ondragx).not.toHaveBeenCalled();
+    expect(ondraggingx).not.toHaveBeenCalled();
   });
 
-  test("emits dragCancel, dragXcancel and dragYcancel when drag is below threshold", () => {
-    const el = makeElement();
-    const dragger = new touchDragger(el).setThreshold(50);
-    const onDragCancel = vi.fn();
-    const onDragXcancel = vi.fn();
-    const onDragYcancel = vi.fn();
-    dragger.on("dragCancel", onDragCancel).on("dragXcancel", onDragXcancel).on("dragYcancel", onDragYcancel);
+  test("mobile drag controller ignores pointerleave before any drag starts", () => {
+    const onSettle = vi.fn();
+    const controller = mobileDragController({ onSettle });
 
-    el.dispatchEvent(makeTouchEvent("touchstart", 0, 0));
-    el.dispatchEvent(makeTouchEvent("touchmove", 10, 5));
-    el.dispatchEvent(makeTouchEvent("touchend", 10, 5));
+    controller.onpointerleave?.({} as PointerEvent);
 
-    expect(onDragCancel).toHaveBeenCalled();
-    expect(onDragXcancel).toHaveBeenCalled();
-    expect(onDragYcancel).toHaveBeenCalled();
-  });
-
-  test("ignores multi-finger touchstart and touchmove", () => {
-    const el = makeElement();
-    const dragger = new touchDragger(el).setThreshold(50);
-    const onDragX = vi.fn();
-    dragger.on("dragX", onDragX);
-
-    // Multi-touch touchstart is ignored, so startX/startY are never set.
-    // A subsequent touchend with a large deltaX will therefore compute a
-    // delta of 0 (currentX − startX = 0) and not fire dragX.
-    el.dispatchEvent(makeTouchEvent("touchstart", 0, 0, 2));
-    el.dispatchEvent(makeTouchEvent("touchmove", 200, 0, 2));
-    // End with single touch — but since start was multi-touch, startX/Y remain 0
-    el.dispatchEvent(makeTouchEvent("touchend", 200, 0, 1));
-
-    expect(onDragX).not.toHaveBeenCalled();
+    expect(onSettle).not.toHaveBeenCalled();
   });
 });

@@ -15,3 +15,8 @@ It also includes an improvement review scaffold based on a codebase-wide pass.
 - `docs/improvements/framework.md` - workspace, command palette, event, UI, and CSS improvements
 - `docs/improvements/plugins.md` - plugin-specific enhancements and cross-plugin opportunities
 - `docs/improvements/platform.md` - web, Electron, Capacitor, packaging, and offline improvements
+
+VanJS documentation references in this folder:
+
+- `docs/vanJS.md` - project-specific VanJS usage patterns in this codebase
+- `docs/vanJS-official.md` - online official VanJS/VanX documentation index and links

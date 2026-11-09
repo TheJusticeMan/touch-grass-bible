@@ -5,9 +5,8 @@ declare module "@touch-grass-bible" {
   export type { IconActionItem, PluginMetadata } from "src/core/Plugin";
   export {
     BrowserConsole,
-    CommandPaletteState,
+    CommandPaletteViewState as CommandPaletteState,
     DEFAULT_CATEGORY_ORDER,
-    LayoutNode,
     View,
   } from "@touchgrass/framework";
   export { VerseRef } from "src/models/VerseRef";

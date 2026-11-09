@@ -2,104 +2,66 @@
 
 This page covers user-facing feature improvements under `src/plugins/`.
 
-## `src/plugins/AI.ts`
+## `src/plugins/AI/AI.ts` and `src/plugins/AI/AIchat.ts`
 
-- High: add cancellation and single-flight protection for overlapping AI requests
-- High: improve API-key handling with masked display, clear-key actions, and safer storage guidance
-- Medium: add conversation controls like clear history, new chat, or verse-scoped sessions
+- High: add cancellation/single-flight handling for overlapping requests.
+- High: improve API-key UX (masked display, clear action, validation feedback).
+- Medium: add explicit chat/session controls and better failure recovery.
 
 ## `src/plugins/Bookmarks.ts`
 
-- High: debounce or batch bookmark-history persistence so verse navigation does not thrash storage
-- [x] High: fix `dateCompare()` so sorting matches the intended behavior
-- Medium: improve tag creation with trimming, duplicate prevention, rename support, and better empty-name handling
+- High: batch/debounce persistence writes during rapid verse navigation.
+- Medium: improve tag normalization (trim, dedupe, rename support).
 
-## `src/plugins/Bookmarks.test.ts`
+## `src/plugins/Notes/Notes.ts` and `src/plugins/Notes/NotesPanel.ts`
 
-- Medium: replace duplicated logic with a shared exported helper or add broader coverage around the real implementation
-
-## `src/plugins/Notes/Notes.ts`
-
-- High: save verse-note edits through plugin storage instead of `app.saveSettingsAfterDelay()`
-- Medium: align `NotesPluginSettings.ExtraNotes` with runtime note data such as tags
-- Medium: make note search work by verse reference as well as note body
-
-## `src/plugins/Notes/NotesPanel.ts`
-
-- High: make the search box search vault notes instead of routing to verse notes only
-- Medium: debounce editor saves and avoid writing during render/update churn
-- Medium: create notes lazily so empty drafts are not persisted immediately
-- Medium: improve tag editing with Enter/blur commit, trimming, and dedupe
-
-## `src/plugins/Notes/NotesPanel.css`
-
-- Medium: add stronger focus states, keyboard-visible affordances, and responsive sizing for the editor overlay
+- High: route all note persistence through note-specific storage paths.
+- Medium: debounce editor writes to reduce save churn.
+- Medium: support richer search across note body, tags, and verse refs.
 
 ## `src/plugins/Journal/Journal.ts`
 
-- High: either implement true editable mode or remove the `appendOnly` toggle until it is real
-- High: throttle reading-history capture so normal navigation does not flood the journal
-- Medium: add verse-centric journal entry flows from the reading screen
+- High: reconcile append-only versus editable mode behavior with UI copy.
+- High: throttle history capture and avoid duplicate entry bursts.
+- Medium: improve verse-link navigation and large-history tooling.
 
-## `src/plugins/Journal/JournalPanel.ts`
+## `src/plugins/Search.ts` and `src/plugins/searchParser.ts`
 
-- High: make non-append-only mode actually editable
-- High: make verse-reference history entries clickable back into scripture
-- Medium: add explicit loading, empty, and error states for async journal operations
-- Medium: add date jump, filter, or search tools for larger journals
-
-## `src/plugins/Journal/journal-storage.ts`
-
-- High: store OSIS references alongside display text for stable linking
-- Medium: add schema/versioning and better corruption recovery for journal files
-- Medium: reduce write amplification when appending to large days
-
-## `src/plugins/Search.ts`
-
-- High: build a search index or move full-text search off the UI thread
-- High: improve go-to parsing for abbreviations, ranges, numbered books, and common user input forms
-- Medium: add better result ranking, scope options, and translation indicators
-- Medium: replace hardcoded category string literals with shared constants everywhere
+- High: optimize full-text search for larger datasets.
+- High: improve parser handling for abbreviations, ranges, and numbered books.
+- Medium: tune ranking and scope controls.
 
 ## `src/plugins/Settings.ts`
 
-- High: include plugin configs and journal files in backup and restore flows
-- High: make reset behavior match its label by clearing plugin and file-backed data too, or relabel it
-- High: validate imported JSON and support schema migration
-- Medium: expose real configurable app settings from `TGAppSettings` instead of mostly utilities
-
-## `src/plugins/Share.ts`
-
-- High: implement the advertised clipboard-copy behavior
-- Medium: add Web Share support with clipboard and open-link fallbacks
-- Medium: harden external opens with `noopener,noreferrer` and richer share formats
-
-## `src/plugins/TopicalBible.ts`
-
-- Medium: show suggested or browsable topics when the query is empty
-- Medium: preserve and expose topical ranking scores from the source data
-- Medium: add explicit empty/failure states when topic data is missing or a verse has no topics
+- High: ensure backup/restore includes plugin and file-backed data consistently.
+- High: validate imported settings payloads with migrations.
+- Medium: surface more live app settings in the command UI.
 
 ## `src/plugins/Translations.ts`
 
-- High: persist the selected translation across sessions
-- High: rerender verse content immediately when translation changes
-- Medium: mark the active translation clearly in UI and palette lists
-- Medium: derive richer translation metadata instead of relying on a tiny hardcoded map
+- High: persist selected translation and rerender immediately when changed.
+- Medium: expose active translation state more clearly in UI.
 
-## `src/plugins/TSK.ts`
+## `src/plugins/Share.ts`
 
-- Medium: preserve cross-reference strength metadata in the UI
-- Medium: show a meaningful empty state when a verse has no cross references
-- Medium: validate malformed OSIS input before conversion to avoid silent fallback pollution
+- High: complete clipboard copy behavior advertised by the feature.
+- Medium: support layered fallback between Web Share, clipboard, and links.
 
-## `src/plugins/categoryIDs.ts`
+## `src/plugins/BibleMap/*`
 
-- Low: consider freezing or typing the exported ID map to reduce accidental string drift
+- Medium: improve empty/loading/error states and map interaction affordances.
 
-## Cross-plugin opportunities
+## `src/plugins/GestureCommands/*`
 
-- High: create one unified persistence/export/reset layer for root settings, plugin configs, and journal files
-- High: standardize verse action UX with consistent loading, success, and error feedback across plugins
-- Medium: build a shared search/index layer for Bible text, notes, journal, bookmarks, topics, and references
-- Medium: standardize debounced saves, optimistic UI, and recovery messaging for all plugins
+- Medium: align gesture discoverability with command palette and settings help.
+
+## `src/plugins/NavesTopicalBible/*` and `src/plugins/TopicalBible.ts`
+
+- Medium: improve topic discovery when query is empty.
+- Medium: preserve and show topical relevance/strength metadata.
+
+## Cross-plugin themes
+
+- High: create one shared persistence/export/reset workflow for root and plugin data.
+- High: standardize async UX states (loading, success, error, retry) across plugin panels.
+- Medium: unify debounce/backpressure strategies for heavy write paths.
