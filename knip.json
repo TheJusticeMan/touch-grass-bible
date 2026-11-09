@@ -5,8 +5,8 @@
   },
   "workspaces": {
     ".": {
-      "entry": ["src/main.ts", "scripts/**/*.ts", "scripts/**/*.js"],
-      "project": ["src/**/*.ts", "scripts/**/*.ts", "scripts/**/*.js"],
+      "entry": ["src/main.ts", "scripts/**/*.mjs", "scripts/**/*.ts", "scripts/**/*.js"],
+      "project": ["src/**/*.ts", "scripts/**/*.mjs", "scripts/**/*.ts", "scripts/**/*.js"],
       "ignore": ["src/externalPlugins/example/**"],
       "ignoreDependencies": [
         "path",

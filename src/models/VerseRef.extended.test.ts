@@ -135,9 +135,9 @@ describe("VerseRef data accessors", () => {
     expect(ref.verseData("KJV")).toBe("In the beginning God created...");
   });
 
-  test("verseData returns empty string for unknown translation", () => {
+  test("verseData falls back to the default translation while a target translation is still loading", () => {
     const ref = new VerseRef("GENESIS", 1, 1);
-    expect(ref.verseData("ASV")).toBe("");
+    expect(ref.verseData("ASV")).toBe("In the beginning God created...");
   });
 
   test("chapterData returns an array of verses for the chapter", () => {

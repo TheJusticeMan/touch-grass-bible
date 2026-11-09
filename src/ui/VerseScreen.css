@@ -1,5 +1,16 @@
 /* Reading view styling for scripture passages and note overlays. */
 .verse-screen {
+  .translation-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 12rem;
+    color: var(--color-text-dim);
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
   /* Main text content area for the verse reader. */
   .content {
     color: var(--color-text);

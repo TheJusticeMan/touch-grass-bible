@@ -53,14 +53,29 @@ export class VerseScreen extends View<VerseScreenState> {
     van.derive(() => (this.title.val = `${this.state.verse.val.toString()} - ${this.state.translation.val}`));
   }
 
+  private renderLoadingState(): HTMLElement {
+    const currentTranslation = this.state.translation.val;
+    const displayName = this.app.translationManager.getTranslationDisplayName(currentTranslation);
+    return div(
+      { class: "translation-loading" },
+      span({ class: "translation-loading-label" }, `Loading ${displayName}...`),
+    );
+  }
+
   create(): HTMLElement {
     let isLoading = false;
+    void this.app.translationManager.ensureLoaded(this.state.translation.val);
 
     this.cacheStart = this.state.verse.val;
     this.cacheEnd = this.state.verse.val;
     this.scrollBubbleLifecycle = new ScrollBubbleLifecycle(this.state.verse);
 
     const listen = () => {
+      const currentTranslation = this.state.translation.val;
+      if (!this.app.translationManager.isLoaded(currentTranslation)) {
+        return "alive";
+      }
+
       const verse = this.state.verse.val;
       let foundInCache = false;
 
@@ -139,7 +154,12 @@ export class VerseScreen extends View<VerseScreenState> {
         },
         dataset: listen,
       },
-      this.chapter(this.state.verse.val),
+      () => {
+        const selectedTranslation = this.state.translation.val;
+        const isReady = this.app.translationManager.isLoaded(selectedTranslation);
+        const isLoading = this.app.translationManager.isLoading(selectedTranslation);
+        return isReady ? this.chapter(this.state.verse.val) : isLoading ? this.renderLoadingState() : this.renderLoadingState();
+      },
     );
   }
 

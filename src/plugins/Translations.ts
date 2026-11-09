@@ -3,14 +3,6 @@ import Plugin from "../core/Plugin";
 import { translation } from "../models/VerseRef";
 import { TranslationsCategoryID } from "./categoryIDs";
 
-const translationMetadata: {
-  [key: string]: { name: string; shortName: string };
-} = {
-  KJV: { name: "King James Version", shortName: "KJV" },
-  YLT: { name: "Young's Literal Translation", shortName: "YLT" },
-  ASV: { name: "American Standard Version", shortName: "ASV" },
-};
-
 export default class TranslationsPlugin extends Plugin {
   async onload(): Promise<void> {
     this.registerPalette(TranslationsCategoryID, ({ state }) => new translationCategory(state, this));
@@ -26,8 +18,8 @@ export default class TranslationsPlugin extends Plugin {
 class translationCategory extends CommandCategory<string> {
   allItems = van.state<string[]>([]);
   criteria: Array<(item: string) => string> = [
-    str => translationMetadata[str]?.name || str,
-    str => translationMetadata[str]?.shortName || str,
+    str => this.plugin.app.translationManager.getTranslationDisplayName(str),
+    str => this.plugin.app.translationManager.getTranslationShortName(str),
   ];
 
   constructor(
@@ -40,8 +32,8 @@ class translationCategory extends CommandCategory<string> {
 
   renderItem(command: string): CommandItem {
     return {
-      title: translationMetadata[command]?.name || command,
-      description: translationMetadata[command]?.shortName || command,
+      title: this.plugin.app.translationManager.getTranslationDisplayName(command),
+      description: this.plugin.app.translationManager.getTranslationShortName(command),
       click: () => (void this.plugin.switchTranslation(command as translation), true),
     };
   }

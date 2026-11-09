@@ -4,7 +4,7 @@ import type { DataBibleChapter, DataBibleTranslationFile } from "./DataTypes";
 export type bibleData = DataBibleTranslationFile;
 
 export type OSIS = string;
-export type translation = "KJV" | "YLT" | "ASV";
+export type translation = string;
 /**
  * Represents a reference to a specific verse in the Bible, including book, chapter, and verse.
  * Provides utilities for converting between different reference formats (e.g., OSIS),
@@ -42,6 +42,19 @@ export class VerseRef {
   static BookShortNames: OSIS[] = BookShortNames;
   static books3letter: string[] = books3letter;
   static bibleTranslations: { [translation: string]: bibleData } = {};
+
+  static getTranslationData(target: translation, fallbackToDefault = true): bibleData | undefined {
+    const normalizedTarget = target.trim().toUpperCase();
+    const translationData = VerseRef.bibleTranslations[normalizedTarget];
+    if (translationData) return translationData;
+
+    if (!fallbackToDefault) return undefined;
+
+    const defaultTranslation = VerseRef.defaultTranslation.trim().toUpperCase();
+    if (defaultTranslation === normalizedTarget) return undefined;
+
+    return VerseRef.bibleTranslations[defaultTranslation];
+  }
 
   static defaultTranslation: translation = "KJV";
   static get bible() {
@@ -84,7 +97,7 @@ export class VerseRef {
   }
 
   text(translation: translation): string {
-    const bookData = VerseRef.bibleTranslations[translation]?.[this.book];
+    const bookData = VerseRef.getTranslationData(translation)?.[this.book];
     const chapterData = bookData ? VerseRef.getChapterValues(bookData, this.chapter) : [];
     const verseText = chapterData[this.verse];
     return typeof verseText === "string" ? verseText : "";
@@ -243,18 +256,18 @@ export class VerseRef {
     return `${this.book.toTitleCase()} ${this.chapter}`;
   }
   verseData(translation: translation): string {
-    const bookData = VerseRef.bibleTranslations[translation]?.[this.book];
+    const bookData = VerseRef.getTranslationData(translation)?.[this.book];
     const chapterData = bookData ? VerseRef.getChapterValues(bookData, this.chapter) : [];
     const verseText = chapterData[this.verse];
     return typeof verseText === "string" ? verseText : "";
   }
   chapterData(translation: translation): string[] {
-    const bookData = VerseRef.bibleTranslations[translation]?.[this.book];
+    const bookData = VerseRef.getTranslationData(translation)?.[this.book];
     const chapterData = bookData ? VerseRef.getChapterValues(bookData, this.chapter) : [];
     return chapterData as string[];
   }
   bookData(translation: translation): string[][] {
-    return (VerseRef.bibleTranslations[translation]?.[this.book] as unknown as string[][]) || [];
+    return (VerseRef.getTranslationData(translation)?.[this.book] as unknown as string[][]) || [];
   }
   get vTXT(): string {
     const bookData = VerseRef.bible?.[this.book];
@@ -298,13 +311,13 @@ export class VerseRef {
     return `https://www.biblegateway.com/passage/?search=${book}+${this.chapter}%3A${this.verse}&version=${VerseRef.defaultTranslation}`;
   }
   nextChapterIn(t: translation): VerseRef {
-    const bible = VerseRef.bibleTranslations[t];
+    const bible = VerseRef.getTranslationData(t) ?? {};
     const { book, chapter } = this;
     const nextChapter = chapter + 1;
     const nextBookIndex = VerseRef.booksOfTheBible.indexOf(book) + 1;
-    const bookData = bible[book];
+    const bookData = bible[book] ?? [];
     if (nextChapter > bookData.length - 1) {
-      if (nextBookIndex > VerseRef.booksOfTheBible.length) {
+      if (nextBookIndex >= VerseRef.booksOfTheBible.length) {
         return new VerseRef(VerseRef.booksOfTheBible[0], 1, 1);
       }
       return new VerseRef(VerseRef.booksOfTheBible[nextBookIndex], 1, 1);
@@ -349,7 +362,7 @@ export class VerseRef {
    * @returns {VerseRef} A new VerseRef pointing to the last verse of the previous chapter.
    */
   prevChapterIn(t: translation): VerseRef {
-    const bible = VerseRef.bibleTranslations[t];
+    const bible = VerseRef.getTranslationData(t) ?? {};
     const { book, chapter } = this;
     const books = VerseRef.booksOfTheBible;
 
@@ -370,10 +383,10 @@ export class VerseRef {
         prevBookIndex = books.length - 1;
       }
       prevBook = books[prevBookIndex];
-      prevChapter = bible[prevBook].length - 1; // last chapter index
+      prevChapter = (bible[prevBook]?.length ?? 1) - 1;
     }
 
-    const prevChapterData = VerseRef.getChapterValues(bible[prevBook], prevChapter);
+    const prevChapterData = VerseRef.getChapterValues(bible[prevBook] ?? [], prevChapter);
     const lastVerseIndex = prevChapterData.length - 1;
     return new VerseRef(prevBook, prevChapter, lastVerseIndex);
   }

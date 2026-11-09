@@ -151,7 +151,8 @@ export default class TouchGrassBibleApp extends App {
     this.setFontSize(this.settings.style.fontSize);
     this.ensureMainScreenTab();
 
-    const defaultTranslation: translation = "KJV";
+    await this.translationManager.loadAvailableTranslations();
+    const defaultTranslation: translation = this.translationManager.availableTranslations[0] || "KJV";
     VerseRef.defaultTranslation = defaultTranslation;
     try {
       await this.translationManager.loadTranslation(defaultTranslation);
