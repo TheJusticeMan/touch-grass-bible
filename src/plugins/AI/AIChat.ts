@@ -1,4 +1,11 @@
-import { ToolCall, ToolCallDelta, ToolDefinition, ToolResult, ToolsAPI } from "../../core/ToolsAPI";
+import {
+  ToolCall,
+  ToolCallDelta,
+  ToolDefinition,
+  ToolEntry,
+  ToolResult,
+  ToolsAPI,
+} from "../../core/ToolsAPI";
 
 export type ChatMessage = {
   role: "system" | "user" | "assistant" | "tool";
@@ -26,6 +33,8 @@ export type ChatRequestOptions = {
   stream?: boolean;
   tools?: ToolDefinition[];
   tool_choice?: "auto" | "none" | "required";
+  /** Restricts this request to a named subset of registered tools. */
+  allowedToolNames?: readonly string[];
   signal?: AbortSignal;
 };
 
@@ -36,6 +45,8 @@ export type RequestHandlerOptions = {
   apiKey?: string;
   fetch?: typeof globalThis.fetch;
   maxToolRounds?: number;
+  /** Must approve each tool call unless its host explicitly trusts it. */
+  authorizeToolCall?: (tool: ToolEntry, args: Record<string, unknown>) => boolean | Promise<boolean>;
 };
 
 type ChatCompletionPayload = {
@@ -53,6 +64,7 @@ export class RequestHandler {
   apiKey: string;
   private readonly fetcher: typeof globalThis.fetch;
   private readonly maxToolRounds: number;
+  private readonly authorizeToolCall?: RequestHandlerOptions["authorizeToolCall"];
 
   constructor(
     private readonly toolsAPI: ToolsAPI,
@@ -62,6 +74,7 @@ export class RequestHandler {
     this.apiKey = options.apiKey ?? "";
     this.fetcher = options.fetch ?? globalThis.fetch;
     this.maxToolRounds = options.maxToolRounds ?? 8;
+    this.authorizeToolCall = options.authorizeToolCall;
   }
 
   get headers(): Record<string, string> {
@@ -109,9 +122,12 @@ export class RequestHandler {
    */
   async request(options: ChatRequestOptions, onDelta?: StreamCallback): Promise<ChatResponse> {
     const messages = [...options.messages];
+    const tools = (options.tools ?? this.toolsAPI.getToolsForLLM()).filter(tool =>
+      options.allowedToolNames ? options.allowedToolNames.includes(tool.function.name) : true,
+    );
 
     for (let round = 0; round <= this.maxToolRounds; round++) {
-      const response = await this.sendChatRequest({ ...options, messages }, onDelta);
+      const response = await this.sendChatRequest({ ...options, messages, tools }, onDelta);
       const toolCalls = response.tool_calls ?? [];
       if (toolCalls.length === 0) return response;
       if (round === this.maxToolRounds) {
@@ -123,7 +139,7 @@ export class RequestHandler {
         content: response.content ?? null,
         tool_calls: toolCalls,
       });
-      messages.push(...(await this.executeToolCalls(toolCalls)));
+      messages.push(...(await this.executeToolCalls(toolCalls, options.allowedToolNames)));
     }
 
     throw new Error("Unable to complete chat request.");
@@ -175,13 +191,24 @@ export class RequestHandler {
     return RequestHandler.completedStream(content, toolCalls);
   }
 
-  private async executeToolCalls(toolCalls: ToolCall[]): Promise<ToolResult[]> {
-    return Promise.all(toolCalls.map(toolCall => this.executeToolCall(toolCall)));
+  private async executeToolCalls(
+    toolCalls: ToolCall[],
+    allowedToolNames?: readonly string[],
+  ): Promise<ToolResult[]> {
+    const results: ToolResult[] = [];
+    // Run sequentially so interactive approval prompts never overlap.
+    for (const toolCall of toolCalls) {
+      results.push(await this.executeToolCall(toolCall, allowedToolNames));
+    }
+    return results;
   }
 
-  private async executeToolCall(toolCall: ToolCall): Promise<ToolResult> {
+  private async executeToolCall(
+    toolCall: ToolCall,
+    allowedToolNames?: readonly string[],
+  ): Promise<ToolResult> {
     const toolCallId = toolCall.id;
-    const name = toolCall.function.name;
+    const name = toolCall.function?.name;
     if (!toolCallId || !name) {
       return this.toolResult(toolCallId ?? "unknown", name ?? "unknown", {
         error: "The model returned a tool call without an id or name.",
@@ -200,10 +227,22 @@ export class RequestHandler {
     }
 
     try {
-      const result = await this.toolsAPI.parseAndExecuteTool(toolCall, args);
-      if (result === undefined && !this.toolsAPI.parseToolCall(toolCall)) {
-        return this.toolResult(toolCallId, name, { error: `Unknown tool: ${name}` });
+      const tool = this.toolsAPI.parseToolCall(toolCall);
+      if (!tool) return this.toolResult(toolCallId, name, { error: `Unknown tool: ${name}` });
+      if (allowedToolNames && !allowedToolNames.includes(name)) {
+        return this.toolResult(toolCallId, name, {
+          error: `Tool is not in this request's allowlist: ${name}`,
+        });
       }
+      if (!this.authorizeToolCall) {
+        return this.toolResult(toolCallId, name, {
+          error: `Tool execution blocked: no authorization callback is configured for ${name}.`,
+        });
+      }
+      if (!(await this.authorizeToolCall(tool, args))) {
+        return this.toolResult(toolCallId, name, { error: `Tool call was not authorized: ${name}` });
+      }
+      const result = await this.toolsAPI.executeTool(tool, args);
       return this.toolResult(toolCallId, name, { result: result ?? null });
     } catch (error) {
       return this.toolResult(toolCallId, name, {
@@ -235,7 +274,11 @@ export class RequestHandler {
     for (const delta of deltas ?? []) {
       const index = delta.index;
       if (index === undefined) continue;
-      const existing = toolCalls[index] ?? { id: "", type: "function", function: { name: "", arguments: "" } };
+      const existing = toolCalls[index] ?? {
+        id: "",
+        type: "function",
+        function: { name: "", arguments: "" },
+      };
       existing.id = delta.id ?? existing.id;
       existing.type = delta.type ?? existing.type;
       existing.function.name = delta.function.name ?? existing.function.name;

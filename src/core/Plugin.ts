@@ -94,7 +94,7 @@ export default class Plugin extends ePlugin<TouchGrassBibleApp> {
    * @param command - Command definition including id and handler.
    */
   addAPIcommand<TArgs extends Record<string, unknown>, TResult>(command: Tool<TArgs, TResult>) {
-    this.app.toolsAPI.registerTool(command);
+    this.app.toolsAPI.registerTool(command, this.manifest.id);
     this.registerUnload(() => this.app.toolsAPI.unregisterTool(command as ToolEntry));
     return this;
   }
