@@ -125,18 +125,31 @@ class SettingsCategory extends CommandCategory<SettingsItem> {
         {
           id: "install-plugin",
           title: "Install plugin",
-          description: "Upload a JavaScript plugin file (.js)",
+          description: "Upload a trusted JavaScript plugin (.js); plugins have full app access.",
           keywords: ["external", "js"],
           click: () => {
             this.plugin.app.files.uploadTextFile(
               ".js",
               jsCode => {
                 const filename = `plugin-${Date.now()}.js`;
-                void this.plugin.app.externalPlugins!.installPlugin(jsCode, filename).then(() => {
-                  this.plugin.app.console.log(`Plugin installed: ${filename}`);
-                  void this.plugin.app.externalPlugins!.loadAll();
-                  this.installedPlugins.val = [...new Set([...this.installedPlugins.val, filename])];
-                });
+                void this.plugin.app
+                  .externalPlugins!.installPlugin(jsCode, filename)
+                  .then(async () => {
+                    const report = await this.plugin.app.externalPlugins!.loadAll();
+                    this.installedPlugins.val = await this.plugin.app.externalPlugins!.getInstalledPlugins();
+                    const failure = report.failed.find(result => result.filename === filename);
+                    if (failure) {
+                      this.plugin.app.console.error(
+                        `Plugin file was saved but failed to load: ${filename}`,
+                        failure.error,
+                      );
+                      return;
+                    }
+                    this.plugin.app.console.log(`Plugin installed and loaded: ${filename}`);
+                  })
+                  .catch(error =>
+                    this.plugin.app.console.error(`Failed to install plugin "${filename}":`, error),
+                  );
               },
               error => this.plugin.app.console.error("Failed to upload plugin:", error),
               message => this.plugin.app.console.warn(message),
@@ -149,14 +162,18 @@ class SettingsCategory extends CommandCategory<SettingsItem> {
           description: "View and manage installed plugins",
           keywords: ["external", "uninstall"],
           click: async () => {
-            const installedPlugins = await this.plugin.app.externalPlugins!.getInstalledPlugins();
-            if (installedPlugins.length === 0) {
-              this.plugin.app.console.log("No plugins installed");
-              this.installedPlugins.val = [];
-              return;
-            }
+            try {
+              const installedPlugins = await this.plugin.app.externalPlugins!.getInstalledPlugins();
+              if (installedPlugins.length === 0) {
+                this.plugin.app.console.log("No plugins installed");
+                this.installedPlugins.val = [];
+                return;
+              }
 
-            this.installedPlugins.val = installedPlugins;
+              this.installedPlugins.val = installedPlugins;
+            } catch (error) {
+              this.plugin.app.console.error("Failed to read installed plugins:", error);
+            }
           },
         },
       );
@@ -170,9 +187,13 @@ class SettingsCategory extends CommandCategory<SettingsItem> {
           click: async () => {
             const confirmed = await this.plugin.app.commandPalette.confirm(`Uninstall plugin: ${filename}?`);
             if (!confirmed) return;
-            await this.plugin.app.externalPlugins!.uninstallPlugin(filename);
-            this.plugin.app.console.log(`Plugin uninstalled: ${filename}`);
-            this.installedPlugins.val = this.installedPlugins.val.filter(item => item !== filename);
+            try {
+              await this.plugin.app.externalPlugins!.uninstallPlugin(filename);
+              this.plugin.app.console.log(`Plugin uninstalled: ${filename}`);
+              this.installedPlugins.val = this.installedPlugins.val.filter(item => item !== filename);
+            } catch (error) {
+              this.plugin.app.console.error(`Failed to uninstall plugin "${filename}":`, error);
+            }
           },
         })),
       );

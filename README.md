@@ -36,9 +36,13 @@ Because "menus" are passe.
 
 ## Technology
 
-- Written in 100% TypeScript (shh, it's just JavaScript in a suit)
-- No frameworks, no servers, no user accounts
-- Just you, your browser, and the Good Book
+- Written in TypeScript
+- No server or user accounts
+- Web, Electron, and Capacitor builds
+
+## External Plugins
+
+External plugins are trusted single-file JavaScript modules with full access to the app. See the [plugin author and installation guide](docs/external-plugins.md) for the module contract, build flag, and lifecycle expectations.
 
 ## Development Setup
 

@@ -224,6 +224,7 @@ if (prod) {
 
   console.log(`Built target: ${buildTarget} (external plugins: ${enableExternalPlugins})`);
 
+  await appContext.dispose();
   process.exit(0);
 } else {
   // Keep index.html in sync with development CSP (live-reload needs inline script support).

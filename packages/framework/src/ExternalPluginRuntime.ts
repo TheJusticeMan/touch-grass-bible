@@ -18,6 +18,188 @@ type RegisteredModule<AppType extends App> = {
   exports: HostModuleValue<AppType>;
 };
 
+type ModuleSpecifierReference = {
+  start: number;
+  end: number;
+  quote: string;
+  specifier: string;
+};
+
+function isIdentifierStart(character: string | undefined): boolean {
+  return character !== undefined && /[A-Za-z_$]/.test(character);
+}
+
+function isIdentifierPart(character: string | undefined): boolean {
+  return character !== undefined && /[A-Za-z0-9_$]/.test(character);
+}
+
+function isWhitespace(source: string, index: number): boolean {
+  return source[index].trim() === "";
+}
+
+function isLineLeading(source: string, index: number): boolean {
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    if (source[cursor] === "\\n" || source[cursor] === "\\r") return true;
+    if (!isWhitespace(source, cursor)) return false;
+  }
+  return true;
+}
+
+function readIdentifier(source: string, start: number): { value: string; end: number } | null {
+  if (!isIdentifierStart(source[start])) return null;
+  let end = start + 1;
+  while (isIdentifierPart(source[end])) end += 1;
+  return { value: source.slice(start, end), end };
+}
+
+function readStringLiteral(source: string, start: number): ModuleSpecifierReference | null {
+  const quote = source[start];
+  if (quote !== "'" && quote !== '"' && quote !== "`") return null;
+
+  let end = start + 1;
+  while (end < source.length) {
+    if (source.charCodeAt(end) === 92) {
+      end += 2;
+    } else if (source[end] === quote) {
+      return {
+        start,
+        end: end + 1,
+        quote,
+        specifier: source.slice(start + 1, end),
+      };
+    } else {
+      end += 1;
+    }
+  }
+  return null;
+}
+
+function skipLine(source: string, start: number): number {
+  let end = start;
+  while (end < source.length && source.charCodeAt(end) !== 10 && source.charCodeAt(end) !== 13) end += 1;
+  return end;
+}
+
+function skipTrivia(source: string, start: number): number {
+  let index = start;
+  while (index < source.length) {
+    if (isWhitespace(source, index)) {
+      index += 1;
+    } else if (source[index] === "/" && source[index + 1] === "/") {
+      index = skipLine(source, index + 2);
+    } else if (source[index] === "/" && source[index + 1] === "*") {
+      const commentEnd = source.indexOf("*/", index + 2);
+      index = commentEnd === -1 ? source.length : commentEnd + 2;
+    } else {
+      break;
+    }
+  }
+  return index;
+}
+
+function readModuleSpecifierAfter(
+  source: string,
+  start: number,
+  isExport: boolean,
+): ModuleSpecifierReference | null {
+  let index = skipTrivia(source, start);
+  if (isExport) {
+    if (source[index] !== "{" && source[index] !== "*") return null;
+  } else {
+    if (source[index] === "." || source[index] === "(") return null;
+    const sideEffectSpecifier = readStringLiteral(source, index);
+    if (sideEffectSpecifier) return sideEffectSpecifier;
+  }
+
+  let braceDepth = 0;
+  while (index < source.length) {
+    index = skipTrivia(source, index);
+    const character = source[index];
+    if (character === undefined || character === ";") return null;
+
+    if (character === "'" || character === '"' || character === "`") {
+      const literal = readStringLiteral(source, index);
+      if (!literal) return null;
+      index = literal.end;
+      continue;
+    }
+    if (character === "{") {
+      braceDepth += 1;
+      index += 1;
+      continue;
+    }
+    if (character === "}") {
+      braceDepth = Math.max(0, braceDepth - 1);
+      index += 1;
+      if (isExport && braceDepth === 0) {
+        const next = readIdentifier(source, skipTrivia(source, index));
+        if (next?.value !== "from") return null;
+      }
+      continue;
+    }
+
+    const identifier = readIdentifier(source, index);
+    if (identifier) {
+      if (identifier.value === "from" && braceDepth === 0) {
+        return readStringLiteral(source, skipTrivia(source, identifier.end));
+      }
+      index = identifier.end;
+    } else {
+      index += 1;
+    }
+  }
+
+  return null;
+}
+
+// Tokenize enough JavaScript syntax to rewrite static module specifiers without
+// changing matching text inside comments, string literals, or template literals.
+function findStaticModuleSpecifiers(source: string): ModuleSpecifierReference[] {
+  const references: ModuleSpecifierReference[] = [];
+  let index = 0;
+  while (index < source.length) {
+    index = skipTrivia(source, index);
+    const character = source[index];
+    if (character === undefined) break;
+
+    if (character === "'" || character === '"' || character === "`") {
+      const literal = readStringLiteral(source, index);
+      index = literal?.end ?? source.length;
+      continue;
+    }
+
+    const identifier = readIdentifier(source, index);
+    if (!identifier) {
+      index += 1;
+      continue;
+    }
+
+    const isStatementStart = isLineLeading(source, index);
+    const isImport = identifier.value === "import" && source[index - 1] !== "." && isStatementStart;
+    const isExport = identifier.value === "export" && isStatementStart;
+    if (isImport || isExport) {
+      const specifier = readModuleSpecifierAfter(source, identifier.end, isExport);
+      if (specifier) {
+        references.push(specifier);
+        index = specifier.end;
+        continue;
+      }
+    }
+    index = identifier.end;
+  }
+  return references;
+}
+
+export type ExternalPluginLoadFailure = {
+  filename: string;
+  error: unknown;
+};
+
+export type ExternalPluginLoadReport = {
+  loaded: string[];
+  failed: ExternalPluginLoadFailure[];
+};
+
 export type ExternalPluginClass<
   AppType extends App,
   ManifestType extends { id: string },
@@ -61,6 +243,7 @@ export class eExternalPlugins<
   private readonly additionalModules: RegisteredModule<AppType>[];
   private readonly pluginsDir: string;
   private readonly pluginIndexPath: string;
+  private readonly pluginIdsByFilename = new Map<string, string>();
   private readonly basePluginGlobalKey: string;
   private readonly externalModulesGlobalKey: string;
 
@@ -98,41 +281,77 @@ export class eExternalPlugins<
   }
 
   async installPlugin(jsCode: string, filename: string): Promise<void> {
+    this.validatePluginFilename(filename);
+
     try {
+      const index = await this.readIndex();
       const path = `${this.pluginsDir}/${filename}`;
       await this.host.files.writeTextFile(path, jsCode);
 
-      const index = await this.readIndex();
       if (!index.includes(filename)) {
-        index.push(filename);
-        await this.host.files.writeTextFile(this.pluginIndexPath, JSON.stringify(index));
+        try {
+          index.push(filename);
+          await this.host.files.writeTextFile(this.pluginIndexPath, JSON.stringify(index));
+        } catch (error) {
+          try {
+            await this.host.files.writeTextFile(path, "");
+          } catch (cleanupError) {
+            this.host.console.warn(
+              `[ExternalPlugins] Could not roll back plugin file "${filename}":`,
+              cleanupError,
+            );
+          }
+          throw error;
+        }
       }
 
+      try {
+        await this.unloadRegisteredPlugin(filename);
+      } catch (error) {
+        this.host.console.warn(
+          `[ExternalPlugins] Replaced plugin "${filename}" did not shut down cleanly:`,
+          error,
+        );
+      }
       this.host.console.log(`[ExternalPlugins] Installed plugin: ${filename}`);
-    } catch (e) {
-      this.host.console.error(`[ExternalPlugins] Failed to install plugin "${filename}":`, e);
+    } catch (error) {
+      this.host.console.error(`[ExternalPlugins] Failed to install plugin "${filename}":`, error);
+      throw error;
     }
   }
 
   async uninstallPlugin(filename: string): Promise<void> {
+    this.validatePluginFilename(filename);
+
     try {
-      const path = `${this.pluginsDir}/${filename}`;
-
-      try {
-        await this.host.files.writeTextFile(path, "");
-      } catch {
-        // Ignore errors if the platform does not support deletion.
-      }
-
       const index = await this.readIndex();
-      const filtered = index.filter(f => f !== filename);
+      const filtered = index.filter(entry => entry !== filename);
       if (filtered.length < index.length) {
         await this.host.files.writeTextFile(this.pluginIndexPath, JSON.stringify(filtered));
       }
 
+      try {
+        await this.unloadRegisteredPlugin(filename);
+      } catch (error) {
+        this.host.console.error(
+          `[ExternalPlugins] Plugin "${filename}" failed during shutdown after removal:`,
+          error,
+        );
+      }
+
+      try {
+        await this.host.files.writeTextFile(`${this.pluginsDir}/${filename}`, "");
+      } catch (error) {
+        this.host.console.warn(
+          `[ExternalPlugins] Could not clear uninstalled plugin file "${filename}":`,
+          error,
+        );
+      }
+
       this.host.console.log(`[ExternalPlugins] Uninstalled plugin: ${filename}`);
-    } catch (e) {
-      this.host.console.error(`[ExternalPlugins] Failed to uninstall plugin "${filename}":`, e);
+    } catch (error) {
+      this.host.console.error(`[ExternalPlugins] Failed to uninstall plugin "${filename}":`, error);
+      throw error;
     }
   }
 
@@ -140,65 +359,79 @@ export class eExternalPlugins<
     return this.readIndex();
   }
 
-  async loadAll(): Promise<void> {
+  async loadAll(): Promise<ExternalPluginLoadReport> {
+    const report: ExternalPluginLoadReport = { loaded: [], failed: [] };
     let filenames: string[];
     try {
       filenames = await this.readIndex();
-    } catch {
-      this.host.console.log("[ExternalPlugins] No plugin index found; skipping external plugins.");
-      return;
+    } catch (error) {
+      this.host.console.error(
+        "[ExternalPlugins] Failed to read plugin index; skipping external plugins.",
+        error,
+      );
+      report.failed.push({ filename: this.pluginIndexPath, error });
+      return report;
     }
 
     for (const filename of filenames) {
       try {
+        this.validatePluginFilename(filename);
         const path = `${this.pluginsDir}/${filename}`;
         const jsCode = await this.host.files.readTextFile(path);
         const moduleExports = await this.evaluatePluginCode(jsCode, filename);
-        this.registerModuleExports(filename, moduleExports);
-      } catch (e) {
-        this.host.console.error(`[ExternalPlugins] Failed to load plugin "${filename}":`, e);
+        await this.registerModuleExports(filename, moduleExports);
+        report.loaded.push(filename);
+      } catch (error) {
+        this.host.console.error(`[ExternalPlugins] Failed to load plugin "${filename}":`, error);
+        report.failed.push({ filename, error });
       }
     }
+
+    return report;
   }
 
-  private registerPlugin(
+  private async registerPlugin(
+    filename: string,
     manifest: ManifestType,
     pluginClass: ExternalPluginClass<AppType, ManifestType, PluginType>,
-  ): void {
+  ): Promise<void> {
     if (this.plugins.has(manifest.id)) {
-      this.host.console.warn(`[ExternalPlugins] Plugin "${manifest.id}" is already registered. Skipping.`);
-      return;
+      if (this.pluginIdsByFilename.get(filename) === manifest.id) return;
+      throw new Error(`Plugin id "${manifest.id}" is already registered by another file.`);
     }
 
+    const instance = new pluginClass(this.host, manifest);
+    this.plugins.set(manifest.id, instance);
+    this.pluginIdsByFilename.set(filename, manifest.id);
+
     try {
-      const instance = new pluginClass(this.host, manifest);
-      this.plugins.set(manifest.id, instance);
-      this.addChild(instance).catch(e =>
-        this.host.console.error(
-          `[ExternalPlugins] Failed to start lifecycle for plugin "${manifest.id}":`,
-          e,
-        ),
-      );
+      await this.addChild(instance);
       this.host.console.log(`[ExternalPlugins] Registered plugin: ${manifest.id}`);
-    } catch (e) {
-      this.host.console.error(`[ExternalPlugins] Failed to instantiate plugin "${manifest.id}":`, e);
+    } catch (error) {
+      this.plugins.delete(manifest.id);
+      this.pluginIdsByFilename.delete(filename);
+      try {
+        await this.removeChild(instance);
+      } catch (cleanupError) {
+        this.host.console.error(
+          `[ExternalPlugins] Failed to clean up plugin "${manifest.id}" after startup failure:`,
+          cleanupError,
+        );
+      }
+      throw error;
     }
   }
 
-  private registerModuleExports(filename: string, moduleExports: ExternalPluginModule): void {
+  private async registerModuleExports(filename: string, moduleExports: ExternalPluginModule): Promise<void> {
     if (!this.isManifest(moduleExports.manifest)) {
-      this.host.console.error(`[ExternalPlugins] Plugin "${filename}" is missing a valid exported manifest.`);
-      return;
+      throw new Error(`Plugin "${filename}" is missing a valid manifest export.`);
     }
 
     if (!this.isPluginClass(moduleExports.default)) {
-      this.host.console.error(
-        `[ExternalPlugins] Plugin "${filename}" is missing a valid default plugin class export.`,
-      );
-      return;
+      throw new Error(`Plugin "${filename}" is missing a valid default plugin class export.`);
     }
 
-    this.registerPlugin(moduleExports.manifest, moduleExports.default);
+    await this.registerPlugin(filename, moduleExports.manifest, moduleExports.default);
   }
 
   private isPluginClass(value: unknown): value is ExternalPluginClass<AppType, ManifestType, PluginType> {
@@ -251,83 +484,92 @@ export class eExternalPlugins<
     return URL.createObjectURL(blob);
   }
 
-  private extractImportSpecifiers(jsCode: string): Set<string> {
-    const importSpecifiers = new Set<string>();
-    const lines = jsCode.split("\n");
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed.startsWith("import") && !trimmed.startsWith("export")) {
-        continue;
-      }
-
-      const fromIndex = trimmed.indexOf(" from ");
-      const sideEffectImport = trimmed.startsWith("import ") && fromIndex === -1;
-
-      let quoteStart = -1;
-      if (fromIndex >= 0) {
-        const fromSegment = trimmed.slice(fromIndex + " from ".length);
-        const single = fromSegment.indexOf("'");
-        const dbl = fromSegment.indexOf('"');
-        const first = single === -1 ? dbl : dbl === -1 ? single : Math.min(single, dbl);
-        if (first >= 0) {
-          quoteStart = fromIndex + " from ".length + first;
-        }
-      } else if (sideEffectImport) {
-        const single = trimmed.indexOf("'");
-        const dbl = trimmed.indexOf('"');
-        quoteStart = single === -1 ? dbl : dbl === -1 ? single : Math.min(single, dbl);
-      }
-
-      if (quoteStart < 0) {
-        continue;
-      }
-
-      const quoteChar = trimmed[quoteStart];
-      const quoteEnd = trimmed.indexOf(quoteChar, quoteStart + 1);
-      if (quoteEnd <= quoteStart + 1) {
-        continue;
-      }
-
-      importSpecifiers.add(trimmed.slice(quoteStart + 1, quoteEnd));
-    }
-
-    return importSpecifiers;
-  }
-
   private rewriteExternalImportSpecifiers(jsCode: string): {
     code: string;
     generatedUrls: string[];
   } {
     const registry = this.ensureExternalModuleRegistry();
     const generatedUrls: string[] = [];
+    const urlsBySpecifier = new Map<string, string>();
+    const references = findStaticModuleSpecifiers(jsCode);
+    let code = jsCode;
 
-    const importSpecifiers = this.extractImportSpecifiers(jsCode);
+    for (const reference of [...references].reverse()) {
+      if (!Object.hasOwn(registry, reference.specifier)) continue;
 
-    let rewrittenCode = jsCode;
-
-    for (const specifier of importSpecifiers) {
-      if (!(specifier in registry)) {
-        continue;
+      let moduleUrl = urlsBySpecifier.get(reference.specifier);
+      if (!moduleUrl) {
+        moduleUrl = this.createExternalModuleUrl(reference.specifier, registry[reference.specifier]);
+        urlsBySpecifier.set(reference.specifier, moduleUrl);
+        generatedUrls.push(moduleUrl);
       }
 
-      const moduleUrl = this.createExternalModuleUrl(specifier, registry[specifier]);
-      generatedUrls.push(moduleUrl);
-
-      rewrittenCode = rewrittenCode.split(`"${specifier}"`).join(`"${moduleUrl}"`);
-      rewrittenCode = rewrittenCode.split(`'${specifier}'`).join(`"${moduleUrl}"`);
+      const replacement = `${reference.quote}${moduleUrl}${reference.quote}`;
+      code = `${code.slice(0, reference.start)}${replacement}${code.slice(reference.end)}`;
     }
 
-    return { code: rewrittenCode, generatedUrls };
+    return { code, generatedUrls };
+  }
+
+  private validatePluginFilename(filename: string): void {
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,120}\.js$/i.test(filename)) {
+      throw new Error(`Invalid plugin filename: ${filename}`);
+    }
+  }
+
+  private async unloadRegisteredPlugin(filename: string): Promise<void> {
+    const pluginId = this.pluginIdsByFilename.get(filename);
+    if (!pluginId) return;
+
+    const instance = this.plugins.get(pluginId);
+    try {
+      if (instance) await this.removeChild(instance);
+    } finally {
+      this.plugins.delete(pluginId);
+      this.pluginIdsByFilename.delete(filename);
+    }
+  }
+
+  private isMissingFileError(error: unknown): boolean {
+    if (!error || typeof error !== "object") return false;
+    const candidate = error as { code?: unknown; message?: unknown };
+    const code = typeof candidate.code === "string" ? candidate.code.toUpperCase() : "";
+    const message = typeof candidate.message === "string" ? candidate.message : "";
+    return (
+      ["ENOENT", "NOT_FOUND", "OS-PLUG-FILENOTFOUND"].includes(code) ||
+      /^(?:file or path )?not found$/i.test(message.trim()) ||
+      /(?:file|path).*(?:not found|does not exist|no such file)/i.test(message)
+    );
   }
 
   private async readIndex(): Promise<string[]> {
+    let content: string;
     try {
-      const content = await this.host.files.readTextFile(this.pluginIndexPath);
-      return JSON.parse(content) as string[];
-    } catch {
-      return [];
+      content = await this.host.files.readTextFile(this.pluginIndexPath);
+    } catch (error) {
+      if (this.isMissingFileError(error)) return [];
+      throw error;
     }
+
+    const parsed: unknown = JSON.parse(content);
+    if (!Array.isArray(parsed)) {
+      throw new Error("External plugin index must be a JSON array.");
+    }
+
+    const filenames: string[] = [];
+    for (const entry of parsed) {
+      if (typeof entry !== "string") {
+        throw new Error("External plugin index entries must be filenames.");
+      }
+      try {
+        this.validatePluginFilename(entry);
+        filenames.push(entry);
+      } catch (error) {
+        this.host.console.warn("Ignoring invalid filename in external plugin index:", error);
+      }
+    }
+
+    return [...new Set(filenames)];
   }
 
   private async evaluatePluginCode(jsCode: string, filename: string): Promise<ExternalPluginModule> {

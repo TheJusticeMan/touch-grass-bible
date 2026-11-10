@@ -104,15 +104,10 @@ export default class AIPlugin extends Plugin {
     this.registerPalette(AICategoryID, ({ state }) => new AICommandPalette(state, this));
     this.registerView(AIStudyViewID, () => new AIStudyView(this));
     this.registerSiftVersesWithLLMTool();
-    this.embeddingSearchDB
-      .initialize()
-      .then(() => {
-        this.registerPalette(
-          AIEmbeddingSearchCategoryID,
-          ({ state }) => new AIEmbeddingSearchCategory(state, this, this.embeddingSearchDB),
-        );
-      })
-      .catch(err => this.app.console.error(`Error loading embedding search database`, err));
+    this.registerPalette(
+      AIEmbeddingSearchCategoryID,
+      ({ state }) => new AIEmbeddingSearchCategory(state, this, this.embeddingSearchDB),
+    );
 
     this.addVerseAction({
       id: "ai-ask",
