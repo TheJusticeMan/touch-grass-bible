@@ -19,13 +19,10 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
     item => (item.type === "query" ? item.query : item.hit.text),
   ];
 
-  private inFlight = van.state(false);
   private lastQuery = van.state("");
-  private inFlightQuery = van.state("");
   private lastResults = van.state<EmbeddingSearchHit[]>([]);
-  private errorMessage = van.state("");
+  private resultsQuery = van.state("");
   private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private queuedQuery = "";
 
   constructor(
     state: stateMapping<CommandPaletteState>,
@@ -54,41 +51,6 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
         });
       }
 
-      if (this.inFlight.val) {
-        items.push({
-          title: "Searching embeddings...",
-          description: `Working on: ${this.inFlightQuery.val}`,
-        });
-      }
-
-      if (this.errorMessage.val) {
-        items.push({
-          title: "Embedding search error",
-          description: this.errorMessage.val,
-        });
-      }
-
-      if (!this.inFlight.val && this.lastResults.val.length > 0) {
-        items.push({
-          title: "Latest semantic search",
-          description: `Found ${this.lastResults.val.length} result(s) for: ${this.lastQuery.val}`,
-        });
-      }
-
-      if (this.dbService.errorMessage) {
-        items.push({
-          title: "Embedding setup error",
-          description: this.dbService.errorMessage,
-        });
-      }
-
-      if (this.dbService.sourceProvider && this.dbService.sourceModel) {
-        items.push({
-          title: "Embedding source",
-          description: `${this.dbService.sourceProvider}:${this.dbService.sourceModel}`,
-        });
-      }
-
       return items;
     });
 
@@ -103,7 +65,7 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
         commands.push({ type: "query", query: trimmed });
       }
 
-      const shouldShowResults = this.lastResults.val.length > 0 && !!trimmed;
+      const shouldShowResults = this.resultsQuery.val === trimmed && !!trimmed;
       if (shouldShowResults) {
         commands.push(...this.lastResults.val.map((hit): EmbeddingSearchCommand => ({ type: "hit", hit })));
       }
@@ -112,19 +74,26 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
     });
   }
 
+  protected onDispose(): void {
+    if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
+    this.searchDebounceTimer = null;
+  }
+
   renderItem(command: EmbeddingSearchCommand): CommandItem {
     if (command.type === "query") {
       let status = "Generate query embedding, then search nearest verses";
+      const asyncStatus = this.asyncStatus.val;
 
-      if (this.inFlight.val) {
-        status = `Searching embeddings for: ${this.inFlightQuery.val || command.query}`;
-      } else if (this.errorMessage.val && this.lastQuery.val === command.query) {
-        status = `Search failed: ${this.errorMessage.val}`;
-      } else if (this.lastQuery.val === command.query) {
+      if (this.state.query.val.trim() === command.query && asyncStatus.state === "loading") {
+        status = asyncStatus.message;
+      } else if (asyncStatus.state === "error" && this.lastQuery.val === command.query) {
+        status = asyncStatus.message;
+      } else if (this.resultsQuery.val === command.query) {
         status = `Search finished: ${this.lastResults.val.length} result(s)`;
       }
 
       return {
+        key: `query:${command.query}`,
         title: `Semantic search: ${command.query}`,
         description: status,
         click: () => {
@@ -135,6 +104,7 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
     }
 
     return {
+      key: `verse:${command.hit.verse.toString()}`,
       title: command.hit.verse.toString(),
       description: `${command.hit.text} ${(command.hit.score * 100).toFixed(1)}%`,
       click: () => {
@@ -145,36 +115,29 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
   }
 
   private requestSearch(query: string, immediate = false): void {
-    if (!query) {
-      this.queuedQuery = "";
-      if (this.searchDebounceTimer) {
-        clearTimeout(this.searchDebounceTimer);
-        this.searchDebounceTimer = null;
-      }
-      this.errorMessage.val = "";
-      return;
-    }
-
-    if (query === this.lastQuery.val || query === this.inFlightQuery.val || query === this.queuedQuery) {
-      return;
-    }
-
-    if (this.inFlight.val) {
-      this.queuedQuery = query;
-      return;
-    }
-
-    const schedule = () => {
-      this.searchDebounceTimer = null;
-      const targetQuery = this.queuedQuery || query;
-      this.queuedQuery = "";
-      void this.runSearch(targetQuery);
-    };
-
-    this.queuedQuery = query;
     if (this.searchDebounceTimer) {
       clearTimeout(this.searchDebounceTimer);
+      this.searchDebounceTimer = null;
     }
+
+    if (!query) {
+      this.invalidateAsync();
+      return;
+    }
+
+    if (query === this.resultsQuery.val) {
+      this.invalidateAsync({
+        state: "success",
+        message: `Search finished: ${this.lastResults.val.length} result(s) for: ${query}`,
+      });
+      return;
+    }
+
+    this.invalidateAsync({ state: "loading", message: `Waiting to search: ${query}` });
+    const schedule = () => {
+      this.searchDebounceTimer = null;
+      if (query === this.state.query.val.trim()) void this.runSearch(query);
+    };
 
     if (immediate) {
       schedule();
@@ -185,71 +148,71 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
   }
 
   private async runSearch(query: string): Promise<void> {
-    if (!query.trim()) return;
-    if (this.inFlight.val) {
-      this.queuedQuery = query;
-      return;
-    }
+    if (!query.trim() || query !== this.state.query.val.trim()) return;
 
-    this.inFlight.val = true;
-    this.inFlightQuery.val = query;
-    this.errorMessage.val = "";
+    const result = await this.runAsyncLatest(
+      async signal => {
+        const isReady = await this.dbService.initialize(this.plugin.settings.aiApiKey);
+        if (!isReady) {
+          throw new Error(this.dbService.errorMessage || "Embedding database failed to initialize");
+        }
+        if (signal.aborted) return [];
 
-    try {
-      const isReady = await this.dbService.initialize(this.plugin.settings.aiApiKey);
-      if (!isReady) {
-        throw new Error(this.dbService.errorMessage || "Embedding database failed to initialize");
-      }
-      const queryEmbedding = await this.embedQuery(query);
-      const hits = await this.dbService.searchByEmbedding(queryEmbedding, 8, 0.2);
+        const queryEmbedding = await this.embedQuery(query, signal);
+        if (signal.aborted) return [];
+        const hits = await this.dbService.searchByEmbedding(queryEmbedding, 8, 0.2);
 
-      const results = hits
-        .map(hit => {
-          const { book, chapter, verse, text } = hit.document;
-          if (!text) return null;
+        return hits
+          .map(hit => {
+            const { book, chapter, verse, text } = hit.document;
+            if (!text) return null;
 
-          return {
-            verse: new VerseRef(book, chapter, verse),
-            text,
-            score: hit.score,
-          } satisfies EmbeddingSearchHit;
-        })
-        .filter((hit): hit is EmbeddingSearchHit => hit !== null);
+            return {
+              verse: new VerseRef(book, chapter, verse),
+              text,
+              score: hit.score,
+            } satisfies EmbeddingSearchHit;
+          })
+          .filter((hit): hit is EmbeddingSearchHit => hit !== null);
+      },
+      {
+        loadingMessage: `Searching embeddings for: ${query}`,
+        successMessage: results => {
+          const source = this.dbService.sourceProvider
+            ? ` using ${this.dbService.sourceProvider}:${this.dbService.sourceModel || "unknown"}`
+            : "";
+          return `Search finished: ${results.length} result(s) for: ${query}${source}`;
+        },
+        errorMessage: error => `Search failed: ${error instanceof Error ? error.message : String(error)}`,
+      },
+      results => {
+        this.lastQuery.val = query;
+        this.lastResults.val = results;
+        this.resultsQuery.val = query;
+      },
+    );
 
-      this.lastQuery.val = query;
-      this.lastResults.val = results;
-    } catch (error) {
-      this.errorMessage.val = error instanceof Error ? error.message : String(error);
-    } finally {
-      this.inFlight.val = false;
-      this.inFlightQuery.val = "";
-
-      const nextQuery = this.queuedQuery.trim();
-      if (nextQuery && nextQuery !== this.lastQuery.val) {
-        this.queuedQuery = "";
-        void this.runSearch(nextQuery);
-      }
-    }
+    if (result.status === "error") this.lastQuery.val = query;
   }
 
-  private async embedQuery(query: string): Promise<number[]> {
+  private async embedQuery(query: string, signal: AbortSignal): Promise<number[]> {
     if (this.dbService.sourceProvider === "openai") {
-      return this.embedQueryOpenAI(query, this.dbService.sourceModel || "text-embedding-3-small");
+      return this.embedQueryOpenAI(query, this.dbService.sourceModel || "text-embedding-3-small", signal);
     }
     if (this.dbService.sourceProvider === "ollama") {
-      return this.embedQueryOllama(query, this.dbService.sourceModel || "nomic-embed-text");
+      return this.embedQueryOllama(query, this.dbService.sourceModel || "nomic-embed-text", signal);
     }
     if (this.plugin.settings.aiApiKey) {
-      return this.embedQueryOpenAI(query, "text-embedding-3-small");
+      return this.embedQueryOpenAI(query, "text-embedding-3-small", signal);
     }
-    return this.embedQueryOllama(query, "nomic-embed-text");
+    return this.embedQueryOllama(query, "nomic-embed-text", signal);
   }
 
-  private async embedQueryOpenAI(query: string, model: string): Promise<number[]> {
+  private async embedQueryOpenAI(query: string, model: string, signal: AbortSignal): Promise<number[]> {
     if (!this.plugin.settings.aiApiKey) {
       throw new Error("This embedding index expects OpenAI-compatible embeddings, but no API key is set.");
     }
-    const endpoint = this.plugin.chat.endpoint.endpoint;
+    const endpoint = this.plugin.chat.endpoint;
     const baseUrl = endpoint.endsWith("/chat/completions")
       ? endpoint.replace(/\/chat\/completions$/, "")
       : "https://api.openai.com/v1";
@@ -264,6 +227,7 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
         model,
         input: query,
       }),
+      signal,
     });
 
     if (!response.ok) {
@@ -280,7 +244,7 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
     return embedding;
   }
 
-  private async embedQueryOllama(query: string, model: string): Promise<number[]> {
+  private async embedQueryOllama(query: string, model: string, signal: AbortSignal): Promise<number[]> {
     const response = await fetch("http://localhost:11434/api/embeddings", {
       method: "POST",
       headers: {
@@ -290,6 +254,7 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
         model,
         prompt: query,
       }),
+      signal,
     });
 
     if (!response.ok) {

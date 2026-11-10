@@ -7,6 +7,7 @@ This folder now includes a generated `src/` scaffold that summarizes the codebas
 - `docs/src/external.md` - framework, workspace, palette, events, and UI primitives
 - `docs/src/plugins.md` - feature plugins and their tests
 - `docs/src/platform-shells.md` - platform adapters, Electron shell, web shell, and static assets
+- `external-plugins.md` - plugin authoring, installation, trusted-code model, and lifecycle
 
 It also includes an improvement review scaffold based on a codebase-wide pass.
 

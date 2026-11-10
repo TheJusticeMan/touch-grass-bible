@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { PluginMetadata } from "@touchgrass/framework";
 import { ToolsAPI } from "../../core/ToolsAPI";
 import { VerseRef } from "../../models/VerseRef";
+import type TouchGrassBibleApp from "../../main";
+import { AIEmbeddingSearchCategoryID } from "../categoryIDs";
 import AIPlugin from "./AI";
 import { RequestHandler } from "./AIChat";
 
@@ -34,7 +36,7 @@ function makeAIApp() {
     toolsAPI: new ToolsAPI(),
     verseState: { val: new VerseRef("GENESIS", 1, 1) },
     translationState: { val: "KJV" },
-  } as any;
+  } as unknown as TouchGrassBibleApp;
 }
 
 const aiManifest: PluginMetadata = {
@@ -147,21 +149,34 @@ describe("RequestHandler", () => {
       embeddingSearchDB: { initialize: ReturnType<typeof vi.fn> };
     };
     pluginAny.embeddingSearchDB = { initialize: vi.fn().mockResolvedValue(undefined) };
-    vi.spyOn(plugin as any, "siftVersesWithLLM").mockResolvedValue([VerseRef.fromOSIS("John.3.16")]);
+    const pluginMethods = plugin as unknown as {
+      siftVersesWithLLM: (
+        question: string,
+        scoredMatches: unknown[],
+        maxVerses: number,
+      ) => Promise<VerseRef[]>;
+    };
+    vi.spyOn(pluginMethods, "siftVersesWithLLM").mockResolvedValue([VerseRef.fromOSIS("John.3.16")]);
 
     await plugin.onload();
 
-    const tool = app.toolsAPI.getTools().find(
-      (entry: { definition: { function: { name: string } } }) => entry.definition.function.name === "sift_verses_with_llm",
+    expect(pluginAny.embeddingSearchDB.initialize).not.toHaveBeenCalled();
+    expect(app.commandPalette.registerPalette).toHaveBeenCalledWith(
+      expect.objectContaining({ id: AIEmbeddingSearchCategoryID }),
     );
+
+    const tool = app.toolsAPI
+      .getTools()
+      .find(
+        (entry: { definition: { function: { name: string } } }) =>
+          entry.definition.function.name === "sift_verses_with_llm",
+      );
 
     expect(tool).toBeDefined();
     await expect(
       tool?.execute({
         question: "Who is Jesus?",
-        candidates: [
-          { osis: "John.3.16", ref: "John 3:16", score: 2, text: "For God so loved the world." },
-        ],
+        candidates: [{ osis: "John.3.16", ref: "John 3:16", score: 2, text: "For God so loved the world." }],
         maxVerses: 1,
       }),
     ).resolves.toEqual({ primaryVerses: ["John.3.16"] });

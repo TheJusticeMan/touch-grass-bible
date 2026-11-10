@@ -19,6 +19,8 @@ const { button, div, input, br, span } = van.tags;
  * Represents a single executable command or action item within the palette.
  */
 export type CommandItem = {
+  /** Stable identity, unique within its category, for items that may be reordered asynchronously. */
+  key?: string;
   /** The primary label for the command. */
   title: string;
   /** A brief explanation of what the command does. */
@@ -35,8 +37,25 @@ export type CommandItem = {
   hidden?: boolean;
 };
 
+/** Non-selectable async status shown with a command category. */
+export type CommandCategoryStatus = {
+  state: "idle" | "loading" | "success" | "error";
+  message: string;
+};
+
+/** Result of a latest-wins async category operation. */
+export type AsyncCommandResult<T> =
+  { status: "success"; value: T } | { status: "error"; error: unknown } | { status: "stale" };
+
+/** User-facing messages for a latest-wins async category operation. */
+export type AsyncCommandMessages<T> = {
+  loadingMessage: string;
+  successMessage?: (value: T) => string;
+  errorMessage?: (error: unknown) => string;
+};
+
 /**
- * Represents a categorized group of palette items ready for rendering.
+ * Categorized group of palette items ready for rendering.
  */
 type PaletteWithItems = {
   /** Unique identifier for the palette category. */
@@ -47,9 +66,13 @@ type PaletteWithItems = {
   description: ChildDom;
   /** Primary commands belonging to this palette. */
   items: CommandItem[];
-  /** Secondary or supplementary commands belonging to this palette. */
+  /** Secondary or supplementary commands rendered after primary items. */
   extras: CommandItem[];
+  /** Non-selectable async status for this category. */
+  status: CommandCategoryStatus;
 };
+
+type IndexedPaletteItem = { key: string; item: CommandItem };
 
 /**
  * Global state object for managing the command palette's UI and filtering.
@@ -132,6 +155,10 @@ class LoadableCommandCategory<T = unknown> {
 
     return this.category.description.val;
   }
+
+  dispose(): void {
+    this._category?.dispose();
+  }
 }
 
 /**
@@ -155,6 +182,8 @@ export class CommandPalette extends View<CommandPaletteState> {
   readonly commands: Commands;
   /** Current selected index across the rendered command items. */
   selectedIndex = van.state(0);
+  private selectedItemKey = van.state<string | null>(null);
+  private flatItems!: State<IndexedPaletteItem[]>;
   /** Categories that should appear in the small overview rail. */
   overviewPalettes = van.derive(() => (Platform.isWideScreen.val ? ["navigator"] : []));
   /** Palette groups rendered in the overview rail. */
@@ -214,12 +243,38 @@ export class CommandPalette extends View<CommandPaletteState> {
       ),
     );
 
-    this.hoverItem = van.derive(
-      () =>
-        [...this.overviewItems.val, ...this.regularItems.val].flatMap(group => this.getGroupItems(group))[
-          this.selectedIndex.val
-        ] || null,
-    );
+    this.flatItems = van.derive(() => {
+      const groups = [...this.overviewItems.val, ...this.regularItems.val];
+      return groups.flatMap(group => {
+        const occurrences = new Map<string, number>();
+        return this.getGroupItems(group).map(item => {
+          const baseKey =
+            item.key === undefined
+              ? JSON.stringify(["fallback", item.title, item.description])
+              : JSON.stringify(["explicit", item.key]);
+          const occurrence = occurrences.get(baseKey) || 0;
+          occurrences.set(baseKey, occurrence + 1);
+          return { key: JSON.stringify([group.id, baseKey, occurrence]), item };
+        });
+      });
+    });
+
+    van.derive(() => {
+      const items = this.flatItems.val;
+      const selectedKey = this.selectedItemKey.val;
+      const selectedIndex = selectedKey ? items.findIndex(item => item.key === selectedKey) : -1;
+      if (selectedIndex >= 0) {
+        if (this.selectedIndex.val !== selectedIndex) this.selectedIndex.val = selectedIndex;
+        return;
+      }
+
+      const fallbackIndex = items.length ? Math.min(this.overviewItemsCount.val, items.length - 1) : 0;
+      if (this.selectedIndex.val !== fallbackIndex) this.selectedIndex.val = fallbackIndex;
+      const fallbackKey = items[fallbackIndex]?.key ?? null;
+      if (this.selectedItemKey.val !== fallbackKey) this.selectedItemKey.val = fallbackKey;
+    });
+
+    this.hoverItem = van.derive(() => this.flatItems.val[this.selectedIndex.val]?.item || null);
 
     // make sure it's in view
     van.derive(
@@ -240,6 +295,7 @@ export class CommandPalette extends View<CommandPaletteState> {
     van.derive(() => {
       void this.state.query.val;
       void this.state.topCategory.val;
+      this.selectedItemKey.val = null;
       this.selectedIndex.val = this.overviewItemsCount.val;
       this.state.maxItems.val = 15;
     });
@@ -353,16 +409,24 @@ export class CommandPalette extends View<CommandPaletteState> {
     return this.promptPalette.confirm(text);
   }
 
+  private selectIndex(index: number): void {
+    const items = this.flatItems.val;
+    if (items.length === 0) {
+      this.selectedItemKey.val = null;
+      this.selectedIndex.val = 0;
+      return;
+    }
+
+    const boundedIndex = Math.min(Math.max(0, index), items.length - 1);
+    this.selectedItemKey.val = items[boundedIndex].key;
+    this.selectedIndex.val = boundedIndex;
+  }
+
   /** Handles keyboard meaning strings produced by the workspace key router. */
   handleKeyDown(event: KeyboardEvent, meaning: string): void {
-    const items = [...this.overviewItems.val, ...this.regularItems.val].flatMap(group =>
-      this.getGroupItems(group),
-    );
-    const max = Math.max(items.length - 1, 0);
     const isInputEmpty = this.state.query.val === "";
-    const move = (delta: number) =>
-      (this.selectedIndex.val = Math.min(max, Math.max(0, this.selectedIndex.val + delta)));
-    const jump = (index: number) => (this.selectedIndex.val = Math.min(max, Math.max(0, index)));
+    const move = (delta: number) => this.selectIndex(this.selectedIndex.val + delta);
+    const jump = (index: number) => this.selectIndex(index);
     const undo = () => this.undo() && this.saveState();
 
     const executeCurrent = () =>
@@ -385,7 +449,7 @@ export class CommandPalette extends View<CommandPaletteState> {
       PageDown: () => move(8),
       PageUp: () => move(-8),
       Home: () => jump(0),
-      End: () => jump(max),
+      End: () => jump(this.flatItems.val.length - 1),
       "Meta+ArrowDown": () => move(8),
       "Meta+ArrowUp": () => move(-8),
       "Ctrl+ArrowDown": () => move(8),
@@ -441,8 +505,17 @@ export class CommandPalette extends View<CommandPaletteState> {
 
   /** Removes a category from both the visible and hidden registries. */
   unregisterPalette(id: string) {
-    this.registeredPalettes.val = this.registeredPalettes.val.filter(p => p.id !== id);
-    this.registeredHiddenPalettes.val = this.registeredHiddenPalettes.val.filter(p => p.id !== id);
+    const visible = this.registeredPalettes.val;
+    const hidden = this.registeredHiddenPalettes.val;
+    for (const palette of [...visible, ...hidden].filter(palette => palette.id === id)) {
+      try {
+        palette.dispose();
+      } catch (error) {
+        this.app.console.error(`[CommandPalette] Failed to dispose category ${id}`, error);
+      }
+    }
+    this.registeredPalettes.val = visible.filter(palette => palette.id !== id);
+    this.registeredHiddenPalettes.val = hidden.filter(palette => palette.id !== id);
   }
 
   /** Whether a category id is currently disabled in user settings. */
@@ -536,6 +609,7 @@ export class CommandPalette extends View<CommandPaletteState> {
         id: palette.id,
         title: palette.category.title,
         description: palette.category.description,
+        status: palette.category.asyncStatus.val,
       };
 
       if (numberRendered + totalCount >= this.state.maxItems.val) {
@@ -574,6 +648,16 @@ export class CommandPalette extends View<CommandPaletteState> {
       { class: "category" },
       div({ class: "category-title", onclick: () => (this.state.topCategory.val = group.id) }, group.title),
       ...groupItems.map(item => renderItem(index++, item, group.extras.includes(item))),
+      group.status.message
+        ? div(
+            {
+              class: `category-status category-status-${group.status.state}`,
+              role: "status",
+              "aria-live": "polite",
+            },
+            group.status.message,
+          )
+        : null,
     );
 
     return { element, nextIndex: index };
@@ -615,7 +699,7 @@ export class CommandPalette extends View<CommandPaletteState> {
               isExtra ? " extras-item" : ""
             }`,
           onclick: () => item.click?.() && this.close(),
-          onmouseenter: () => (this.selectedIndex.val = index),
+          onmouseenter: () => this.selectIndex(index),
         },
         div(
           { class: "command-item-info" },
@@ -723,7 +807,10 @@ export class CommandPalette extends View<CommandPaletteState> {
               },
             },
             ...this.regularItems.val.map(group =>
-              group.items.length !== 0 || group.extras.length !== 0 || group.id === this.state.topCategory.val
+              group.items.length !== 0 ||
+              group.extras.length !== 0 ||
+              group.status.message ||
+              group.id === this.state.topCategory.val
                 ? (() => {
                     const { element, nextIndex } = this.renderCategoryGroup(group, i, renderItem);
                     i = nextIndex;
@@ -758,8 +845,13 @@ export abstract class CommandCategory<T> {
   description: State<string>;
   /** Optional commands rendered after the main item list. */
   extras: State<CommandItem[]> = van.state([]);
+  /** Reactive, non-selectable status for async work in this category. */
+  asyncStatus = van.state<CommandCategoryStatus>({ state: "idle", message: "" });
   /** Optional sibling categories rendered alongside the current category. */
   readonly siblings?: string[];
+
+  private asyncRequestId = 0;
+  private activeAsyncController?: AbortController;
 
   /**
    * @param state The global command palette state mapped for reactivity.
@@ -773,6 +865,82 @@ export abstract class CommandCategory<T> {
   ) {
     this.title = van.state(title);
     this.description = van.state(description);
+  }
+
+  /**
+   * Runs a latest-wins async operation, aborting its predecessor and applying the
+   * result only if this request is still current. Loader code should pass the
+   * supplied signal to cancellable requests.
+   */
+  protected runAsyncLatest<T>(
+    loader: (signal: AbortSignal) => Promise<T>,
+    messages: AsyncCommandMessages<T>,
+    applyResult?: (value: T) => void,
+  ): Promise<AsyncCommandResult<T>> {
+    const requestId = ++this.asyncRequestId;
+    this.activeAsyncController?.abort();
+    const controller = new AbortController();
+    this.activeAsyncController = controller;
+    this.asyncStatus.val = { state: "loading", message: messages.loadingMessage };
+
+    return this.finishAsyncRequest(requestId, controller, loader, messages, applyResult);
+  }
+
+  private async finishAsyncRequest<T>(
+    requestId: number,
+    controller: AbortController,
+    loader: (signal: AbortSignal) => Promise<T>,
+    messages: AsyncCommandMessages<T>,
+    applyResult?: (value: T) => void,
+  ): Promise<AsyncCommandResult<T>> {
+    try {
+      const value = await loader(controller.signal);
+      if (requestId !== this.asyncRequestId) return { status: "stale" };
+
+      applyResult?.(value);
+      const message = messages.successMessage?.(value) || "";
+      this.asyncStatus.val = message ? { state: "success", message } : { state: "idle", message: "" };
+      return { status: "success", value };
+    } catch (error) {
+      if (requestId !== this.asyncRequestId) return { status: "stale" };
+
+      const message =
+        messages.errorMessage?.(error) || (error instanceof Error ? error.message : String(error));
+      this.asyncStatus.val = { state: "error", message };
+      return { status: "error", error };
+    } finally {
+      if (requestId === this.asyncRequestId) this.activeAsyncController = undefined;
+    }
+  }
+
+  /** Invalidates a running operation so its eventual result cannot be applied. */
+  protected invalidateAsync(status: CommandCategoryStatus = { state: "idle", message: "" }): void {
+    this.asyncRequestId += 1;
+    this.activeAsyncController?.abort();
+    this.activeAsyncController = undefined;
+    this.asyncStatus.val = status;
+  }
+
+  /** Cancels pending work and releases category-specific resources. */
+  dispose(): void {
+    try {
+      this.onDispose();
+    } finally {
+      this.invalidateAsync();
+    }
+  }
+
+  /** Hook for categories that own timers or other disposable resources. */
+  protected onDispose(): void {}
+
+  /** Loads and applies an item list only if this remains the newest request. */
+  protected loadItemsLatest(
+    loader: (signal: AbortSignal) => Promise<T[]>,
+    messages: AsyncCommandMessages<T[]>,
+  ): Promise<AsyncCommandResult<T[]>> {
+    return this.runAsyncLatest(loader, messages, items => {
+      this.allItems.val = items;
+    });
   }
 
   /**

@@ -88,6 +88,48 @@ describe("Component", () => {
     expect(cb2).toHaveBeenCalledOnce();
   });
 
+  test("unload runs callbacks only once per load cycle", async () => {
+    const cleanup = vi.fn();
+    class ReusableComponent extends Component {
+      async onload() {
+        this.registerUnload(cleanup);
+      }
+    }
+
+    const component = new ReusableComponent();
+    await component.load();
+    await component.unload();
+    await component.load();
+    await component.unload();
+
+    expect(cleanup).toHaveBeenCalledTimes(2);
+  });
+
+  test("failed load rolls back its lifecycle hooks and unload callbacks", async () => {
+    const cleanup = vi.fn();
+    const onLoad = vi.fn();
+    const onUnload = vi.fn();
+    class FailingComponent extends Component {
+      async onload() {
+        onLoad();
+        this.registerUnload(cleanup);
+        throw new Error("load failed");
+      }
+
+      async onunload() {
+        onUnload();
+      }
+    }
+
+    const component = new FailingComponent();
+    await expect(component.load()).rejects.toThrow("load failed");
+    await expect(component.load()).rejects.toThrow("load failed");
+
+    expect(onLoad).toHaveBeenCalledTimes(2);
+    expect(onUnload).toHaveBeenCalledTimes(2);
+    expect(cleanup).toHaveBeenCalledTimes(2);
+  });
+
   test("addChild loads the child when parent is already loaded", async () => {
     const parent = new TestComponent();
     const child = new TestComponent();

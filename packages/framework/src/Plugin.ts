@@ -58,13 +58,32 @@ export abstract class Component {
    * @returns The current instance for fluent chaining.
    */
   async load() {
-    //if (this instanceof Plugin) this.console.log("Loading plugin...");
     if (this.loaded) return this; // Prevent double load
-    await this.onload();
-    this.loaded = true;
-    await Promise.all(this.children.map(child => child.load()));
-    //if (this instanceof Plugin) this.console.log("Plugin loaded.");
-    return this;
+
+    try {
+      await this.onload();
+      this.loaded = true;
+      await Promise.all(this.children.map(child => child.load()));
+      return this;
+    } catch (error) {
+      if (this.loaded) {
+        try {
+          await this.unload();
+        } catch {
+          // Preserve the startup error; cleanup errors must not hide its cause.
+        }
+      } else {
+        try {
+          await this.onunload();
+        } catch {
+          // Continue running registered cleanup callbacks.
+        }
+        this.runUnloaders();
+        await Promise.allSettled(this.children.map(child => child.unload()));
+      }
+      this.loaded = false;
+      throw error;
+    }
   }
 
   /**
@@ -74,11 +93,37 @@ export abstract class Component {
    */
   async unload() {
     if (!this.loaded) return this; // Prevent double unload
-    await this.onunload();
-    this.unloaders.forEach(unload => unload());
-    await Promise.all(this.children.map(child => child.unload()));
+
+    const errors: unknown[] = [];
+    try {
+      await this.onunload();
+    } catch (error) {
+      errors.push(error);
+    }
+    errors.push(...this.runUnloaders());
+
+    const childResults = await Promise.allSettled(this.children.map(child => child.unload()));
+    for (const result of childResults) {
+      if (result.status === "rejected") errors.push(result.reason);
+    }
+
     this.loaded = false;
+    if (errors.length === 1) throw errors[0];
+    if (errors.length > 1) throw new AggregateError(errors, "Component cleanup failed.");
     return this;
+  }
+
+  private runUnloaders(): unknown[] {
+    const errors: unknown[] = [];
+    const unloaders = this.unloaders.splice(0);
+    for (const unload of unloaders) {
+      try {
+        unload();
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    return errors;
   }
 
   /**
@@ -197,14 +242,16 @@ export class ePlugin<AppType extends App = App> extends Component {
    * This helper also auto-registers an `open-palette-{id}` command that opens
    * the command palette with this category promoted to the top.
    *
-   * @param load - Category loader callback for command palette content.
    * @param id - Target command palette category id.
+   * @param cfn - Synchronous factory for the category instance.
+   *
+   * Categories can populate data asynchronously with `CommandCategory.loadItemsLatest()` or
+   * `runAsyncLatest()`. Async status is rendered outside the selectable command list; give
+   * reorderable items stable `key` values so keyboard selection stays attached to the item.
    *
    * @example
    * ```ts
-   * this.registerPalette(async palette => {
-   *   palette.add({ id: "my-item", name: "My Item", callback: () => {} });
-   * }, "my-plugin-category");
+   * this.registerPalette("my-plugin-category", ({ state }) => new MyCategory(state));
    * ```
    */
   registerPalette<T>(

@@ -8,7 +8,7 @@ import Plugin, { type PluginMetadata } from "./Plugin";
  *
  * `ExternalPlugins` manages user-installed third-party plugins stored as
  * plain JavaScript files on the device. It handles installation, persistence,
- * loading from disk, and safe dynamic evaluation via Blob object URLs.
+ * loading from disk, and dynamic evaluation of trusted plugin source.
  *
  * @remarks
  * This class is only instantiated when `__ENABLE_EXTERNAL_PLUGINS__` is
