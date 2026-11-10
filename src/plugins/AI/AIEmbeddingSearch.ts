@@ -74,6 +74,12 @@ export class AIEmbeddingSearchCategory extends CommandCategory<EmbeddingSearchCo
     });
   }
 
+  // Semantic hits are already similarity-ranked; substring-filtering them by the prompt hides valid matches.
+  getItems(): EmbeddingSearchCommand[] {
+    const remaining = Math.max(0, this.state.maxItems.val - this.previousItemCount);
+    return this.allItems.val.slice(0, remaining);
+  }
+
   protected onDispose(): void {
     if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
     this.searchDebounceTimer = null;

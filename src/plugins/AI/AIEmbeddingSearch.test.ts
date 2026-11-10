@@ -107,6 +107,9 @@ describe("AIEmbeddingSearchCategory async results", () => {
     expect(category.allItems.val.some(item => item.type === "hit" && item.hit.text === "current verse")).toBe(
       true,
     );
+    expect(category.getItems().some(item => item.type === "hit" && item.hit.text === "current verse")).toBe(
+      true,
+    );
     expect(category.asyncStatus.val.state).toBe("success");
   });
 });
