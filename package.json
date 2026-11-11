@@ -63,6 +63,7 @@
     "data:all": "npm run data:prepare && npm run data:embed && npm run data:topics && npm run data:map",
     "platform:add": "node scripts/platform/add.mjs",
     "platform:sync": "node scripts/platform/sync.mjs",
+    "platform:assets": "capacitor-assets generate",
     "platform:open": "node scripts/platform/open.mjs",
     "platform:run": "node scripts/platform/run.mjs",
     "platform:android": "npm run platform:run -- android",
@@ -90,6 +91,7 @@
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.1063.0",
+    "@capacitor/assets": "^4.0.0",
     "@eslint/css": "^2.0.0",
     "@eslint/js": "^10.0.1",
     "@eslint/markdown": "^8.0.3",

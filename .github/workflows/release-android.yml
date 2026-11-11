@@ -39,7 +39,7 @@ jobs:
           cp src/web/* dist
 
       - name: Add Android platform
-        run: npx cap add android
+        run: npm run platform:add -- android
 
       - name: Sync Capacitor (Android)
         run: npx cap sync android

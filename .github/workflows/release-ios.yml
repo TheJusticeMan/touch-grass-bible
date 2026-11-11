@@ -33,7 +33,7 @@ jobs:
           cp src/web/* dist
 
       - name: Add iOS platform
-        run: npx cap add ios
+        run: npm run platform:add -- ios
 
       - name: Sync Capacitor (iOS)
         run: npx cap sync ios
