@@ -84,7 +84,12 @@ describe("RequestHandler", () => {
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "John 3:16" } }] })),
       );
-    const handler = new RequestHandler(tools, { apiKey: "test-key", fetch: fetcher });
+    const authorizeToolCall = vi.fn().mockResolvedValue(true);
+    const handler = new RequestHandler(tools, {
+      apiKey: "test-key",
+      fetch: fetcher,
+      authorizeToolCall,
+    });
 
     await expect(
       handler.request({ model: "gpt-test", messages: [{ role: "user", content: "Show John 3:16" }] }),
@@ -111,6 +116,124 @@ describe("RequestHandler", () => {
         content: '{"result":{"reference":"John 3:16","text":"For God so loved the world"}}',
       },
     ]);
+    expect(authorizeToolCall).toHaveBeenCalledWith(expect.anything(), { reference: "John 3:16" });
+  });
+
+  it("does not execute a tool when no authorization callback is configured", async () => {
+    const tools = new ToolsAPI();
+    const execute = vi.fn(() => "unsafe side effect");
+    tools.registerTool({
+      definition: { function: { name: "dangerous_action", parameters: { type: "object" } } },
+      execute,
+    });
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  role: "assistant",
+                  tool_calls: [
+                    {
+                      id: "call_dangerous",
+                      type: "function",
+                      function: { name: "dangerous_action", arguments: "{}" },
+                    },
+                  ],
+                },
+              },
+            ],
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "Stopped." } }] })),
+      );
+    const handler = new RequestHandler(tools, { apiKey: "test-key", fetch: fetcher });
+
+    await expect(
+      handler.request({ model: "gpt-test", messages: [{ role: "user", content: "Do it" }] }),
+    ).resolves.toEqual({ role: "assistant", content: "Stopped." });
+    expect(execute).not.toHaveBeenCalled();
+    const secondRequest = JSON.parse(String(fetcher.mock.calls[1][1]?.body)) as {
+      messages: Array<{ role: string; content?: string }>;
+    };
+    expect(secondRequest.messages[2].content).toMatch(/authorization.*configured/i);
+  });
+
+  it("filters the advertised tools and blocks calls outside a request allowlist", async () => {
+    const tools = new ToolsAPI();
+    const execute = vi.fn(() => "should not execute");
+    tools.registerTool({
+      definition: { function: { name: "allowed", parameters: { type: "object" } } },
+      execute,
+    });
+    tools.registerTool({
+      definition: { function: { name: "blocked", parameters: { type: "object" } } },
+      execute,
+    });
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  role: "assistant",
+                  tool_calls: [
+                    {
+                      id: "call_blocked",
+                      type: "function",
+                      function: { name: "blocked", arguments: "{}" },
+                    },
+                  ],
+                },
+              },
+            ],
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "Denied." } }] })),
+      );
+    const authorizeToolCall = vi.fn().mockResolvedValue(true);
+    const handler = new RequestHandler(tools, { apiKey: "test-key", fetch: fetcher, authorizeToolCall });
+
+    await handler.request({
+      model: "gpt-test",
+      messages: [{ role: "user", content: "Try a tool" }],
+      allowedToolNames: ["allowed"],
+    });
+
+    const firstRequest = JSON.parse(String(fetcher.mock.calls[0][1]?.body)) as {
+      tools: Array<{ function: { name: string } }>;
+    };
+    expect(firstRequest.tools.map(tool => tool.function.name)).toEqual(["allowed"]);
+    expect(execute).not.toHaveBeenCalled();
+    expect(authorizeToolCall).not.toHaveBeenCalled();
+  });
+
+  it("persists a configurable model and HTTP(S) chat endpoint", async () => {
+    const app = makeAIApp();
+    const plugin = new AIPlugin(app, aiManifest);
+
+    await plugin.setChatEndpoint("http://localhost:1234/v1/chat/completions");
+    await plugin.setModel("local-instruct-model");
+
+    expect(plugin.chat.endpoint).toBe("http://localhost:1234/v1/chat/completions");
+    expect(plugin.settings.aiModel).toBe("local-instruct-model");
+    await expect(plugin.setChatEndpoint("javascript:alert(1)")).rejects.toThrow(/HTTP or HTTPS/i);
+    expect(plugin.chat.endpoint).toBe("http://localhost:1234/v1/chat/completions");
+    expect(app.files.saveConfigObject).toHaveBeenCalledWith(
+      "ai",
+      expect.objectContaining({
+        aiEndpoint: "http://localhost:1234/v1/chat/completions",
+        aiModel: "local-instruct-model",
+      }),
+    );
   });
 
   it("combines streamed text and function arguments", async () => {

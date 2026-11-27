@@ -88,19 +88,59 @@ type SiftVersesWithLLMToolResult = {
 
 interface AIPluginSettings {
   aiApiKey: string;
+  aiEndpoint: string;
+  aiModel: string;
+  aiTrustedTools: string[];
 }
 
 const defaultAISettings: AIPluginSettings = {
   aiApiKey: "",
+  aiEndpoint: "https://api.openai.com/v1/chat/completions",
+  aiModel: "gpt-4.1-nano",
+  aiTrustedTools: [],
 };
+
+function validateChatEndpoint(value: string): string {
+  const endpoint = value.trim();
+  let url: URL;
+  try {
+    url = new URL(endpoint);
+  } catch {
+    throw new Error(
+      "Enter a complete chat-completions URL, such as https://api.openai.com/v1/chat/completions.",
+    );
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    throw new Error("The chat endpoint must use HTTP or HTTPS.");
+  }
+  return endpoint;
+}
 
 export default class AIPlugin extends Plugin {
   settings: AIPluginSettings = { ...defaultAISettings };
-  chat = new RequestHandler(this.app.toolsAPI);
+  chat = new RequestHandler(this.app.toolsAPI, {
+    authorizeToolCall: (tool, args) =>
+      this.authorizeToolCall(this.app.toolsAPI.getToolIdentifier(tool), args),
+  });
   private embeddingSearchDB: AIEmbeddingSearchDB = new AIEmbeddingSearchDB();
 
   async onload() {
-    this.settings = await this.loadSettings(defaultAISettings);
+    const saved = await this.loadSettings(defaultAISettings);
+    this.settings = {
+      aiApiKey: typeof saved.aiApiKey === "string" ? saved.aiApiKey : "",
+      aiEndpoint:
+        typeof saved.aiEndpoint === "string"
+          ? this.safeChatEndpoint(saved.aiEndpoint)
+          : defaultAISettings.aiEndpoint,
+      aiModel:
+        typeof saved.aiModel === "string" && saved.aiModel.trim()
+          ? saved.aiModel.trim()
+          : defaultAISettings.aiModel,
+      aiTrustedTools: Array.isArray(saved.aiTrustedTools)
+        ? Array.from(new Set(saved.aiTrustedTools.filter((name): name is string => typeof name === "string")))
+        : [],
+    };
+    this.chat.endpoint = this.settings.aiEndpoint;
     this.registerPalette(AICategoryID, ({ state }) => new AICommandPalette(state, this));
     this.registerView(AIStudyViewID, () => new AIStudyView(this));
     this.registerSiftVersesWithLLMTool();
@@ -136,7 +176,7 @@ export default class AIPlugin extends Plugin {
         this.chat
           .request(
             {
-              model: "gpt-4.1-nano",
+              model: this.settings.aiModel,
               messages: [{ role: "user", content: prompt }],
               max_tokens: 1000,
               stream: true,
@@ -412,7 +452,7 @@ export default class AIPlugin extends Plugin {
     ].join("\n");
 
     const response = await this.chat.sendChatRequest({
-      model: "gpt-4.1-nano",
+      model: this.settings.aiModel,
       messages: [
         {
           role: "system",
@@ -520,7 +560,59 @@ export default class AIPlugin extends Plugin {
   }
 
   async saveSettings() {
+    this.chat.endpoint = this.settings.aiEndpoint;
     await super.saveSettings(this.settings);
+  }
+
+  async setChatEndpoint(value: string): Promise<void> {
+    this.settings.aiEndpoint = validateChatEndpoint(value);
+    this.chat.endpoint = this.settings.aiEndpoint;
+    await this.saveSettings();
+  }
+
+  async setModel(value: string): Promise<void> {
+    const model = value.trim();
+    if (!model) throw new Error("The model name cannot be empty.");
+    this.settings.aiModel = model;
+    await this.saveSettings();
+  }
+
+  async setTrustedTools(value: string): Promise<void> {
+    const names = Array.from(
+      new Set(
+        value
+          .split(",")
+          .map(name => name.trim())
+          .filter(Boolean),
+      ),
+    );
+    const available = new Set(
+      this.app.toolsAPI.getTools().map(tool => this.app.toolsAPI.getToolIdentifier(tool)),
+    );
+    const unknown = names.filter(name => !available.has(name));
+    if (unknown.length > 0) {
+      throw new Error(`Unknown tool(s): ${unknown.join(", ")}.`);
+    }
+    this.settings.aiTrustedTools = names;
+    await this.saveSettings();
+  }
+
+  private safeChatEndpoint(value: string): string {
+    try {
+      return validateChatEndpoint(value);
+    } catch {
+      return defaultAISettings.aiEndpoint;
+    }
+  }
+
+  private async authorizeToolCall(name: string, args: Record<string, unknown>): Promise<boolean> {
+    if (this.settings.aiTrustedTools.includes(name)) return true;
+
+    const serialized = JSON.stringify(args);
+    const preview = serialized.length > 500 ? `${serialized.slice(0, 497)}...` : serialized;
+    return this.app.commandPalette.confirm(
+      `Allow the AI to run "${name}" once?\nArguments: ${preview}\n\nUse “Manage trusted AI tools” to skip future confirmations for a tool.`,
+    );
   }
 }
 
@@ -538,28 +630,45 @@ class AICommandPalette extends CommandCategory<string> {
     this.extras = van.derive(() => {
       const items: CommandItem[] = [];
 
-      if (!this.plugin.settings.aiApiKey) {
-        items.push({
-          title: "No API key set",
-          description: "Go to Settings -> Set AI API key to enable the AI assistant.",
-        });
-      } else {
-        items.push({
-          title: "Set AI API key",
-          description: `Store your OpenAI-compatible API key (saved locally in localStorage - keep it private).${
-            this.plugin.settings.aiApiKey ? " Key is currently set." : " No key set."
-          }`,
-          click: () => {
-            void this.plugin.app.commandPalette.prompt("Enter your OpenAI-compatible API key:").then(key => {
-              if (key === null) return;
-              this.plugin.settings.aiApiKey = key.trim();
-              void this.plugin.saveSettings();
-              this.updateViewState({ topCategory: AICategoryID });
-            });
-            return false;
-          },
-        });
-      }
+      items.push({
+        title: this.plugin.settings.aiApiKey ? "Update AI API key" : "Set AI API key",
+        description: this.plugin.settings.aiApiKey
+          ? "Replace the saved API key."
+          : "Enter an API key to enable AI requests.",
+        click: () =>
+          this.promptSetting("Enter your OpenAI-compatible API key:", async value => {
+            this.plugin.settings.aiApiKey = value.trim();
+            await this.plugin.saveSettings();
+          }),
+      });
+
+      items.push({
+        title: "Set AI chat endpoint",
+        description: `Current: ${this.plugin.settings.aiEndpoint}`,
+        click: () =>
+          this.promptSetting("Enter the full chat-completions URL (HTTP or HTTPS):", value =>
+            this.plugin.setChatEndpoint(value),
+          ),
+      });
+
+      items.push({
+        title: "Set AI model",
+        description: `Current model: ${this.plugin.settings.aiModel}`,
+        click: () => this.promptSetting("Enter the chat model name:", value => this.plugin.setModel(value)),
+      });
+
+      const availableTools = this.plugin.app.toolsAPI
+        .getTools()
+        .map(tool => this.plugin.app.toolsAPI.getToolIdentifier(tool));
+      items.push({
+        title: "Manage trusted AI tools",
+        description: `Preapprove without per-call prompts: ${this.plugin.settings.aiTrustedTools.join(", ") || "none"}`,
+        click: () =>
+          this.promptSetting(
+            `Currently trusted: ${this.plugin.settings.aiTrustedTools.join(", ") || "none"}. Enter comma-separated tool names to preapprove. Available tools: ${availableTools.join(", ") || "none"}. Leave blank to clear.`,
+            value => this.plugin.setTrustedTools(value),
+          ),
+      });
 
       items.push({
         title: "Open semantic embedding search",
@@ -622,7 +731,7 @@ class AICommandPalette extends CommandCategory<string> {
         this.plugin.chat
           .request(
             {
-              model: "gpt-4.1-nano",
+              model: this.plugin.settings.aiModel,
               messages: [{ role: "user", content: contextPrompt }],
               max_tokens: 1000,
               stream: true,
@@ -657,6 +766,24 @@ class AICommandPalette extends CommandCategory<string> {
         return false;
       },
     };
+  }
+
+  private promptSetting(prompt: string, update: (value: string) => void | Promise<void>): false {
+    void this.plugin.app.commandPalette.prompt(prompt).then(async value => {
+      if (value === null) return;
+      try {
+        await update(value);
+        this.inFlightResponse.val = null;
+      } catch (error) {
+        this.inFlightResponse.val = {
+          question: "AI settings",
+          answer: "",
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+      this.updateViewState({ topCategory: AICategoryID });
+    });
+    return false;
   }
 }
 
