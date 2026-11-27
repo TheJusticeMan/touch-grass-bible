@@ -45,16 +45,8 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build Electron app
-        run: npm run build:electron
-
-      - name: Install Electron dist dependencies
-        working-directory: dist
-        run: npm install
-
-      - name: Make Electron distributable
-        working-directory: dist
-        run: npm run make
+      - name: Build and make Electron app
+        run: npm run make:electron
 
       - name: Upload artifacts to GitHub Release
         uses: softprops/action-gh-release@v3

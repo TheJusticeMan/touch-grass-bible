@@ -1,6 +1,6 @@
 {
   "name": "touch-grass-bible",
-  "version": "2.0.4",
+  "version": "4.0.0-beta",
   "description": "The bible app that keeps you grounded in the word while letting you into some functionality.",
   "main": "electron.js",
   "scripts": {

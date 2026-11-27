@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { cpSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
+import { cpSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 
@@ -28,24 +28,32 @@ export function buildElectronDist() {
   mkdirSync(distDir, { recursive: true })
   runOrThrow('npm', ['run', 'build:bundle:electron'])
 
-  rmSync(join(distDir, 'package-lock.json'), { force: true })
-
   const sourceEntries = readdirSync(electronSourceDir)
   for (const entry of sourceEntries) {
-    if (entry === 'package-lock.json') {
-      continue
-    }
     const sourcePath = join(electronSourceDir, entry)
     const targetPath = join(distDir, entry)
     if (statSync(sourcePath).isFile()) {
       cpSync(sourcePath, targetPath)
     }
   }
+
+  const rootPackage = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
+  const electronPackagePath = join(distDir, 'package.json')
+  const electronPackage = JSON.parse(readFileSync(electronPackagePath, 'utf8'))
+  electronPackage.version = rootPackage.version
+  writeFileSync(electronPackagePath, `${JSON.stringify(electronPackage, null, 2)}\n`)
+
+  const electronLockPath = join(distDir, 'package-lock.json')
+  const electronLock = JSON.parse(readFileSync(electronLockPath, 'utf8'))
+  electronLock.version = rootPackage.version
+  if (electronLock.packages?.['']) {
+    electronLock.packages[''].version = rootPackage.version
+  }
+  writeFileSync(electronLockPath, `${JSON.stringify(electronLock, null, 2)}\n`)
 }
 
 export function installElectronDistDependencies() {
-  rmSync(join(distDir, 'node_modules'), { recursive: true, force: true })
-  runOrThrow('npm', ['install', '--prefix', './dist', '--package-lock=false'])
+  runOrThrow('npm', ['ci', '--prefix', './dist'])
 }
 
 export function runElectronDistScript(scriptName) {
