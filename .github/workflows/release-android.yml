@@ -36,7 +36,6 @@ jobs:
         run: |
           mkdir -p ./dist
           npm run build:bundle:capacitor
-          cp src/web/* dist
 
       - name: Add Android platform
         run: npm run platform:add -- android
