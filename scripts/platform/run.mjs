@@ -127,8 +127,8 @@ if (platform === "android") {
 
 const command =
   platform === "android"
-    ? "mkdir -p ./dist && npm run build:bundle:capacitor && npx cap run android"
-    : 'if [ "$(uname -s)" != "Darwin" ]; then echo "run:ios requires macOS. Skipping execution."; exit 0; fi; echo "Building Capacitor assets..."; npm run build:bundle:capacitor; echo "Running iOS project..."; npx cap run ios';
+    ? "mkdir -p ./dist && npm run build:bundle:capacitor && npx capacitor-assets generate --android && npx cap run android"
+    : 'if [ "$(uname -s)" != "Darwin" ]; then echo "run:ios requires macOS. Skipping execution."; exit 0; fi && echo "Building Capacitor assets..." && npm run build:bundle:capacitor && echo "Generating iOS icons..." && npx capacitor-assets generate --ios && echo "Running iOS project..." && npx cap run ios';
 
 const result = spawnSync("bash", ["-lc", command], {
   stdio: "inherit",

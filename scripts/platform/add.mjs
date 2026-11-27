@@ -12,19 +12,24 @@ const manifestPath =
   platform === "android"
     ? "android/app/src/main/AndroidManifest.xml"
     : "ios/App/App.xcodeproj/project.pbxproj";
+function run(command, args) {
+  const result = spawnSync(command, args, {
+    stdio: "inherit",
+    env: process.env,
+  });
+  if (result.error) throw result.error;
+  return result.status ?? 1;
+}
+
 // eslint-disable-next-line security/detect-non-literal-fs-filename
 if (existsSync(manifestPath)) {
-  console.log(`${platform.toUpperCase()} platform already present. Skipping.`);
-  process.exit(0);
+  console.log(`${platform.toUpperCase()} platform already present.`);
+} else {
+  console.log(`Adding ${platform} platform via Capacitor...`);
+  const addStatus = run("npx", ["cap", "add", platform]);
+  if (addStatus !== 0) process.exit(addStatus);
 }
 
-console.log(`Adding ${platform} platform via Capacitor...`);
-const result = spawnSync("npx", ["cap", "add", platform], {
-  stdio: "inherit",
-  env: process.env,
-});
-
-if (result.error) {
-  throw result.error;
-}
-process.exit(result.status ?? 0);
+console.log(`Generating custom ${platform.toUpperCase()} icons from assets/logo.svg...`);
+const assetStatus = run("npx", ["capacitor-assets", "generate", `--${platform}`]);
+process.exit(assetStatus);
