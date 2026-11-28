@@ -1,72 +1,63 @@
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import sharp from 'sharp'
 
-const SIZE = 32
-const ROW_BYTES = SIZE * 4
-const MASK_ROW_BYTES = SIZE / 8
-const BACKGROUND = { red: 45, green: 105, blue: 75 }
-const CROSS = { red: 250, green: 250, blue: 245 }
+const SIZES = [16, 32, 48, 64, 128, 256]
+const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 }
+const LOGO_PATH = fileURLToPath(new URL('../assets/logo.svg', import.meta.url))
+const LOGO_SVG = readFileSync(LOGO_PATH)
 
-function isInsideRoundedSquare(x, y) {
-  const radius = 6
-  const centerX = Math.max(radius, Math.min(SIZE - radius - 1, x))
-  const centerY = Math.max(radius, Math.min(SIZE - radius - 1, y))
-  const dx = x - centerX
-  const dy = y - centerY
-  return dx * dx + dy * dy <= radius * radius
+async function renderLogoAtSize(size) {
+  const padding = Math.max(1, Math.round(size / 16))
+  const contentSize = size - padding * 2
+
+  return sharp(LOGO_SVG)
+    .trim()
+    .resize(contentSize, contentSize, {
+      fit: 'contain',
+      background: TRANSPARENT,
+    })
+    .extend({
+      top: padding,
+      bottom: padding,
+      left: padding,
+      right: padding,
+      background: TRANSPARENT,
+    })
+    .png()
+    .toBuffer()
 }
 
-function isCrossPixel(x, y) {
-  const vertical = x >= 13 && x <= 18 && y >= 6 && y <= 25
-  const horizontal = x >= 7 && x <= 24 && y >= 10 && y <= 15
-  return vertical || horizontal
+export async function createFaviconIco() {
+  const pngImages = await Promise.all(SIZES.map(renderLogoAtSize))
+  const directory = Buffer.alloc(6 + SIZES.length * 16)
+  directory.writeUInt16LE(1, 2)
+  directory.writeUInt16LE(SIZES.length, 4)
+
+  let imageOffset = directory.length
+  SIZES.forEach((size, index) => {
+    const entryOffset = 6 + index * 16
+    const png = pngImages[index]
+    directory[entryOffset] = size === 256 ? 0 : size
+    directory[entryOffset + 1] = size === 256 ? 0 : size
+    directory.writeUInt16LE(1, entryOffset + 4)
+    directory.writeUInt16LE(32, entryOffset + 6)
+    directory.writeUInt32LE(png.length, entryOffset + 8)
+    directory.writeUInt32LE(imageOffset, entryOffset + 12)
+    imageOffset += png.length
+  })
+
+  return Buffer.concat([directory, ...pngImages])
 }
 
-export function createFaviconIco() {
-  const xorBitmap = Buffer.alloc(SIZE * ROW_BYTES)
-  const andMask = Buffer.alloc(SIZE * MASK_ROW_BYTES)
-
-  for (let y = 0; y < SIZE; y += 1) {
-    const dibY = SIZE - 1 - y
-    for (let x = 0; x < SIZE; x += 1) {
-      const pixelOffset = dibY * ROW_BYTES + x * 4
-      const maskOffset = dibY * MASK_ROW_BYTES + Math.floor(x / 8)
-      const opaque = isInsideRoundedSquare(x, y)
-
-      if (!opaque) {
-        andMask[maskOffset] |= 0x80 >> (x % 8)
-        continue
-      }
-
-      const color = isCrossPixel(x, y) ? CROSS : BACKGROUND
-      xorBitmap[pixelOffset] = color.blue
-      xorBitmap[pixelOffset + 1] = color.green
-      xorBitmap[pixelOffset + 2] = color.red
-      xorBitmap[pixelOffset + 3] = 255
-    }
-  }
-
-  const dibHeader = Buffer.alloc(40)
-  dibHeader.writeUInt32LE(40, 0)
-  dibHeader.writeInt32LE(SIZE, 4)
-  dibHeader.writeInt32LE(SIZE * 2, 8)
-  dibHeader.writeUInt16LE(1, 12)
-  dibHeader.writeUInt16LE(32, 14)
-  dibHeader.writeUInt32LE(xorBitmap.length + andMask.length, 20)
-
-  const image = Buffer.concat([dibHeader, xorBitmap, andMask])
-  const icoHeader = Buffer.alloc(22)
-  icoHeader.writeUInt16LE(1, 2)
-  icoHeader.writeUInt16LE(1, 4)
-  icoHeader[6] = SIZE
-  icoHeader[7] = SIZE
-  icoHeader.writeUInt16LE(1, 10)
-  icoHeader.writeUInt16LE(32, 12)
-  icoHeader.writeUInt32LE(image.length, 14)
-  icoHeader.writeUInt32LE(icoHeader.length, 18)
-
-  return Buffer.concat([icoHeader, image])
+export async function generateFaviconIco(filePath) {
+  writeFileSync(filePath, await createFaviconIco())
 }
 
-export function generateFaviconIco(filePath) {
-  writeFileSync(filePath, createFaviconIco())
+export async function createLogoIconPng() {
+  return sharp(LOGO_SVG).png().toBuffer()
+}
+
+export async function generateLogoIconPng(filePath) {
+  writeFileSync(filePath, await createLogoIconPng())
 }

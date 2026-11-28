@@ -2,7 +2,7 @@ import esbuild from "esbuild";
 import { writeFileSync } from "fs";
 import { resolve } from "path";
 import process from "process";
-import { generateFaviconIco } from "./scripts/generate-favicon.mjs";
+import { generateFaviconIco, generateLogoIconPng } from "./scripts/generate-favicon.mjs";
 
 const BUILD_INFO_MODULE = "@build-info";
 
@@ -43,7 +43,7 @@ function getBuildInfoModuleSource() {
 /**
  * Generates `dist/index.html` with a loading shell and conditional CSP.
  */
-function writeIndexHtml() {
+async function writeIndexHtml() {
   const isDev = !prod;
 
   const cspContent = isDev
@@ -146,7 +146,10 @@ function writeIndexHtml() {
   ].join("\n");
 
   writeFileSync("dist/index.html", output);
-  generateFaviconIco("dist/favicon.ico");
+  await generateFaviconIco("dist/favicon.ico");
+  if (buildTarget === "electron") {
+    await generateLogoIconPng("dist/icon-512.png");
+  }
 }
 
 const appContext = await esbuild.context({
@@ -216,7 +219,7 @@ if (prod) {
   const result = await appContext.rebuild();
 
   // Write processed index.html with appropriate CSP
-  writeIndexHtml();
+  await writeIndexHtml();
 
   // 3. Write the metafile to disk
   if (result.metafile) {
@@ -230,6 +233,6 @@ if (prod) {
   process.exit(0);
 } else {
   // Keep index.html in sync with development CSP (live-reload needs inline script support).
-  writeIndexHtml();
+  await writeIndexHtml();
   await appContext.watch();
 }
