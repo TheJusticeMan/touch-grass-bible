@@ -34,7 +34,7 @@ jobs:
         run: npm install
 
       - name: Build site
-        run: npm run build:web
+        run: npm run build:bundle:capacitor
 
       - name: Setup Pages
         uses: actions/configure-pages@v6

@@ -2,6 +2,7 @@ import esbuild from "esbuild";
 import { writeFileSync } from "fs";
 import { resolve } from "path";
 import process from "process";
+import { generateFaviconIco } from "./scripts/generate-favicon.mjs";
 
 const BUILD_INFO_MODULE = "@build-info";
 
@@ -145,6 +146,7 @@ function writeIndexHtml() {
   ].join("\n");
 
   writeFileSync("dist/index.html", output);
+  generateFaviconIco("dist/favicon.ico");
 }
 
 const appContext = await esbuild.context({
